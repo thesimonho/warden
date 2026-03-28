@@ -45,7 +45,7 @@ Components for the home page and project management.
 | `components/home/manage-project-dialog.tsx` | Management dialog with four independent destructive actions: remove from Warden, delete container, reset costs, purge audit. Type-to-confirm for audit purge. Keeps dialog open on partial failure. |
 | `components/home/recent-workspaces.tsx`   | Recently visited workspace tabs                                                     |
 | `components/home/project-config-form.tsx` | Create/edit form (name, workspace, image, env vars, permissions, network mode, allowed domains). Used inside `add-project-dialog.tsx`. |
-| `components/home/directory-browser.tsx`   | Inline directory browser with text input and navigable folder tree                  |
+| `components/home/directory-browser.tsx`   | Fuzzy-finder style filesystem picker. Supports `mode="directory"` (default, directory-only) and `mode="file"` (directories + files, clicking a file commits its path). Split input with browsable prefix and filter. |
 
 
 ### Project (`components/project/`)
@@ -118,7 +118,7 @@ Heading elements (`h1`--`h3`) have base styles defined in `src/index.css` -- don
 | `lib/notification-config.ts` | Single source of truth for notification type display properties (label, dot color, text color, message). `getAttentionConfig()` returns config for a given `NotificationType`. Used by status indicators, canvas sidebar, worktree cards, and notification hooks. |
 | `lib/activity-buckets.ts` | Pure bucketing logic for the activity timeline: groups `AuditLogEntry[]` into adaptive time buckets (1h/6h/1d/1w/30d based on data span) with counts per audit category (session, agent, prompt, config, budget, system, debug). Exports `chooseBucketWidth()`, `CATEGORY_KEYS`, `ActivityBucket`/`BucketResult` types, and `bucketEventsByCategory()`. |
 | `lib/terminal-themes.ts` | Builds xterm.js `ITheme` from active CSS `--terminal-*` custom properties. `getTerminalTheme()` reads CSS variables so terminal colors follow light/dark mode. |
-| `lib/utils.ts`    | `cn()` (tailwind class merge), `relativeTime()` (human-readable timestamps), `abbreviateHomePath()` (~/... display for home directories)                                                                                                                                                                      |
+| `lib/utils.ts`    | `cn()` (tailwind class merge), `relativeTime()` (human-readable timestamps), `abbreviateHomePath()` (~/... display for home directories), `parentDir()` (parent directory of a POSIX path) |
 
 ## External Libraries
 
