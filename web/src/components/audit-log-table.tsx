@@ -133,13 +133,38 @@ const columns: ColumnDef<AuditLogEntry, unknown>[] = [
       row.getCanExpand() ? (
         <span className="text-muted-foreground flex items-center justify-center">
           {row.getIsExpanded() ? (
-            <ChevronDown className="h-3 w-3" />
+            <ChevronDown className="h-4 w-4" />
           ) : (
-            <ChevronRight className="h-3 w-3" />
+            <ChevronRight className="h-4 w-4" />
           )}
         </span>
       ) : null,
   },
+  {
+    accessorKey: 'level',
+    header: 'Level',
+    size: 75,
+    minSize: 60,
+    sortingFn: (rowA, rowB) => {
+      const order: Record<string, number> = { error: 2, warn: 1, info: 0 }
+      return (
+        (order[rowA.getValue<string>('level')] ?? 0) - (order[rowB.getValue<string>('level')] ?? 0)
+      )
+    },
+    sortDescFirst: true,
+    filterFn: (row, _columnId, filterValue: Set<string>) => filterValue.has(row.getValue('level')),
+    cell: ({ getValue }) => {
+      const level = getValue<AuditLogLevel>()
+      return (
+        <Badge
+          className={`${levelStyles[level]} w-12 justify-center rounded border px-1 py-0 font-mono text-xs uppercase`}
+        >
+          {level}
+        </Badge>
+      )
+    },
+  },
+
   {
     accessorKey: 'ts',
     header: 'Timestamp',
@@ -185,30 +210,6 @@ const columns: ColumnDef<AuditLogEntry, unknown>[] = [
     },
   },
   {
-    accessorKey: 'level',
-    header: 'Level',
-    size: 75,
-    minSize: 60,
-    sortingFn: (rowA, rowB) => {
-      const order: Record<string, number> = { error: 2, warn: 1, info: 0 }
-      return (
-        (order[rowA.getValue<string>('level')] ?? 0) - (order[rowB.getValue<string>('level')] ?? 0)
-      )
-    },
-    sortDescFirst: true,
-    filterFn: (row, _columnId, filterValue: Set<string>) => filterValue.has(row.getValue('level')),
-    cell: ({ getValue }) => {
-      const level = getValue<AuditLogLevel>()
-      return (
-        <Badge
-          className={`${levelStyles[level]} w-12 justify-center rounded border px-1 py-0 font-mono text-xs uppercase`}
-        >
-          {level}
-        </Badge>
-      )
-    },
-  },
-  {
     id: 'category',
     accessorFn: (row) => row.category ?? 'system',
     header: 'Category',
@@ -226,7 +227,7 @@ const columns: ColumnDef<AuditLogEntry, unknown>[] = [
       return (
         <Badge
           variant="outline"
-          className={`${badgeStyle} w-17 justify-center rounded px-1 py-0 font-mono text-xs`}
+          className={`${badgeStyle} w-18 justify-center rounded px-1 py-0 font-mono text-xs`}
         >
           {label}
         </Badge>
@@ -274,7 +275,7 @@ const columns: ColumnDef<AuditLogEntry, unknown>[] = [
         }}
         title="Copy entry as JSON"
       >
-        <Copy className="h-3 w-3" />
+        <Copy className="h-4 w-4 cursor-pointer" />
       </button>
     ),
   },
@@ -413,8 +414,7 @@ export function AuditLogTable({
   if (entries.length === 0) {
     return (
       <div className="text-muted-foreground flex flex-1 items-center justify-center py-12">
-        No audit events recorded yet. Enable audit logging in Settings to start capturing agent
-        activity.
+        No audit events recorded yet. Enable audit logging in Settings to start capturing activity.
       </div>
     )
   }
@@ -498,8 +498,8 @@ export function AuditLogTable({
                   </td>
                 ))}
                 {row.getIsExpanded() && (
-                  <div className="border-border/30 animate-in fade-in slide-in-from-top-1 w-full border-t pr-2 pb-2 pl-10 duration-150">
-                    <pre className="text-muted-foreground text-xs leading-relaxed break-words whitespace-pre-wrap select-text">
+                  <div className="border-border/30 animate-in fade-in slide-in-from-top-1 w-full border-t pr-2 pb-2 pl-16 duration-150">
+                    <pre className="text-muted-foreground text-xs leading-relaxed wrap-break-word whitespace-pre-wrap select-text">
                       {row.original.data && Object.keys(row.original.data).length > 0 && (
                         <span>
                           <span className="text-foreground/60">data: </span>
