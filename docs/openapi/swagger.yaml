@@ -101,6 +101,8 @@ components:
       type: object
     api.DirEntry:
       properties:
+        isDir:
+          type: boolean
         name:
           type: string
         path:
@@ -855,13 +857,20 @@ paths:
       - streaming
   /api/v1/filesystem/directories:
     get:
-      description: Returns subdirectories at the given path for the filesystem browser
-        UI.
+      description: |-
+        Returns filesystem entries at the given path. By default only directories
+        are returned. Pass mode=file to include files alongside directories.
       parameters:
-      - description: Absolute path to list subdirectories of
+      - description: Absolute path to list entries in
         in: query
         name: path
         required: true
+        schema:
+          type: string
+      - description: 'Browse mode: omit for directories only, ''file'' for directories
+          and files'
+        in: query
+        name: mode
         schema:
           type: string
       responses:
@@ -885,7 +894,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/server.apiError'
           description: Internal Server Error
-      summary: List directories
+      summary: List filesystem entries
       tags:
       - host
   /api/v1/filesystem/reveal:
