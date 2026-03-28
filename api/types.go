@@ -106,12 +106,20 @@ type DefaultMount struct {
 	ReadOnly      bool   `json:"readOnly"`
 }
 
+// DefaultEnvVar represents an auto-detected environment variable for the
+// create container form.
+type DefaultEnvVar struct {
+	Key   string `json:"key"`
+	Value string `json:"value"`
+}
+
 // DefaultsResponse holds server-resolved default values for the
 // create container form.
 type DefaultsResponse struct {
 	HomeDir          string         `json:"homeDir"`
 	ContainerHomeDir string         `json:"containerHomeDir"`
 	Mounts           []DefaultMount `json:"mounts"`
+	EnvVars          []DefaultEnvVar `json:"envVars,omitempty"`
 }
 
 // DirEntry represents a directory in the filesystem browser.

@@ -481,6 +481,7 @@ export interface Defaults {
   homeDir: string
   containerHomeDir: string
   mounts: Array<{ hostPath: string; containerPath: string; readOnly: boolean }>
+  envVars?: Array<{ key: string; value: string }>
 }
 
 /**
