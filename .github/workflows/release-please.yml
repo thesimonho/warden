@@ -29,6 +29,8 @@ jobs:
           manifest-file: .release-please-manifest.json
       - uses: actions/checkout@v6
         if: ${{ steps.release.outputs.release_created }}
+        with:
+          ssh-key: ${{ secrets.DEPLOY_KEY }}
       - name: tag major and minor versions
         if: ${{ steps.release.outputs.release_created }}
         run: |
