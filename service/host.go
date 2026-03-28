@@ -35,7 +35,8 @@ var preferredMounts = []preferredMount{
 	{hostRelPath: ".claude", containerPath: containerHomeDir + "/.claude", readOnly: false},
 	{hostRelPath: ".gitconfig", containerPath: containerHomeDir + "/.gitconfig.host", readOnly: true},
 	{hostRelPath: ".config/git/config", containerPath: containerHomeDir + "/.gitconfig.host", readOnly: true},
-	{hostRelPath: ".ssh", containerPath: containerHomeDir + "/.ssh", readOnly: true},
+	{hostRelPath: ".ssh/config", containerPath: containerHomeDir + "/.ssh/config", readOnly: true},
+	{hostRelPath: ".ssh/known_hosts", containerPath: containerHomeDir + "/.ssh/known_hosts", readOnly: false},
 }
 
 // containerSSHAgentPath is the fixed path where the host's SSH agent
