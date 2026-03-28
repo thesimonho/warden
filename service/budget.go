@@ -27,6 +27,12 @@ func (s *Service) GetEffectiveBudget(projectKey string) float64 {
 		return s.GetDefaultProjectBudget()
 	}
 
+	return s.effectiveBudgetFromRow(row)
+}
+
+// effectiveBudgetFromRow returns the budget for a project row.
+// Uses per-project budget if > 0, otherwise the global default.
+func (s *Service) effectiveBudgetFromRow(row *db.ProjectRow) float64 {
 	if row.CostBudget > 0 {
 		return row.CostBudget
 	}
@@ -64,40 +70,43 @@ func (s *Service) PersistSessionCost(projectID, containerName, sessionID string,
 // and takes the configured enforcement actions. Called exclusively by
 // [PersistSessionCost] to ensure all cost writes trigger enforcement.
 func (s *Service) enforceBudget(projectKey string) {
-	budget := s.GetEffectiveBudget(projectKey)
+	if s.db == nil {
+		return
+	}
+
+	// Single project lookup — derives budget, container name, and container
+	// ID without redundant DB reads.
+	row, err := s.db.GetProject(projectKey)
+	if err != nil || row == nil {
+		return
+	}
+
+	budget := s.effectiveBudgetFromRow(row)
 	if budget <= 0 {
 		return // No budget set — unlimited.
 	}
 
 	// DB is the source of truth for cumulative cost.
 	var effectiveCost float64
-	if s.db != nil {
-		if row, err := s.db.GetProjectTotalCost(projectKey); err == nil {
-			effectiveCost = row.TotalCost
-		}
-	}
-
-	// Look up the project row for container name (used in SSE payloads).
-	var containerName string
-	if s.db != nil {
-		if row, err := s.db.GetProject(projectKey); err == nil && row != nil {
-			containerName = effectiveContainerName(row)
-		}
+	if costRow, err := s.db.GetProjectTotalCost(projectKey); err == nil {
+		effectiveCost = costRow.TotalCost
 	}
 
 	if effectiveCost <= budget {
 		return // Within budget.
 	}
 
+	containerName := effectiveContainerName(row)
 	actions := s.getBudgetActions()
 
 	if actions.warn {
 		s.audit.Write(db.Entry{
-			Source:    db.SourceBackend,
-			Level:     db.LevelInfo,
-			ProjectID: projectKey,
-			Event:     "budget_exceeded",
-			Message:   fmt.Sprintf("cost $%.2f exceeds budget $%.2f", effectiveCost, budget),
+			Source:        db.SourceBackend,
+			Level:         db.LevelInfo,
+			ProjectID:     projectKey,
+			ContainerName: containerName,
+			Event:         "budget_exceeded",
+			Message:       fmt.Sprintf("cost $%.2f exceeds budget $%.2f", effectiveCost, budget),
 		})
 		if s.store != nil {
 			s.store.BroadcastBudgetExceeded(projectKey, containerName, effectiveCost, budget)
@@ -111,14 +120,15 @@ func (s *Service) enforceBudget(projectKey string) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	containerID := s.resolveContainerID(projectKey)
+	containerID := row.ContainerID
 	if containerID == "" {
 		s.audit.Write(db.Entry{
-			Source:    db.SourceBackend,
-			Level:     db.LevelError,
-			ProjectID: projectKey,
-			Event:     "budget_enforcement_failed",
-			Message:   "could not resolve container ID for enforcement",
+			Source:        db.SourceBackend,
+			Level:         db.LevelError,
+			ProjectID:     projectKey,
+			ContainerName: containerName,
+			Event:         "budget_enforcement_failed",
+			Message:       "could not resolve container ID for enforcement",
 		})
 		return
 	}
@@ -127,30 +137,33 @@ func (s *Service) enforceBudget(projectKey string) {
 		worktrees, err := s.docker.ListWorktrees(ctx, containerID, true)
 		if err != nil {
 			s.audit.Write(db.Entry{
-				Source:    db.SourceBackend,
-				Level:     db.LevelError,
-				ProjectID: projectKey,
-				Event:     "budget_enforcement_failed",
-				Message:   fmt.Sprintf("listing worktrees failed: %v", err),
+				Source:        db.SourceBackend,
+				Level:         db.LevelError,
+				ProjectID:     projectKey,
+				ContainerName: containerName,
+				Event:         "budget_enforcement_failed",
+				Message:       fmt.Sprintf("listing worktrees failed: %v", err),
 			})
 		} else {
 			for _, wt := range worktrees {
 				if err := s.docker.KillWorktreeProcess(ctx, containerID, wt.ID); err != nil {
 					s.audit.Write(db.Entry{
-						Source:    db.SourceBackend,
-						Level:     db.LevelError,
-						ProjectID: projectKey,
-						Event:     "budget_enforcement_failed",
-						Message:   fmt.Sprintf("kill worktree %s failed: %v", wt.ID, err),
+						Source:        db.SourceBackend,
+						Level:         db.LevelError,
+						ProjectID:     projectKey,
+						ContainerName: containerName,
+						Event:         "budget_enforcement_failed",
+						Message:       fmt.Sprintf("kill worktree %s failed: %v", wt.ID, err),
 					})
 				}
 			}
 			s.audit.Write(db.Entry{
-				Source:    db.SourceBackend,
-				Level:     db.LevelInfo,
-				ProjectID: projectKey,
-				Event:     "budget_worktrees_stopped",
-				Message:   fmt.Sprintf("stopped %d worktrees (cost $%.2f exceeds budget $%.2f)", len(worktrees), effectiveCost, budget),
+				Source:        db.SourceBackend,
+				Level:         db.LevelInfo,
+				ProjectID:     projectKey,
+				ContainerName: containerName,
+				Event:         "budget_worktrees_stopped",
+				Message:       fmt.Sprintf("stopped %d worktrees (cost $%.2f exceeds budget $%.2f)", len(worktrees), effectiveCost, budget),
 			})
 		}
 	}
@@ -158,19 +171,21 @@ func (s *Service) enforceBudget(projectKey string) {
 	if actions.stopContainer {
 		if err := s.docker.StopProject(ctx, containerID); err != nil {
 			s.audit.Write(db.Entry{
-				Source:    db.SourceBackend,
-				Level:     db.LevelError,
-				ProjectID: projectKey,
-				Event:     "budget_enforcement_failed",
-				Message:   fmt.Sprintf("stop container failed: %v", err),
+				Source:        db.SourceBackend,
+				Level:         db.LevelError,
+				ProjectID:     projectKey,
+				ContainerName: containerName,
+				Event:         "budget_enforcement_failed",
+				Message:       fmt.Sprintf("stop container failed: %v", err),
 			})
 		} else {
 			s.audit.Write(db.Entry{
-				Source:    db.SourceBackend,
-				Level:     db.LevelInfo,
-				ProjectID: projectKey,
-				Event:     "budget_container_stopped",
-				Message:   fmt.Sprintf("container stopped (cost $%.2f exceeds budget $%.2f)", effectiveCost, budget),
+				Source:        db.SourceBackend,
+				Level:         db.LevelInfo,
+				ProjectID:     projectKey,
+				ContainerName: containerName,
+				Event:         "budget_container_stopped",
+				Message:       fmt.Sprintf("container stopped (cost $%.2f exceeds budget $%.2f)", effectiveCost, budget),
 			})
 			if s.store != nil {
 				s.store.BroadcastBudgetContainerStopped(projectKey, containerName, containerID, effectiveCost, budget)
@@ -203,15 +218,3 @@ func (s *Service) IsOverBudget(projectKey string) bool {
 	return row.TotalCost > budget
 }
 
-// resolveContainerID looks up the Docker container ID for a project from the DB.
-// Returns empty string if the project has no container or is not found.
-func (s *Service) resolveContainerID(projectKey string) string {
-	if s.db == nil {
-		return ""
-	}
-	row, err := s.db.GetProject(projectKey)
-	if err != nil || row == nil {
-		return ""
-	}
-	return row.ContainerID
-}

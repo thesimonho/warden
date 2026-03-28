@@ -165,9 +165,7 @@ export default function ManageProjectDialog({
             disabled={!hasContainer || isSubmitting}
             label="Delete container"
             description={
-              hasContainer
-                ? 'Stop and permanently remove the container.'
-                : 'No container exists.'
+              hasContainer ? 'Stop and permanently remove the container.' : 'No container exists.'
             }
           />
 

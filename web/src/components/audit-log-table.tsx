@@ -152,6 +152,39 @@ const columns: ColumnDef<AuditLogEntry, unknown>[] = [
     ),
   },
   {
+    accessorKey: 'projectId',
+    header: 'Project ID',
+    size: 110,
+    minSize: 90,
+    sortUndefined: 'last',
+    cell: ({ getValue }) => (
+      <span className="text-muted-foreground/60 truncate font-mono text-xs">
+        {getValue<string>() ?? ''}
+      </span>
+    ),
+  },
+  {
+    accessorKey: 'containerName',
+    header: 'Project',
+    size: 160,
+    minSize: 100,
+    sortUndefined: 'last',
+    cell: ({ getValue }) => (
+      <span className="text-muted-foreground truncate">{getValue<string>() ?? ''}</span>
+    ),
+  },
+  {
+    accessorKey: 'worktree',
+    header: 'Worktree',
+    size: 160,
+    minSize: 100,
+    sortUndefined: 'last',
+    cell: ({ getValue }) => {
+      const wt = getValue<string>()
+      return <span className="text-muted-foreground/70 truncate">{wt ? `[${wt}]` : ''}</span>
+    },
+  },
+  {
     accessorKey: 'level',
     header: 'Level',
     size: 75,
@@ -208,39 +241,6 @@ const columns: ColumnDef<AuditLogEntry, unknown>[] = [
     cell: ({ getValue }) => (
       <span className="text-muted-foreground font-semibold">{eventLabel(getValue<string>())}</span>
     ),
-  },
-  {
-    accessorKey: 'containerName',
-    header: 'Project',
-    size: 160,
-    minSize: 100,
-    sortUndefined: 'last',
-    cell: ({ getValue }) => (
-      <span className="text-muted-foreground truncate">{getValue<string>() ?? ''}</span>
-    ),
-  },
-  {
-    accessorKey: 'projectId',
-    header: 'Project ID',
-    size: 110,
-    minSize: 90,
-    sortUndefined: 'last',
-    cell: ({ getValue }) => (
-      <span className="text-muted-foreground/60 truncate font-mono text-xs">
-        {getValue<string>() ?? ''}
-      </span>
-    ),
-  },
-  {
-    accessorKey: 'worktree',
-    header: 'Worktree',
-    size: 160,
-    minSize: 100,
-    sortUndefined: 'last',
-    cell: ({ getValue }) => {
-      const wt = getValue<string>()
-      return <span className="text-muted-foreground/70 truncate">{wt ? `[${wt}]` : ''}</span>
-    },
   },
   {
     id: 'message',
@@ -499,7 +499,7 @@ export function AuditLogTable({
                 ))}
                 {row.getIsExpanded() && (
                   <div className="border-border/30 animate-in fade-in slide-in-from-top-1 w-full border-t pr-2 pb-2 pl-10 duration-150">
-                    <pre className="text-muted-foreground overflow-x-auto text-xs leading-relaxed select-text">
+                    <pre className="text-muted-foreground text-xs leading-relaxed break-words whitespace-pre-wrap select-text">
                       {row.original.data && Object.keys(row.original.data).length > 0 && (
                         <span>
                           <span className="text-foreground/60">data: </span>

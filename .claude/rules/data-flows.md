@@ -88,12 +88,12 @@ Seven categories partition all audit events:
 
 | Category    | Event types                                                                                                    |
 | ----------- | -------------------------------------------------------------------------------------------------------------- |
-| **session** | session_start/end, terminal lifecycle, worktree lifecycle                                                      |
+| **session** | session_start/end, terminal lifecycle, container_heartbeat_stale, worktree lifecycle                           |
 | **agent**   | tool_use, tool_use_failure, permission_request, subagent events                                                |
 | **prompt**  | user_prompt                                                                                                    |
 | **config**  | config_change, instructions_loaded                                                                             |
-| **budget**  | budget_exceeded, budget_worktrees_stopped, budget_container_stopped, budget_enforcement_failed                 |
-| **system**  | process_killed, restart_blocked, frontend events, project_removed, container_deleted, cost_reset, audit_purged |
+| **budget**  | budget_exceeded, budget_worktrees_stopped, budget_container_stopped, budget_enforcement_failed, cost_reset     |
+| **system**  | process_killed, restart_blocked, frontend events, project_removed, container_deleted, audit_purged             |
 | **debug**   | slog-captured backend warnings/errors                                                                          |
 
 Mode-filtered writes use the `standardEvents` allowlist to exclude agent/prompt/config/debug events when mode is Standard.

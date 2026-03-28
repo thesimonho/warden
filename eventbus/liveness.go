@@ -2,7 +2,6 @@ package eventbus
 
 import (
 	"context"
-	"log/slog"
 	"time"
 )
 
@@ -50,12 +49,6 @@ func checkContainerLiveness(store *Store) {
 		if now.Sub(lastEvent) <= livenessStalenessThreshold {
 			continue
 		}
-
-		slog.Warn("container heartbeat stale, marking worktrees disconnected",
-			"container", name,
-			"lastEvent", lastEvent,
-			"staleness", now.Sub(lastEvent).Round(time.Second),
-		)
 
 		store.MarkContainerStale(name)
 	}
