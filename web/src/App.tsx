@@ -1,0 +1,25 @@
+import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import { TooltipProvider } from '@/components/ui/tooltip'
+import Layout from '@/components/layout'
+import HomePage from '@/pages/home-page'
+import WorkspacePage from '@/pages/workspace-page'
+import ProjectPage from '@/pages/project-page'
+import AuditPage from '@/pages/audit-page'
+
+/** Root application component with client-side routing. */
+export default function App() {
+  return (
+    <TooltipProvider>
+      <BrowserRouter>
+        <Routes>
+          <Route element={<Layout />}>
+            <Route path="/" element={<HomePage />} />
+            <Route path="/projects/:id" element={<ProjectPage />} />
+            <Route path="/workspace" element={<WorkspacePage />} />
+            <Route path="/audit" element={<AuditPage />} />
+          </Route>
+        </Routes>
+      </BrowserRouter>
+    </TooltipProvider>
+  )
+}

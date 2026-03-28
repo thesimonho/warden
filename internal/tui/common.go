@@ -1,0 +1,113 @@
+package tui
+
+import (
+	"github.com/thesimonho/warden/api"
+	"github.com/thesimonho/warden/db"
+	"github.com/thesimonho/warden/engine"
+	"github.com/thesimonho/warden/eventbus"
+	"github.com/thesimonho/warden/runtime"
+)
+
+// Tab identifies the top-level navigation tabs.
+type Tab int
+
+const (
+	// TabProjects is the project list view (home screen).
+	TabProjects Tab = iota
+	// TabSettings is the settings view.
+	TabSettings
+	// TabAudit is the unified audit log viewer.
+	TabAudit
+)
+
+// TabLabels maps each tab to its display label.
+var TabLabels = map[Tab]string{
+	TabProjects: "Projects",
+	TabSettings: "Settings",
+	TabAudit:    "Audit Log",
+}
+
+// --- Async result messages ---
+// These are returned by tea.Cmd functions when data arrives or
+// operations complete. Each view handles the messages it cares about.
+
+// ProjectsLoadedMsg carries the result of a ListProjects call.
+type ProjectsLoadedMsg struct {
+	Projects []engine.Project
+	Err      error
+}
+
+// WorktreesLoadedMsg carries the result of a ListWorktrees call.
+type WorktreesLoadedMsg struct {
+	Worktrees []engine.Worktree
+	Err       error
+}
+
+// SettingsLoadedMsg carries the result of a GetSettings call.
+type SettingsLoadedMsg struct {
+	Settings *api.SettingsResponse
+	Err      error
+}
+
+// RuntimesLoadedMsg carries the result of a ListRuntimes call.
+type RuntimesLoadedMsg struct {
+	Runtimes []runtime.RuntimeInfo
+	Err      error
+}
+
+// AuditLogLoadedMsg carries the result of a GetAuditLog call.
+type AuditLogLoadedMsg struct {
+	Entries []db.Entry
+	Summary *api.AuditSummary
+	Err     error
+}
+
+// AuditProjectsLoadedMsg carries the result of a GetAuditProjects call.
+type AuditProjectsLoadedMsg struct {
+	Names []string
+	Err   error
+}
+
+// DefaultsLoadedMsg carries the result of a GetDefaults call.
+type DefaultsLoadedMsg struct {
+	Defaults *api.DefaultsResponse
+	Err      error
+}
+
+// --- Operation result messages ---
+
+// OperationResultMsg carries the result of a mutating operation.
+type OperationResultMsg struct {
+	Operation string
+	Err       error
+}
+
+// --- Navigation messages ---
+
+// NavigateMsg requests a view transition.
+type NavigateMsg struct {
+	// Tab is the target tab.
+	Tab Tab
+	// ProjectID is set when navigating to project detail.
+	ProjectID string
+	// ProjectName is the display name for the project.
+	ProjectName string
+}
+
+// NavigateBackMsg requests returning to the previous view.
+type NavigateBackMsg struct{}
+
+// --- Real-time event messages ---
+
+// SSEEventMsg wraps an SSE event received from the event bus.
+type SSEEventMsg eventbus.SSEEvent
+
+// EventStreamClosedMsg indicates the SSE channel was closed.
+type EventStreamClosedMsg struct{}
+
+// --- Terminal messages ---
+
+// TerminalExitedMsg indicates the terminal passthrough ended.
+type TerminalExitedMsg struct {
+	Err error
+}

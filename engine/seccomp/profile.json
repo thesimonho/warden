@@ -1,0 +1,47 @@
+{
+  "defaultAction": "SCMP_ACT_ALLOW",
+  "architectures": [
+    "SCMP_ARCH_X86_64",
+    "SCMP_ARCH_X86",
+    "SCMP_ARCH_X32",
+    "SCMP_ARCH_AARCH64",
+    "SCMP_ARCH_ARM"
+  ],
+  "syscalls": [
+    {
+      "names": [
+        "kexec_load",
+        "kexec_file_load",
+        "reboot",
+        "init_module",
+        "finit_module",
+        "delete_module",
+        "acct",
+        "swapon",
+        "swapoff",
+        "mount",
+        "umount2",
+        "pivot_root",
+        "syslog",
+        "add_key",
+        "keyctl",
+        "request_key",
+        "bpf",
+        "userfaultfd",
+        "perf_event_open",
+        "lookup_dcookie",
+        "nfsservctl",
+        "open_by_handle_at",
+        "fsopen",
+        "fsconfig",
+        "fsmount",
+        "fspick",
+        "move_mount",
+        "open_tree",
+        "mount_setattr"
+      ],
+      "action": "SCMP_ACT_ERRNO",
+      "errnoRet": 1
+    }
+  ]
+}

@@ -1,0 +1,100 @@
+import { execSync } from 'child_process'
+import { existsSync, mkdirSync, writeFileSync } from 'fs'
+import path from 'path'
+import { fileURLToPath } from 'url'
+import { getBaseURL, fetchProjects, fetchRuntimes, removeTestProject } from './helpers/api'
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
+
+/** Workspace directory used by all E2E test containers. */
+export const TEST_WORKSPACE = '/tmp/warden-e2e-workspace'
+
+/** Image tag for E2E test containers, built from local source. */
+export const E2E_IMAGE = 'warden-e2e:local'
+
+/**
+ * Builds the container image from local source so E2E tests always
+ * run against the current code, not a published release.
+ *
+ * Build output is suppressed unless the build fails.
+ */
+function buildTestImage(runtime: string): void {
+  const containerDir = path.resolve(__dirname, '../../container')
+  console.log(`[E2E] Building test image ${E2E_IMAGE} with ${runtime}...`)
+  try {
+    execSync(`${runtime} build -t ${E2E_IMAGE} ${containerDir}`, {
+      stdio: 'pipe',
+    })
+  } catch (err) {
+    const { stdout, stderr } = err as { stdout: Buffer; stderr: Buffer }
+    process.stderr.write(stdout)
+    process.stderr.write(stderr)
+    throw new Error(`Failed to build test image with ${runtime}`)
+  }
+  console.log(`[E2E] Image built successfully`)
+}
+
+/**
+ * Runs once before all test files.
+ *
+ * Builds a local container image from source, creates a minimal git
+ * repo at TEST_WORKSPACE for worktree tests, verifies the dev server
+ * is reachable, and cleans up stale containers.
+ */
+export default async function globalSetup() {
+  /* Ensure the test workspace exists with a valid git repo. */
+  if (!existsSync(TEST_WORKSPACE)) {
+    mkdirSync(TEST_WORKSPACE, { recursive: true })
+  }
+
+  const gitDir = path.join(TEST_WORKSPACE, '.git')
+  if (!existsSync(gitDir)) {
+    execSync('git init', { cwd: TEST_WORKSPACE, stdio: 'pipe' })
+    writeFileSync(path.join(TEST_WORKSPACE, 'README.md'), '# E2E Test Workspace\n')
+    execSync('git add .', { cwd: TEST_WORKSPACE, stdio: 'pipe' })
+    execSync(
+      'git -c user.email="e2e@warden.test" -c user.name="Warden E2E" commit -m "initial commit"',
+      { cwd: TEST_WORKSPACE, stdio: 'pipe' },
+    )
+  }
+
+  /* Verify a server is reachable. getBaseURL probes :5173 then :8090. */
+  try {
+    await getBaseURL()
+  } catch {
+    throw new Error(
+      'No server reachable at localhost:5173 or :8090. Run `just dev` or let Playwright start the server.',
+    )
+  }
+
+  /* Build the test container image from local source.
+     WARDEN_RUNTIME overrides the runtime (used by the test matrix). */
+  const runtimeOverride = process.env.WARDEN_RUNTIME
+  let activeRuntime: string
+
+  if (runtimeOverride) {
+    console.log(`[E2E] Using runtime from WARDEN_RUNTIME: ${runtimeOverride}`)
+    activeRuntime = runtimeOverride
+  } else {
+    const runtimes = await fetchRuntimes()
+    const available = runtimes.find((r) => r.available)
+    if (!available) {
+      throw new Error('No container runtime available. Install Docker or Podman.')
+    }
+    activeRuntime = available.name
+  }
+
+  buildTestImage(activeRuntime)
+
+  /* Clean up leftover E2E containers from previous interrupted runs. */
+  try {
+    const projects = await fetchProjects()
+    const stale = projects.filter((p) => p.name.startsWith('warden-e2e-'))
+
+    await Promise.all(stale.map(async (project) => removeTestProject(project.projectId)))
+
+    if (stale.length > 0) {
+      console.log(`[E2E] Cleaned up ${stale.length} stale container(s)`)
+    }
+  } catch { /* non-fatal */ }
+}

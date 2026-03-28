@@ -1,0 +1,75 @@
+# Terminology
+
+These terms must be used consistently throughout Warden's codebase, UI text, comments, commit messages, and documentation.
+
+## Core terms
+
+| Term         | Definition                                                                                                                                           | Managed by |
+| ------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- |
+| **Project**  | A workspace directory on the host + a container that runs Claude Code against it. Identified by a deterministic 12-char hex `project_id` (SHA-256 of resolved host path).                                                                    | Warden     |
+| **ProjectID** | Deterministic 12-character hex identifier computed from SHA-256 of the resolved absolute host path. Used as the primary key in the database and for associating events/costs with projects across container rebuilds.     | Warden     |
+| **Worktree** | An isolated working directory within a project (via `git worktree`), or the implicit workspace root for non-git repos. The unit of independent work. | Warden     |
+| **Terminal** | The xterm.js web interface the user sees and types into. A disposable viewer into a worktree. Connects via WebSocket to the Go backend proxy.       | Warden     |
+
+## Banned terms
+
+These terms belong to Claude Code and must not be used in Warden's code or UI to avoid confusion:
+
+| Term             | Why it's banned                                                                       | Claude Code meaning                |
+| ---------------- | ------------------------------------------------------------------------------------- | ---------------------------------- |
+| **Session**      | Claude Code uses "session" for a conversation with history, resumable via `--resume`. | A single Claude Code conversation. |
+| **Conversation** | Same concept as session in Claude Code's model.                                       | Interchangeable with session.      |
+
+## Process architecture
+
+Each worktree has one process layer in the container. The browser connects to it via WebSocket through the Go backend proxy.
+
+```
+abduco (process manager — holds the PTY alive)
+ └── bash
+      └── claude (or just bash if Claude exited)
+```
+
+| Component  | Role                                                    | Can be killed without losing work? |
+| ---------- | ------------------------------------------------------- | ---------------------------------- |
+| **abduco** | Holds the PTY session alive across viewer disconnects.  | No — kills Claude and bash.        |
+
+The browser connects via `GET /api/v1/projects/{projectID}/ws/{wid}` (WebSocket), which the Go backend proxies to `docker exec` with TTY mode. The connection is kept alive with periodic ping/pong heartbeats (30s).
+
+## Terminal actions
+
+| Action         | Verb                                     | What happens                                                                           | Destructive? |
+| -------------- | ---------------------------------------- | -------------------------------------------------------------------------------------- | ------------ |
+| **Connect**    | `connectTerminal`                        | Start abduco, launch Claude. Browser connects via WebSocket.                           | No           |
+| **Disconnect** | `disconnectTerminal`                     | Close WebSocket. Abduco keeps running.                                                 | No           |
+| **Reconnect**  | `connectTerminal` (on existing worktree) | Browser reconnects via new WebSocket to existing abduco session.                       | No           |
+| **Kill**       | `killWorktreeProcess`                    | Kill abduco + everything. Process destroyed.                                           | Yes          |
+
+## Worktree states
+
+| State            | abduco                 | WebSocket | What user sees                          |
+| ---------------- | ---------------------- | --------- | --------------------------------------- |
+| **connected**    | Running, Claude active | Connected | Green dot, live terminal                |
+| **shell**        | Running, Claude exited | Connected | Amber dot, bash prompt. Can `--resume`. |
+| **background**   | Running                | Closed    | Purple dot. Reconnectable.              |
+| **disconnected** | Dead                   | N/A       | Gray dot. Click to start fresh.         |
+
+## Claude activity (sub-states of connected)
+
+| Activity            | Meaning                                    | Indicator          |
+| ------------------- | ------------------------------------------ | ------------------ |
+| **Working**         | Claude is actively generating/executing    | Amber pulsing dot  |
+| **Idle**            | Claude is running but not actively working | Muted gray dot     |
+| **Need Permission** | Claude needs tool approval                 | Orange pulsing dot |
+| **Need Answer**     | Claude is asking a question                | Red pulsing dot    |
+| **Need Input**      | Claude is done, waiting for next prompt    | Blue pulsing dot   |
+
+## What Warden manages vs what Claude Code manages
+
+| Concern       | Owner                | Details                                                                                      |
+| ------------- | -------------------- | -------------------------------------------------------------------------------------------- |
+| Worktrees     | Warden               | Creates worktrees via `git worktree add`, manages WebSocket connections, tracks liveness via heartbeat |
+| Conversations | Claude Code          | Internal session history, `/resume`, conversation threading — all internal to Claude Code    |
+| Cost          | Claude Code          | Per-project metrics in `~/.claude.json`, read by Warden's agent status provider      |
+| Notifications | Warden + Claude Code | Claude Code's hook events push attention state via event bus; Warden broadcasts via SSE      |
+| Git branches  | Claude Code          | Claude Code manages branches within its worktree                                             |

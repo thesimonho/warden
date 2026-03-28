@@ -1,0 +1,96 @@
+/**
+ * Theme: Frostpunk (dark)
+ *
+ * A cold steel-blue base with frost accents — deep, industrial,
+ * and clinical with clear surface separation.
+ *
+ * Applied when the `dark` class IS present on <html>.
+ */
+.dark {
+  --background: oklch(0.225 0.014 250);
+  --foreground: oklch(0.91 0.006 245);
+
+  --card: oklch(0.275 0.015 250);
+  --card-foreground: oklch(0.91 0.006 245);
+
+  --popover: oklch(0.295 0.016 250);
+  --popover-foreground: oklch(0.91 0.006 245);
+
+  --primary: oklch(0.56 0.07 230);
+  --primary-foreground: oklch(0.98 0.003 235);
+
+  --secondary: oklch(0.5 0.06 305);
+  --secondary-foreground: oklch(0.98 0.003 235);
+
+  --muted: oklch(0.31 0.013 250);
+  --muted-foreground: oklch(0.6 0.012 245);
+
+  --accent: oklch(0.34 0.016 250);
+  --accent-foreground: oklch(0.89 0.006 245);
+
+  /* Surface elevation hierarchy (ascending) */
+  --content-1: oklch(0.26 0.014 250);
+  --content-2: oklch(0.29 0.015 250);
+  --content-3: oklch(0.32 0.016 250);
+  --content-4: oklch(0.35 0.017 250);
+
+  --success: oklch(0.62 0.07 158);
+  --success-foreground: oklch(0.98 0.003 235);
+  --warning: oklch(0.65 0.07 78);
+  --warning-foreground: oklch(0.98 0.003 245);
+  --error: oklch(0.58 0.08 18);
+  --error-foreground: oklch(0.98 0.003 235);
+  --info: oklch(0.6 0.065 245);
+  --info-foreground: oklch(0.98 0.003 235);
+  --active: oklch(0.6 0.065 200);
+  --active-foreground: oklch(0.98 0.003 235);
+
+  /* Audit category colors */
+  --category-session: oklch(0.62 0.065 158);
+  --category-agent: oklch(0.6 0.07 195);
+  --category-prompt: oklch(0.58 0.065 305);
+  --category-config: oklch(0.62 0.065 50);
+  --category-budget: oklch(0.62 0.065 145);
+  --category-system: oklch(0.55 0.02 250);
+  --category-debug: oklch(56% 0.12 18);
+
+  --border: oklch(0.39 0.016 250 / 55%);
+  --input: oklch(0.35 0.014 250 / 70%);
+  --ring: oklch(0.56 0.07 230);
+
+  --sidebar: oklch(0.25 0.015 250);
+  --sidebar-foreground: oklch(0.91 0.006 245);
+  --sidebar-primary: oklch(0.56 0.07 230);
+  --sidebar-primary-foreground: oklch(0.98 0.003 235);
+  --sidebar-accent: oklch(0.34 0.016 250);
+  --sidebar-accent-foreground: oklch(0.89 0.006 245);
+  --sidebar-border: oklch(0.39 0.016 250 / 55%);
+  --sidebar-ring: oklch(0.56 0.07 230);
+
+  --selected: oklch(0.28 0.015 250);
+
+  --marquee: oklch(0.48 0.07 230);
+  --marquee-foreground: oklch(0.98 0.003 235);
+
+  /* Terminal — xterm.js ANSI palette */
+  --terminal-background: #282e3a;
+  --terminal-foreground: #d0d6e0;
+  --terminal-cursor: #d0d6e0;
+  --terminal-selection: #3a4252;
+  --terminal-black: #343a48;
+  --terminal-red: #c4606a;
+  --terminal-green: #7aaa82;
+  --terminal-yellow: #c8a858;
+  --terminal-blue: #6a90b8;
+  --terminal-magenta: #a07aae;
+  --terminal-cyan: #6aa0a8;
+  --terminal-white: #d0d6e0;
+  --terminal-bright-black: #505868;
+  --terminal-bright-red: #d47880;
+  --terminal-bright-green: #90c098;
+  --terminal-bright-yellow: #d8b868;
+  --terminal-bright-blue: #80a8d0;
+  --terminal-bright-magenta: #b890c0;
+  --terminal-bright-cyan: #80b8c0;
+  --terminal-bright-white: #e8ecf2;
+}

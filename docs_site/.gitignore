@@ -1,0 +1,12 @@
+# Astro build output
+dist/
+.astro/
+
+# Dependencies
+node_modules/
+
+# Generated content (built at deploy time)
+src/content/docs/reference/go/*.md
+!src/content/docs/reference/go/index.md
+src/content/docs/changelog.md
+src/content/docs/contributing.md

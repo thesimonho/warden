@@ -1,0 +1,24 @@
+root = true
+
+[*]
+end_of_line = lf
+insert_final_newline = true
+charset = utf-8
+indent_style = tab
+trim_trailing_whitespace = true
+
+[*.{go,mod,sum}]
+indent_style = tab
+
+[*.{ts,tsx,js,jsx,json,css,html,yaml,yml,md}]
+indent_style = space
+indent_size = 2
+
+[docs/openapi/swagger.yaml]
+generated = true
+indent_style = space
+indent_size = 2
+
+[justfile]
+indent_style = space
+indent_size = 4

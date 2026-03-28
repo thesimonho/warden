@@ -1,0 +1,17 @@
+{
+  "id": "session-tools",
+  "version": "0.0.0",
+  "name": "Warden Session Infrastructure",
+  "description": "Installs abduco, Claude Code CLI, and terminal management scripts for Warden project containers",
+  "options": {
+    "abducoVersion": {
+      "type": "string",
+      "default": "0.6",
+      "description": "Version of abduco to install"
+    }
+  },
+  "containerEnv": {
+    "WARDEN_MANAGED": "true"
+  },
+  "installsAfter": ["ghcr.io/devcontainers/features/common-utils"]
+}

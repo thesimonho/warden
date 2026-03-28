@@ -1,0 +1,50 @@
+# Project
+TODO.md
+
+# Go
+bin/
+tmp/
+*.exe
+*.syso
+
+# Frontend
+node_modules
+web/dist/
+.playwright-mcp
+
+# Playwright
+web/e2e-results/
+web/playwright-report/
+web/blob-report/
+
+# Embedded UI (copied from web/dist at build time)
+internal/server/ui/*
+!internal/server/ui/.gitkeep
+
+# Plans
+docs/plans/
+
+# Environment
+.env
+.env.local
+
+# Editor
+.idea/
+.vscode/
+*.swp
+.claude/settings.local.json
+.claude/worktrees/
+.claude/agents
+.claude/commands
+.claude/skills
+.agents
+.mcp.json
+skills-lock.json
+
+# OS
+.DS_Store
+Thumbs.db
+
+# warden
+.warden-debug*
+.warden-user-hook*

@@ -1,0 +1,96 @@
+/**
+ * Theme: Permafrost (light)
+ *
+ * A cold blue-gray base with steel accents — bright, restrained,
+ * and authoritative.
+ *
+ * Applied when the `dark` class is NOT present on <html>.
+ */
+:root {
+  --background: oklch(0.968 0.005 235);
+  --foreground: oklch(0.2 0.018 230);
+
+  --card: oklch(0.995 0.002 235);
+  --card-foreground: oklch(0.2 0.018 230);
+
+  --popover: oklch(0.995 0.002 235);
+  --popover-foreground: oklch(0.2 0.018 230);
+
+  --primary: oklch(0.55 0.065 250);
+  --primary-foreground: oklch(0.98 0.003 235);
+
+  --secondary: oklch(0.58 0.05 305);
+  --secondary-foreground: oklch(0.98 0.003 235);
+
+  --muted: oklch(0.918 0.007 235);
+  --muted-foreground: oklch(0.52 0.012 230);
+
+  --accent: oklch(0.922 0.008 235);
+  --accent-foreground: oklch(0.2 0.018 230);
+
+  /* Surface elevation hierarchy (ascending — lower lightness = higher) */
+  --content-1: oklch(0.945 0.006 235);
+  --content-2: oklch(0.918 0.008 235);
+  --content-3: oklch(0.891 0.01 235);
+  --content-4: oklch(0.864 0.012 235);
+
+  --success: oklch(0.62 0.07 158);
+  --success-foreground: oklch(0.98 0.003 235);
+  --warning: oklch(0.68 0.07 78);
+  --warning-foreground: oklch(0.98 0.003 235);
+  --error: oklch(0.6 0.08 18);
+  --error-foreground: oklch(0.98 0.003 235);
+  --info: oklch(0.58 0.06 245);
+  --info-foreground: oklch(0.98 0.003 235);
+  --active: oklch(0.59 0.065 200);
+  --active-foreground: oklch(0.98 0.003 235);
+
+  /* Audit category colors */
+  --category-session: oklch(0.58 0.065 158);
+  --category-agent: oklch(0.55 0.07 195);
+  --category-prompt: oklch(0.54 0.065 305);
+  --category-config: oklch(0.58 0.065 50);
+  --category-budget: oklch(0.58 0.065 145);
+  --category-system: oklch(55% 0.02 230);
+  --category-debug: oklch(55% 0.1 18);
+
+  --border: oklch(0.885 0.007 235);
+  --input: oklch(0.885 0.007 235);
+  --ring: oklch(0.55 0.065 250);
+
+  --sidebar: oklch(0.958 0.005 235);
+  --sidebar-foreground: oklch(0.2 0.018 230);
+  --sidebar-primary: oklch(0.55 0.065 250);
+  --sidebar-primary-foreground: oklch(0.98 0.003 235);
+  --sidebar-accent: oklch(0.942 0.007 235);
+  --sidebar-accent-foreground: oklch(0.2 0.018 230);
+  --sidebar-border: oklch(0.885 0.007 235);
+  --sidebar-ring: oklch(0.55 0.065 250);
+
+  --selected: oklch(0.938 0.007 235);
+
+  --marquee: oklch(0.55 0.065 250);
+  --marquee-foreground: oklch(0.98 0.003 235);
+
+  /* Terminal — xterm.js ANSI palette */
+  --terminal-background: #edf0f5;
+  --terminal-foreground: #2b3040;
+  --terminal-cursor: #2b3040;
+  --terminal-selection: #cdd3de;
+  --terminal-black: #2b3040;
+  --terminal-red: #c4505a;
+  --terminal-green: #5a8a62;
+  --terminal-yellow: #9a7830;
+  --terminal-blue: #4a6d99;
+  --terminal-magenta: #8a6098;
+  --terminal-cyan: #4a8a8a;
+  --terminal-white: #d8dce6;
+  --terminal-bright-black: #5a6070;
+  --terminal-bright-red: #d06a72;
+  --terminal-bright-green: #70a878;
+  --terminal-bright-yellow: #b89848;
+  --terminal-bright-blue: #6088b8;
+  --terminal-bright-magenta: #a07aae;
+  --terminal-bright-cyan: #60a0a0;
+  --terminal-bright-white: #edf0f5;
+}
