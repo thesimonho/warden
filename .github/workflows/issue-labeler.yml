@@ -1,0 +1,25 @@
+name: Issue Labeler
+on:
+  issues:
+    types: [opened]
+jobs:
+  label:
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - name: Add runtime label
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          BODY=$(gh issue view "${{ github.event.issue.number }}" --repo "${{ github.repository }}" --json body -q .body)
+          LABELS=""
+          if echo "$BODY" | grep -q "Docker"; then
+            LABELS="docker"
+          fi
+          if echo "$BODY" | grep -q "Podman"; then
+            LABELS="${LABELS:+$LABELS,}podman"
+          fi
+          if [ -n "$LABELS" ]; then
+            gh issue edit "${{ github.event.issue.number }}" --repo "${{ github.repository }}" --add-label "$LABELS"
+          fi
