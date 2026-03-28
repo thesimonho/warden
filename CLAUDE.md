@@ -72,20 +72,3 @@ go build -o bin/warden ./cmd/warden               # Headless server
 go build -o bin/warden-desktop ./cmd/warden-desktop   # Desktop binary
 ```
 
-### OpenAPI Spec
-
-```bash
-swag init --v3.1 --parseInternal --parseDependency --generalInfo internal/server/doc.go --output docs/openapi --outputTypes yaml
-```
-
-Regenerate after changing any `@Router` or `@Param`/`@Success`/`@Failure` annotations in `internal/server/routes.go`. See `.claude/rules/openapi.md` for details.
-
-### Documentation Site
-
-```bash
-just docs-dev              # Starlight dev server (generates Go docs first)
-just docs-build            # Full production build (gomarkdoc + Starlight)
-just docs-preview          # Build and preview locally
-```
-
-The docs site lives in `docs_site/`. Go package reference pages are auto-generated at build time by `gomarkdoc` and are gitignored. OpenAPI reference pages are auto-generated from `docs/openapi/swagger.yaml` by the `starlight-openapi` plugin.
