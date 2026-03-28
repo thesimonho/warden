@@ -202,9 +202,7 @@ export default function DirectoryBrowser({
 
     const handleClickOutside = (e: MouseEvent) => {
       if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        // In directory mode, commit the current directory.
-        // In file mode, only commit if a value was already set (don't auto-commit a directory).
-        if (!isFileMode && browseDir !== value) {
+        if (browseDir !== value) {
           onChange(browseDir)
         }
         setIsOpen(false)
@@ -215,7 +213,7 @@ export default function DirectoryBrowser({
 
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [isOpen, browseDir, onChange, value, isFileMode])
+  }, [isOpen, browseDir, onChange, value])
 
   /** Scroll highlighted item into view. */
   useEffect(() => {
@@ -257,7 +255,7 @@ export default function DirectoryBrowser({
           } else {
             selectEntry(filteredEntries[highlightIndex - dirOffset])
           }
-        } else if (!isFileMode) {
+        } else {
           commitPath(browseDir)
         }
         break
