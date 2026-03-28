@@ -46,8 +46,8 @@ You can easily use it from Day 1 as its own agent orchestrator, running as a web
 ## ✅ What you get
 
 <div align="center">
-  <img width="400" alt="light" src="https://github.com/user-attachments/assets/2ad5f6e5-3f9f-430e-a49e-8c648903d01b" />
-  <img width="400" alt="dark" src="https://github.com/user-attachments/assets/25033a5c-7940-42b2-8a1a-a62b9c7c95a7" />
+  <img width="400" alt="light" src="docs_site/public/hero-light.webp" />
+  <img width="400" alt="dark" src="docs_site/public/hero-dark.webp" />
 </div>
 
 ### Security model
