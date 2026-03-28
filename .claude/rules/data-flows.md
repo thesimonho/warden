@@ -10,16 +10,6 @@ The critical invariant: **WebSocket connections are disposable, abduco is not**.
 
 Browser connects via `GET /api/v1/projects/{id}/ws/{wid}` (WebSocket) → Go backend proxy (`internal/terminal/`) → `docker exec` with TTY mode attached to existing abduco session. Backend calls `create-terminal.sh` to initialize abduco for new worktrees.
 
-## Container setup
-
-### Symlink resolution
-
-`engine/symlink_resolver.go` walks bind mount host paths to find symlinks whose targets escape the mounted tree (Nix Home Manager, GNU Stow, etc.) and adds extra bind mounts so they resolve inside the container. Called by `CreateContainer` before building bind mounts.
-
-### Agent provider abstraction
-
-The `StatusProvider` interface in `agent/` abstracts agent CLI differences (currently only Claude Code). Implement 3 methods (`Name()`, `ConfigFilePath()`, `ExtractStatus()`) and pass to `docker.NewClient()`. The provider is runtime-agnostic — it reads config via `docker exec` which works identically on both runtimes.
-
 ## Event system
 
 ### Attention tracking
@@ -47,7 +37,7 @@ For running containers with no DB data yet, `ReadAgentCostAndBillingType` reads 
 
 ### Cost budgets
 
-All cost writes go through `service.PersistSessionCost(projectID, containerName, sessionID, cost, isEstimated)` — the single gateway that persists cost to DB keyed by `projectID` and triggers budget enforcement (analogous to `db.AuditWriter.Write` for audit events).
+All cost writes MUST go through `service.PersistSessionCost(projectID, containerName, sessionID, cost, isEstimated)` — the single gateway that persists cost to DB keyed by `projectID` and triggers budget enforcement (analogous to `db.AuditWriter.Write` for audit events).
 
 Three entry points all funnel through it:
 
@@ -78,11 +68,11 @@ Four user-configurable enforcement actions (stored in `settings` table):
 | `DELETE` | `/api/v1/audit`                         | Clears audit events (scoped with query params)                                              |
 | `GET`    | `/api/v1/audit/export?format=csv\|json` | Compliance-ready downloads                                                                  |
 
-Supports `source` (agent/backend/frontend/container) and `level` (info/warning/error) query params. The audit system reuses the existing event log infrastructure (same `events` SQLite table) but with audit-specific query filters and presentation.
+Supports `source` (agent/backend/frontend/container) and `level` (info/warning/error) query params.
 
 ### Mode filtering
 
-`auditLogMode` setting (off/standard/detailed) controls what events are written to the audit DB. All audit writes go through a single `db.AuditWriter` interface that enforces mode filtering via a `standardEvents` allowlist before writing to the `events` SQLite table.
+`auditLogMode` setting (off/standard/detailed) controls what events are written to the audit DB. All audit writes MUST go through a single `db.AuditWriter` interface that enforces mode filtering via a `standardEvents` allowlist before writing to the `events` SQLite table.
 
 | Mode         | What gets written                                                            |
 | ------------ | ---------------------------------------------------------------------------- |
@@ -114,15 +104,4 @@ Mode-filtered writes use the `standardEvents` allowlist to exclude agent/prompt/
 
 Project config (project_id, name, host_path, image, mounts, env vars, network mode, skipPermissions, costBudget, container_id, container_name) is stored in the `projects` SQLite table, keyed by `project_id` (deterministic hash of host path). Per-session costs are in the `session_costs` table (project_id, session_id, cost, is_estimated, updated_at), keyed by the same `project_id` for cost aggregation and enforcement. Settings (runtime, auditLogMode, disconnectKey, defaultProjectBudget, budgetAction{Warn,StopWorktrees,StopContainer,PreventStart}) are in the `settings` table.
 
-The service layer reads from DB and overlays onto engine results. Docker labels are no longer used for discovery (warden.discover removed). When a project is deleted: if audit logging is enabled (standard/detailed), cost data and events are preserved for audit history; if audit logging is off, all associated costs and events are cleaned up.
-
-### Project management dialog
-
-The management dialog exposes four independent destructive actions as unchecked checkboxes (nothing checked by default):
-
-1. **Remove from Warden** — untrack project from DB, emits `project_removed`
-2. **Delete container** — stop + remove Docker container, emits `container_deleted`
-3. **Reset cost history** — `DELETE /api/v1/projects/{projectId}/costs`, emits `cost_reset`
-4. **Purge audit history** — `DELETE /api/v1/projects/{projectId}/audit`, emits `audit_purged` write-ahead then deletes all events
-
-Audit purge requires type-to-confirm. Dialog keeps open on partial failure. Cost reset and audit purge run in parallel when both selected. Container deletion runs first, project removal runs last.
+The service layer reads from DB and overlays onto engine results. When a project is deleted: if audit logging is enabled (standard/detailed), cost data and events are preserved for audit history; if audit logging is off, all associated costs and events are cleaned up.

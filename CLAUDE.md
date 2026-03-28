@@ -4,16 +4,6 @@
 
 A container engine and control plane for running multiple Claude Code agents in isolated containers. Shipped as three binaries: `warden` (headless API server), `warden-desktop` (web UI), and `warden-tui` (terminal UI). The engine is also importable as a Go library. Supports Docker and Podman.
 
-**Key features include:**
-
-- Full container isolation per project
-- Real-time agent status (idle, working, needs permission, needs input)
-- Cost and token tracking per worktree
-- Session persistence (agents keep working after disconnect)
-- Unified audit system — configurable audit logging (off/standard/detailed mode) with activity timeline, summary dashboard, category filters, and compliance export (CSV/JSON)
-- Network access controls (full, restricted, air-gapped)
-- Git worktree orchestration for parallel development
-
 ## Terminology (MUST follow)
 
 Read @docs/terminology.md before writing any code. It defines the required terms (Project, Worktree, Terminal), banned terms (Session, Conversation), worktree states, terminal actions, Claude activity sub-states, and the ownership boundary between Warden and Claude Code.
@@ -27,7 +17,13 @@ go run ./cmd/warden-desktop   # Go API server + embedded SPA
 npm --prefix web run dev      # Vite dev server (optional, for frontend HMR)
 ```
 
-Dev UI at `http://localhost:5173` (Vite proxies `/api/*` to Go on `:8090`).
+Dev UI at `http://localhost:5173`. Always use `:5173` to access the app and API in development — the Go server on `:8090` does not serve the SPA when the Vite dev server is running.
+
+### Debugging
+
+Proactively use the agent-browser skill to check and debug frontend code.
+
+Use warden's audit api to track down container and server bugs.
 
 ### Testing & Quality
 
