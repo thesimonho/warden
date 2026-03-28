@@ -108,6 +108,18 @@ components:
         path:
           type: string
       type: object
+    api.PostAuditEventRequest:
+      properties:
+        attrs:
+          additionalProperties: {}
+          type: object
+        event:
+          type: string
+        level:
+          type: string
+        message:
+          type: string
+      type: object
     api.TimeRange:
       description: TimeRange holds the earliest and latest event timestamps.
       properties:
@@ -496,8 +508,13 @@ components:
     server.addProjectRequest:
       properties:
         name:
-          description: Name is the Docker container name to add.
+          description: Name is an optional container name override.
           example: my-project
+          type: string
+        projectPath:
+          description: ProjectPath is the absolute host directory to register as a
+            project.
+          example: /home/user/my-project
           type: string
       type: object
     server.apiError:
@@ -662,14 +679,14 @@ info:
 openapi: 3.1.0
 paths:
   /api/v1/audit:
-    get:
+    delete:
       description: |-
-        Returns audit-relevant events (sessions, tool uses, prompts, lifecycle)
-        with optional filtering by project, worktree, category, and time range.
+        Removes audit events matching the given filters. Supports scoping by
+        project, worktree, and time range.
       parameters:
-      - description: Filter by container name
+      - description: Filter by project ID
         in: query
-        name: container
+        name: projectId
         schema:
           type: string
       - description: Filter by worktree ID
@@ -677,9 +694,64 @@ paths:
         name: worktree
         schema:
           type: string
-      - description: Filter by category (session, tool, prompt, lifecycle)
+      - description: Delete entries after this timestamp (RFC3339)
+        in: query
+        name: since
+        schema:
+          type: string
+      - description: Delete entries before this timestamp (RFC3339)
+        in: query
+        name: until
+        schema:
+          type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                properties:
+                  deleted:
+                    type: integer
+                type: object
+          description: OK
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/server.apiError'
+          description: Internal Server Error
+      summary: Delete audit events
+      tags:
+      - audit
+    get:
+      description: |-
+        Returns audit-relevant events (sessions, tool uses, prompts, lifecycle)
+        with optional filtering by project, worktree, category, and time range.
+      parameters:
+      - description: Filter by project ID
+        in: query
+        name: projectId
+        schema:
+          type: string
+      - description: Filter by worktree ID
+        in: query
+        name: worktree
+        schema:
+          type: string
+      - description: Filter by category (session, agent, prompt, config, budget, system,
+          debug)
         in: query
         name: category
+        schema:
+          type: string
+      - description: Filter by source (agent, backend, frontend, container)
+        in: query
+        name: source
+        schema:
+          type: string
+      - description: Filter by level (info, warning, error)
+        in: query
+        name: level
         schema:
           type: string
       - description: Filter entries after this timestamp (RFC3339)
@@ -720,6 +792,37 @@ paths:
       summary: Get audit log
       tags:
       - audit
+    post:
+      description: Writes a custom audit event from the frontend or an external consumer.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              oneOf:
+              - type: object
+              - $ref: '#/components/schemas/api.PostAuditEventRequest'
+                description: Audit event to record
+                summary: body
+        description: Audit event to record
+        required: true
+      responses:
+        "204":
+          description: No Content
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/server.apiError'
+          description: Bad Request
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/server.apiError'
+          description: Internal Server Error
+      summary: Post audit event
+      tags:
+      - audit
   /api/v1/audit/export:
     get:
       description: Downloads audit events as CSV or JSON for compliance review.
@@ -729,9 +832,9 @@ paths:
         name: format
         schema:
           type: string
-      - description: Filter by container name
+      - description: Filter by project ID
         in: query
-        name: container
+        name: projectId
         schema:
           type: string
       - description: Filter by worktree ID
@@ -739,7 +842,8 @@ paths:
         name: worktree
         schema:
           type: string
-      - description: Filter by category (session, tool, prompt, lifecycle)
+      - description: Filter by category (session, agent, prompt, config, budget, system,
+          debug)
         in: query
         name: category
         schema:
@@ -770,15 +874,36 @@ paths:
       summary: Export audit log
       tags:
       - audit
+  /api/v1/audit/projects:
+    get:
+      description: Returns distinct project IDs that have audit events recorded.
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  type: string
+                type: array
+          description: OK
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/server.apiError'
+          description: Internal Server Error
+      summary: List audit projects
+      tags:
+      - audit
   /api/v1/audit/summary:
     get:
       description: |-
         Returns aggregate statistics for audit events including session counts,
         tool usage, cost totals, and top tools.
       parameters:
-      - description: Filter by container name
+      - description: Filter by project ID
         in: query
-        name: container
+        name: projectId
         schema:
           type: string
       - description: Filter by worktree ID
