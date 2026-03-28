@@ -1,6 +1,11 @@
 module github.com/thesimonho/warden
 
-go 1.25.8
+go 1.26
+
+// Versions v1.0.0–v1.4.1 were published from a previous (now deleted) repository.
+// They are stale and incompatible with the current codebase.
+// This retract block takes effect when a version > v1.4.1 is released.
+retract [v1.0.0, v1.4.1]
 
 require (
 	charm.land/bubbles/v2 v2.0.0
