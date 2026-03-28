@@ -233,8 +233,8 @@ func (a *ServiceAdapter) GetDefaults(_ context.Context) (*api.DefaultsResponse, 
 }
 
 // ListDirectories delegates to api.Service.ListDirectories.
-func (a *ServiceAdapter) ListDirectories(_ context.Context, path string) ([]api.DirEntry, error) {
-	return a.app.Service.ListDirectories(path)
+func (a *ServiceAdapter) ListDirectories(_ context.Context, path string, includeFiles bool) ([]api.DirEntry, error) {
+	return a.app.Service.ListDirectories(path, includeFiles)
 }
 
 // ListRuntimes delegates to api.Service.ListRuntimes.

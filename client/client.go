@@ -298,10 +298,16 @@ func (c *Client) GetDefaults(ctx context.Context) (*api.DefaultsResponse, error)
 	return &resp, nil
 }
 
-// ListDirectories returns subdirectories at a path for the filesystem browser.
-func (c *Client) ListDirectories(ctx context.Context, path string) ([]api.DirEntry, error) {
+// ListDirectories returns filesystem entries at a path for the browser.
+// When includeFiles is true, files are returned alongside directories.
+func (c *Client) ListDirectories(ctx context.Context, path string, includeFiles bool) ([]api.DirEntry, error) {
+	params := url.Values{}
+	params.Set("path", path)
+	if includeFiles {
+		params.Set("mode", "file")
+	}
 	var entries []api.DirEntry
-	if err := c.get(ctx, "/api/v1/filesystem/directories?path="+url.QueryEscape(path), &entries); err != nil {
+	if err := c.get(ctx, "/api/v1/filesystem/directories?"+params.Encode(), &entries); err != nil {
 		return nil, err
 	}
 	return entries, nil

@@ -1062,13 +1062,15 @@ func (rt *routes) handleListRuntimes(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, rt.svc.ListRuntimes(r.Context()))
 }
 
-// handleListDirectories returns subdirectories at the given path for the
-// filesystem browser in the Create Container dialog.
+// handleListDirectories returns filesystem entries at the given path for the
+// browser in the Create Container dialog.
 //
-//	@Summary		List directories
-//	@Description	Returns subdirectories at the given path for the filesystem browser UI.
+//	@Summary		List filesystem entries
+//	@Description	Returns filesystem entries at the given path. By default only directories
+//	@Description	are returned. Pass mode=file to include files alongside directories.
 //	@Tags			host
-//	@Param			path	query		string	true	"Absolute path to list subdirectories of"
+//	@Param			path	query		string	true	"Absolute path to list entries in"
+//	@Param			mode	query		string	false	"Browse mode: omit for directories only, 'file' for directories and files"
 //	@Success		200		{array}		api.DirEntry
 //	@Failure		400		{object}	apiError
 //	@Failure		500		{object}	apiError
@@ -1085,7 +1087,9 @@ func (rt *routes) handleListDirectories(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	dirs, err := rt.svc.ListDirectories(path)
+	includeFiles := r.URL.Query().Get("mode") == "file"
+
+	dirs, err := rt.svc.ListDirectories(path, includeFiles)
 	if err != nil {
 		writeError(w, ErrCodeInternal, err.Error(), http.StatusInternalServerError)
 		slog.Error("list directories", "path", path, "err", err)

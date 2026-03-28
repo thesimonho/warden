@@ -10,6 +10,14 @@ export function abbreviateHomePath(path: string): string {
   return path.replace(/^\/(?:home|Users)\/[^/]+/, '~')
 }
 
+/**
+ * Returns the parent directory of an absolute POSIX path.
+ * Strips a trailing slash before computing. Returns '/' at the root.
+ */
+export function parentDir(path: string): string {
+  return path.replace(/\/[^/]+\/?$/, '') || '/'
+}
+
 /** Returns a human-readable relative time string for a Unix timestamp in seconds. */
 export function relativeTime(unixSeconds: number): string {
   const diffSeconds = Math.floor(Date.now() / 1000 - unixSeconds)

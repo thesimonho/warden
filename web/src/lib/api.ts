@@ -337,15 +337,18 @@ export async function revealInFileManager(path: string): Promise<void> {
 }
 
 /**
- * Lists subdirectories at the given path for the filesystem browser.
+ * Lists filesystem entries at the given path for the browser.
  *
- * @param dirPath - Absolute path to list directories in.
- * @returns An array of directory entries.
+ * @param dirPath - Absolute path to list entries in.
+ * @param includeFiles - When true, returns files alongside directories.
+ * @returns An array of filesystem entries.
  */
-export async function listDirectories(dirPath: string): Promise<DirEntry[]> {
-  const response = await apiFetch(
-    `/api/v1/filesystem/directories?path=${encodeURIComponent(dirPath)}`,
-  )
+export async function listDirectories(dirPath: string, includeFiles = false): Promise<DirEntry[]> {
+  const params = new URLSearchParams({ path: dirPath })
+  if (includeFiles) {
+    params.set('mode', 'file')
+  }
+  const response = await apiFetch(`/api/v1/filesystem/directories?${params.toString()}`)
   return response.json() as Promise<DirEntry[]>
 }
 
