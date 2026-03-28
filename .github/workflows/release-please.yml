@@ -265,4 +265,6 @@ jobs:
     uses: ./.github/workflows/container.yml
     with:
       tag_name: ${{ needs.release-please.outputs.tag_name }}
+      major: ${{ needs.release-please.outputs.major }}
+      minor: ${{ needs.release-please.outputs.minor }}
     secrets: inherit
