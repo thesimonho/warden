@@ -1,0 +1,338 @@
+---
+title: HTTP API
+description: Integrate Warden into any application using the REST API, SSE events, and WebSocket terminals.
+---
+
+import { Tabs, TabItem } from "@astrojs/starlight/components";
+
+Run the `warden` binary as a headless server and make HTTP requests to it. This works from any language.
+
+## Setup
+
+```bash
+# Start the server (default: localhost:8090)
+./warden
+
+# Or with a custom address
+ADDR=0.0.0.0:9000 ./warden
+```
+
+The server exposes all endpoints under `/api/v1/`. See the [API Reference](../../reference/api/) for the full endpoint list.
+
+## Example: List projects
+
+<Tabs>
+  <TabItem label="curl">
+    ```bash
+    curl http://localhost:8090/api/v1/projects
+    ```
+  </TabItem>
+  <TabItem label="TypeScript">
+    ```typescript
+    const response = await fetch("http://localhost:8090/api/v1/projects");
+    const projects = await response.json();
+    ```
+  </TabItem>
+  <TabItem label="Python">
+    ```python
+    import requests
+
+    response = requests.get("http://localhost:8090/api/v1/projects")
+    projects = response.json()
+    ```
+  </TabItem>
+  <TabItem label="Go">
+    ```go
+    resp, err := http.Get("http://localhost:8090/api/v1/projects")
+    if err != nil {
+        return err
+    }
+    defer resp.Body.Close()
+
+    var projects []Project
+    json.NewDecoder(resp.Body).Decode(&projects)
+    ```
+  </TabItem>
+</Tabs>
+
+## Example: Create a project
+
+<Tabs>
+  <TabItem label="curl">
+    ```bash
+    curl -X POST http://localhost:8090/api/v1/projects \
+      -H "Content-Type: application/json" \
+      -d '{"name": "my-project", "projectPath": "/home/user/project"}'
+    ```
+  </TabItem>
+  <TabItem label="TypeScript">
+    ```typescript
+    const response = await fetch("http://localhost:8090/api/v1/projects", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: "my-project",
+        projectPath: "/home/user/project",
+      }),
+    });
+    const result = await response.json();
+    ```
+  </TabItem>
+  <TabItem label="Python">
+    ```python
+    import requests
+
+    response = requests.post(
+        "http://localhost:8090/api/v1/projects",
+        json={
+            "name": "my-project",
+            "projectPath": "/home/user/project",
+        },
+    )
+    result = response.json()
+    ```
+  </TabItem>
+  <TabItem label="Go">
+    ```go
+    body, _ := json.Marshal(map[string]string{
+        "name":        "my-project",
+        "projectPath": "/home/user/project",
+    })
+
+    resp, err := http.Post(
+        "http://localhost:8090/api/v1/projects",
+        "application/json",
+        bytes.NewReader(body),
+    )
+    if err != nil {
+        return err
+    }
+    defer resp.Body.Close()
+
+    var result ProjectResult
+    json.NewDecoder(resp.Body).Decode(&result)
+    ```
+  </TabItem>
+</Tabs>
+
+## Audit API
+
+Query and export audit events. Enable event logging in Settings (default: off).
+
+```
+GET /api/v1/audit
+  ?category=session|agent|prompt|config|budget|system|debug
+  &source=agent|backend|frontend|container
+  &level=info|warn|error
+  &projectID=<project-identifier>
+  &worktree=worktree-id
+  &since=2025-01-01T00:00:00Z
+  &until=2025-02-01T00:00:00Z
+  &limit=100
+  &offset=0
+```
+
+Returns an array of events with timestamp, source, level, event name, project, worktree, message, and event-specific data.
+
+```
+GET /api/v1/audit/summary
+```
+
+Returns aggregate statistics: session count, tool uses, prompts, total cost, unique projects/worktrees, top tools.
+
+```
+GET /api/v1/audit/export?format=csv|json
+  &projectID=<project-identifier>
+  &since=2025-01-01T00:00:00Z
+  &until=2025-02-01T00:00:00Z
+```
+
+Download audit data in bulk for compliance review. Accepts same filters as `/audit`.
+
+```
+GET /api/v1/audit/projects
+```
+
+Returns list of distinct project names (container names) in the audit log for filtering autocomplete.
+
+```
+POST /api/v1/audit
+  {"event": "my_event", "message": "integration event", "level": "info"}
+```
+
+Write custom events. The `event` field is required; `level` defaults to `info`.
+
+```
+DELETE /api/v1/audit
+  ?container=project-name
+  &worktree=worktree-id
+  &since=2025-01-01T00:00:00Z
+  &until=2025-02-01T00:00:00Z
+```
+
+Delete scoped audit records (e.g., by container, worktree, time range).
+
+## Real-time events (SSE)
+
+Subscribe to `GET /api/v1/events` for real-time updates:
+
+<Tabs>
+  <TabItem label="curl">
+    ```bash
+    curl -N http://localhost:8090/api/v1/events
+    ```
+  </TabItem>
+  <TabItem label="TypeScript">
+    ```typescript
+    const eventSource = new EventSource("http://localhost:8090/api/v1/events");
+
+    eventSource.addEventListener("worktree_state", (event) => {
+      const data = JSON.parse(event.data);
+      console.log(`Worktree ${data.worktreeId}: ${data.state}`);
+    });
+
+    eventSource.addEventListener("project_state", (event) => {
+      const data = JSON.parse(event.data);
+      console.log(`Project cost: ${data.cost}`);
+    });
+    ```
+  </TabItem>
+  <TabItem label="Python">
+    ```python
+    import sseclient
+    import requests
+
+    response = requests.get(
+        "http://localhost:8090/api/v1/events",
+        stream=True,
+    )
+    client = sseclient.SSEClient(response)
+
+    for event in client.events():
+        print(f"{event.event}: {event.data}")
+    ```
+  </TabItem>
+  <TabItem label="Go">
+    ```go
+    resp, err := http.Get("http://localhost:8090/api/v1/events")
+    if err != nil {
+        return err
+    }
+    defer resp.Body.Close()
+
+    scanner := bufio.NewScanner(resp.Body)
+    for scanner.Scan() {
+        line := scanner.Text()
+        // Parse SSE format: "event: ...\ndata: ...\n\n"
+        fmt.Println(line)
+    }
+    ```
+  </TabItem>
+</Tabs>
+
+Events include `worktree_state` (terminal state changes), `project_state` (cost updates), `worktree_list_changed`, `budget_exceeded` (when a project exceeds its cost budget), and `budget_container_stopped` (after budget enforcement stops a container — includes `containerId` for matching against project views).
+
+## Terminal lifecycle
+
+Terminal interaction requires two steps:
+
+1. **Connect** (`POST /api/v1/projects/{id}/worktrees/{wid}/connect`) — starts the terminal process (abduco session) if not already running. This is idempotent — calling it on a running terminal is safe.
+
+2. **Attach** (`GET /api/v1/projects/{id}/ws/{wid}`) — opens a WebSocket viewer into the running session. Binary frames carry PTY I/O; text frames carry JSON control messages (resize).
+
+The abduco session survives viewer disconnects. After the viewer closes:
+
+3. **Disconnect** (`POST /api/v1/projects/{id}/worktrees/{wid}/disconnect`) — notifies the server the viewer closed (triggers state update events).
+
+To fully terminate a terminal, use **Kill** (`POST /api/v1/projects/{id}/worktrees/{wid}/kill`) instead.
+
+```
+Connect (start process) → Attach (open viewer) → Read/Write → Close viewer → Disconnect
+                                                                              └→ or Kill (terminate process)
+```
+
+### WebSocket protocol
+
+The terminal WebSocket at `/api/v1/projects/{id}/ws/{wid}` uses:
+
+- **Binary frames**: raw PTY data (stdin input / stdout output)
+- **Text frames**: JSON control messages — currently only resize:
+  ```json
+  {"type": "resize", "cols": 80, "rows": 24}
+  ```
+
+## Error handling
+
+All error responses include a machine-readable `code` field you can match on instead of parsing the human-readable message:
+
+<Tabs>
+  <TabItem label="curl">
+    ```json
+    {
+      "error": "Project name already in use",
+      "code": "NAME_TAKEN"
+    }
+    ```
+  </TabItem>
+  <TabItem label="TypeScript">
+    ```typescript
+    const response = await fetch("http://localhost:8090/api/v1/projects", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "my-project", projectPath: "/path" }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      console.error(`${error.code}: ${error.error}`);
+      // error.code is a machine-readable string like "NAME_TAKEN"
+    }
+    ```
+  </TabItem>
+  <TabItem label="Python">
+    ```python
+    response = requests.post(
+        "http://localhost:8090/api/v1/projects",
+        json={"name": "my-project", "projectPath": "/path"},
+    )
+
+    if not response.ok:
+        error = response.json()
+        print(f"{error['code']}: {error['error']}")
+        # error["code"] is a machine-readable string like "NAME_TAKEN"
+    ```
+  </TabItem>
+  <TabItem label="Go">
+    ```go
+    if resp.StatusCode != http.StatusOK {
+        var apiErr struct {
+            Error string `json:"error"`
+            Code  string `json:"code"`
+        }
+        json.NewDecoder(resp.Body).Decode(&apiErr)
+        fmt.Printf("%s: %s\n", apiErr.Code, apiErr.Error)
+        // apiErr.Code is a machine-readable string like "NAME_TAKEN"
+    }
+    ```
+  </TabItem>
+</Tabs>
+
+### Error codes
+
+| Code | HTTP Status | Meaning |
+| ---- | ----------- | ------- |
+| `INVALID_BODY` | 400 | Request body is invalid or malformed JSON |
+| `INVALID_CONTAINER_ID` | 400 | Container ID format is invalid |
+| `INVALID_CONTAINER_NAME` | 400 | Container name format is invalid |
+| `INVALID_WORKTREE_ID` | 400 | Worktree ID format is invalid |
+| `INVALID_WORKTREE_NAME` | 400 | Worktree name violates git branch naming rules |
+| `REQUIRED_FIELD` | 400 | A required field is missing |
+| `INVALID_PATH` | 400 | File path is invalid or unsafe |
+| `INVALID_NETWORK_CONFIG` | 400 | Network mode or domain configuration is invalid |
+| `NOT_A_DIRECTORY` | 400 | Expected a directory but got a file |
+| `NOT_FOUND` | 404 | Resource (container, worktree, project) does not exist |
+| `BUDGET_EXCEEDED` | 403 | Project cost budget exceeded (restart blocked) |
+| `NAME_TAKEN` | 409 | Container or project name is already in use |
+| `STALE_MOUNTS` | 409 | Container bind mounts reference missing host paths |
+| `NOT_CONFIGURED` | 503 | Required infrastructure is not available (Docker/Podman not running) |
+| `INTERNAL` | 500 | Unexpected server error |
