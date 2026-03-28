@@ -57,6 +57,19 @@ if [ "$NEED_BUILD_DEPS" = true ]; then
 fi
 
 # -------------------------------------------------------------------
+# gosu — lightweight privilege drop (setuid/setgid + exec).
+# Pre-built in the multi-stage Dockerfile; installed here for the
+# devcontainer feature path.
+# -------------------------------------------------------------------
+if [ ! -f /usr/local/bin/gosu ]; then
+  GOSU_VERSION="${GOSU_VERSION:-1.17}"
+  arch="$(dpkg --print-architecture)"
+  curl -fsSL -o /usr/local/bin/gosu \
+    "https://github.com/tianon/gosu/releases/download/${GOSU_VERSION}/gosu-${arch}"
+  chmod +x /usr/local/bin/gosu
+fi
+
+# -------------------------------------------------------------------
 # abduco — session management with exit status tracking
 # -------------------------------------------------------------------
 if [ "$NEED_BUILD_DEPS" = true ]; then
@@ -150,7 +163,7 @@ fi
 # -------------------------------------------------------------------
 # Copy terminal scripts to /usr/local/bin/
 # -------------------------------------------------------------------
-for script in entrypoint.sh create-terminal.sh disconnect-terminal.sh kill-worktree.sh warden-event.sh warden-write-event.sh warden-heartbeat.sh warden-push-event.sh warden-cost-lib.sh warden-capture-cost.sh setup-network-isolation.sh; do
+for script in entrypoint.sh user-entrypoint.sh create-terminal.sh disconnect-terminal.sh kill-worktree.sh warden-event.sh warden-write-event.sh warden-heartbeat.sh warden-push-event.sh warden-cost-lib.sh warden-capture-cost.sh setup-network-isolation.sh; do
   if [ -f "${SCRIPTS_DIR}/${script}" ]; then
     cp "${SCRIPTS_DIR}/${script}" "/usr/local/bin/${script}"
     chmod +x "/usr/local/bin/${script}"

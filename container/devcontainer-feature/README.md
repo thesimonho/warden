@@ -5,8 +5,9 @@ Installs the terminal infrastructure required by [Warden](https://github.com/the
 ## What it installs
 
 - **abduco** — terminal persistence across viewer disconnections
+- **gosu** — lightweight privilege drop for the entrypoint
 - **Claude Code CLI** — AI coding assistant
-- **Terminal scripts** — `create-terminal.sh`, `disconnect-terminal.sh`, `entrypoint.sh`
+- **Terminal scripts** — `create-terminal.sh`, `disconnect-terminal.sh`, `entrypoint.sh`, `user-entrypoint.sh`
 - **`dev` user** — non-root user for running terminals
 
 ## Usage
@@ -35,6 +36,7 @@ Then create a project in Warden using `my-warden-image:latest` as the image.
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
 | `abducoVersion` | string | `0.6` | Version of abduco to install |
+| `gosuVersion` | string | `1.17` | Version of gosu to install |
 
 ## Notes
 

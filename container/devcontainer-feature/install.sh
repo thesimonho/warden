@@ -12,6 +12,7 @@ set -euo pipefail
 # -------------------------------------------------------------------
 
 export ABDUCO_VERSION="${ABDUCOVERSION:-0.6}"
+export GOSU_VERSION="${GOSUVERSION:-1.17}"
 
 FEATURE_DIR="$(cd "$(dirname "$0")" && pwd)"
 "${FEATURE_DIR}/install-tools.sh"
