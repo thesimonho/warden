@@ -23,8 +23,11 @@ const (
 	actionCount // sentinel — number of actions
 )
 
-// purgeConfirmWord is the text the user must type to confirm audit purge.
-const purgeConfirmWord = "purge"
+// purgeConfirmWord returns the text the user must type to confirm audit purge.
+// Uses the project name so the confirmation is project-specific.
+func purgeConfirmWord(name string) string {
+	return name
+}
 
 // ManageProjectView is an inline overlay for managing a project.
 // It presents four independent destructive actions as toggleable
@@ -33,7 +36,7 @@ type ManageProjectView struct {
 	client    Client
 	projectID string
 	name      string
-	// Whether the project has a Docker container.
+	// Whether the project has a container.
 	hasContainer bool
 
 	// Checkbox states — all unchecked by default.
@@ -54,9 +57,9 @@ type ManageProjectView struct {
 // NewManageProjectView creates a manage dialog for the given project.
 func NewManageProjectView(client Client, projectID, name string, hasContainer bool) *ManageProjectView {
 	ti := textinput.New()
-	ti.Placeholder = purgeConfirmWord
+	ti.Placeholder = purgeConfirmWord(name)
 	ti.Prompt = "> "
-	ti.CharLimit = 10
+	ti.CharLimit = len(name) + 5
 
 	return &ManageProjectView{
 		client:       client,
@@ -134,7 +137,7 @@ func (v *ManageProjectView) Render(width, height int) string {
 	}
 	descs := [actionCount]string{
 		"Untrack this project from Warden",
-		"Stop and permanently remove the Docker container",
+		"Stop and permanently remove the container",
 		"Clear all tracked cost data",
 		"Permanently delete all audit events",
 	}
@@ -166,7 +169,7 @@ func (v *ManageProjectView) Render(width, height int) string {
 
 	if v.confirming {
 		s.WriteString("\n")
-		s.WriteString(Styles.Error.Render("Type '"+purgeConfirmWord+"' to confirm audit deletion:") + "\n")
+		s.WriteString(Styles.Error.Render("Type '"+purgeConfirmWord(v.name)+"' to confirm audit deletion:") + "\n")
 		s.WriteString(v.confirmInput.View() + "\n")
 		s.WriteString(Styles.Muted.Render("enter to confirm · esc to cancel") + "\n")
 		return s.String()
@@ -244,7 +247,7 @@ func (v *ManageProjectView) updateConfirm(msg tea.KeyPressMsg) (View, tea.Cmd) {
 		v.confirmInput.SetValue("")
 		return v, nil
 	case "enter":
-		if v.confirmInput.Value() == purgeConfirmWord {
+		if v.confirmInput.Value() == purgeConfirmWord(v.name) {
 			v.confirming = false
 			v.executing = true
 			return v, v.executeActions()
