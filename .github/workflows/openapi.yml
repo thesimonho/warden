@@ -1,0 +1,54 @@
+name: OpenAPI
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'internal/server/**'
+      - 'engine/types.go'
+      - 'service/**'
+      - 'eventbus/types.go'
+      - 'eventlog/entry.go'
+      - 'runtime/detect.go'
+      - 'devcontainer/filesystem.go'
+      - 'docs/openapi/**'
+      - '.github/workflows/openapi.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'internal/server/**'
+      - 'engine/types.go'
+      - 'service/**'
+      - 'eventbus/types.go'
+      - 'eventlog/entry.go'
+      - 'runtime/detect.go'
+      - 'devcontainer/filesystem.go'
+      - 'docs/openapi/**'
+      - '.github/workflows/openapi.yml'
+permissions:
+  contents: write
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          # Full ref for push-back; PR events need the head ref.
+          ref: ${{ github.head_ref || github.ref }}
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+      - run: go install github.com/swaggo/swag/v2/cmd/swag@v2.0.0-rc5
+      - run: go mod download
+      - run: swag init --v3.1 --parseInternal --parseDependency --generalInfo internal/server/doc.go --output docs/openapi --outputTypes yaml
+      - name: Commit updated spec if changed
+        run: |
+          if git diff --quiet docs/openapi/swagger.yaml; then
+            echo "OpenAPI spec is up to date"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add docs/openapi/swagger.yaml
+          git commit -m "chore: regenerate OpenAPI spec"
+          git push
