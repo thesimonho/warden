@@ -72,6 +72,7 @@ export default defineConfig({
 				{ slug: "contributing" },
 				{ slug: "changelog" },
 			],
+			customCss: ["./src/styles/custom.css"],
 			favicon: "/favicon.ico",
 			lastUpdated: true,
 		}),
