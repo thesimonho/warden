@@ -563,7 +563,7 @@ func (rt *routes) handleCleanupWorktrees(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	writeJSON(w, map[string]any{"removed": removed})
+	writeJSON(w, cleanupWorktreesResponse{Removed: removed})
 }
 
 // handleGetWorktreeDiff returns uncommitted changes for a worktree.
@@ -741,7 +741,7 @@ func (rt *routes) handleValidateContainer(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	writeJSON(w, map[string]any{"valid": result.Valid, "missing": result.Missing})
+	writeJSON(w, validateContainerResponse{Valid: result.Valid, Missing: result.Missing})
 }
 
 // handleUpdateContainer recreates the project's container with updated configuration.
@@ -832,7 +832,7 @@ func (rt *routes) handleUpdateSettings(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, map[string]bool{"restartRequired": result.RestartRequired})
+	writeJSON(w, updateSettingsResponse{RestartRequired: result.RestartRequired})
 }
 
 // --- Audit Log ---
@@ -843,9 +843,11 @@ func (rt *routes) handleUpdateSettings(w http.ResponseWriter, r *http.Request) {
 //	@Description	Returns audit-relevant events (sessions, tool uses, prompts, lifecycle)
 //	@Description	with optional filtering by project, worktree, category, and time range.
 //	@Tags			audit
-//	@Param			container	query		string	false	"Filter by container name"
+//	@Param			projectId	query		string	false	"Filter by project ID"
 //	@Param			worktree	query		string	false	"Filter by worktree ID"
-//	@Param			category	query		string	false	"Filter by category (session, tool, prompt, lifecycle)"
+//	@Param			category	query		string	false	"Filter by category (session, agent, prompt, config, budget, system, debug)"
+//	@Param			source		query		string	false	"Filter by source (agent, backend, frontend, container)"
+//	@Param			level		query		string	false	"Filter by level (info, warning, error)"
 //	@Param			since		query		string	false	"Filter entries after this timestamp (RFC3339)"
 //	@Param			until		query		string	false	"Filter entries before this timestamp (RFC3339)"
 //	@Param			limit		query		int		false	"Maximum entries to return (default 10000)"
@@ -889,7 +891,7 @@ func (rt *routes) handleGetAuditLog(w http.ResponseWriter, r *http.Request) {
 //	@Description	Returns aggregate statistics for audit events including session counts,
 //	@Description	tool usage, cost totals, and top tools.
 //	@Tags			audit
-//	@Param			container	query		string	false	"Filter by container name"
+//	@Param			projectId	query		string	false	"Filter by project ID"
 //	@Param			worktree	query		string	false	"Filter by worktree ID"
 //	@Param			since		query		string	false	"Filter entries after this timestamp (RFC3339)"
 //	@Param			until		query		string	false	"Filter entries before this timestamp (RFC3339)"
@@ -922,9 +924,9 @@ func (rt *routes) handleGetAuditSummary(w http.ResponseWriter, r *http.Request) 
 //	@Description	Downloads audit events as CSV or JSON for compliance review.
 //	@Tags			audit
 //	@Param			format		query		string	false	"Export format: csv or json (default json)"
-//	@Param			container	query		string	false	"Filter by container name"
+//	@Param			projectId	query		string	false	"Filter by project ID"
 //	@Param			worktree	query		string	false	"Filter by worktree ID"
-//	@Param			category	query		string	false	"Filter by category (session, tool, prompt, lifecycle)"
+//	@Param			category	query		string	false	"Filter by category (session, agent, prompt, config, budget, system, debug)"
 //	@Param			since		query		string	false	"Filter entries after this timestamp (RFC3339)"
 //	@Param			until		query		string	false	"Filter entries before this timestamp (RFC3339)"
 //	@Success		200			{file}		file
@@ -977,6 +979,13 @@ func (rt *routes) handleExportAuditLog(w http.ResponseWriter, r *http.Request) {
 }
 
 // handleGetAuditProjects returns distinct project names from the audit log.
+//
+//	@Summary		List audit projects
+//	@Description	Returns distinct project IDs that have audit events recorded.
+//	@Tags			audit
+//	@Success		200	{array}		string
+//	@Failure		500	{object}	apiError
+//	@Router			/api/v1/audit/projects [get]
 func (rt *routes) handleGetAuditProjects(w http.ResponseWriter, _ *http.Request) {
 	projects, err := rt.svc.GetAuditProjects()
 	if err != nil {
@@ -992,6 +1001,16 @@ func (rt *routes) handleGetAuditProjects(w http.ResponseWriter, _ *http.Request)
 }
 
 // handlePostAuditEvent accepts a frontend event and writes it to the audit log.
+//
+//	@Summary		Post audit event
+//	@Description	Writes a custom audit event from the frontend or an external consumer.
+//	@Tags			audit
+//	@Accept			json
+//	@Param			body	body	api.PostAuditEventRequest	true	"Audit event to record"
+//	@Success		204
+//	@Failure		400	{object}	apiError
+//	@Failure		500	{object}	apiError
+//	@Router			/api/v1/audit [post]
 func (rt *routes) handlePostAuditEvent(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, 4<<10)
 
@@ -1015,7 +1034,18 @@ func (rt *routes) handlePostAuditEvent(w http.ResponseWriter, r *http.Request) {
 }
 
 // handleDeleteAuditEvents removes events matching query filters.
-// Supports scoping by container, worktree, since, and until.
+//
+//	@Summary		Delete audit events
+//	@Description	Removes audit events matching the given filters. Supports scoping by
+//	@Description	project, worktree, and time range.
+//	@Tags			audit
+//	@Param			projectId	query		string	false	"Filter by project ID"
+//	@Param			worktree	query		string	false	"Filter by worktree ID"
+//	@Param			since		query		string	false	"Delete entries after this timestamp (RFC3339)"
+//	@Param			until		query		string	false	"Delete entries before this timestamp (RFC3339)"
+//	@Success		200			{object}	object{deleted=int64}
+//	@Failure		500			{object}	apiError
+//	@Router			/api/v1/audit [delete]
 func (rt *routes) handleDeleteAuditEvents(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
 
