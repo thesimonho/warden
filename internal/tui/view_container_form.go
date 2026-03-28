@@ -236,6 +236,11 @@ func (v *ContainerFormView) Update(msg tea.Msg) (View, tea.Cmd) {
 				})
 			}
 		}
+		if v.editID == "" && len(v.envVars) == 0 && len(v.defaults.EnvVars) > 0 {
+			for _, ev := range v.defaults.EnvVars {
+				v.envVars = append(v.envVars, envVarEntry{key: ev.Key, value: ev.Value})
+			}
+		}
 		if v.editID == "" {
 			v.loading = false
 		}

@@ -113,8 +113,13 @@ export default function ProjectConfigForm({
         if (defaults.containerHomeDir) {
           setContainerHomeDir(defaults.containerHomeDir)
         }
-        if (mode === 'create' && defaults.mounts?.length > 0) {
-          setMounts(defaults.mounts)
+        if (mode === 'create') {
+          if (defaults.mounts?.length > 0) {
+            setMounts(defaults.mounts)
+          }
+          if (defaults.envVars?.length) {
+            setEnvVars(defaults.envVars)
+          }
         }
       })
       .catch(() => {})

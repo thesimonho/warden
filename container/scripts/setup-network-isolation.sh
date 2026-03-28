@@ -10,19 +10,17 @@ set -euo pipefail
 #
 # Modes:
 #   "none"       — block all outbound traffic (air-gapped)
-#   "restricted" — allow only DNS + resolved allowed domains
-#   "full"       — no restrictions (this script should not be called)
+#   "restricted" — dnsmasq + ipset for dynamic domain-based filtering
+#   "full"       — no restrictions (this script exits immediately)
+#
+# Restricted mode uses dnsmasq as a local DNS forwarder. When a DNS
+# query matches an allowed domain, dnsmasq adds the resolved IPs to
+# an ipset. iptables allows traffic to any IP in the set. This handles
+# wildcard domains correctly — e.g. *.github.com covers ssh.github.com
+# even when it resolves to different IPs than github.com.
 #
 # Requires NET_ADMIN capability (added by the Go container creation
 # code for non-full modes).
-#
-# Limitations:
-#   - Domain IPs are resolved once at container start. If a CDN
-#     rotates IPs, the container may lose access. Restart to refresh.
-#   - Wildcard domains (*.example.com) are supported but resolve
-#     the base domain only (e.g. *.github.com resolves github.com).
-#     This works well for CDNs that share IPs with the base domain
-#     but may not cover all subdomains for services like AWS/GCP.
 # -------------------------------------------------------------------
 
 MODE="${WARDEN_NETWORK_MODE:-full}"
@@ -31,28 +29,43 @@ if [ "$MODE" = "full" ]; then
   exit 0
 fi
 
-# Flush any existing OUTPUT rules to start clean
+# --- Shared helpers ---
+
+# Resolve a domain token to IPv4 addresses (one per line).
+# Strips leading *. before resolving.
+resolve_domain_ips() {
+  local domain
+  domain=$(echo "$1" | xargs)
+  [ -z "$domain" ] && return
+  domain="${domain#\*.}"
+  [ -z "$domain" ] && return
+  getent ahosts "$domain" 2>/dev/null \
+    | awk '$1 ~ /^[0-9]+\./ {print $1}' | sort -u || true
+}
+
+# Flush any existing OUTPUT rules to start clean.
 iptables -F OUTPUT 2>/dev/null || true
 
-# Always allow loopback (required for internal services)
+# Always allow loopback (required for internal services and dnsmasq).
 iptables -A OUTPUT -o lo -j ACCEPT
 
 # Allow established/related connections (responses to incoming
-# traffic from the host)
+# traffic from the host).
 iptables -A OUTPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
 
 if [ "$MODE" = "none" ]; then
-  # Air-gapped: drop everything else
+  # Air-gapped: drop everything else.
   iptables -A OUTPUT -j DROP
   echo "[warden] network isolation: air-gapped (all outbound blocked)"
   exit 0
 fi
 
 if [ "$MODE" = "restricted" ]; then
-  # Allow DNS — read the nameserver from resolv.conf so this works
-  # with both Docker (127.0.0.11) and Podman (varies by config).
-  DNS_SERVERS=$(awk '/^nameserver/{print $2}' /etc/resolv.conf | sort -u)
-  for dns in $DNS_SERVERS; do
+  # --- Capture upstream DNS before any changes ---
+  UPSTREAM_DNS=$(awk '/^nameserver/{print $2}' /etc/resolv.conf | sort -u)
+
+  # Allow DNS to upstream servers (so dnsmasq can forward queries).
+  for dns in $UPSTREAM_DNS; do
     iptables -A OUTPUT -p udp -d "$dns" --dport 53 -j ACCEPT
     iptables -A OUTPUT -p tcp -d "$dns" --dport 53 -j ACCEPT
   done
@@ -65,49 +78,88 @@ if [ "$MODE" = "restricted" ]; then
     exit 0
   fi
 
-  # Resolve each domain and allow its IPv4 addresses.
-  # IPv6 addresses from getent ahosts are filtered out since we only
-  # configure iptables (IPv4). IPv6 traffic is blocked by default.
-  #
-  # Wildcard domains (*.example.com) are resolved by stripping the
-  # *. prefix and resolving the base domain. This covers CDNs and
-  # services that share IPs with the base domain.
+  # --- Check if dnsmasq + ipset are available ---
+  # Both are installed by install-tools.sh, but custom images may lack them.
+  if ! command -v dnsmasq >/dev/null 2>&1 || ! command -v ipset >/dev/null 2>&1; then
+    echo "[warden] warning: dnsmasq or ipset not available, falling back to static resolution"
+    IFS=',' read -ra DOMAINS <<< "$ALLOWED_DOMAINS"
+    for domain in "${DOMAINS[@]}"; do
+      for ip in $(resolve_domain_ips "$domain"); do
+        iptables -A OUTPUT -d "$ip" -j ACCEPT
+      done
+    done
+    iptables -A OUTPUT -j DROP
+    echo "[warden] network isolation: restricted/static ($(echo "$ALLOWED_DOMAINS" | tr ',' ' '))"
+    exit 0
+  fi
+
+  # --- Create ipset with auto-expiry ---
+  # Entries expire after 300s unless refreshed by a new DNS lookup.
+  # The ESTABLISHED,RELATED rule keeps existing connections alive.
+  ipset create warden_allowed hash:ip timeout 300 2>/dev/null || true
+
+  # --- Generate dnsmasq config ---
+  # dnsmasq's /domain/ syntax matches the domain AND all subdomains,
+  # so *.github.com is written as /github.com/ (strip *. prefix).
+  mkdir -p /etc/dnsmasq.d
+  {
+    echo "# Warden network isolation — generated at container start"
+    echo "listen-address=127.0.0.53"
+    echo "bind-interfaces"
+    echo "no-resolv"
+    echo "cache-size=1000"
+    for dns in $UPSTREAM_DNS; do
+      echo "server=$dns"
+    done
+    IFS=',' read -ra DOMAINS <<< "$ALLOWED_DOMAINS"
+    for domain in "${DOMAINS[@]}"; do
+      domain=$(echo "$domain" | xargs)
+      [ -z "$domain" ] && continue
+      domain="${domain#\*.}"
+      [ -z "$domain" ] && continue
+      echo "ipset=/${domain}/warden_allowed"
+    done
+  } > /etc/dnsmasq.d/warden.conf
+
+  # --- Seed ipset with initial resolution ---
+  # Pre-populate the ipset using upstream DNS to avoid a bootstrap race
+  # where a process connects before dnsmasq has populated the set.
   IFS=',' read -ra DOMAINS <<< "$ALLOWED_DOMAINS"
   for domain in "${DOMAINS[@]}"; do
-    domain=$(echo "$domain" | xargs) # trim whitespace
-    if [ -z "$domain" ]; then
-      continue
-    fi
-
-    # Handle wildcard domains by resolving the base domain
-    resolve_domain="$domain"
-    if echo "$domain" | grep -q '^\*\.'; then
-      resolve_domain="${domain#\*.}"
-      if [ -z "$resolve_domain" ]; then
-        echo "[warden] warning: invalid wildcard domain: $domain"
-        continue
-      fi
-    fi
-
-    # Filter to IPv4 addresses only (dotted-decimal format)
-    resolved_ips=$(getent ahosts "$resolve_domain" 2>/dev/null \
-      | awk '$1 ~ /^[0-9]+\./ {print $1}' \
-      | sort -u || true)
-    if [ -z "$resolved_ips" ]; then
-      echo "[warden] warning: could not resolve domain: $domain"
-      continue
-    fi
-
-    for ip in $resolved_ips; do
-      iptables -A OUTPUT -d "$ip" -j ACCEPT
-      echo "[warden] allowed: $domain -> $ip"
+    for ip in $(resolve_domain_ips "$domain"); do
+      ipset add warden_allowed "$ip" timeout 300 2>/dev/null || true
     done
   done
 
-  # Drop everything else
+  # --- iptables: allow traffic to IPs in the ipset ---
+  iptables -A OUTPUT -m set --match-set warden_allowed dst -j ACCEPT
+
+  # Drop everything else.
   iptables -A OUTPUT -j DROP
 
-  echo "[warden] network isolation: restricted ($(echo "$ALLOWED_DOMAINS" | tr ',' ' '))"
+  # --- Start dnsmasq and wait for it to be ready ---
+  dnsmasq --conf-dir=/etc/dnsmasq.d --keep-in-foreground &
+  DNSMASQ_PID=$!
+
+  for _ in $(seq 1 20); do
+    if ss -lun sport = 53 2>/dev/null | grep -q 127.0.0.53; then
+      break
+    fi
+    sleep 0.1
+  done
+
+  if ! kill -0 "$DNSMASQ_PID" 2>/dev/null; then
+    echo "[warden] error: dnsmasq failed to start" >&2
+    exit 1
+  fi
+
+  # --- Rewrite resolv.conf to route DNS through dnsmasq ---
+  if ! echo "nameserver 127.0.0.53" > /etc/resolv.conf 2>/dev/null; then
+    echo "[warden] error: could not rewrite resolv.conf for dnsmasq" >&2
+    exit 1
+  fi
+
+  echo "[warden] network isolation: restricted/dynamic via dnsmasq ($(echo "$ALLOWED_DOMAINS" | tr ',' ' '))"
   exit 0
 fi
 

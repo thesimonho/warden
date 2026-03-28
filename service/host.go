@@ -38,8 +38,12 @@ var preferredMounts = []preferredMount{
 	{hostRelPath: ".ssh", containerPath: containerHomeDir + "/.ssh", readOnly: true},
 }
 
+// containerSSHAgentPath is the fixed path where the host's SSH agent
+// socket is mounted inside the container.
+const containerSSHAgentPath = "/run/ssh-agent.sock"
+
 // GetDefaults returns server-resolved default values for the create
-// container form, including auto-detected bind mounts.
+// container form, including auto-detected bind mounts and env vars.
 func (s *Service) GetDefaults() DefaultsResponse {
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
@@ -65,10 +69,30 @@ func (s *Service) GetDefaults() DefaultsResponse {
 		}
 	}
 
+	var envVars []DefaultEnvVar
+
+	// Forward the host's SSH agent socket if available. This lets
+	// git push/pull via SSH work without copying private keys into
+	// the container — the host's already-unlocked agent handles auth.
+	if sshAuthSock := os.Getenv("SSH_AUTH_SOCK"); sshAuthSock != "" {
+		if fi, statErr := os.Stat(sshAuthSock); statErr == nil && fi.Mode().Type() == os.ModeSocket {
+			mounts = append(mounts, DefaultMount{
+				HostPath:      sshAuthSock,
+				ContainerPath: containerSSHAgentPath,
+				ReadOnly:      true,
+			})
+			envVars = append(envVars, DefaultEnvVar{
+				Key:   "SSH_AUTH_SOCK",
+				Value: containerSSHAgentPath,
+			})
+		}
+	}
+
 	return DefaultsResponse{
 		HomeDir:          homeDir,
 		ContainerHomeDir: containerHomeDir,
 		Mounts:           mounts,
+		EnvVars:          envVars,
 	}
 }
 

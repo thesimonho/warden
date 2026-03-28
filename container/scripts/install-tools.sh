@@ -45,7 +45,9 @@ apt-get install -y --no-install-recommends \
   tar \
   openssh-client \
   gnupg \
-  iptables
+  iptables \
+  ipset \
+  dnsmasq-base
 
 if [ "$NEED_BUILD_DEPS" = true ]; then
   apt-get install -y --no-install-recommends \
