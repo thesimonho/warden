@@ -9,6 +9,14 @@ on:
         description: 'Release version tag (e.g., v1.0.0)'
         type: string
         required: true
+      major:
+        description: 'Major version number'
+        type: string
+        required: true
+      minor:
+        description: 'Minor version number'
+        type: string
+        required: true
   workflow_dispatch:
     inputs:
       tag_name:
@@ -58,17 +66,16 @@ jobs:
           provenance: false
           cache-from: type=gha
           cache-to: type=gha,mode=max
-      - name: Delete old GHCR image versions
+      - name: Delete old untagged GHCR image versions
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          KEEP=10
           versions=$(gh api -H "Accept: application/vnd.github+json" \
             "/user/packages/container/${{ env.IMAGE_NAME }}/versions" |
-            jq 'sort_by(.created_at) | reverse | .[].id' | tail -n +$((KEEP + 1)))
+            jq '[.[] | select(.metadata.container.tags | length == 0)] | sort_by(.created_at) | reverse | .[2:] | .[].id')
           for version_id in $versions; do
-            echo "Deleting image version ID: $version_id"
-            gh api --method DELETE "/user/packages/container/${{ env.IMAGE_NAME }}/versions/$version_id"
+            echo "Deleting untagged image version ID: $version_id"
+            gh api --method DELETE "/user/packages/container/${{ env.IMAGE_NAME }}/versions/$version_id" || true
           done
 
   push-feature-latest:
@@ -107,11 +114,13 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Tag image with release version
+      - name: Tag image with release versions
         run: |
-          docker buildx imagetools create \
-            ghcr.io/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}:latest \
-            --tag ghcr.io/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}:${{ inputs.tag_name }}
+          IMAGE=ghcr.io/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}
+          docker buildx imagetools create ${IMAGE}:latest \
+            --tag ${IMAGE}:${{ inputs.tag_name }} \
+            --tag ${IMAGE}:v${{ inputs.major }}.${{ inputs.minor }} \
+            --tag ${IMAGE}:v${{ inputs.major }}
 
   publish-feature-release:
     if: ${{ inputs.tag_name }}
@@ -137,3 +146,14 @@ jobs:
           generate-docs: "true"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Delete old untagged feature versions
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          versions=$(gh api -H "Accept: application/vnd.github+json" \
+            "/user/packages/container/warden%2F${{ env.FEATURE_NAME }}/versions" |
+            jq '[.[] | select(.metadata.container.tags | length == 0)] | .[].id')
+          for version_id in $versions; do
+            echo "Deleting untagged feature version ID: $version_id"
+            gh api --method DELETE "/user/packages/container/warden%2F${{ env.FEATURE_NAME }}/versions/$version_id" || true
+          done
