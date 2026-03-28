@@ -8,8 +8,9 @@ The `container/` directory defines the container image used by project container
 container/
 ├── Dockerfile                          # Multi-stage build: builder compiles abduco, runtime has no build deps
 ├── scripts/
-│   ├── install-tools.sh                # Shared install logic (abduco, Claude Code, dev user, managed hooks, network isolation tools)
-│   ├── entrypoint.sh                   # Container entrypoint: env forwarding, terminal dirs, starts heartbeat loop, stay alive
+│   ├── install-tools.sh                # Shared install logic (abduco, gosu, Claude Code, dev user, managed hooks, network isolation tools)
+│   ├── entrypoint.sh                   # Root-phase entrypoint: UID remapping, iptables, exec gosu to drop privileges
+│   ├── user-entrypoint.sh              # User-phase entrypoint (PID 1 as dev): env forwarding, git config, heartbeat, stay alive
 │   ├── setup-network-isolation.sh      # Network isolation setup: iptables rules based on WARDEN_NETWORK_MODE and WARDEN_ALLOWED_DOMAINS
 │   ├── create-terminal.sh              # Terminal lifecycle: start abduco session, launch Claude Code; pushes session_exit events
 │   ├── disconnect-terminal.sh          # Terminal teardown: kill processes, remove tracking dir; pushes terminal_disconnected event
@@ -30,17 +31,18 @@ container/
 `scripts/install-tools.sh` is the single source of truth for installing Warden's terminal infrastructure. It is used by both the Dockerfile and the devcontainer feature. The script:
 
 1. Installs runtime system deps (git, curl, jq, procps, iproute2, psmisc, iptables)
-2. Compiles abduco from source if not already present (installs build deps, compiles, then purges build deps). When used from the multi-stage Dockerfile, abduco is pre-built in the builder stage and this step is skipped entirely
-3. Creates `dev` non-root user
-4. Installs Claude Code CLI via official installer
-5. Sets up `/home/dev` and `/home/dev/.claude` directories
-6. Adds env var forwarding to `/home/dev/.bashrc`
-7. Copies terminal scripts to `/usr/local/bin/` (including `setup-network-isolation.sh`, `warden-heartbeat.sh`, `warden-write-event.sh`, and other lifecycle scripts)
-8. Creates Claude Code managed settings at `/etc/claude-code/managed-settings.json` with hooks for attention tracking (`Notification`, `UserPromptSubmit`, `PreToolUse`) and event logging (all major hooks, controlled by `eventLogMode` setting)
+2. Installs gosu if not already present (downloaded as a static binary). When used from the multi-stage Dockerfile, gosu is pre-built in the builder stage and this step is skipped entirely
+3. Compiles abduco from source if not already present (installs build deps, compiles, then purges build deps). When used from the multi-stage Dockerfile, abduco is pre-built in the builder stage and this step is skipped entirely
+4. Creates `dev` non-root user
+5. Installs Claude Code CLI via official installer
+6. Sets up `/home/dev` and `/home/dev/.claude` directories
+7. Adds env var forwarding to `/home/dev/.bashrc`
+8. Copies terminal scripts to `/usr/local/bin/` (including `user-entrypoint.sh`, `setup-network-isolation.sh`, `warden-heartbeat.sh`, `warden-write-event.sh`, and other lifecycle scripts)
+9. Creates Claude Code managed settings at `/etc/claude-code/managed-settings.json` with hooks for attention tracking (`Notification`, `UserPromptSubmit`, `PreToolUse`) and event logging (all major hooks, controlled by `eventLogMode` setting)
 
 All steps are idempotent — the script can be run multiple times safely.
 
-Environment variables: `ABDUCO_VERSION` (default: `0.6`).
+Environment variables: `ABDUCO_VERSION` (default: `0.6`), `GOSU_VERSION` (default: `1.17`).
 
 ## Devcontainer Feature
 
@@ -63,15 +65,14 @@ All default Linux capabilities are dropped (`CapDrop: ALL`), then only the minim
 | FOWNER           | Entrypoint file ownership operations         | Always          |
 | FSETID           | Preserve setuid/setgid bits during chown     | Always          |
 | KILL             | Shutdown handler: kill -TERM -1              | Always          |
-| SETUID           | su - dev (setuid syscall from root)          | Always          |
-| SETGID           | su - dev (setgid syscall from root)          | Always          |
-| AUDIT_WRITE      | PAM audit logging used by su                 | Always          |
+| SETUID           | gosu privilege drop (setuid syscall)         | Always          |
+| SETGID           | gosu privilege drop (setgid syscall)         | Always          |
 | NET_BIND_SERVICE | Dev servers binding to ports < 1024          | Always          |
 | NET_RAW          | Ping and network diagnostics                 | Always          |
 | SYS_CHROOT       | Some tools (e.g. npm) use chroot             | Always          |
 | NET_ADMIN        | iptables for network isolation               | restricted/none |
 
-Dropped from Docker defaults: SETPCAP (modify capability sets), MKNOD (create device nodes), SETFCAP (set file capabilities).
+Dropped from Docker defaults: SETPCAP (modify capability sets), MKNOD (create device nodes), SETFCAP (set file capabilities), AUDIT_WRITE (PAM audit logging — not needed since gosu bypasses PAM).
 
 ### 2. Seccomp Profile
 
@@ -84,7 +85,7 @@ A denylist-based seccomp profile (`SCMP_ACT_ALLOW` default) blocks dangerous sys
 
 ### 3. No New Privileges
 
-The `no-new-privileges` flag prevents privilege escalation via setuid/setgid binaries inside the container. The entrypoint runs as root (PID 1) and drops to the `dev` user via `su -`, which uses the `setuid()` syscall directly (permitted by CAP_SETUID) rather than relying on file permission bits.
+The `no-new-privileges` flag prevents privilege escalation via setuid/setgid binaries inside the container. The entrypoint starts as root for privileged setup (UID remapping, iptables), then permanently drops to the `dev` user via `exec gosu`. PID 1 runs as `dev` — no root process remains in the container after the privilege drop.
 
 ### Podman Compatibility
 
@@ -114,7 +115,7 @@ NET_ADMIN capability is added only for `restricted` and `none` modes (see Proces
 
 ## Env Var Forwarding
 
-The `su -` command creates a clean login environment, stripping container env vars. The entrypoint works around this by:
+The `gosu` exec creates a clean environment, stripping container env vars. The user-phase entrypoint works around this by:
 
 1. Writing all env vars to `/home/dev/.docker_env` at startup (excluding `HOME`, `USER`, `SHELL`, etc.)
 2. `.bashrc` sources this file on every new shell
@@ -123,6 +124,7 @@ This ensures all vars passed via `docker run -e` or `podman run -e` are availabl
 
 **Key environment variables set by Warden:**
 
+- `WARDEN_HOST_UID` / `WARDEN_HOST_GID` — host user's UID/GID (from `os.Stat()` of project path). Used by the root-phase entrypoint for UID remapping via `usermod`/`groupmod`
 - `WARDEN_WORKSPACE_DIR` — container-side workspace path (e.g. `/home/dev/my-project`). Set by Warden at container creation to give each project a unique path in Claude Code's `.claude.json` (which keys cost data by workspace path). All scripts use `${WARDEN_WORKSPACE_DIR:-/project}` for backward compatibility with legacy containers.
 - `WARDEN_PROJECT_ID` — deterministic 12-char hex identifier (SHA-256 of resolved absolute host path). Set by Warden at container creation. All event-posting scripts include this in their JSON payloads so the host-side event bus can associate events with the correct project identity, even across container rebuilds.
 - `WARDEN_EVENT_DIR` — bind-mounted event directory path (`/var/warden/events`), used by event-posting scripts
@@ -136,7 +138,7 @@ This ensures all vars passed via `docker run -e` or `podman run -e` are availabl
 Accepts `<worktree-id> [--skip-permissions]`:
 
 - Validates worktree ID (alphanumeric, hyphens, underscores, dots; no path traversal)
-- Starts abduco session `warden-<worktree-id>` via `su - dev`
+- Starts abduco session `warden-<worktree-id>`
 - Launches Claude Code with `--worktree <worktree-id>` (no `--session-id`)
 - If `--skip-permissions` is passed, adds `--dangerously-skip-permissions` to the Claude invocation
 - When Claude exits, captures cost from `.claude.json` via `warden-capture-cost.sh` (catches Ctrl-C case), records exit code to `.warden-terminals/<worktree-id>/exit_code`, pushes `session_exit` event, then drops to `exec bash` so the shell stays alive

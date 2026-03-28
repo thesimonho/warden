@@ -8,6 +8,11 @@
       "type": "string",
       "default": "0.6",
       "description": "Version of abduco to install"
+    },
+    "gosuVersion": {
+      "type": "string",
+      "default": "1.17",
+      "description": "Version of gosu to install for entrypoint privilege drop"
     }
   },
   "containerEnv": {

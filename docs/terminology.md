@@ -22,6 +22,8 @@ These terms belong to Claude Code and must not be used in Warden's code or UI to
 
 ## Process architecture
 
+The container entrypoint starts as root for privileged setup (UID remapping, iptables), then permanently drops to the `dev` user via `exec gosu`. PID 1 runs as `dev` — no root process remains after startup.
+
 Each worktree has one process layer in the container. The browser connects to it via WebSocket through the Go backend proxy.
 
 ```

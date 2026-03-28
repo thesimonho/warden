@@ -10,10 +10,11 @@
 # in the builder stage. Only the compiled abduco binary is copied to the
 # runtime image, keeping it ~200MB smaller and free of compilers.
 
-# ---- builder: compile abduco from source ----
+# ---- builder: compile abduco from source + fetch gosu ----
 FROM ubuntu:24.04 AS builder
 
 ARG ABDUCO_VERSION=0.6
+ARG GOSU_VERSION=1.17
 
 RUN apt-get update \
   && apt-get install -y --no-install-recommends \
@@ -30,10 +31,20 @@ RUN curl -fsSL -o /tmp/abduco.tar.gz \
   && make -C "/tmp/abduco-${ABDUCO_VERSION}" \
   && cp "/tmp/abduco-${ABDUCO_VERSION}/abduco" /usr/local/bin/abduco
 
+# gosu — lightweight setuid/setgid + exec for the entrypoint privilege drop.
+# Same pattern used by official postgres, redis, and mongo images.
+RUN arch="$(dpkg --print-architecture)" \
+  && curl -fsSL -o /usr/local/bin/gosu \
+    "https://github.com/tianon/gosu/releases/download/${GOSU_VERSION}/gosu-${arch}" \
+  && chmod +x /usr/local/bin/gosu \
+  && gosu --version \
+  && gosu nobody true
+
 # ---- runtime: no build deps ----
 FROM ubuntu:24.04
 
 COPY --from=builder /usr/local/bin/abduco /usr/local/bin/abduco
+COPY --from=builder /usr/local/bin/gosu /usr/local/bin/gosu
 
 COPY scripts/ /tmp/warden-scripts/
 RUN chmod +x /tmp/warden-scripts/*.sh \
