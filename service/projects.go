@@ -105,22 +105,23 @@ func (s *Service) RemoveProject(projectID string) (*ProjectResult, error) {
 	// Look up the project name before deleting for the result.
 	var name string
 	if row, err := s.db.GetProject(projectID); err == nil && row != nil {
-		name = row.Name
+		name = effectiveContainerName(row)
 	}
 
 	if err := s.db.DeleteProject(projectID); err != nil {
 		return nil, err
 	}
 
-	if s.GetAuditLogMode() != api.AuditLogOff {
-		s.audit.Write(db.Entry{
-			Source:    db.SourceBackend,
-			Level:     db.LevelInfo,
-			ProjectID: projectID,
-			Event:     "project_removed",
-			Message:   fmt.Sprintf("project %q removed from Warden", name),
-		})
-	} else {
+	s.audit.Write(db.Entry{
+		Source:        db.SourceBackend,
+		Level:         db.LevelInfo,
+		ProjectID:     projectID,
+		ContainerName: name,
+		Event:         "project_removed",
+		Message:       fmt.Sprintf("project %q removed from Warden", name),
+	})
+
+	if s.GetAuditLogMode() == api.AuditLogOff {
 		// Audit logging is off — clean up all associated data.
 		if err := s.db.DeleteProjectCosts(projectID); err != nil {
 			slog.Warn("failed to delete project costs", "projectID", projectID, "err", err)
@@ -139,15 +140,18 @@ func (s *Service) ResetProjectCosts(projectID string) error {
 	if s.db == nil {
 		return nil
 	}
+
+	name := s.resolveProjectName(projectID)
 	if err := s.db.DeleteProjectCosts(projectID); err != nil {
 		return err
 	}
 	s.audit.Write(db.Entry{
-		Source:    db.SourceBackend,
-		Level:     db.LevelInfo,
-		ProjectID: projectID,
-		Event:     "cost_reset",
-		Message:   "project cost history cleared",
+		Source:        db.SourceBackend,
+		Level:         db.LevelInfo,
+		ProjectID:     projectID,
+		ContainerName: name,
+		Event:         "cost_reset",
+		Message:       "project cost history cleared",
 	})
 	return nil
 }
@@ -157,12 +161,14 @@ func (s *Service) ResetProjectCosts(projectID string) error {
 // by it — the event serves as a write-ahead record for external log
 // consumers that process events before they are purged.
 func (s *Service) PurgeProjectAudit(projectID string) (int64, error) {
+	name := s.resolveProjectName(projectID)
 	s.audit.Write(db.Entry{
-		Source:    db.SourceBackend,
-		Level:     db.LevelInfo,
-		ProjectID: projectID,
-		Event:     "audit_purged",
-		Message:   "project audit history purged",
+		Source:        db.SourceBackend,
+		Level:         db.LevelInfo,
+		ProjectID:     projectID,
+		ContainerName: name,
+		Event:         "audit_purged",
+		Message:       "project audit history purged",
 	})
 	return s.DeleteAuditEvents(api.AuditFilters{ProjectID: projectID})
 }
@@ -250,6 +256,27 @@ func applyDBMetadata(p *engine.Project, row *db.ProjectRow, defaultBudget float6
 	}
 }
 
+// HandleContainerStale writes an audit entry when a container's heartbeat
+// goes stale. Called by the event bus stale callback so the audit entry
+// includes full project context (project ID and container name).
+func (s *Service) HandleContainerStale(containerName string) {
+	var projectID string
+	if s.db != nil {
+		if row, err := s.db.GetProjectByContainerName(containerName); err == nil && row != nil {
+			projectID = row.ProjectID
+		}
+	}
+
+	s.audit.Write(db.Entry{
+		Source:        db.SourceBackend,
+		Level:         db.LevelWarn,
+		ProjectID:     projectID,
+		ContainerName: containerName,
+		Event:         "container_heartbeat_stale",
+		Message:       "container heartbeat stale, marking worktrees disconnected",
+	})
+}
+
 // effectiveContainerName returns the Docker container name for a project row.
 // Prefers ContainerName (explicitly stored after creation), falls back to Name.
 func effectiveContainerName(row *db.ProjectRow) string {
@@ -257,6 +284,19 @@ func effectiveContainerName(row *db.ProjectRow) string {
 		return row.ContainerName
 	}
 	return row.Name
+}
+
+// resolveProjectName looks up the container name for a project by ID.
+// Returns empty string if the project is not found.
+func (s *Service) resolveProjectName(projectID string) string {
+	if s.db == nil {
+		return ""
+	}
+	row, err := s.db.GetProject(projectID)
+	if err != nil || row == nil {
+		return ""
+	}
+	return effectiveContainerName(row)
 }
 
 // splitDomains splits a comma-separated domain string into a slice.

@@ -28,7 +28,7 @@
 | `components/theme-toggle.tsx`             | Light/dark theme switcher                                                           |
 | `components/project-filter.tsx`           | Reusable project name filter dropdown (autocomplete from event log projects)        |
 | `components/activity-timeline.tsx`        | Stacked bar chart with brush/scrubber for time range selection. Uses recharts via shadcn chart wrapper. Bars stacked by audit category (session/agent/prompt/config/budget/system/debug), colored with `--category-*` CSS variables. Emits `since`/`until` ISO strings on brush drag. |
-| `components/audit-log-table.tsx`          | Virtualized audit log table (TanStack Table + TanStack Virtual). Columns: timestamp, level, category, event, project (containerName), project ID, worktree, message. Fuzzy search, resizable columns, expandable rows with JSON detail, persistent sorting/sizing. |
+| `components/audit-log-table.tsx`          | Virtualized audit log table (TanStack Table + TanStack Virtual). Columns: timestamp, project ID, project (containerName), worktree, level, category, event, message. Fuzzy search, resizable columns, expandable rows with wrapped JSON detail (`<pre>` with `whitespace-pre-wrap`), persistent sorting/sizing. |
 
 ### Home (`components/home/`)
 

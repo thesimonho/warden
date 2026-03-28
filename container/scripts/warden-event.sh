@@ -140,9 +140,10 @@ case "$EVENT_TYPE" in
     TOOL_USE_JSON=$(jq -cn \
       --arg type "tool_use" \
       --arg cn "$CONTAINER_NAME" \
+      --arg pid "$PROJECT_ID" \
       --arg wt "$WORKTREE_ID" \
       --argjson data "$TOOL_USE_DATA" \
-      '{"type": $type, "containerName": $cn, "worktreeId": $wt, "data": $data}')
+      '{"type": $type, "containerName": $cn, "projectId": $pid, "worktreeId": $wt, "data": $data}')
     warden_write_event "$TOOL_USE_JSON" &
 
     # Also send attention state event (existing behavior).
@@ -159,9 +160,10 @@ case "$EVENT_TYPE" in
     CLEAR_JSON=$(jq -cn \
       --arg type "attention_clear" \
       --arg cn "$CONTAINER_NAME" \
+      --arg pid "$PROJECT_ID" \
       --arg wt "$WORKTREE_ID" \
       --argjson data '{}' \
-      '{"type": $type, "containerName": $cn, "worktreeId": $wt, "data": $data}')
+      '{"type": $type, "containerName": $cn, "projectId": $pid, "worktreeId": $wt, "data": $data}')
     warden_write_event "$CLEAR_JSON"
 
     # Log the user prompt as a separate event.

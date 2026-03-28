@@ -97,6 +97,12 @@ type WorktreeStatePayload struct {
 // containerName is the Docker container name (from WARDEN_CONTAINER_NAME).
 type StopCallbackFunc func(projectID, containerName, sessionID string, cost float64, isEstimated bool)
 
+// StaleCallbackFunc is called when a container stops sending heartbeats
+// and is marked stale. The service layer uses this to write an audit
+// entry with full project context (project ID and name). Set via
+// [Store.SetStaleCallback].
+type StaleCallbackFunc func(containerName string)
+
 // Store holds in-memory state derived from container events.
 //
 // Thread-safe for concurrent reads from API handlers and writes
@@ -111,6 +117,7 @@ type Store struct {
 	broker             *Broker
 	auditWriter        *db.AuditWriter
 	onStop             StopCallbackFunc
+	onStale            StaleCallbackFunc
 }
 
 // NewStore creates an empty event store. If broker is non-nil,
@@ -137,6 +144,15 @@ func (s *Store) SetStopCallback(fn StopCallbackFunc) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.onStop = fn
+}
+
+// SetStaleCallback registers a function called when a container's
+// heartbeat goes stale. The service layer implements this to write
+// an audit entry with full project context.
+func (s *Store) SetStaleCallback(fn StaleCallbackFunc) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.onStale = fn
 }
 
 // HandleEvent processes a container event, updates state, and
@@ -561,8 +577,14 @@ func (s *Store) MarkContainerStale(containerName string) {
 	delete(s.terminalContainers, containerName)
 	delete(s.lastEvents, containerName)
 
+	onStale := s.onStale
 	s.mu.Unlock()
+
 	s.broadcast(broadcasts)
+
+	if onStale != nil {
+		onStale(containerName)
+	}
 }
 
 // BroadcastWorktreeListChanged sends a worktree_list_changed event to all

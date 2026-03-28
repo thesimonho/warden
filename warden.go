@@ -166,6 +166,7 @@ func New(opts Options) (*App, error) {
 	// funnel through the single gateway that persists cost and enforces
 	// budget limits. See [service.Service.PersistSessionCost].
 	store.SetStopCallback(svc.PersistSessionCost)
+	store.SetStaleCallback(svc.HandleContainerStale)
 
 	return &App{
 		Service:        svc,
