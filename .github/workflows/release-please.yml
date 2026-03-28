@@ -20,37 +20,24 @@ jobs:
       major: ${{ steps.release.outputs.major }}
       minor: ${{ steps.release.outputs.minor }}
     steps:
+      # App token avoids GITHUB_TOKEN anti-recursion — pushes from the
+      # app identity trigger pull_request events so CI runs on the PR.
+      - uses: actions/create-github-app-token@v3
+        id: app-token
+        with:
+          app-id: ${{ vars.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
       - uses: googleapis/release-please-action@v4
         id: release
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ steps.app-token.outputs.token }}
           target-branch: main
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
-
-      # GITHUB_TOKEN pushes don't trigger workflows (anti-recursion).
-      # Re-push the release PR branch with the deploy key so the
-      # pull_request (synchronize) event fires and CI runs.
-      - uses: actions/checkout@v6
-        if: ${{ steps.release.outputs.pr && !steps.release.outputs.release_created }}
-        with:
-          ref: release-please--branches--main
-          ssh-key: ${{ secrets.DEPLOY_KEY }}
-          fetch-depth: 1
-      - name: Trigger CI on release PR
-        if: ${{ steps.release.outputs.pr && !steps.release.outputs.release_created }}
-        run: |
-          # Amend with identical content but new SHA (deploy key identity),
-          # then force-push to trigger pull_request (synchronize).
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git commit --amend --no-edit
-          git push --force-with-lease origin release-please--branches--main
-
       - uses: actions/checkout@v6
         if: ${{ steps.release.outputs.release_created }}
         with:
-          ssh-key: ${{ secrets.DEPLOY_KEY }}
+          token: ${{ steps.app-token.outputs.token }}
       - name: tag major and minor versions
         if: ${{ steps.release.outputs.release_created }}
         run: |
