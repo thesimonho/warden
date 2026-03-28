@@ -579,9 +579,12 @@ func (dc *DockerClient) validateMountSources(ctx context.Context, id string, ori
 
 	// Parse current binds into mounts for comparison.
 	// Check both HostConfig.Binds (Docker) and Mounts (Podman).
+	// Skip Warden-managed mounts (workspace dir, event dir) — these are
+	// created fresh by Warden and should not be compared against the
+	// user-configured original mounts stored in the DB.
 	wsDir := envValue(info.Config.Env, "WARDEN_WORKSPACE_DIR")
-	isWorkspaceMount := func(containerPath string) bool {
-		return containerPath == wsDir
+	isWardenManaged := func(containerPath string) bool {
+		return containerPath == wsDir || containerPath == containerEventDir
 	}
 
 	var currentMounts []Mount
@@ -595,7 +598,7 @@ func (dc *DockerClient) validateMountSources(ctx context.Context, id string, ori
 			remainder := parts[1]
 			containerPath, _, _ := strings.Cut(remainder, ":")
 
-			if isWorkspaceMount(containerPath) {
+			if isWardenManaged(containerPath) {
 				continue
 			}
 			currentMounts = append(currentMounts, Mount{
@@ -608,7 +611,7 @@ func (dc *DockerClient) validateMountSources(ctx context.Context, id string, ori
 	// Podman populates Mounts instead of HostConfig.Binds.
 	if len(currentMounts) == 0 {
 		for _, m := range info.Mounts {
-			if isWorkspaceMount(m.Destination) {
+			if isWardenManaged(m.Destination) {
 				continue
 			}
 			currentMounts = append(currentMounts, Mount{
