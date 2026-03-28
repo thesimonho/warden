@@ -6,7 +6,7 @@ import {
   Loader2,
   FolderOpen,
   Terminal,
-  Settings2,
+  FolderCog,
   Pencil,
   Layers,
   ShieldCheck,
@@ -107,7 +107,7 @@ export default function ProjectCard({
                   variant="ghost"
                   color="error"
                   onClick={() => onRemove(project)}
-                  icon={Settings2}
+                  icon={FolderCog}
                 />
               </TooltipTrigger>
               <TooltipContent>Manage</TooltipContent>
@@ -299,7 +299,7 @@ export default function ProjectCard({
                   variant="ghost"
                   color="error"
                   onClick={() => onRemove(project)}
-                  icon={Settings2}
+                  icon={FolderCog}
                 />
               </TooltipTrigger>
               <TooltipContent>Manage</TooltipContent>

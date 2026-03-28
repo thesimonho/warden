@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react'
-import { AlertTriangle, Loader2, Settings2 } from 'lucide-react'
+import { AlertTriangle, FolderCog, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { deleteContainer, removeProject, resetProjectCosts, purgeProjectAudit } from '@/lib/api'
 import type { Project } from '@/lib/types'
@@ -14,6 +14,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
+import { cn } from '@/lib/utils'
 
 /** Props for the ManageProjectDialog component. */
 interface ManageProjectDialogProps {
@@ -24,8 +25,14 @@ interface ManageProjectDialogProps {
   onComplete: () => void
 }
 
-/** Text the user must type to confirm audit purge. */
-const PURGE_CONFIRMATION = 'purge'
+/**
+ * Returns the text the user must type to confirm audit purge.
+ *
+ * Uses the project name so the confirmation is project-specific.
+ */
+function purgeConfirmation(name: string): string {
+  return name
+}
 
 /**
  * Management dialog with four independent destructive actions.
@@ -52,7 +59,8 @@ export default function ManageProjectDialog({
 
   const hasContainer = project?.hasContainer ?? false
   const hasAnyAction = removeFromWarden || shouldDeleteContainer || resetCosts || purgeAudit
-  const isPurgeConfirmed = !purgeAudit || purgeConfirmText === PURGE_CONFIRMATION
+  const confirmWord = project ? purgeConfirmation(project.name) : ''
+  const isPurgeConfirmed = !purgeAudit || purgeConfirmText === confirmWord
 
   const resetState = useCallback(() => {
     setRemoveFromWarden(false)
@@ -158,7 +166,7 @@ export default function ManageProjectDialog({
             label="Delete container"
             description={
               hasContainer
-                ? 'Stop and permanently remove the Docker container.'
+                ? 'Stop and permanently remove the container.'
                 : 'No container exists.'
             }
           />
@@ -181,20 +189,27 @@ export default function ManageProjectDialog({
             description="Permanently delete all audit events for this project."
           />
 
-          {purgeAudit && (
-            <div className="ml-7 space-y-2">
-              <p className="text-error text-sm">
-                This is irreversible. Type <strong>{PURGE_CONFIRMATION}</strong> to confirm.
-              </p>
-              <Input
-                value={purgeConfirmText}
-                onChange={(e) => setPurgeConfirmText(e.target.value)}
-                placeholder={PURGE_CONFIRMATION}
-                disabled={isSubmitting}
-                className="max-w-48"
-              />
+          <div
+            className={cn(
+              'ml-7 grid transition-all duration-200 ease-out',
+              purgeAudit ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0',
+            )}
+          >
+            <div className="overflow-hidden">
+              <div className="space-y-2 pb-1">
+                <p className="text-error text-sm">
+                  This is irreversible. Type <strong>{confirmWord}</strong> to confirm.
+                </p>
+                <Input
+                  value={purgeConfirmText}
+                  onChange={(e) => setPurgeConfirmText(e.target.value)}
+                  placeholder={confirmWord}
+                  disabled={isSubmitting}
+                  className="max-w-48"
+                />
+              </div>
             </div>
-          )}
+          </div>
 
           {removeFromWarden && !shouldDeleteContainer && hasContainer && (
             <div className="border-warning/50 bg-warning/10 flex items-start gap-2 rounded border p-3">
@@ -226,7 +241,7 @@ export default function ManageProjectDialog({
 }
 
 /** Icon used for the manage button on project cards. */
-export { Settings2 as ManageIcon }
+export { FolderCog as ManageIcon }
 
 /** Reusable checkbox row for a management action. */
 function ActionCheckbox({
