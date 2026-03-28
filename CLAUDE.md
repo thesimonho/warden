@@ -1,7 +1,5 @@
 # CLAUDE.md
 
-This file provides guidance to Agents when working with code in this repository.
-
 ## What is Warden
 
 A container engine and control plane for running multiple Claude Code agents in isolated containers. Shipped as three binaries: `warden` (headless API server), `warden-desktop` (web UI), and `warden-tui` (terminal UI). The engine is also importable as a Go library. Supports Docker and Podman.
