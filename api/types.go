@@ -118,7 +118,7 @@ type DefaultEnvVar struct {
 type DefaultsResponse struct {
 	HomeDir          string         `json:"homeDir"`
 	ContainerHomeDir string         `json:"containerHomeDir"`
-	Mounts           []DefaultMount `json:"mounts"`
+	Mounts           []DefaultMount  `json:"mounts,omitempty"`
 	EnvVars          []DefaultEnvVar `json:"envVars,omitempty"`
 }
 

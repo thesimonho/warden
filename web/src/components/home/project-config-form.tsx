@@ -117,7 +117,7 @@ export default function ProjectConfigForm({
           if (defaults.mounts?.length > 0) {
             setMounts(defaults.mounts)
           }
-          if (defaults.envVars && defaults.envVars.length > 0) {
+          if (defaults.envVars?.length) {
             setEnvVars(defaults.envVars)
           }
         }

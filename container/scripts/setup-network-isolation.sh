@@ -29,6 +29,20 @@ if [ "$MODE" = "full" ]; then
   exit 0
 fi
 
+# --- Shared helpers ---
+
+# Resolve a domain token to IPv4 addresses (one per line).
+# Strips leading *. before resolving.
+resolve_domain_ips() {
+  local domain
+  domain=$(echo "$1" | xargs)
+  [ -z "$domain" ] && return
+  domain="${domain#\*.}"
+  [ -z "$domain" ] && return
+  getent ahosts "$domain" 2>/dev/null \
+    | awk '$1 ~ /^[0-9]+\./ {print $1}' | sort -u || true
+}
+
 # Flush any existing OUTPUT rules to start clean.
 iptables -F OUTPUT 2>/dev/null || true
 
@@ -65,20 +79,12 @@ if [ "$MODE" = "restricted" ]; then
   fi
 
   # --- Check if dnsmasq + ipset are available ---
+  # Both are installed by install-tools.sh, but custom images may lack them.
   if ! command -v dnsmasq >/dev/null 2>&1 || ! command -v ipset >/dev/null 2>&1; then
     echo "[warden] warning: dnsmasq or ipset not available, falling back to static resolution"
-    # Fall back to the static resolution approach.
     IFS=',' read -ra DOMAINS <<< "$ALLOWED_DOMAINS"
     for domain in "${DOMAINS[@]}"; do
-      domain=$(echo "$domain" | xargs)
-      [ -z "$domain" ] && continue
-      resolve_domain="$domain"
-      if echo "$domain" | grep -q '^\*\.'; then
-        resolve_domain="${domain#\*.}"
-      fi
-      resolved_ips=$(getent ahosts "$resolve_domain" 2>/dev/null \
-        | awk '$1 ~ /^[0-9]+\./ {print $1}' | sort -u || true)
-      for ip in $resolved_ips; do
+      for ip in $(resolve_domain_ips "$domain"); do
         iptables -A OUTPUT -d "$ip" -j ACCEPT
       done
     done
@@ -102,16 +108,13 @@ if [ "$MODE" = "restricted" ]; then
     echo "bind-interfaces"
     echo "no-resolv"
     echo "cache-size=1000"
-    # Upstream DNS servers.
     for dns in $UPSTREAM_DNS; do
       echo "server=$dns"
     done
-    # ipset rules for each allowed domain.
     IFS=',' read -ra DOMAINS <<< "$ALLOWED_DOMAINS"
     for domain in "${DOMAINS[@]}"; do
       domain=$(echo "$domain" | xargs)
       [ -z "$domain" ] && continue
-      # Strip wildcard prefix — dnsmasq matches subdomains by default.
       domain="${domain#\*.}"
       [ -z "$domain" ] && continue
       echo "ipset=/${domain}/warden_allowed"
@@ -119,18 +122,11 @@ if [ "$MODE" = "restricted" ]; then
   } > /etc/dnsmasq.d/warden.conf
 
   # --- Seed ipset with initial resolution ---
-  # Resolve each domain using the original upstream DNS and pre-populate
-  # the ipset. This avoids a bootstrap race where a process makes a
-  # request before dnsmasq has populated the set.
+  # Pre-populate the ipset using upstream DNS to avoid a bootstrap race
+  # where a process connects before dnsmasq has populated the set.
   IFS=',' read -ra DOMAINS <<< "$ALLOWED_DOMAINS"
   for domain in "${DOMAINS[@]}"; do
-    domain=$(echo "$domain" | xargs)
-    [ -z "$domain" ] && continue
-    resolve_domain="${domain#\*.}"
-    [ -z "$resolve_domain" ] && continue
-    resolved_ips=$(getent ahosts "$resolve_domain" 2>/dev/null \
-      | awk '$1 ~ /^[0-9]+\./ {print $1}' | sort -u || true)
-    for ip in $resolved_ips; do
+    for ip in $(resolve_domain_ips "$domain"); do
       ipset add warden_allowed "$ip" timeout 300 2>/dev/null || true
     done
   done
@@ -141,23 +137,29 @@ if [ "$MODE" = "restricted" ]; then
   # Drop everything else.
   iptables -A OUTPUT -j DROP
 
-  # --- Start dnsmasq ---
+  # --- Start dnsmasq and wait for it to be ready ---
   dnsmasq --conf-dir=/etc/dnsmasq.d --keep-in-foreground &
   DNSMASQ_PID=$!
-  sleep 0.2
+
+  for _ in $(seq 1 20); do
+    if ss -lun sport = 53 2>/dev/null | grep -q 127.0.0.53; then
+      break
+    fi
+    sleep 0.1
+  done
 
   if ! kill -0 "$DNSMASQ_PID" 2>/dev/null; then
-    echo "[warden] warning: dnsmasq failed to start, DNS-based filtering unavailable"
+    echo "[warden] error: dnsmasq failed to start" >&2
+    exit 1
   fi
 
   # --- Rewrite resolv.conf to route DNS through dnsmasq ---
-  if echo "nameserver 127.0.0.53" > /etc/resolv.conf 2>/dev/null; then
-    echo "[warden] network isolation: restricted/dynamic via dnsmasq ($(echo "$ALLOWED_DOMAINS" | tr ',' ' '))"
-  else
-    echo "[warden] warning: could not rewrite resolv.conf, DNS queries bypass dnsmasq"
-    echo "[warden] network isolation: restricted/static seed only"
+  if ! echo "nameserver 127.0.0.53" > /etc/resolv.conf 2>/dev/null; then
+    echo "[warden] error: could not rewrite resolv.conf for dnsmasq" >&2
+    exit 1
   fi
 
+  echo "[warden] network isolation: restricted/dynamic via dnsmasq ($(echo "$ALLOWED_DOMAINS" | tr ',' ' '))"
   exit 0
 fi
 
