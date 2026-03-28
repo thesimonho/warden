@@ -48,11 +48,12 @@ func (s *Service) DeleteContainer(ctx context.Context, project *db.ProjectRow) (
 	s.docker.CleanupEventDir(containerName)
 
 	s.audit.Write(db.Entry{
-		Source:    db.SourceBackend,
-		Level:     db.LevelInfo,
-		ProjectID: project.ProjectID,
-		Event:     "container_deleted",
-		Message:   fmt.Sprintf("container %q deleted", containerName),
+		Source:        db.SourceBackend,
+		Level:         db.LevelInfo,
+		ProjectID:     project.ProjectID,
+		ContainerName: containerName,
+		Event:         "container_deleted",
+		Message:       fmt.Sprintf("container %q deleted", containerName),
 	})
 
 	return &ContainerResult{ContainerID: project.ContainerID, Name: containerName, ProjectID: project.ProjectID}, nil

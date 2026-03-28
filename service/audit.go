@@ -20,6 +20,7 @@ var auditEventsByCategory = map[api.AuditCategory][]string{
 		string(eventbus.EventStop), string(eventbus.EventSessionExit),
 		// Terminal lifecycle.
 		string(eventbus.EventTerminalConnected), string(eventbus.EventTerminalDisconnected),
+		"container_heartbeat_stale",
 		// Worktree lifecycle.
 		"worktree_created", "worktree_removed", "worktree_cleaned_up",
 		"worktree_create_failed", "terminal_connect_failed", "terminal_disconnect_failed",
@@ -40,10 +41,11 @@ var auditEventsByCategory = map[api.AuditCategory][]string{
 	api.AuditCategoryBudget: {
 		"budget_exceeded", "budget_worktrees_stopped",
 		"budget_container_stopped", "budget_enforcement_failed",
+		"cost_reset",
 	},
 	api.AuditCategorySystem: {
 		string(eventbus.EventProcessKilled), "restart_blocked_stale_mounts",
-		"project_removed", "container_deleted", "cost_reset", "audit_purged",
+		"project_removed", "container_deleted", "audit_purged",
 	},
 }
 

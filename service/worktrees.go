@@ -88,6 +88,7 @@ func (s *Service) ConnectTerminal(ctx context.Context, project *db.ProjectRow, w
 		s.store.HandleEvent(eventbus.ContainerEvent{
 			Type:          eventbus.EventTerminalConnected,
 			ContainerName: containerName,
+			ProjectID:     project.ProjectID,
 			WorktreeID:    worktreeID,
 			Timestamp:     time.Now(),
 		})
@@ -120,6 +121,7 @@ func (s *Service) DisconnectTerminal(ctx context.Context, project *db.ProjectRow
 		s.store.HandleEvent(eventbus.ContainerEvent{
 			Type:          eventbus.EventTerminalDisconnected,
 			ContainerName: containerName,
+			ProjectID:     project.ProjectID,
 			WorktreeID:    worktreeID,
 			Timestamp:     time.Now(),
 		})
@@ -242,6 +244,7 @@ func (s *Service) NotifyTerminalDisconnected(_ context.Context, project *db.Proj
 		s.store.HandleEvent(eventbus.ContainerEvent{
 			Type:          eventbus.EventTerminalDisconnected,
 			ContainerName: containerName,
+			ProjectID:     project.ProjectID,
 			WorktreeID:    worktreeID,
 			Timestamp:     time.Now(),
 		})
