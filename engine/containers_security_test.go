@@ -37,7 +37,8 @@ func TestBuildSecurityConfig_DropsUnnecessaryCaps(t *testing.T) {
 	_, capAdd, _ := buildSecurityConfig(NetworkModeFull, testSeccompValue)
 
 	// These capabilities from Docker's default set should NOT be re-added.
-	shouldNotHave := []string{"SETPCAP", "MKNOD", "SETFCAP"}
+	// AUDIT_WRITE was removed when the entrypoint switched from su (PAM) to gosu.
+	shouldNotHave := []string{"SETPCAP", "MKNOD", "SETFCAP", "AUDIT_WRITE"}
 	for _, cap := range shouldNotHave {
 		assertNotContains(t, capAdd, cap, "capAdd")
 	}

@@ -8,10 +8,15 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"syscall"
 
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/image"
 )
+
+// defaultPidsLimit is the maximum number of processes allowed in a container.
+// Prevents fork bombs while leaving ample headroom for Claude Code + dev tools.
+const defaultPidsLimit = int64(512)
 
 // defaultImage is the container image used when none is specified.
 const defaultImage = "ghcr.io/thesimonho/warden:latest"
@@ -67,6 +72,14 @@ func (dc *DockerClient) CreateContainer(ctx context.Context, req CreateContainer
 		return "", fmt.Errorf("project path must be absolute: %s", req.ProjectPath)
 	}
 
+	// Stat the project path early to fail fast before expensive operations
+	// like image pulls. The entrypoint uses the host UID/GID to match
+	// file ownership via usermod before exec-ing gosu.
+	hostUID, hostGID, err := hostOwner(req.ProjectPath)
+	if err != nil {
+		return "", fmt.Errorf("stat project path for UID/GID: %w", err)
+	}
+
 	if err := dc.checkNameAvailable(ctx, req.Name); err != nil {
 		return "", err
 	}
@@ -109,6 +122,13 @@ func (dc *DockerClient) CreateContainer(ctx context.Context, req CreateContainer
 		envList = append(envList, fmt.Sprintf("WARDEN_PROJECT_ID=%s", projectID))
 	}
 
+	// Pass the host UID/GID so the entrypoint can match file ownership
+	// without probing bind mounts at runtime.
+	envList = append(envList,
+		fmt.Sprintf("WARDEN_HOST_UID=%d", hostUID),
+		fmt.Sprintf("WARDEN_HOST_GID=%d", hostGID),
+	)
+
 	// Set the workspace directory inside the container. Each project gets
 	// a unique path (/home/dev/<name>) so Claude Code's .claude.json keys
 	// don't collide across containers (they share the file via bind mount).
@@ -120,10 +140,11 @@ func (dc *DockerClient) CreateContainer(ctx context.Context, req CreateContainer
 	envList = append(envList, fmt.Sprintf("WARDEN_EVENT_DIR=%s", containerEventDir))
 
 	containerConfig := &container.Config{
-		Image:    image,
-		Env:      envList,
-		Labels:   labels,
-		Hostname: req.Name,
+		Image:      image,
+		Env:        envList,
+		Labels:     labels,
+		Hostname:   req.Name,
+		Entrypoint: []string{"/usr/local/bin/entrypoint.sh"},
 	}
 
 	resolvedMounts, err := resolveSymlinksForMounts(req.Mounts)
@@ -155,10 +176,14 @@ func (dc *DockerClient) CreateContainer(ctx context.Context, req CreateContainer
 	}
 	capDrop, capAdd, securityOpts := buildSecurityConfig(networkMode, seccompValue)
 
+	pidsLimit := defaultPidsLimit
 	hostConfig := &container.HostConfig{
 		Binds: binds,
 		RestartPolicy: container.RestartPolicy{
 			Name: container.RestartPolicyUnlessStopped,
+		},
+		Resources: container.Resources{
+			PidsLimit: &pidsLimit,
 		},
 		// Keep host.docker.internal mapping — harmless and may be useful
 		// for user tools inside the container.
@@ -353,21 +378,22 @@ func (dc *DockerClient) RecreateContainer(ctx context.Context, id string, req Cr
 }
 
 // baseCapabilities are the Linux capabilities granted to every Warden container.
-// These are the minimum set required for the entrypoint (root → dev user switch,
-// chown, kill) and standard dev tooling (bind to low ports, ping).
+// These are the minimum set required for the entrypoint (root → dev user switch
+// via gosu, chown, kill) and standard dev tooling (bind to low ports, ping).
 //
-// Dropped from Docker's defaults: SETPCAP, MKNOD, SETFCAP — these allow
-// modifying capability sets and creating device nodes, neither of which is
-// needed in a coding agent container.
+// Dropped from Docker's defaults: SETPCAP, MKNOD, SETFCAP, AUDIT_WRITE — these
+// allow modifying capability sets, creating device nodes, and writing to the
+// kernel audit log, none of which is needed in a coding agent container.
+// AUDIT_WRITE was previously required for PAM (used by su), but the entrypoint
+// now uses gosu which calls setuid/setgid directly.
 var baseCapabilities = []string{
 	"CHOWN",            // entrypoint chown of bind mounts
 	"DAC_OVERRIDE",     // root reading/writing files owned by dev user
 	"FOWNER",           // entrypoint file ownership operations
 	"FSETID",           // preserve setuid/setgid bits during chown
 	"KILL",             // shutdown handler: kill -TERM -1
-	"SETUID",           // su - dev (setuid syscall from root)
-	"SETGID",           // su - dev (setgid syscall from root)
-	"AUDIT_WRITE",      // PAM audit logging used by su
+	"SETUID",           // gosu privilege drop (setuid syscall from root)
+	"SETGID",           // gosu privilege drop (setgid syscall from root)
 	"NET_BIND_SERVICE", // dev servers binding to ports < 1024
 	"NET_RAW",          // ping and network diagnostics
 	"SYS_CHROOT",       // some tools (e.g. npm) use chroot for sandboxing
@@ -402,4 +428,19 @@ func buildSecurityConfig(networkMode NetworkMode, seccompValue string) (capDrop,
 	}
 
 	return capDrop, capAdd, securityOpts
+}
+
+// hostOwner returns the UID and GID of the owner of the given path.
+// Used to pass the host user's identity to the container entrypoint
+// so it can match file ownership without probing bind mounts at runtime.
+func hostOwner(path string) (uid, gid uint32, err error) {
+	info, err := os.Stat(path)
+	if err != nil {
+		return 0, 0, err
+	}
+	stat, ok := info.Sys().(*syscall.Stat_t)
+	if !ok {
+		return 0, 0, fmt.Errorf("unsupported platform: cannot read file ownership")
+	}
+	return stat.Uid, stat.Gid, nil
 }

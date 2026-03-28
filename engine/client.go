@@ -487,6 +487,9 @@ func (dc *DockerClient) execAndCaptureStrict(ctx context.Context, containerID st
 // requiredBinaries lists the executables that must be present inside a container
 // for Warden's terminal infrastructure to work.
 var requiredBinaries = []string{
+	"/usr/local/bin/gosu",
+	"/usr/local/bin/entrypoint.sh",
+	"/usr/local/bin/user-entrypoint.sh",
 	"/usr/local/bin/create-terminal.sh",
 	"/usr/local/bin/disconnect-terminal.sh",
 	"/usr/local/bin/kill-worktree.sh",
