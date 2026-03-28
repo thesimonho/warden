@@ -96,9 +96,11 @@ func (s *Service) GetDefaults() DefaultsResponse {
 	}
 }
 
-// ListDirectories returns subdirectories at the given path for the
-// filesystem browser. The path must be absolute.
-func (s *Service) ListDirectories(path string) ([]api.DirEntry, error) {
+// ListDirectories returns filesystem entries at the given path for the
+// browser. The path must be absolute. When includeFiles is false, only
+// directories are returned (default behavior). When true, both
+// directories and files are returned with IsDir set accordingly.
+func (s *Service) ListDirectories(path string, includeFiles bool) ([]api.DirEntry, error) {
 	if !filepath.IsAbs(path) {
 		return nil, fmt.Errorf("path must be absolute: %s", path)
 	}
@@ -110,22 +112,30 @@ func (s *Service) ListDirectories(path string) ([]api.DirEntry, error) {
 		return nil, fmt.Errorf("reading directory: %w", err)
 	}
 
-	dirs := make([]api.DirEntry, 0)
+	result := make([]api.DirEntry, 0)
 	for _, entry := range entries {
-		if !entry.IsDir() {
+		if !entry.IsDir() && !includeFiles {
 			continue
 		}
-		dirs = append(dirs, api.DirEntry{
-			Name: entry.Name(),
-			Path: filepath.Join(path, entry.Name()),
+		result = append(result, api.DirEntry{
+			Name:  entry.Name(),
+			Path:  filepath.Join(path, entry.Name()),
+			IsDir: entry.IsDir(),
 		})
 	}
 
-	slices.SortFunc(dirs, func(a, b api.DirEntry) int {
+	slices.SortFunc(result, func(a, b api.DirEntry) int {
+		// Directories first, then files.
+		if a.IsDir != b.IsDir {
+			if a.IsDir {
+				return -1
+			}
+			return 1
+		}
 		return cmp.Compare(strings.ToLower(a.Name), strings.ToLower(b.Name))
 	})
 
-	return dirs, nil
+	return result, nil
 }
 
 // RevealInFileManager opens the given directory in the host's file

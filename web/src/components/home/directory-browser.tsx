@@ -1,13 +1,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { ChevronRight, CornerLeftUp, Folder, FolderOpen, Loader2, X } from 'lucide-react'
+import { ChevronRight, CornerLeftUp, File, Folder, FolderOpen, Loader2, X } from 'lucide-react'
 import { listDirectories } from '@/lib/api'
 import type { DirEntry } from '@/lib/types'
+
+/** Browse mode for the filesystem browser. */
+type BrowseMode = 'directory' | 'file'
 
 /** Props for the DirectoryBrowser component. */
 interface DirectoryBrowserProps {
   /** Current selected path (always absolute). */
   value: string
-  /** Callback when the user commits a directory (always absolute). */
+  /** Callback when the user commits a path (always absolute). */
   onChange: (path: string) => void
   /** Whether the browser is disabled. */
   disabled?: boolean
@@ -15,21 +18,29 @@ interface DirectoryBrowserProps {
   defaultPath?: string
   /** Placeholder text shown when no path is selected. */
   placeholder?: string
+  /**
+   * Browse mode. "directory" (default) shows only directories and commits
+   * directories. "file" shows both directories and files — entering a
+   * directory navigates into it, entering a file commits the file path.
+   */
+  mode?: BrowseMode
 }
 
 /** Starting path for the directory browser. */
 const ROOT_DIR = '/'
 
 /**
- * Fuzzy-finder style directory picker.
+ * Fuzzy-finder style filesystem picker.
  *
  * Displays a split input: a non-editable prefix showing the current directory,
- * and an editable filter input for searching subdirectories. The dropdown lists
+ * and an editable filter input for searching entries. The dropdown lists
  * children of the current directory filtered by case-insensitive contains match.
  *
  * Backspace when the filter is empty navigates up one directory level.
- * Enter on a highlighted item navigates into that directory.
- * Enter with no highlight commits the current directory path.
+ * Enter on a highlighted directory navigates into it.
+ * Enter on a highlighted file (in file mode) commits the file path.
+ * Enter with no highlight commits the current directory path (directory mode)
+ * or does nothing (file mode — a file must be explicitly selected).
  * Escape reverts to the value from when the field was focused.
  *
  * Internal state is decoupled from the parent — `onChange` only fires on
@@ -41,17 +52,27 @@ export default function DirectoryBrowser({
   disabled,
   defaultPath,
   placeholder = '/path/to/directory',
+  mode = 'directory',
 }: DirectoryBrowserProps) {
+  const isFileMode = mode === 'file'
   const fallbackPath = defaultPath || ROOT_DIR
 
   /** The directory currently being browsed (absolute path). */
-  const [browseDir, setBrowseDir] = useState(() => value || fallbackPath)
-  /** Filter text typed by the user to narrow the directory listing. */
+  const [browseDir, setBrowseDir] = useState(() => {
+    if (!value) return fallbackPath
+    // In file mode, the value is a file path — browse its parent directory.
+    if (isFileMode) {
+      const parent = value.replace(/\/[^/]+$/, '') || '/'
+      return parent
+    }
+    return value
+  })
+  /** Filter text typed by the user to narrow the listing. */
   const [filter, setFilter] = useState('')
   /** Snapshot of the committed value when the dropdown opened, for Escape revert. */
   const [savedValue, setSavedValue] = useState(value)
-  /** Raw directory listing from the API for browseDir. */
-  const [directories, setDirectories] = useState<DirEntry[]>([])
+  /** Raw listing from the API for browseDir. */
+  const [entries, setEntries] = useState<DirEntry[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [isOpen, setIsOpen] = useState(false)
   const [highlightIndex, setHighlightIndex] = useState(-1)
@@ -65,9 +86,14 @@ export default function DirectoryBrowser({
   /** Sync browseDir from prop when dropdown is closed (external updates). */
   useEffect(() => {
     if (!isOpen && value) {
-      setBrowseDir(value)
+      if (isFileMode) {
+        const parent = value.replace(/\/[^/]+$/, '') || '/'
+        setBrowseDir(parent)
+      } else {
+        setBrowseDir(value)
+      }
     }
-  }, [value, isOpen])
+  }, [value, isOpen, isFileMode])
 
   /** Update browseDir when defaultPath arrives asynchronously. */
   useEffect(() => {
@@ -77,61 +103,77 @@ export default function DirectoryBrowser({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- only re-run when defaultPath changes
   }, [defaultPath])
 
-  /** Filter directories by case-insensitive contains match. */
-  const filteredDirectories = useMemo(() => {
-    if (!filter) return directories
+  /** Filter entries by case-insensitive contains match. */
+  const filteredEntries = useMemo(() => {
+    if (!filter) return entries
     const needle = filter.toLowerCase()
-    return directories.filter((dir) => dir.name.toLowerCase().includes(needle))
-  }, [directories, filter])
+    return entries.filter((entry) => entry.name.toLowerCase().includes(needle))
+  }, [entries, filter])
 
   /** Fetches directory listing for the given path. */
-  const fetchDirectories = useCallback(async (path: string) => {
-    setIsLoading(true)
-    try {
-      const dirs = await listDirectories(path)
-      setDirectories(dirs)
-      lastFetchedDir.current = path
-    } catch {
-      setDirectories([])
-      lastFetchedDir.current = path
-    } finally {
-      setIsLoading(false)
-    }
-  }, [])
+  const fetchEntries = useCallback(
+    async (path: string) => {
+      setIsLoading(true)
+      try {
+        const result = await listDirectories(path, isFileMode)
+        setEntries(result)
+        lastFetchedDir.current = path
+      } catch {
+        setEntries([])
+        lastFetchedDir.current = path
+      } finally {
+        setIsLoading(false)
+      }
+    },
+    [isFileMode],
+  )
 
   /** Fetch when browseDir changes while dropdown is open. */
   useEffect(() => {
     if (!isOpen) return
     if (browseDir === lastFetchedDir.current) return
-    fetchDirectories(browseDir)
-  }, [browseDir, isOpen, fetchDirectories])
+    fetchEntries(browseDir)
+  }, [browseDir, isOpen, fetchEntries])
 
   /** Immediate fetch on open. */
   useEffect(() => {
     if (isOpen) {
       lastFetchedDir.current = ''
-      fetchDirectories(browseDir)
+      fetchEntries(browseDir)
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- fetch once on open, not on browseDir/fetchDirectories changes
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- fetch once on open, not on browseDir/fetchEntries changes
   }, [isOpen])
 
-  /** Commits the current browseDir as the selected value. */
-  const commitValue = useCallback(() => {
-    if (browseDir !== value) {
-      onChange(browseDir)
-    }
-    setIsOpen(false)
-    setHighlightIndex(-1)
-    setFilter('')
-  }, [browseDir, value, onChange])
+  /** Commits a path as the selected value. */
+  const commitPath = useCallback(
+    (path: string) => {
+      if (path !== value) {
+        onChange(path)
+      }
+      setIsOpen(false)
+      setHighlightIndex(-1)
+      setFilter('')
+    },
+    [value, onChange],
+  )
+
+  /** Commits the current browseDir as the selected value (directory mode only). */
+  const commitDirectory = useCallback(() => {
+    commitPath(browseDir)
+  }, [browseDir, commitPath])
 
   /** Reverts to the saved value and closes. */
   const revertAndClose = useCallback(() => {
-    setBrowseDir(savedValue || fallbackPath)
+    if (isFileMode) {
+      const parent = savedValue ? savedValue.replace(/\/[^/]+$/, '') || '/' : fallbackPath
+      setBrowseDir(parent)
+    } else {
+      setBrowseDir(savedValue || fallbackPath)
+    }
     setIsOpen(false)
     setHighlightIndex(-1)
     setFilter('')
-  }, [savedValue, fallbackPath])
+  }, [savedValue, fallbackPath, isFileMode])
 
   /** Navigates into a subdirectory. */
   const navigateInto = useCallback((dir: DirEntry) => {
@@ -140,6 +182,18 @@ export default function DirectoryBrowser({
     setHighlightIndex(-1)
     requestAnimationFrame(() => filterRef.current?.focus())
   }, [])
+
+  /** Handles selecting an entry — navigates into directories, commits files. */
+  const selectEntry = useCallback(
+    (entry: DirEntry) => {
+      if (entry.isDir) {
+        navigateInto(entry)
+      } else {
+        commitPath(entry.path)
+      }
+    },
+    [navigateInto, commitPath],
+  )
 
   /** Navigates up to the parent directory. */
   const navigateUp = useCallback(() => {
@@ -167,7 +221,9 @@ export default function DirectoryBrowser({
 
     const handleClickOutside = (e: MouseEvent) => {
       if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        if (browseDir !== value) {
+        // In directory mode, commit the current directory.
+        // In file mode, only commit if a value was already set (don't auto-commit a directory).
+        if (!isFileMode && browseDir !== value) {
           onChange(browseDir)
         }
         setIsOpen(false)
@@ -178,7 +234,7 @@ export default function DirectoryBrowser({
 
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [isOpen, browseDir, onChange, value])
+  }, [isOpen, browseDir, onChange, value, isFileMode])
 
   /** Scroll highlighted item into view. */
   useEffect(() => {
@@ -191,7 +247,7 @@ export default function DirectoryBrowser({
    * Handles keyboard navigation in the filter input.
    *
    * Highlight indices: -1 = nothing, 0 = .. row (when present),
-   * dirOffset..totalItems-1 = directory entries.
+   * dirOffset..totalItems-1 = entry items.
    */
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     switch (e.key) {
@@ -218,10 +274,10 @@ export default function DirectoryBrowser({
           if (canNavigateUp && highlightIndex === 0) {
             navigateUp()
           } else {
-            navigateInto(filteredDirectories[highlightIndex - dirOffset])
+            selectEntry(filteredEntries[highlightIndex - dirOffset])
           }
-        } else {
-          commitValue()
+        } else if (!isFileMode) {
+          commitDirectory()
         }
         break
       }
@@ -257,11 +313,15 @@ export default function DirectoryBrowser({
   /** Whether the parent directory row should be shown (not at root). */
   const canNavigateUp = browseDir !== '/'
 
-  /** Total number of selectable items in the dropdown (.. row + directories). */
-  const totalItems = (canNavigateUp ? 1 : 0) + filteredDirectories.length
+  /** Total number of selectable items in the dropdown (.. row + entries). */
+  const totalItems = (canNavigateUp ? 1 : 0) + filteredEntries.length
 
-  /** Index offset: directory items start after the .. row when present. */
+  /** Index offset: entry items start after the .. row when present. */
   const dirOffset = canNavigateUp ? 1 : 0
+
+  /** Empty state message. */
+  const emptyMessage =
+    entries.length > 0 ? 'No matches' : isFileMode ? 'Empty directory' : 'No subdirectories'
 
   return (
     <div ref={containerRef} className="relative flex-1">
@@ -353,40 +413,46 @@ export default function DirectoryBrowser({
                 </div>
               )}
 
-              {!isLoading && filteredDirectories.length === 0 && (
-                <p className="text-muted-foreground px-3 py-2 text-sm">
-                  {directories.length > 0 ? 'No matches' : 'No subdirectories'}
-                </p>
+              {!isLoading && filteredEntries.length === 0 && (
+                <p className="text-muted-foreground px-3 py-2 text-sm">{emptyMessage}</p>
               )}
 
               {!isLoading &&
-                filteredDirectories.map((dir, index) => {
+                filteredEntries.map((entry, index) => {
                   const itemIndex = index + dirOffset
                   const isHighlighted = itemIndex === highlightIndex
                   return (
                     <button
-                      key={dir.path}
+                      key={entry.path}
                       type="button"
                       data-dir-item
-                      onClick={() => navigateInto(dir)}
+                      onClick={() => selectEntry(entry)}
                       onMouseEnter={() => setHighlightIndex(itemIndex)}
                       onMouseLeave={() => setHighlightIndex(-1)}
                       className={`group flex w-full items-center gap-2 px-3 py-1.5 text-left ${
                         isHighlighted ? 'bg-accent text-accent-foreground' : ''
                       }`}
                     >
-                      <Folder
-                        className={`text-muted-foreground h-3.5 w-3.5 shrink-0 ${
-                          isHighlighted ? 'hidden' : 'group-hover:hidden'
-                        }`}
-                      />
-                      <FolderOpen
-                        className={`text-muted-foreground h-3.5 w-3.5 shrink-0 ${
-                          isHighlighted ? 'block' : 'hidden group-hover:block'
-                        }`}
-                      />
-                      <span className="min-w-0 flex-1 truncate">{dir.name}</span>
-                      <ChevronRight className="text-muted-foreground h-3.5 w-3.5 shrink-0" />
+                      {entry.isDir ? (
+                        <>
+                          <Folder
+                            className={`text-muted-foreground h-3.5 w-3.5 shrink-0 ${
+                              isHighlighted ? 'hidden' : 'group-hover:hidden'
+                            }`}
+                          />
+                          <FolderOpen
+                            className={`text-muted-foreground h-3.5 w-3.5 shrink-0 ${
+                              isHighlighted ? 'block' : 'hidden group-hover:block'
+                            }`}
+                          />
+                        </>
+                      ) : (
+                        <File className="text-muted-foreground h-3.5 w-3.5 shrink-0" />
+                      )}
+                      <span className="min-w-0 flex-1 truncate">{entry.name}</span>
+                      {entry.isDir && (
+                        <ChevronRight className="text-muted-foreground h-3.5 w-3.5 shrink-0" />
+                      )}
                     </button>
                   )
                 })}

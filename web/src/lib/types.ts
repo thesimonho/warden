@@ -349,12 +349,14 @@ export interface AuditLogEntry {
   category?: AuditCategory
 }
 
-/** A directory entry from the filesystem browser. */
+/** A filesystem entry from the browser. */
 export interface DirEntry {
-  /** Directory name. */
+  /** Entry name. */
   name: string
-  /** Absolute path to the directory. */
+  /** Absolute path to the entry. */
   path: string
+  /** Whether this entry is a directory. */
+  isDir: boolean
 }
 
 // --- Diff ---

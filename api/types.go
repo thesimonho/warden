@@ -122,10 +122,11 @@ type DefaultsResponse struct {
 	EnvVars          []DefaultEnvVar `json:"envVars,omitempty"`
 }
 
-// DirEntry represents a directory in the filesystem browser.
+// DirEntry represents a filesystem entry in the browser.
 type DirEntry struct {
-	Name string `json:"name"`
-	Path string `json:"path"`
+	Name  string `json:"name"`
+	Path  string `json:"path"`
+	IsDir bool   `json:"isDir"`
 }
 
 // --- Diff ---

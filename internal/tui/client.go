@@ -114,9 +114,10 @@ type Client interface {
 	// API: GET /api/v1/defaults
 	GetDefaults(ctx context.Context) (*api.DefaultsResponse, error)
 
-	// ListDirectories returns subdirectories at a path for the filesystem browser.
-	// API: GET /api/v1/filesystem/directories?path=...
-	ListDirectories(ctx context.Context, path string) ([]api.DirEntry, error)
+	// ListDirectories returns filesystem entries at a path for the browser.
+	// When includeFiles is true, files are returned alongside directories.
+	// API: GET /api/v1/filesystem/directories?path=...&mode=file
+	ListDirectories(ctx context.Context, path string, includeFiles bool) ([]api.DirEntry, error)
 
 	// ListRuntimes returns available container runtimes.
 	// API: GET /api/v1/runtimes

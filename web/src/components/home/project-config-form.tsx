@@ -475,6 +475,7 @@ export default function ProjectConfigForm({
                       disabled={isSubmitting || disabled}
                       defaultPath={homeDir}
                       placeholder="/host/path"
+                      mode="file"
                     />
                     <ArrowRight className="text-muted-foreground h-3.5 w-3.5 shrink-0" />
                     <Input

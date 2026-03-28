@@ -650,7 +650,7 @@ func (v *ContainerFormView) openDirectoryBrowser() (View, tea.Cmd) {
 	}
 	v.dirBrowser = components.NewDirectoryBrowser(startPath, func(path string) tea.Cmd {
 		return func() tea.Msg {
-			entries, err := v.client.ListDirectories(context.Background(), path)
+			entries, err := v.client.ListDirectories(context.Background(), path, false)
 			return components.DirectoryBrowserMsg{Path: path, Entries: entries, Err: err}
 		}
 	})

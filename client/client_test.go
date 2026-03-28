@@ -171,12 +171,12 @@ func TestListDirectories(t *testing.T) {
 	t.Parallel()
 
 	entries := []api.DirEntry{
-		{Name: "src", Path: "/project/src"},
-		{Name: "docs", Path: "/project/docs"},
+		{Name: "src", Path: "/project/src", IsDir: true},
+		{Name: "docs", Path: "/project/docs", IsDir: true},
 	}
 	c := newTestServer(t, "GET", "/api/v1/filesystem/directories", http.StatusOK, entries)
 
-	result, err := c.ListDirectories(context.Background(), "/project")
+	result, err := c.ListDirectories(context.Background(), "/project", false)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
