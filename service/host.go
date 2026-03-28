@@ -112,15 +112,16 @@ func (s *Service) ListDirectories(path string, includeFiles bool) ([]api.DirEntr
 		return nil, fmt.Errorf("reading directory: %w", err)
 	}
 
-	result := make([]api.DirEntry, 0)
+	result := make([]api.DirEntry, 0, len(entries))
 	for _, entry := range entries {
-		if !entry.IsDir() && !includeFiles {
+		isDir := entry.IsDir()
+		if !isDir && !includeFiles {
 			continue
 		}
 		result = append(result, api.DirEntry{
 			Name:  entry.Name(),
 			Path:  filepath.Join(path, entry.Name()),
-			IsDir: entry.IsDir(),
+			IsDir: isDir,
 		})
 	}
 

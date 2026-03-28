@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ChevronRight, CornerLeftUp, File, Folder, FolderOpen, Loader2, X } from 'lucide-react'
 import { listDirectories } from '@/lib/api'
 import type { DirEntry } from '@/lib/types'
+import { parentDir } from '@/lib/utils'
 
 /** Browse mode for the filesystem browser. */
 type BrowseMode = 'directory' | 'file'
@@ -57,21 +58,13 @@ export default function DirectoryBrowser({
   const isFileMode = mode === 'file'
   const fallbackPath = defaultPath || ROOT_DIR
 
-  /** The directory currently being browsed (absolute path). */
   const [browseDir, setBrowseDir] = useState(() => {
     if (!value) return fallbackPath
-    // In file mode, the value is a file path — browse its parent directory.
-    if (isFileMode) {
-      const parent = value.replace(/\/[^/]+$/, '') || '/'
-      return parent
-    }
-    return value
+    return isFileMode ? parentDir(value) : value
   })
-  /** Filter text typed by the user to narrow the listing. */
   const [filter, setFilter] = useState('')
-  /** Snapshot of the committed value when the dropdown opened, for Escape revert. */
+  /** Snapshotted on open so Escape can revert to the pre-browse value. */
   const [savedValue, setSavedValue] = useState(value)
-  /** Raw listing from the API for browseDir. */
   const [entries, setEntries] = useState<DirEntry[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [isOpen, setIsOpen] = useState(false)
@@ -86,12 +79,7 @@ export default function DirectoryBrowser({
   /** Sync browseDir from prop when dropdown is closed (external updates). */
   useEffect(() => {
     if (!isOpen && value) {
-      if (isFileMode) {
-        const parent = value.replace(/\/[^/]+$/, '') || '/'
-        setBrowseDir(parent)
-      } else {
-        setBrowseDir(value)
-      }
+      setBrowseDir(isFileMode ? parentDir(value) : value)
     }
   }, [value, isOpen, isFileMode])
 
@@ -157,16 +145,10 @@ export default function DirectoryBrowser({
     [value, onChange],
   )
 
-  /** Commits the current browseDir as the selected value (directory mode only). */
-  const commitDirectory = useCallback(() => {
-    commitPath(browseDir)
-  }, [browseDir, commitPath])
-
   /** Reverts to the saved value and closes. */
   const revertAndClose = useCallback(() => {
     if (isFileMode) {
-      const parent = savedValue ? savedValue.replace(/\/[^/]+$/, '') || '/' : fallbackPath
-      setBrowseDir(parent)
+      setBrowseDir(savedValue ? parentDir(savedValue) : fallbackPath)
     } else {
       setBrowseDir(savedValue || fallbackPath)
     }
@@ -199,8 +181,7 @@ export default function DirectoryBrowser({
   const navigateUp = useCallback(() => {
     setBrowseDir((prev) => {
       if (prev === '/') return prev
-      const parent = prev.replace(/\/[^/]+\/?$/, '') || '/'
-      return parent
+      return parentDir(prev)
     })
     setFilter('')
     setHighlightIndex(-1)
@@ -277,7 +258,7 @@ export default function DirectoryBrowser({
             selectEntry(filteredEntries[highlightIndex - dirOffset])
           }
         } else if (!isFileMode) {
-          commitDirectory()
+          commitPath(browseDir)
         }
         break
       }

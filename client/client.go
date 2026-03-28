@@ -301,12 +301,13 @@ func (c *Client) GetDefaults(ctx context.Context) (*api.DefaultsResponse, error)
 // ListDirectories returns filesystem entries at a path for the browser.
 // When includeFiles is true, files are returned alongside directories.
 func (c *Client) ListDirectories(ctx context.Context, path string, includeFiles bool) ([]api.DirEntry, error) {
-	q := "/api/v1/filesystem/directories?path=" + url.QueryEscape(path)
+	params := url.Values{}
+	params.Set("path", path)
 	if includeFiles {
-		q += "&mode=file"
+		params.Set("mode", "file")
 	}
 	var entries []api.DirEntry
-	if err := c.get(ctx, q, &entries); err != nil {
+	if err := c.get(ctx, "/api/v1/filesystem/directories?"+params.Encode(), &entries); err != nil {
 		return nil, err
 	}
 	return entries, nil
