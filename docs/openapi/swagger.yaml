@@ -39,6 +39,13 @@ components:
           description: UniqueWorktrees is the number of distinct worktrees with events.
           type: integer
       type: object
+    api.DefaultEnvVar:
+      properties:
+        key:
+          type: string
+        value:
+          type: string
+      type: object
     api.DefaultMount:
       properties:
         containerPath:
@@ -564,6 +571,11 @@ components:
       properties:
         containerHomeDir:
           type: string
+        envVars:
+          items:
+            $ref: '#/components/schemas/api.DefaultEnvVar'
+          type: array
+          uniqueItems: false
         homeDir:
           type: string
         mounts:
