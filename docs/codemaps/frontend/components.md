@@ -1,0 +1,56 @@
+# Components
+
+## Shared (flat)
+
+| File | Purpose |
+| --- | --- |
+| `components/layout.tsx` | App shell — header with nav title ("Warden"), theme toggle, access nav button (KeyRound icon, left of Audit), audit nav button |
+| `components/settings-dialog.tsx` | Settings panel (runtime selection, notifications toggle, auditLogMode radio group [off/standard/detailed], default project budget input, budget enforcement action toggles: show warning, stop worktrees, stop container, prevent restart) |
+| `components/theme-toggle.tsx` | Light/dark theme switcher |
+| `components/project-filter.tsx` | Reusable project name filter dropdown (autocomplete from event log projects) |
+| `components/activity-timeline.tsx` | Stacked bar chart with brush/scrubber for time range selection. Uses recharts via shadcn chart wrapper. Bars stacked by audit category, colored with `--category-*` CSS variables. Emits `since`/`until` ISO strings on brush drag. |
+| `components/audit-log-table.tsx` | Virtualized audit log table (TanStack Table + TanStack Virtual). Columns: timestamp, project ID, project (containerName), worktree, level, category, event, message. Fuzzy search, resizable columns, expandable rows with wrapped JSON detail, persistent sorting/sizing. |
+
+## Home (`components/home/`)
+
+Components for the home page and project management.
+
+| File | Purpose |
+| --- | --- |
+| `components/home/project-grid.tsx` | Grid of project cards |
+| `components/home/project-card.tsx` | Card showing project status, worktree counts, cost, Claude status, network mode indicator (shield icon for non-full modes), actions |
+| `components/home/cost-dashboard.tsx` | Aggregate stats bar: running projects, active worktrees, total cost |
+| `components/home/claude-status-indicator.tsx` | Visual indicator for Claude's status (idle/working/needs permission/needs input/waiting for prompt) |
+| `components/home/status-badge.tsx` | Container state badge (running/stopped/etc.) |
+| `components/home/add-project-dialog.tsx` | Dialog: create new project, edit existing, or create container for no-container project via ProjectConfigForm. Exports `CreateForProject` type. |
+| `components/home/manage-project-dialog.tsx` | Management dialog with four independent destructive actions: remove from Warden, delete container, reset costs, purge audit. Type-to-confirm for audit purge. Keeps dialog open on partial failure. |
+| `components/home/recent-workspaces.tsx` | Recently visited workspace tabs |
+| `components/home/project-config-form.tsx` | Create/edit form with fields: name, workspace path, image, permissions, network mode, allowed domains, cost budget, and Advanced collapsible with bind mounts and environment variables. Access items are fetched from `/api/v1/access`, selected via checkboxes, and their resolved mounts/env vars are merged into form data on submit. `ProjectConfigFormData` includes `enabledAccessItems: string[]`. |
+| `components/home/directory-browser.tsx` | Fuzzy-finder style filesystem picker. Supports `mode="directory"` (default, directory-only) and `mode="file"` (directories + files). Split input with browsable prefix and filter. |
+
+## Project (`components/project/`)
+
+Components for the project view, used by both `project-page.tsx` and `workspace-page.tsx`.
+
+| File | Purpose |
+| --- | --- |
+| `components/project/project-view.tsx` | Core project UI — sidebar with view mode toggle + grid or canvas terminal display. Accepts `projectId` as a prop. Used standalone by `project-page.tsx` and embedded in `workspace-page.tsx`. Each instance has independent canvas/panel state. Callbacks use refs for volatile values to keep function identity stable across SSE-driven re-renders. |
+| `components/project/project-sidebar.tsx` | Project sidebar: view mode toggle (Grid/Canvas), controlled project dropdown (URL-driven), worktree list with right-click context menu (Reveal in File Manager + Disconnect + Remove actions) |
+| `components/project/canvas-view.tsx` | Draggable/resizable Rnd panel wrapping a `TerminalCard` on the canvas: position/size from store, selection ring, CSS transition animations, shift+click selection, `data-canvas-panel` attr for marquee hit detection. Custom memo comparison on data props only (callbacks are stable). |
+| `components/project/grid-view.tsx` | Grid display mode: renders `TerminalCard` instances in a responsive CSS grid layout (no pan/zoom/drag). Auto-sizes grid columns based on panel count. `GridCell` uses custom memo on data props only. |
+| `components/project/terminal-card.tsx` | Terminal with title bar chrome (status dot, project name, branch, attention indicator, action buttons) + xterm.js rendering via `useTerminal` hook. Tab toggle (Terminal / Changes) in title bar. Terminal div stays mounted but hidden when Changes tab is active to preserve xterm.js instance. Layout-agnostic — used by both canvas-view and grid-view. |
+| `components/project/changes-view.tsx` | GitHub-style "Files changed" view: file list with +/- stats, status badges (A/M/D/R), click-to-expand per-file inline diffs via `@git-diff-view/react`. All files collapsed by default. Refresh button for on-demand refetch. |
+| `components/project/worktree-list.tsx` | Worktree list with header (new worktree button, refresh), grouped item rendering (On Canvas / Available), and `WorktreeRow` — individual worktree entry with status dot, branch, connect icon, right-click context menu. |
+| `components/project/new-worktree-dialog.tsx` | Dialog to create a new git worktree with name validation (git branch rules) |
+| `components/project/remove-worktree-dialog.tsx` | Confirmation dialog before removing a worktree, warns about uncommitted changes being lost |
+
+## UI Primitives (`components/ui/`)
+
+Standard shadcn/ui components: `alert-dialog`, `badge`, `button`, `card`, `checkbox`, `collapsible`, `context-menu`, `dialog`, `input`, `popover`, `radio-group`, `scroll-area`, `select`, `separator`, `skeleton`, `switch`, `tabs`, `textarea`, `tooltip`.
+
+Customized components:
+
+| File | Notes |
+| --- | --- |
+| `chart.tsx` | Recharts wrapper: `ChartContainer`, `ChartTooltip`, `ChartTooltipContent`, `ChartLegend`, `ChartLegendContent`. Generates CSS variables per chart config key. |
+| `button.tsx` | Props: `icon` (React.ElementType) for auto-sized icon placement, `loading` (boolean) for spin animation. |

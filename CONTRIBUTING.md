@@ -99,7 +99,7 @@ Key directories for contributors:
 | `web/`               | React + Vite frontend                            |
 | `container/`         | Project container image and devcontainer feature |
 
-For detailed code maps, see `docs/codemaps/` in the repository.
+For detailed code maps, see [`docs/codemaps/README.md`](docs/codemaps/README.md) for an index of all maps.
 
 ## Key architectural rules
 
