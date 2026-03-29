@@ -80,8 +80,11 @@ Then select `my-project:latest` as the image when creating a project in Warden.
 ### What the feature installs
 
 - **abduco** — terminal session manager for persistent sessions across disconnects
+- **gosu** — lightweight privilege drop for the container entrypoint
 - **Claude Code CLI** — the AI coding agent
-- **Terminal lifecycle scripts** — session creation, disconnect handling, process cleanup
+- **GitHub CLI** — for `gh` commands inside the container
+- **Node.js LTS** — needed for npx (MCP servers, etc.)
+- **Terminal lifecycle scripts** — entrypoint, session creation, disconnect handling, process cleanup
 - **Attention tracking hooks** — Claude Code hooks for real-time status monitoring
 - **Network isolation tools** — iptables-based network policy enforcement
 - **`dev` user** — non-root user for running terminals
@@ -93,7 +96,22 @@ All tools are installed idempotently — running the feature on an image that al
 If you need a completely different base image (Alpine, Fedora, a corporate base, etc.), you have two choices:
 
 1. **Use the devcontainer feature** (Option B) — it works on any Debian/Ubuntu-based image.
-2. **Manually install Warden's infrastructure** — copy the patterns from `container/scripts/install-tools.sh` in the Warden repo. The key requirements are: abduco, Claude Code CLI, the terminal lifecycle scripts, and a `dev` non-root user.
+2. **Manually install Warden's infrastructure** — copy the patterns from `container/scripts/install-tools.sh` in the Warden repo. The key requirements are: gosu, abduco, Claude Code CLI, the entrypoint and terminal lifecycle scripts, and a `dev` non-root user. See the required binaries below.
+
+## Required Binaries
+
+When you create a container, Warden validates that these binaries exist at `/usr/local/bin/`:
+
+| Binary | Purpose |
+|--------|---------|
+| `gosu` | Privilege drop in entrypoint |
+| `entrypoint.sh` | Root-phase setup (UID remapping, network isolation) |
+| `user-entrypoint.sh` | User-phase setup (env forwarding, git/ssh config) |
+| `create-terminal.sh` | Start abduco session + Claude Code |
+| `disconnect-terminal.sh` | Clean disconnect (kill viewer, keep abduco) |
+| `kill-worktree.sh` | Kill all processes for a worktree |
+
+Options A and B install all of these automatically. Option C requires you to provide them.
 
 ## Which approach to use?
 

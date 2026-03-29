@@ -47,7 +47,7 @@ Sources are tried in order — the first one detected wins. If none are detected
 
 ### Detection vs Resolution
 
-**Detection** checks if a credential's source exists on the host *without reading its value*. This is fast and safe — used by the UI to show availability status.
+**Detection** checks if a credential's source exists on the host *without reading its value*. This is fast and safe — used to show availability status before container creation.
 
 **Resolution** actually reads the values and prepares injections. This happens at container creation time, right before the container starts.
 
@@ -87,7 +87,7 @@ SSH agent forwarding is the secure way to use SSH keys in containers. The privat
 
 ## Creating Custom Access Items
 
-Navigate to the **Access** page (key icon in the top nav) and click **Create**.
+Navigate to the **Access** section and create a new item.
 
 ### Example 1: GitHub CLI
 
