@@ -41,6 +41,7 @@ import {
   AUDIT_CATEGORIES,
   categoryOrder,
   formatTimestamp,
+  formatDataForDisplay,
   copyEntry,
   entryKey,
   eventLabel,
@@ -503,14 +504,14 @@ export function AuditLogTable({
                       {row.original.data && Object.keys(row.original.data).length > 0 && (
                         <span>
                           <span className="text-foreground/60">data: </span>
-                          {JSON.stringify(row.original.data, null, 2)}
+                          {JSON.stringify(formatDataForDisplay(row.original.data), null, 2)}
                           {'\n'}
                         </span>
                       )}
                       {row.original.attrs && Object.keys(row.original.attrs).length > 0 && (
                         <span>
                           <span className="text-foreground/60">attrs: </span>
-                          {JSON.stringify(row.original.attrs, null, 2)}
+                          {JSON.stringify(formatDataForDisplay(row.original.attrs), null, 2)}
                         </span>
                       )}
                     </pre>
