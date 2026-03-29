@@ -2,8 +2,10 @@ import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'rea
 import { ArrowRight, Info, Loader2, Plus, Trash2 } from 'lucide-react'
 import type { ContainerConfig, Mount, NetworkMode } from '@/lib/types'
 import { fetchDefaults, fetchSettings } from '@/lib/api'
+import type { MountPreset } from '@/lib/api'
 import { restrictedDomains } from '@/lib/domain-groups'
 import { Button } from '@/components/ui/button'
+import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Switch } from '@/components/ui/switch'
@@ -44,6 +46,7 @@ export interface ProjectConfigFormData {
   networkMode: NetworkMode
   allowedDomains?: string[]
   costBudget?: number
+  enabledPresets?: string[]
 }
 
 /** Default container image for new projects. */
@@ -94,6 +97,8 @@ export default function ProjectConfigForm({
       ? String(initialValues.costBudget)
       : '',
   )
+  const [presets, setPresets] = useState<MountPreset[]>([])
+  const [presetToggles, setPresetToggles] = useState<Record<string, boolean>>({})
   const [error, setError] = useState<string | null>(null)
   const [advancedOpen, setAdvancedOpen] = useState(false)
   const [homeDir, setHomeDir] = useState('')
@@ -112,6 +117,26 @@ export default function ProjectConfigForm({
         }
         if (defaults.containerHomeDir) {
           setContainerHomeDir(defaults.containerHomeDir)
+        }
+        if (defaults.presets?.length) {
+          setPresets(defaults.presets)
+
+          if (mode === 'create') {
+            // Enable all available presets by default.
+            const toggles: Record<string, boolean> = {}
+            for (const preset of defaults.presets) {
+              toggles[preset.id] = preset.available
+            }
+            setPresetToggles(toggles)
+          } else {
+            // Edit mode: read enabled presets from stored config.
+            const enabled = new Set(initialValues?.enabledPresets ?? [])
+            const toggles: Record<string, boolean> = {}
+            for (const preset of defaults.presets) {
+              toggles[preset.id] = preset.available && enabled.has(preset.id)
+            }
+            setPresetToggles(toggles)
+          }
         }
         if (mode === 'create') {
           if (defaults.mounts?.length > 0) {
@@ -133,6 +158,7 @@ export default function ProjectConfigForm({
         })
         .catch(() => {})
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- initialValues is stable across renders; only mode determines create/edit behavior
   }, [mode])
 
   /** Adds a blank env var row. */
@@ -181,7 +207,29 @@ export default function ProjectConfigForm({
       }
     }
 
-    const validMounts = mounts.filter((m) => m.hostPath.trim() && m.containerPath.trim())
+    // Merge enabled preset mounts/envVars into the flat lists.
+    const allMounts = [...mounts.filter((m) => !presetContainerPaths.has(m.containerPath))]
+    for (const preset of presets) {
+      if (presetToggles[preset.id]) {
+        for (const pm of preset.mounts) {
+          allMounts.push({
+            hostPath: pm.hostPath,
+            containerPath: pm.containerPath,
+            readOnly: pm.readOnly,
+          })
+        }
+        if (preset.envVars) {
+          for (const ev of preset.envVars) {
+            const trimmedKey = ev.key.trim()
+            if (trimmedKey && !envMap[trimmedKey]) {
+              envMap[trimmedKey] = ev.value
+            }
+          }
+        }
+      }
+    }
+
+    const validMounts = allMounts.filter((m) => m.hostPath.trim() && m.containerPath.trim())
     const parsedDomains =
       networkMode === 'restricted'
         ? allowedDomains
@@ -189,6 +237,8 @@ export default function ProjectConfigForm({
             .map((d) => d.trim())
             .filter(Boolean)
         : undefined
+    const enabledPresetIds = presets.filter((p) => presetToggles[p.id]).map((p) => p.id)
+
     onSubmit({
       name: name.trim(),
       image: image.trim(),
@@ -199,6 +249,7 @@ export default function ProjectConfigForm({
       networkMode,
       allowedDomains: parsedDomains,
       costBudget: parseFloat(costBudget) || 0,
+      enabledPresets: enabledPresetIds.length > 0 ? enabledPresetIds : undefined,
     })
   }
 
@@ -222,6 +273,46 @@ export default function ProjectConfigForm({
       return input
     },
     [containerHomeDir],
+  )
+
+  /** Container paths that belong to any preset (used to filter the bind mounts grid). */
+  const presetContainerPaths = useMemo(() => {
+    const paths = new Set<string>()
+    for (const preset of presets) {
+      for (const m of preset.mounts) {
+        paths.add(m.containerPath)
+      }
+    }
+    return paths
+  }, [presets])
+
+  /** User-visible mounts with their original indices (for safe mutation of the mounts array). */
+  const visibleMounts = useMemo(
+    () =>
+      mounts
+        .map((mount, index) => ({ mount, index }))
+        .filter(({ mount }) => !presetContainerPaths.has(mount.containerPath)),
+    [mounts, presetContainerPaths],
+  )
+
+  /** Env var keys that belong to any preset. */
+  const presetEnvKeys = useMemo(() => {
+    const keys = new Set<string>()
+    for (const preset of presets) {
+      for (const ev of preset.envVars ?? []) {
+        keys.add(ev.key)
+      }
+    }
+    return keys
+  }, [presets])
+
+  /** User-visible env vars with their original indices. */
+  const visibleEnvVars = useMemo(
+    () =>
+      envVars
+        .map((entry, index) => ({ entry, index }))
+        .filter(({ entry }) => !presetEnvKeys.has(entry.key)),
+    [envVars, presetEnvKeys],
   )
 
   const isEditMode = mode === 'edit'
@@ -419,8 +510,8 @@ export default function ProjectConfigForm({
                     </TooltipTrigger>
                     <TooltipContent side="right" className="max-w-64">
                       <p>
-                        Mount host directories into the container. A few common mounts have been
-                        automatically added for you.
+                        Mount host directories into the container. Toggle passthrough presets below
+                        to include common infrastructure mounts automatically.
                       </p>
                     </TooltipContent>
                   </Tooltip>
@@ -442,10 +533,42 @@ export default function ProjectConfigForm({
                 Add
               </Button>
             </div>
-            {mounts.length === 0 && (
-              <p className="text-muted-foreground text-sm">No bind mounts configured.</p>
+
+            {presets.length > 0 && (
+              <div className="flex items-center gap-3">
+                <span className="text-muted-foreground text-sm">Passthrough:</span>
+                {presets.map((preset) => (
+                  <label key={preset.id} className="flex items-center gap-1.5 text-sm">
+                    <Checkbox
+                      checked={presetToggles[preset.id] ?? false}
+                      onCheckedChange={(checked) =>
+                        setPresetToggles((prev) => ({ ...prev, [preset.id]: checked === true }))
+                      }
+                      disabled={isSubmitting || disabled || !preset.available}
+                    />
+                    <span className={preset.available ? '' : 'text-muted-foreground'}>
+                      {preset.label}
+                    </span>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Info className="text-muted-foreground h-3 w-3" />
+                      </TooltipTrigger>
+                      <TooltipContent side="top" className="max-w-72">
+                        <p>
+                          {preset.description}
+                          {!preset.available && ' (not detected on host)'}
+                        </p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </label>
+                ))}
+              </div>
             )}
-            {mounts.length > 0 && (
+
+            {visibleMounts.length === 0 && (
+              <p className="text-muted-foreground text-sm">No additional bind mounts configured.</p>
+            )}
+            {visibleMounts.length > 0 && (
               <div className="grid grid-cols-[1fr_auto_1fr_auto_auto] items-center gap-x-2 gap-y-2">
                 <span className="text-muted-foreground text-sm font-medium">Host</span>
                 <span />
@@ -463,13 +586,13 @@ export default function ProjectConfigForm({
                 </span>
                 <span />
                 <span />
-                {mounts.map((mount, index) => (
-                  <Fragment key={index}>
+                {visibleMounts.map(({ mount, index: mountIndex }) => (
+                  <Fragment key={mountIndex}>
                     <DirectoryBrowser
                       value={mount.hostPath}
                       onChange={(val) =>
                         setMounts((prev) =>
-                          prev.map((m, i) => (i === index ? { ...m, hostPath: val } : m)),
+                          prev.map((m, i) => (i === mountIndex ? { ...m, hostPath: val } : m)),
                         )
                       }
                       disabled={isSubmitting || disabled}
@@ -485,7 +608,7 @@ export default function ProjectConfigForm({
                         const absolutePath = containerToAbsolute(e.target.value)
                         setMounts((prev) =>
                           prev.map((m, i) =>
-                            i === index ? { ...m, containerPath: absolutePath } : m,
+                            i === mountIndex ? { ...m, containerPath: absolutePath } : m,
                           ),
                         )
                       }}
@@ -501,7 +624,7 @@ export default function ProjectConfigForm({
                           onClick={() =>
                             setMounts((prev) =>
                               prev.map((m, i) =>
-                                i === index ? { ...m, readOnly: !m.readOnly } : m,
+                                i === mountIndex ? { ...m, readOnly: !m.readOnly } : m,
                               ),
                             )
                           }
@@ -517,7 +640,7 @@ export default function ProjectConfigForm({
                       type="button"
                       size="sm"
                       variant="ghost"
-                      onClick={() => setMounts((prev) => prev.filter((_, i) => i !== index))}
+                      onClick={() => setMounts((prev) => prev.filter((_, i) => i !== mountIndex))}
                       disabled={isSubmitting || disabled}
                       className="shrink-0 px-2"
                       icon={Trash2}
@@ -542,10 +665,10 @@ export default function ProjectConfigForm({
                 Add
               </Button>
             </div>
-            {envVars.length === 0 && (
+            {visibleEnvVars.length === 0 && (
               <p className="text-muted-foreground text-sm">No environment variables configured.</p>
             )}
-            {envVars.map((entry, index) => (
+            {visibleEnvVars.map(({ entry, index }) => (
               <div key={index} className="flex items-center gap-2">
                 <Input
                   placeholder="KEY"

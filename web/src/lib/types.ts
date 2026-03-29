@@ -249,6 +249,8 @@ export interface CreateContainerRequest {
   allowedDomains?: string[]
   /** Per-project cost limit in USD (0 = use global default). */
   costBudget?: number
+  /** Active mount preset IDs (e.g. ["git", "ssh"]). */
+  enabledPresets?: string[]
 }
 
 /** Editable configuration of an existing container. */
@@ -265,6 +267,8 @@ export interface ContainerConfig {
   allowedDomains?: string[]
   /** Per-project cost limit in USD (0 = use global default). */
   costBudget: number
+  /** Active mount preset IDs (e.g. ["git", "ssh"]). */
+  enabledPresets?: string[]
 }
 
 /** Information about a detected container runtime. */

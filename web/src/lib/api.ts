@@ -479,12 +479,39 @@ export async function updateSettings(
   return response.json() as Promise<{ restartRequired: boolean }>
 }
 
+/** A default mount resolved by the server. */
+export interface DefaultMount {
+  hostPath: string
+  containerPath: string
+  readOnly: boolean
+}
+
+/** A default environment variable resolved by the server. */
+export interface DefaultEnvVar {
+  key: string
+  value: string
+}
+
+/**
+ * A group of related infrastructure mounts presented as a single toggle.
+ * Presets are identified by ID so clients can match container mounts back.
+ */
+export interface MountPreset {
+  id: string
+  label: string
+  description: string
+  available: boolean
+  mounts: DefaultMount[]
+  envVars?: DefaultEnvVar[]
+}
+
 /** Server-resolved default values for the create container form. */
 export interface Defaults {
   homeDir: string
   containerHomeDir: string
-  mounts: Array<{ hostPath: string; containerPath: string; readOnly: boolean }>
-  envVars?: Array<{ key: string; value: string }>
+  presets?: MountPreset[]
+  mounts: DefaultMount[]
+  envVars?: DefaultEnvVar[]
 }
 
 /**

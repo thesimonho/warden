@@ -194,12 +194,14 @@ func (v *ContainerFormView) buildFieldLines() ([]string, int) {
 	if v.advancedOpen {
 		appendField(fieldImage, "Image", v.fieldView(fieldImage), "")
 
-		// Bind mounts section.
+		// Passthrough toggles.
+		appendField(fieldGitPassthrough, "Passthrough: Git", v.fieldView(fieldGitPassthrough), "Mount host .gitconfig (read-only)")
+		appendField(fieldSSHPassthrough, "Passthrough: SSH", v.fieldView(fieldSSHPassthrough), "Mount SSH config, known_hosts, and agent socket")
+
 		v.appendListSection(&lines, &cursorLine,
-			fieldMounts, "Bind Mounts", "Host directories mounted into the container",
+			fieldMounts, "Bind Mounts", "Additional host directories",
 			"Add Mount", v.mountCursor, v.renderMountItems)
 
-		// Environment variables section.
 		v.appendListSection(&lines, &cursorLine,
 			fieldEnvVars, "Environment Variables", "",
 			"Add Variable", v.envCursor, v.renderEnvItems)
@@ -346,6 +348,18 @@ func (v *ContainerFormView) fieldView(field int) string {
 
 	case fieldSkipPerms:
 		return boolSelector(v.skipPerm)
+
+	case fieldGitPassthrough:
+		if !v.isPresetAvailable(presetIDGit) {
+			return Styles.Muted.Render("(unavailable)")
+		}
+		return boolSelector(v.presetToggles[presetIDGit])
+
+	case fieldSSHPassthrough:
+		if !v.isPresetAvailable(presetIDSSH) {
+			return Styles.Muted.Render("(unavailable)")
+		}
+		return boolSelector(v.presetToggles[presetIDSSH])
 	}
 	return ""
 }
