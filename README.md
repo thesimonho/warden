@@ -23,15 +23,6 @@ A modular security boundary for AI coding agents. Bring your own orchestrator, o
 
 Every project gets its own container — isolated filesystem, credentials, and network. A rogue agent can trash its container but can never escape to the host, other containers, or your production systems.
 
-## 🤖 Supported Agents
-
-| Agent | Status |
-| ----- | ------ |
-| [Claude Code](https://docs.anthropic.com/en/docs/agents-and-tools/claude-code/overview) | **Supported** |
-| More agents | Coming soon |
-
-Warden's architecture is agent-agnostic — the container engine, security model, and event system are designed to work with any coding agent. Claude Code is the first supported agent, with more integrations on the way.
-
 ## 💡 Motivation
 
 You want to let your agents run wild without needing to approve permissions constantly, but you're also scared of it breaking things on your system. What do?
@@ -94,6 +85,7 @@ You can easily use it from Day 1 as its own agent orchestrator, running as a web
 ### Prerequisites
 
 - [Docker](https://docs.docker.com/get-docker/) or [Podman](https://podman.io/docs/installation)
+- [Claude Code](https://docs.anthropic.com/en/docs/agents-and-tools/claude-code/overview) — currently the only supported agent (more coming soon)
 
 ### Download
 
