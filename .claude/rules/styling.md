@@ -1,3 +1,8 @@
+---
+paths:
+  - "web/src/**"
+---
+
 # Styling
 
 ## Tailwind class organization
