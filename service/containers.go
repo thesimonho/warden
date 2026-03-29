@@ -25,6 +25,16 @@ func (s *Service) CreateContainer(ctx context.Context, req engine.CreateContaine
 		return nil, fmt.Errorf("resolving access items: %w", err)
 	}
 
+	// OriginalMounts must include access item mounts so that stale mount
+	// detection compares against the full set Docker actually receives.
+	// row.Mounts stays user-only so InspectContainer doesn't duplicate
+	// access item mounts when the user edits and re-saves.
+	if len(req.Mounts) > 0 {
+		if data, err := json.Marshal(req.Mounts); err == nil {
+			row.OriginalMounts = data
+		}
+	}
+
 	containerID, err := s.docker.CreateContainer(ctx, req)
 	if err != nil {
 		return nil, err
@@ -73,10 +83,11 @@ func (s *Service) InspectContainer(ctx context.Context, project *db.ProjectRow) 
 		return nil, err
 	}
 
-	// Overlay DB metadata. The DB stores pre-symlink-resolution mounts,
-	// while Docker's bind list contains resolved extras. Using the DB
-	// mounts prevents duplicate mount points when the user edits and
-	// saves (the resolver would re-expand symlinks, doubling the extras).
+	// Overlay DB metadata. The DB stores user-provided env vars and
+	// pre-symlink-resolution mounts. Using the DB values prevents
+	// access-item-injected env vars and symlink-resolved mounts from
+	// leaking into the editable config (which would duplicate them
+	// when the user saves — the resolver re-expands on create).
 	cfg.SkipPermissions = project.SkipPermissions
 	if project.NetworkMode != "" {
 		cfg.NetworkMode = engine.NetworkMode(project.NetworkMode)
@@ -84,11 +95,21 @@ func (s *Service) InspectContainer(ctx context.Context, project *db.ProjectRow) 
 	if project.AllowedDomains != "" {
 		cfg.AllowedDomains = splitCSV(project.AllowedDomains)
 	}
+	if len(project.EnvVars) > 0 {
+		var envVars map[string]string
+		if err := json.Unmarshal(project.EnvVars, &envVars); err == nil {
+			cfg.EnvVars = envVars
+		}
+	} else {
+		cfg.EnvVars = nil
+	}
 	if len(project.Mounts) > 0 {
 		var mounts []engine.Mount
 		if err := json.Unmarshal(project.Mounts, &mounts); err == nil {
 			cfg.Mounts = mounts
 		}
+	} else {
+		cfg.Mounts = nil
 	}
 	cfg.CostBudget = project.CostBudget
 	if project.EnabledAccessItems != "" {
@@ -109,6 +130,13 @@ func (s *Service) UpdateContainer(ctx context.Context, project *db.ProjectRow, r
 	// Resolve enabled access items into env vars and mounts.
 	if err := s.ResolveAccessItemsForContainer(&req); err != nil {
 		return nil, fmt.Errorf("resolving access items: %w", err)
+	}
+
+	// Update OriginalMounts to include access item mounts (see CreateContainer).
+	if len(req.Mounts) > 0 {
+		if data, err := json.Marshal(req.Mounts); err == nil {
+			row.OriginalMounts = data
+		}
 	}
 
 	newID, err := s.docker.RecreateContainer(ctx, project.ContainerID, req)
