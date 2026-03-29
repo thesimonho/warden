@@ -1,5 +1,255 @@
 components:
   schemas:
+    access.Credential:
+      properties:
+        injections:
+          description: Injections are the container-side delivery targets.
+          items:
+            $ref: '#/components/schemas/access.Injection'
+          type: array
+          uniqueItems: false
+        label:
+          description: Label is a human-readable name for this credential (e.g. "SSH
+            Agent Socket").
+          type: string
+        sources:
+          description: Sources are tried in order; the first detected value is used.
+          items:
+            $ref: '#/components/schemas/access.Source'
+          type: array
+          uniqueItems: false
+        transform:
+          $ref: '#/components/schemas/access.Transform'
+      type: object
+    access.CredentialStatus:
+      properties:
+        available:
+          description: Available is true when at least one source was detected.
+          type: boolean
+        label:
+          description: Label is the credential's human-readable name.
+          type: string
+        sourceMatched:
+          description: SourceMatched describes which source was detected (empty when
+            unavailable).
+          type: string
+      type: object
+    access.DetectionResult:
+      description: Detection holds per-credential availability on the current host.
+      properties:
+        available:
+          description: Available is true when at least one credential was detected.
+          type: boolean
+        credentials:
+          description: Credentials contains per-credential detection results.
+          items:
+            $ref: '#/components/schemas/access.CredentialStatus'
+          type: array
+          uniqueItems: false
+        id:
+          description: ID is the access item identifier.
+          type: string
+        label:
+          description: Label is the access item display name.
+          type: string
+      type: object
+    access.Injection:
+      properties:
+        key:
+          description: Key is the env var name or container path for the injection
+            target.
+          type: string
+        readOnly:
+          description: ReadOnly applies to mount injections — when true the mount
+            is read-only.
+          type: boolean
+        type:
+          $ref: '#/components/schemas/access.InjectionType'
+        value:
+          description: |-
+            Value is a static override for the resolved value. When set, this
+            is used instead of the source-resolved value. Useful when the
+            injection needs a fixed container-side path (e.g. SSH_AUTH_SOCK
+            env var pointing to the container socket path).
+          type: string
+      type: object
+    access.InjectionType:
+      description: Type is the injection kind (env, mount_file, mount_socket).
+      enum:
+      - env
+      - mount_file
+      - mount_socket
+      type: string
+      x-enum-varnames:
+      - InjectionEnvVar
+      - InjectionMountFile
+      - InjectionMountSocket
+    access.Item:
+      properties:
+        builtIn:
+          description: BuiltIn is true for items that ship with Warden.
+          type: boolean
+        credentials:
+          description: Credentials are the individual credential entries in this group.
+          items:
+            $ref: '#/components/schemas/access.Credential'
+          type: array
+          uniqueItems: false
+        description:
+          description: Description explains what this access item provides.
+          type: string
+        id:
+          description: |-
+            ID is a stable identifier. Built-in items use well-known IDs
+            (e.g. "git", "ssh"); user items get generated UUIDs.
+          type: string
+        label:
+          description: Label is the human-readable display name (e.g. "Git Config").
+          type: string
+        method:
+          $ref: '#/components/schemas/access.Method'
+      type: object
+    access.Method:
+      description: Method is the delivery strategy (only "transport" for now).
+      enum:
+      - transport
+      type: string
+      x-enum-varnames:
+      - MethodTransport
+    access.ResolvedCredential:
+      properties:
+        error:
+          description: Error is set when resolution failed (distinct from "not detected").
+          type: string
+        injections:
+          description: Injections are the resolved container-side deliveries.
+          items:
+            $ref: '#/components/schemas/access.ResolvedInjection'
+          type: array
+          uniqueItems: false
+        label:
+          description: Label is the credential's human-readable name.
+          type: string
+        resolved:
+          description: |-
+            Resolved is true when a source was detected and all injections
+            were produced.
+          type: boolean
+        sourceMatched:
+          description: SourceMatched describes which source was matched (empty when
+            unresolved).
+          type: string
+      type: object
+    access.ResolvedInjection:
+      properties:
+        key:
+          description: Key is the env var name or container path.
+          type: string
+        readOnly:
+          description: ReadOnly applies to mount injections.
+          type: boolean
+        type:
+          $ref: '#/components/schemas/access.InjectionType'
+        value:
+          description: |-
+            Value is the resolved content (env var value, host file path,
+            or host socket path).
+          type: string
+      type: object
+    access.ResolvedItem:
+      properties:
+        credentials:
+          description: Credentials contains per-credential resolution results.
+          items:
+            $ref: '#/components/schemas/access.ResolvedCredential'
+          type: array
+          uniqueItems: false
+        id:
+          description: ID is the access item identifier.
+          type: string
+        label:
+          description: Label is the access item display name.
+          type: string
+      type: object
+    access.Source:
+      properties:
+        type:
+          $ref: '#/components/schemas/access.SourceType'
+        value:
+          description: Value is the env var name, file path, socket path, or command
+            string.
+          type: string
+      type: object
+    access.SourceType:
+      description: Type is the kind of host source.
+      enum:
+      - env
+      - file
+      - socket
+      - command
+      type: string
+      x-enum-varnames:
+      - SourceEnvVar
+      - SourceFilePath
+      - SourceSocketPath
+      - SourceCommand
+    access.Transform:
+      description: Transform is an optional processing step applied to the resolved
+        value.
+      properties:
+        params:
+          additionalProperties:
+            type: string
+          description: Params holds type-specific configuration (e.g. "pattern" for
+            strip_lines).
+          type: object
+        type:
+          $ref: '#/components/schemas/access.TransformType'
+      type: object
+    access.TransformType:
+      description: Type identifies the transformation.
+      enum:
+      - strip_lines
+      - git_include
+      type: string
+      x-enum-varnames:
+      - TransformStripLines
+      - TransformGitInclude
+    api.AccessItemListResponse:
+      properties:
+        items:
+          items:
+            $ref: '#/components/schemas/api.AccessItemResponse'
+          type: array
+          uniqueItems: false
+      type: object
+    api.AccessItemResponse:
+      properties:
+        builtIn:
+          description: BuiltIn is true for items that ship with Warden.
+          type: boolean
+        credentials:
+          description: Credentials are the individual credential entries in this group.
+          items:
+            $ref: '#/components/schemas/access.Credential'
+          type: array
+          uniqueItems: false
+        description:
+          description: Description explains what this access item provides.
+          type: string
+        detection:
+          $ref: '#/components/schemas/access.DetectionResult'
+        id:
+          description: |-
+            ID is a stable identifier. Built-in items use well-known IDs
+            (e.g. "git", "ssh"); user items get generated UUIDs.
+          type: string
+        label:
+          description: Label is the human-readable display name (e.g. "Git Config").
+          type: string
+        method:
+          $ref: '#/components/schemas/access.Method'
+      type: object
     api.AuditLogMode:
       enum:
       - "off"
@@ -38,6 +288,18 @@ components:
         uniqueWorktrees:
           description: UniqueWorktrees is the number of distinct worktrees with events.
           type: integer
+      type: object
+    api.CreateAccessItemRequest:
+      properties:
+        credentials:
+          items:
+            $ref: '#/components/schemas/access.Credential'
+          type: array
+          uniqueItems: false
+        description:
+          type: string
+        label:
+          type: string
       type: object
     api.DiffFileSummary:
       properties:
@@ -104,6 +366,22 @@ components:
         message:
           type: string
       type: object
+    api.ResolveAccessItemsRequest:
+      properties:
+        items:
+          items:
+            $ref: '#/components/schemas/access.Item'
+          type: array
+          uniqueItems: false
+      type: object
+    api.ResolveAccessItemsResponse:
+      properties:
+        items:
+          items:
+            $ref: '#/components/schemas/access.ResolvedItem'
+          type: array
+          uniqueItems: false
+      type: object
     api.TimeRange:
       description: TimeRange holds the earliest and latest event timestamps.
       properties:
@@ -117,6 +395,18 @@ components:
         count:
           type: integer
         name:
+          type: string
+      type: object
+    api.UpdateAccessItemRequest:
+      properties:
+        credentials:
+          items:
+            $ref: '#/components/schemas/access.Credential'
+          type: array
+          uniqueItems: false
+        description:
+          type: string
+        label:
           type: string
       type: object
     db.Entry:
@@ -657,6 +947,258 @@ info:
   version: "1.0"
 openapi: 3.1.0
 paths:
+  /api/v1/access:
+    get:
+      description: |-
+        Returns all access items (built-in + user-created) enriched with
+        per-credential host detection status. Built-in items that have been
+        customized via the DB are returned with the customized configuration.
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/api.AccessItemListResponse'
+          description: OK
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/server.apiError'
+          description: Internal Server Error
+      summary: List access items
+      tags:
+      - access
+    post:
+      description: |-
+        Creates a new user-defined access item with the given label, description,
+        and credential configuration. Returns the created item with a generated ID.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              oneOf:
+              - type: object
+              - $ref: '#/components/schemas/api.CreateAccessItemRequest'
+                description: Access item configuration
+                summary: body
+        description: Access item configuration
+        required: true
+      responses:
+        "201":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/access.Item'
+          description: Created
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/server.apiError'
+          description: Invalid input (missing label or credentials)
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/server.apiError'
+          description: Internal Server Error
+      summary: Create access item
+      tags:
+      - access
+  /api/v1/access/{id}:
+    delete:
+      description: |-
+        Deletes a user-defined access item. Built-in items cannot be deleted —
+        use the reset endpoint instead.
+      parameters:
+      - description: Access item ID
+        in: path
+        name: id
+        required: true
+        schema:
+          type: string
+      responses:
+        "204":
+          description: No content
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/server.apiError'
+          description: Cannot delete built-in item
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/server.apiError'
+          description: Internal Server Error
+      summary: Delete access item
+      tags:
+      - access
+    get:
+      description: |-
+        Returns a single access item with detection status. For built-in items,
+        returns the DB override if one exists, otherwise the default configuration.
+      parameters:
+      - description: Access item ID
+        in: path
+        name: id
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/api.AccessItemResponse'
+          description: OK
+        "404":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/server.apiError'
+          description: Item not found
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/server.apiError'
+          description: Internal Server Error
+      summary: Get access item
+      tags:
+      - access
+    put:
+      description: |-
+        Updates an access item. For built-in items, saves a customized copy to the DB
+        (overriding the default). For user items, updates the existing DB row.
+        Only provided fields are changed.
+      parameters:
+      - description: Access item ID
+        in: path
+        name: id
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              oneOf:
+              - type: object
+              - $ref: '#/components/schemas/api.UpdateAccessItemRequest'
+                description: Fields to update (all optional)
+                summary: body
+        description: Fields to update (all optional)
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/access.Item'
+          description: OK
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/server.apiError'
+          description: Invalid input
+        "404":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/server.apiError'
+          description: Item not found
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/server.apiError'
+          description: Internal Server Error
+      summary: Update access item
+      tags:
+      - access
+  /api/v1/access/{id}/reset:
+    post:
+      description: |-
+        Restores a built-in access item to its default configuration by removing
+        any DB override. Only works for built-in items (git, ssh).
+      parameters:
+      - description: Built-in access item ID
+        in: path
+        name: id
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/access.Item'
+          description: OK
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/server.apiError'
+          description: Not a built-in item
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/server.apiError'
+          description: Internal Server Error
+      summary: Reset access item
+      tags:
+      - access
+  /api/v1/access/resolve:
+    post:
+      description: |-
+        Resolves the given access items by checking host sources and computing
+        the injections (env vars, mounts) that would be applied to containers.
+        Used by the UI "Test" button to preview resolution without creating a container.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              oneOf:
+              - type: object
+              - $ref: '#/components/schemas/api.ResolveAccessItemsRequest'
+                description: Item IDs to resolve
+                summary: body
+        description: Item IDs to resolve
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/api.ResolveAccessItemsResponse'
+          description: OK
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/server.apiError'
+          description: Invalid request body
+        "404":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/server.apiError'
+          description: Item not found
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/server.apiError'
+          description: Internal Server Error
+      summary: Resolve access items
+      tags:
+      - access
   /api/v1/audit:
     delete:
       description: |-
