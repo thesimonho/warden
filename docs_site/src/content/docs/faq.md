@@ -3,6 +3,12 @@ title: FAQ
 description: Frequently asked questions about Warden.
 ---
 
+## What agents does Warden support?
+
+Currently, Warden supports [Claude Code](https://docs.anthropic.com/en/docs/agents-and-tools/claude-code/overview). More agent integrations are coming soon.
+
+Warden's architecture is agent-agnostic — the container engine, security model, and event system are designed to work with any coding agent. Agent-specific behavior (status detection, cost tracking, event parsing) is isolated in the [`agent/`](/warden/reference/go/agent/) package, making it straightforward to add new agents.
+
 ## How is Warden different from other tools?
 
 There are many tools for running AI coding agents and managing multi-agent workflows.
