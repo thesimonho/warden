@@ -56,6 +56,6 @@ When you change features, APIs, packages, or behavior, update the relevant docs 
 | --------------------- | --------------------------------------------------------------- |
 | `README.md`           | Features, installation, comparison, or integration paths change |
 | `CONTRIBUTING.md`     | Dev setup, testing, or PR process changes                       |
-| `docs/codemaps/*.md`  | Package structure, key functions, or constants change           |
+| `docs/codemaps/**/*.md` | Package structure, key functions, or constants change          |
 | `docs/terminology.md` | New terms, states, or actions are introduced                    |
 | `CLAUDE.md`           | Commands, stack, or architectural rules change                  |

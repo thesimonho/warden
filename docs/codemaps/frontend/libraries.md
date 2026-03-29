@@ -1,0 +1,25 @@
+# Libraries
+
+## Internal (`lib/`)
+
+| File | Purpose |
+| --- | --- |
+| `lib/api.ts` | API client: centralized `apiFetch` helper and `ApiError` class with `code` and `status` fields; all mutation endpoints return typed result objects (`ProjectResult`, `WorktreeResult`, `ContainerResult`); endpoints: `fetchProjects`, `stopProject`, `restartProject`, `fetchWorktrees`, `createWorktree`, `connectTerminal`, `disconnectTerminal`, `removeWorktree`, `createContainer`, `listAccessItems`, `getAccessItem`, `createAccessItem`, `updateAccessItem`, `deleteAccessItem`, `resolveAccessItems`, `listDirectories`, `addProject`, `removeProject`, `deleteContainer`, `resetProjectCosts`, `purgeProjectAudit`, `validateContainer`, `fetchRuntimes`, `fetchSettings`, `updateSettings`, `fetchDefaults`, `revealInFileManager`, `worktreeHostPath`, `fetchAuditLog`, `fetchAuditSummary`, `fetchAuditProjects`, `postAuditEvent`, `deleteAuditEvents`, `auditExportUrl` |
+| `lib/cost.ts` | Cost and duration formatting: `formatCost`, `formatDuration` |
+| `lib/settings.ts` | localStorage-backed settings (`loadSettings`, `saveSettings`, `DEFAULT_SETTINGS`) — notifications toggle only (event log setting is server-side) |
+| `lib/types.ts` | Shared types: `Project` (incl. `projectId`, `costBudget`, `isEstimatedCost`, `mountedDir`, `workspaceDir`), `WorkspaceMount` (host↔container path pair, with `workspaceMount()` extractor), `ContainerConfig`, `Worktree`, `ProjectResult`, `WorktreeResult`, `ContainerResult`, `CreateContainerRequest`, `AccessItem`, `AccessItemResponse`, `AccessItemListResponse`, `CreateAccessItemRequest`, `UpdateAccessItemRequest`, `ResolveAccessItemsRequest`, `ResolveAccessItemsResponse`, `DetectionResult`, `NetworkMode` enum, `ClaudeStatus`, `WorktreeState`, `NotificationType`, `RuntimeInfo`, `ServerSettings`, `AuditLogMode`, `DirEntry`, `WorktreeStateEvent`, `ProjectStateEvent`, `BudgetExceededEvent`, `BudgetContainerStoppedEvent`, `AuditSource` enum, `AuditLogEntry`, `AuditCategory`, `AuditFilters`, `AuditSummary`, `ToolCount`, `TimeRange`, `PostAuditEventRequest`, `ProjectConfigFormData`; helpers `hasActiveTerminal()`, `isConnectedWorktree()`, `isSessionAlive()` |
+| `lib/canvas-store.ts` | Canvas panel state hook (`useCanvasStore`): panel CRUD, selection (`selectPanels`, `toggleSelection`, `clearSelection`), layout actions (`applyLayout` — grid/horizontal/vertical), smart new-panel positioning, layout animation flag |
+| `lib/canvas-layout.ts` | Pure layout computation functions: `layoutGrid`, `layoutHorizontal`, `layoutVertical` — arrange panels by bounding box anchor, preserving individual dimensions |
+| `lib/domain-groups.ts` | Domain group presets for restricted network mode: `DomainGroup` type, `domainGroups` (Minimal, AI Dev, Web Dev, Full Stack), `findMatchingGroup()` |
+| `lib/notification-config.ts` | Single source of truth for notification type display properties (label, dot color, text color, message). `getAttentionConfig()` returns config for a given `NotificationType`. |
+| `lib/activity-buckets.ts` | Pure bucketing logic for the activity timeline: groups `AuditLogEntry[]` into adaptive time buckets with counts per audit category. Exports `chooseBucketWidth()`, `CATEGORY_KEYS`, `ActivityBucket`/`BucketResult` types, and `bucketEventsByCategory()`. |
+| `lib/terminal-themes.ts` | Builds xterm.js `ITheme` from active CSS `--terminal-*` custom properties. `getTerminalTheme()` reads CSS variables so terminal colors follow light/dark mode. |
+| `lib/utils.ts` | `cn()` (tailwind class merge), `relativeTime()` (human-readable timestamps), `abbreviateHomePath()` (~/... display), `parentDir()` (parent directory of a POSIX path) |
+
+## External
+
+| Library | Purpose |
+| --- | --- |
+| recharts | Charting library (MIT). Used via shadcn `chart.tsx` wrapper for the activity timeline brush/scrubber. |
+| sonner | Toast notifications for user feedback (success, error, warning messages) |
+| Prettier | Code formatter with eslint-config-prettier integration; prettier-plugin-tailwindcss sorts Tailwind classes |

@@ -1,0 +1,51 @@
+# Engine
+
+Container engine API wrapper (Docker/Podman/Windows). Located at `engine/`.
+
+## Core Types
+
+| File | Purpose |
+| --- | --- |
+| `project_id.go` | `ProjectID(hostPath) string` — deterministic 12-char hex hash of resolved absolute host path (SHA-256). `ValidProjectID(id) bool` validates format. |
+| `project_id_test.go` | Tests for determinism, symlink normalization, trailing slashes, relative path rejection, validation |
+| `types.go` | `Client` interface, `Project` (incl. `ProjectID`, `HostPath`, `HasContainer` flag, `MountedDir`, `WorkspaceDir` for host↔container path mapping), `Worktree`, `ContainerConfig` (with `EnabledAccessItems` field), `CreateContainerRequest` (with `EnabledAccessItems` field), `NetworkMode` enum (`full`/`restricted`/`none`), `ClaudeStatus`, `WorktreeState` (`connected`/`shell`/`background`/`disconnected`), `NotificationType` enums. Exported constants: `ContainerUser`, `ContainerHomeDir`. `ValidateInfrastructure(ctx, containerName) error` — checks for abduco, create-terminal.sh in container; `ListWorktrees` interface now accepts `skipEnrich ...bool`; `CreateWorktree(ctx, containerName, name, skipPermissions)` and `ConnectTerminal` methods return `(string, error)` (worktree ID) instead of struct |
+
+## Docker Client
+
+| File | Purpose |
+| --- | --- |
+| `client.go` | `DockerClient` implementation: connects via socket path (Docker, Podman, Windows named pipes), `NewClient`, `ListProjects`, `StopProject`, `RestartProject`, `enrichProjectStatus` (worktree counts + claude status; cost overlaid at service layer from DB/event store), `checkClaudeStatus`, `checkIsGitRepo`, `execAndCapture`, `workspaceDir` (per-container workspace path resolver with `sync.Map` cache), `envValue` (extract env var from container config), `ContainerWorkspaceDir(name)` (computes `/home/dev/<name>`), `projectMountPaths(name, mounts)` (returns host source + container destination of workspace bind mount). `SetEventDir(dir)` configures the bind-mounted event directory path passed to containers via `WARDEN_EVENT_DIR`. |
+| `agent_status.go` | `ReadAgentStatus` (reads agent config via docker exec), `ReadAgentCostAndBillingType` (single-call cost + billing type extraction with per-session breakdown via `SessionCost` type), `IsEstimatedCost` (checks `oauthAccount.billingType` for subscription vs API key), `ProjectCostFromContainerStatuses` (sums cost filtered by workspace prefix), `sessionCostsFromStatuses` (extracts per-session costs keyed by agent session ID), `AgentCostResult` type. Cost is persisted to `session_costs` DB table keyed by `(projectID, sessionID)` (monotonically non-decreasing, upsert-safe); agent config is also read opportunistically when DB has no data and persisted on read. |
+
+## Worktrees
+
+| File | Purpose |
+| --- | --- |
+| `worktrees.go` | `CreateWorktree`, `ListWorktrees` (accepts `skipEnrich` flag for event-driven mode), `ConnectTerminal` (validates worktree exists in git, auto-detects background state and reconnects), `DisconnectTerminal`, `RemoveWorktree` (kills abduco, prunes git metadata, tolerates already-removed worktrees, cleans up .warden-terminals/<id>/), `CleanupOrphanedWorktrees` (3-step: `pruneGitWorktrees` removes orphaned git entries, `cleanupOrphanedWorktreeDirs` removes .claude/worktrees/ dirs, `cleanupStaleTerminals` removes .warden-terminals/<id>/ with dead abduco OR missing worktree directory — kills orphaned abduco sessions first), `isAbducoSessionAlive`, `isGitWorktreeKnown`; worktree discovery: git porcelain (main + linked worktrees, prunable entries skipped, supports both `.worktrees/` and `.claude/worktrees/` paths) → `mergeTerminalWorktrees` (pre-git-create race) → `enrichWorktreeState` (terminal state from `.warden-terminals/`) |
+| `worktrees_test.go` | Worktree parsing tests (`parseGitWorktreeList` incl. claude path + prunable skip, `parseTerminalBatch` incl. abduco alive/dead/backwards-compat, `isValidWorktreeID`, `worktreeIDFromPath`) |
+
+## Containers
+
+| File | Purpose |
+| --- | --- |
+| `containers.go` | `CreateContainer`, `DeleteContainer`, `InspectContainer`, `RecreateContainer`, `stopAndRemove` helper, `ensureImage`, `checkNameAvailable`, network mode env var injection. `buildSecurityConfig(networkMode, seccompPath)` — see [container/security.md](../container/security.md) for full capability list and seccomp details. PidsLimit=512 prevents fork bombs. `hostOwner()` stats the project path to pass host UID/GID as env vars. Entrypoint set to `/usr/local/bin/entrypoint.sh`. All containers get a bind mount for the event directory. `CreateContainer` sets project env vars (see [container/environment.md](../container/environment.md)) and mounts the project. Calls `resolveSymlinksForMounts` before building bind mounts. |
+| `containers_security_test.go` | Unit tests for `buildSecurityConfig` across all three network modes |
+| `mount_strategy.go` | `buildBindMounts(projectPath, containerWorkspaceDir, mounts)` — constructs bind mount strings. Workspace mount target is parameterized. |
+| `symlink_resolver.go` | `resolveSymlinksForMounts` — walks each mount's host path and finds symlinks whose targets are outside the mounted directory tree, adding extra bind mounts for the resolved targets. Handles file symlinks, directory symlinks, nested chains, broken/circular symlinks. |
+| `symlink_resolver_test.go` | Tests for symlink resolution |
+
+## Seccomp
+
+| File | Purpose |
+| --- | --- |
+| `seccomp/profile.json` | Denylist-based seccomp profile (SCMP_ACT_ALLOW default). Blocks dangerous syscalls: kernel manipulation, filesystem mounting, security-sensitive operations. Supports x86_64 and aarch64. |
+| `seccomp/seccomp.go` | `//go:embed profile.json`, exports `ProfileJSON() string` and `WriteProfileFile(dir) (string, error)`. `Validate()` for build-time profile verification. |
+| `seccomp/seccomp_test.go` | Profile structure validation, architecture coverage, dangerous syscall denylist verification |
+
+## Go Constants
+
+- `terminalsDirSuffix = "/.warden-terminals"` — appended to workspace dir for terminal tracking
+- `createTerminalScript = "/usr/local/bin/create-terminal.sh"` — in-container script to initialize abduco session
+- `disconnectTerminalScript = "/usr/local/bin/disconnect-terminal.sh"` — in-container script to kill abduco session
+
+For container environment variables (`WARDEN_*`), see [container/environment.md](../container/environment.md).

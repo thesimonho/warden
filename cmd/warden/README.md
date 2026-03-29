@@ -18,7 +18,7 @@ ADDR=0.0.0.0:9000 ./warden
 
 ## API
 
-All endpoints are under `/api/v1/`. See the [backend codemap](../../docs/codemaps/backend.md) for the full endpoint reference.
+All endpoints are under `/api/v1/`. See the [API server codemap](../../docs/codemaps/backend/api-server.md) for the full endpoint reference.
 
 Key endpoints:
 

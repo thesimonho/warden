@@ -1,0 +1,56 @@
+# HTTP API Server
+
+`internal/server/` — HTTP server and API layer. Handlers are thin adapters: decode request → validate input → call `service.Service` → encode response.
+
+## Files
+
+| File | Purpose |
+| --- | --- |
+| `server.go` | `Server` struct, `New(addr, svc, broker, termProxy)` constructor, `go:embed` for static frontend, `handleHealth` |
+| `doc.go` | Package doc with swaggo general API info annotations (`@title`, `@version`, `@servers`, `@license`, `@externalDocs`) |
+| `errors.go` | Error code constants (validation: `ErrCodeInvalidBody`, `ErrCodeNameTaken`, etc.; resource: `ErrCodeNotFound`, `ErrCodeNameTaken`; infrastructure: `ErrCodeNotConfigured`; server: `ErrCodeInternal`), `apiError` struct, `writeError` helper. All error responses include `{"error": "message", "code": "CODE"}` for machine-readable error handling. |
+| `routes.go` | `registerAPIRoutes()`, all API handlers (thin adapters over `service.Service`), input validation, JSON response helpers, SSE streaming, WebSocket terminal proxy with viewer counting. All handlers annotated with swaggo comments for OpenAPI spec generation. |
+| `openapi_types.go` | Named request/response types used by handlers and swag annotations for OpenAPI spec generation |
+| `routes_test.go` | API handler tests |
+| `debug_routes_test.go` | Tests for settings and event log endpoints |
+| `middleware.go` | `corsMiddleware` (localhost-only CORS), `loggingMiddleware` (method/path/status/duration), `statusWriter` |
+
+## API Endpoints
+
+| Method | Path | Handler | Description |
+| --- | --- | --- | --- |
+| GET | `/api/v1/health` | `handleHealth` | Health check |
+| GET | `/api/v1/projects` | `handleListProjects` | List projects from database with container state |
+| POST | `/api/v1/projects` | `handleAddProject` | Add project to database (creates container) |
+| DELETE | `/api/v1/projects/{projectID}` | `handleRemoveProject` | Remove project from database |
+| DELETE | `/api/v1/projects/{projectID}/costs` | `handleResetProjectCosts` | Reset all cost history for a project |
+| DELETE | `/api/v1/projects/{projectID}/audit` | `handlePurgeProjectAudit` | Purge all audit events for a project |
+| POST | `/api/v1/projects/{projectID}/stop` | `handleStopProject` | Stop container |
+| POST | `/api/v1/projects/{projectID}/restart` | `handleRestartProject` | Restart container |
+| GET | `/api/v1/projects/{projectID}/worktrees` | `handleListWorktrees` | List worktrees with terminal state |
+| POST | `/api/v1/projects/{projectID}/worktrees` | `handleCreateWorktree` | Create git worktree + connect terminal |
+| POST | `/api/v1/projects/{projectID}/worktrees/{wid}/connect` | `handleConnectTerminal` | Start terminal for a worktree |
+| POST | `/api/v1/projects/{projectID}/worktrees/{wid}/disconnect` | `handleDisconnectTerminal` | Close terminal WebSocket for a worktree |
+| DELETE | `/api/v1/projects/{projectID}/worktrees/{wid}` | `handleRemoveWorktree` | Fully remove worktree (kill abduco, git worktree remove, cleanup) |
+| GET | `/api/v1/projects/{projectID}/ws/{wid}` | `handleTerminalWebSocket` | WebSocket terminal proxy — connects to abduco via docker exec |
+| GET | `/api/v1/projects/{projectID}/worktrees/{wid}/diff` | `handleGetWorktreeDiff` | Uncommitted changes as unified diff with per-file stats |
+| POST | `/api/v1/projects/{projectID}/worktrees/cleanup` | `handleCleanupWorktrees` | Remove orphaned worktree directories not tracked by git |
+| GET | `/api/v1/runtimes` | `handleListRuntimes` | Detect available container runtimes (Docker/Podman) |
+| GET | `/api/v1/settings` | `handleGetSettings` | Return server-side settings (runtime, auditLogMode, budget) |
+| PUT | `/api/v1/settings` | `handleUpdateSettings` | Update settings (runtime, auditLogMode, budget actions) |
+| GET | `/api/v1/audit` | `handleGetAuditLog` | Audit events with category/project/worktree/source/level/time filters |
+| GET | `/api/v1/audit/summary` | `handleGetAuditSummary` | Aggregate audit stats (sessions, tools, prompts, cost, top tools) |
+| GET | `/api/v1/audit/projects` | `handleGetAuditProjects` | Return distinct project names from audit log |
+| POST | `/api/v1/audit` | `handlePostAuditEvent` | Add custom audit entry |
+| DELETE | `/api/v1/audit` | `handleDeleteAuditEvents` | Delete audit events (scoped with filters) |
+| GET | `/api/v1/audit/export` | `handleExportAuditLog` | Download audit events as CSV or JSON |
+| GET | `/api/v1/access` | `handleListAccessItems` | List all access items with detection status |
+| POST | `/api/v1/access` | `handleCreateAccessItem` | Create user access item |
+| GET | `/api/v1/access/{id}` | `handleGetAccessItem` | Get single access item with detection status |
+| PUT | `/api/v1/access/{id}` | `handleUpdateAccessItem` | Update user access item |
+| DELETE | `/api/v1/access/{id}` | `handleDeleteAccessItem` | Delete user access item (rejects built-in) |
+| POST | `/api/v1/access/resolve` | `handleResolveAccessItems` | Resolve items for test/preview (batch) |
+| GET | `/api/v1/filesystem/directories` | `handleListDirectories` | List subdirectories at a path (filesystem browser) |
+| POST | `/api/v1/filesystem/reveal` | `handleRevealInFileManager` | Open a host directory in the system file manager |
+| GET | `/api/v1/defaults` | `handleDefaults` | Server-resolved defaults for create container form |
+| GET | `/api/v1/events` | `handleSSE` | SSE stream: worktree_state, project_state, budget_exceeded, budget_container_stopped, heartbeat |
