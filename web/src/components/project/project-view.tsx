@@ -113,7 +113,7 @@ export default function ProjectView({ projectId, onProjectChange }: ProjectViewP
   }, [measureCanvas, viewMode])
 
   const {
-    containerRef: panZoomRef,
+    setContainerEl: setPanZoomEl,
     transform,
     isPanning,
     handlePointerDown: handlePanPointerDown,
@@ -133,10 +133,10 @@ export default function ProjectView({ projectId, onProjectChange }: ProjectViewP
   const setCanvasRef = useCallback(
     (node: HTMLDivElement | null) => {
       canvasRef.current = node
-      panZoomRef.current = node
+      setPanZoomEl(node)
       if (node) measureCanvas()
     },
-    [panZoomRef, measureCanvas],
+    [setPanZoomEl, measureCanvas],
   )
 
   // ─── Ctrl key tracking (for grab cursor hint) ─────────────────────
