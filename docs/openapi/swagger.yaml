@@ -368,9 +368,9 @@ components:
       type: object
     api.ResolveAccessItemsRequest:
       properties:
-        itemIds:
+        items:
           items:
-            type: string
+            $ref: '#/components/schemas/access.Item'
           type: array
           uniqueItems: false
       type: object
