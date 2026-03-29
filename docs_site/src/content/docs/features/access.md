@@ -152,13 +152,13 @@ When you create or restart a container with Access Items enabled:
 
 ## Testing Access Items
 
-The edit dialog includes a **Test** button that resolves the item and shows exactly what would be injected:
+Both the create and edit dialogs include a **Test** button that resolves the current form state and shows exactly what would be injected:
 
 - Which credentials were detected and which weren't
 - The exact env vars, file mounts, and socket mounts that will be created
 - Which source was matched for each credential
 
-Use this to verify custom items work before attaching them to a project.
+Use this to verify items work before saving or attaching them to a project.
 
 ## For Developers
 
@@ -202,9 +202,9 @@ item, _ := c.CreateAccessItem(ctx, api.CreateAccessItemRequest{
     Credentials: []access.Credential{...},
 })
 
-// Test resolution
+// Test resolution (accepts full items — no DB lookup needed)
 resolved, _ := c.ResolveAccessItems(ctx, api.ResolveAccessItemsRequest{
-    ItemIDs: []string{"git", "ssh", item.ID},
+    Items: []access.Item{*item},
 })
 ```
 
