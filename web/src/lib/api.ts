@@ -43,6 +43,7 @@ import type {
   ServerSettings,
   AuditFilters,
   AuditSummary,
+  AccessItem,
   AccessItemResponse,
   AccessCredential,
   ResolvedItem,
@@ -704,15 +705,16 @@ interface ResolveAccessItemsResponse {
 
 /**
  * Resolves access items for test/preview, returning the computed injections.
+ * Accepts full item objects — no DB lookup is performed server-side.
  *
- * @param itemIds - The access item IDs to resolve.
+ * @param items - The access items to resolve.
  * @returns An array of resolved items with per-credential injection details.
  */
-export async function resolveAccessItems(itemIds: string[]): Promise<ResolvedItem[]> {
+export async function resolveAccessItems(items: AccessItem[]): Promise<ResolvedItem[]> {
   const response = await apiFetch('/api/v1/access/resolve', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ itemIds }),
+    body: JSON.stringify({ items }),
   })
   const body = (await response.json()) as ResolveAccessItemsResponse
   return body.items

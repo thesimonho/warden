@@ -309,7 +309,7 @@ func (a *ServiceAdapter) ResetAccessItem(_ context.Context, id string) (*access.
 
 // ResolveAccessItems delegates to service.ResolveAccessItems.
 func (a *ServiceAdapter) ResolveAccessItems(_ context.Context, req api.ResolveAccessItemsRequest) (*api.ResolveAccessItemsResponse, error) {
-	return a.app.Service.ResolveAccessItems(req.ItemIDs)
+	return a.app.Service.ResolveAccessItems(req.Items)
 }
 
 // --- Real-time Events ---
