@@ -249,7 +249,7 @@ jobs:
         shell: bash
         run: |
           go install github.com/josephspurrier/goversioninfo/cmd/goversioninfo@latest
-          goversioninfo \
+          goversioninfo -64 \
             -icon packaging/windows/warden.ico \
             -o cmd/warden-desktop/resource_windows.syso \
             packaging/windows/versioninfo.json
