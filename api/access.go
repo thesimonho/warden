@@ -32,7 +32,7 @@ type UpdateAccessItemRequest struct {
 
 // ResolveAccessItemsRequest specifies which access items to resolve.
 type ResolveAccessItemsRequest struct {
-	ItemIDs []string `json:"itemIds"`
+	Items []access.Item `json:"items"`
 }
 
 // ResolveAccessItemsResponse holds the resolution output for a set of access items.

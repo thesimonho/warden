@@ -225,7 +225,7 @@ func (v *AccessView) testSelected() (View, tea.Cmd) {
 	v.resolveResult = nil
 	return v, func() tea.Msg {
 		resp, err := v.client.ResolveAccessItems(context.Background(), api.ResolveAccessItemsRequest{
-			ItemIDs: []string{item.ID},
+			Items: []access.Item{item.Item},
 		})
 		if err != nil {
 			return AccessItemResolvedMsg{Err: err}

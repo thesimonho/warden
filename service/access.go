@@ -221,13 +221,9 @@ func (s *Service) ResetAccessItem(id string) (*access.Item, error) {
 }
 
 // ResolveAccessItems resolves the given access items and returns their
-// injections. Used both by the "Test" button and by container creation.
-func (s *Service) ResolveAccessItems(itemIDs []string) (*api.ResolveAccessItemsResponse, error) {
-	items, err := s.getAccessItemsByIDs(itemIDs)
-	if err != nil {
-		return nil, err
-	}
-
+// injections. Used by the "Test" button in the UI. Accepts items
+// directly — no DB lookup is performed.
+func (s *Service) ResolveAccessItems(items []access.Item) (*api.ResolveAccessItemsResponse, error) {
 	resp := &api.ResolveAccessItemsResponse{}
 	for _, item := range items {
 		resolved, err := access.Resolve(item)
@@ -242,12 +238,18 @@ func (s *Service) ResolveAccessItems(itemIDs []string) (*api.ResolveAccessItemsR
 
 // ResolveAccessItemsForContainer resolves the given access item IDs and
 // merges the resulting env vars and mounts into the container request.
+// Looks up items from the DB/built-ins by ID before resolving.
 func (s *Service) ResolveAccessItemsForContainer(req *engine.CreateContainerRequest) error {
 	if len(req.EnabledAccessItems) == 0 {
 		return nil
 	}
 
-	resp, err := s.ResolveAccessItems(req.EnabledAccessItems)
+	items, err := s.getAccessItemsByIDs(req.EnabledAccessItems)
+	if err != nil {
+		return err
+	}
+
+	resp, err := s.ResolveAccessItems(items)
 	if err != nil {
 		return err
 	}

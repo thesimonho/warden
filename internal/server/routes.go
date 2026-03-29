@@ -1192,12 +1192,11 @@ func (rt *routes) handleResolveAccessItems(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	resp, err := rt.svc.ResolveAccessItems(req.ItemIDs)
+	// No DB lookup — items are resolved directly from the request body.
+	// Source commands in items execute on the host; access is limited by
+	// the localhost-only CORS policy (same trust model as stored items).
+	resp, err := rt.svc.ResolveAccessItems(req.Items)
 	if err != nil {
-		if errors.Is(err, service.ErrNotFound) {
-			writeError(w, ErrCodeNotFound, err.Error(), http.StatusNotFound)
-			return
-		}
 		writeError(w, ErrCodeInternal, "failed to resolve access items", http.StatusInternalServerError)
 		slog.Error("resolve access items", "err", err)
 		return

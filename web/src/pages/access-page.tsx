@@ -414,13 +414,25 @@ function AccessItemFormDialog({
     }
   }
 
-  /** Tests the current item by calling resolve on the saved version. */
+  /** Tests the current form state by resolving it server-side. */
   const handleTest = async () => {
-    if (!editItem) return
+    const validationError = validate()
+    if (validationError) {
+      toast.error(validationError)
+      return
+    }
     setIsTesting(true)
     setTestResult(null)
     try {
-      const resolved = await resolveAccessItems([editItem.id])
+      const item = {
+        id: editItem?.id ?? '',
+        label,
+        description,
+        method: editItem?.method ?? 'transport',
+        credentials,
+        builtIn: editItem?.builtIn ?? false,
+      }
+      const resolved = await resolveAccessItems([item])
       setTestResult(resolved[0] ?? null)
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to test access item')
@@ -516,80 +528,78 @@ function AccessItemFormDialog({
             </div>
           </div>
 
-          {/* Test results — only available for saved items */}
-          {isEditMode && (
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <label className="text-sm font-medium">Test Resolution</label>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  onClick={handleTest}
-                  disabled={isTesting}
-                  icon={isTesting ? Loader2 : FlaskConical}
-                  loading={isTesting}
-                >
-                  Test
-                </Button>
-              </div>
-              {testResult && (
-                <div className="space-y-4">
-                  {testResult.credentials.map((cred, i) => (
-                    <div
-                      key={i}
-                      className="bg-content-1 border-border space-y-1.5 rounded border p-2"
-                    >
-                      <div className="flex items-center gap-2">
-                        {cred.resolved ? (
-                          <CircleCheck className="text-success h-3.5 w-3.5" />
-                        ) : (
-                          <CircleMinus className="text-muted-foreground h-3.5 w-3.5" />
-                        )}
-                        <span className="text-sm font-medium">{cred.label}</span>
-                        {cred.sourceMatched && (
-                          <Badge variant="outline" className="font-mono text-xs">
-                            {cred.sourceMatched}
-                          </Badge>
-                        )}
-                      </div>
-                      {cred.error && <p className="text-error text-sm">{cred.error}</p>}
-                      {cred.injections && cred.injections.length > 0 && (
-                        <div className="space-y-2">
-                          {cred.injections.map((inj, j) => (
-                            <div
-                              key={j}
-                              className="flex items-center gap-2 rounded font-mono text-xs"
-                            >
-                              <Badge variant="secondary" className="text-xs uppercase">
-                                {inj.type.split('_').join(' ')}
-                              </Badge>
-                              <span className="text-muted-foreground">{inj.key}</span>
-                              <span className="text-muted-foreground">=</span>
-                              <span className="truncate">{inj.value}</span>
-                              {inj.readOnly && (
-                                <Badge variant="outline" className="text-xs">
-                                  RO
-                                </Badge>
-                              )}
-                            </div>
-                          ))}
-                        </div>
+          {/* Test resolution — available in both create and edit mode */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <label className="text-sm font-medium">Test Resolution</label>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={handleTest}
+                disabled={isTesting}
+                icon={isTesting ? Loader2 : FlaskConical}
+                loading={isTesting}
+              >
+                Test
+              </Button>
+            </div>
+            {testResult && (
+              <div className="space-y-4">
+                {testResult.credentials.map((cred, i) => (
+                  <div
+                    key={i}
+                    className="bg-content-1 border-border space-y-1.5 rounded border p-2"
+                  >
+                    <div className="flex items-center gap-2">
+                      {cred.resolved ? (
+                        <CircleCheck className="text-success h-3.5 w-3.5" />
+                      ) : (
+                        <CircleMinus className="text-muted-foreground h-3.5 w-3.5" />
                       )}
-                      {!cred.resolved && !cred.error && (
-                        <p className="text-muted-foreground text-xs">Not detected on host</p>
+                      <span className="text-sm font-medium">{cred.label}</span>
+                      {cred.sourceMatched && (
+                        <Badge variant="outline" className="font-mono text-xs">
+                          {cred.sourceMatched}
+                        </Badge>
                       )}
                     </div>
-                  ))}
-                </div>
-              )}
-              {!testResult && !isTesting && (
-                <p className="text-muted-foreground text-xs">
-                  Click Test to preview what will be injected into containers.
-                </p>
-              )}
-            </div>
-          )}
+                    {cred.error && <p className="text-error text-sm">{cred.error}</p>}
+                    {cred.injections && cred.injections.length > 0 && (
+                      <div className="space-y-2">
+                        {cred.injections.map((inj, j) => (
+                          <div
+                            key={j}
+                            className="flex items-center gap-2 rounded font-mono text-xs"
+                          >
+                            <Badge variant="secondary" className="text-xs uppercase">
+                              {inj.type.split('_').join(' ')}
+                            </Badge>
+                            <span className="text-muted-foreground">{inj.key}</span>
+                            <span className="text-muted-foreground">=</span>
+                            <span className="truncate">{inj.value}</span>
+                            {inj.readOnly && (
+                              <Badge variant="outline" className="text-xs">
+                                RO
+                              </Badge>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {!cred.resolved && !cred.error && (
+                      <p className="text-muted-foreground text-xs">Not detected on host</p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+            {!testResult && !isTesting && (
+              <p className="text-muted-foreground text-xs">
+                Click Test to preview what will be injected into containers.
+              </p>
+            )}
+          </div>
         </div>
 
         <DialogFooter>

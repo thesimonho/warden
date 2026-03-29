@@ -246,7 +246,7 @@ func TestResolveAccessItems_BuiltIn(t *testing.T) {
 	svc := New(&mockEngine{}, testDB(t), nil, nil)
 
 	// Resolve git built-in — will resolve if ~/.gitconfig exists on the host.
-	resp, err := svc.ResolveAccessItems([]string{access.BuiltInIDGit})
+	resp, err := svc.ResolveAccessItems([]access.Item{*access.BuiltInItemByID(access.BuiltInIDGit)})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -278,7 +278,7 @@ func TestResolveAccessItems_UserItem(t *testing.T) {
 		t.Fatalf("create error: %v", err)
 	}
 
-	resp, err := svc.ResolveAccessItems([]string{item.ID})
+	resp, err := svc.ResolveAccessItems([]access.Item{*item})
 	if err != nil {
 		t.Fatalf("resolve error: %v", err)
 	}

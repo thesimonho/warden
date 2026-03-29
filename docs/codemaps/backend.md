@@ -24,7 +24,7 @@ Public Go package for general-purpose access item management. Pure library — n
 | File           | Purpose                                                                                                                                    |
 | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
 | `types.go`     | `Item` (user-created access item: ID, Label, Description, Method, Credentials JSON), `Credential`, `Source`, `Transform`, `Injection`, `Method` (enum), `DetectionResult` (Available, HostPathResolved), `AccessItemResponse` (Item + DetectionResult) |
-| `resolve.go`   | `Resolve(items, homeDir)` (batch resolution), `Detect(item, homeDir)` (single item detection), `trySource` (internal, tests one source) |
+| `resolve.go`   | `Resolve(item)` (single-item resolution), `Detect(item)` (single item detection), `trySource` (internal, tests one source) |
 | `builtin.go`   | `BuiltInGit`, `BuiltInSSH`, `BuiltInItems` (slice), `BuiltInItemByID(id)` (lookup), `IsBuiltInID(id)` (predicate) |
 
 ## api/
@@ -34,7 +34,7 @@ API contract types shared by the service layer, HTTP client, and TUI. Consumers 
 | File       | Purpose                                                                                                        |
 | ---------- | -------------------------------------------------------------------------------------------------------------- |
 | `types.go` | `ProjectResult` (ProjectID, Name, ContainerID, ContainerName), `WorktreeResult`, `ContainerResult` (with ProjectID), `ValidateContainerResult`, `AuditLogMode` (off/standard/detailed), `SettingsResponse`, `UpdateSettingsRequest`, `UpdateSettingsResult`, `PostAuditEventRequest`, `DefaultMount` (host/container path pair for manual bind mounts), `DefaultEnvVar` (host-side env var names available for passthrough), `DefaultsResponse` (user Mounts [] + EnvVars []), `DirEntry`, `DiffFileSummary`, `DiffResponse` (diff stats + raw unified diff), `AuditCategory` (session/agent/prompt/config/budget/system/debug), `AuditFilters` (keyed by `ProjectID` instead of `Container`), `AuditSummary`, `ToolCount`, `TimeRange` |
-| `access.go` | `Item` (user-created access item with method, label, description, credentials), `Credential`, `Source`, `Transform`, `Injection`, `Method` (enum: git, ssh, etc.), `DetectionResult`, `AccessItemResponse` (Item + detection status), `AccessItemListResponse`, `CreateAccessItemRequest`, `UpdateAccessItemRequest`, `ResolveAccessItemsRequest`, `ResolveAccessItemsResponse` |
+| `access.go` | `Item` (user-created access item with method, label, description, credentials), `Credential`, `Source`, `Transform`, `Injection`, `Method` (enum: git, ssh, etc.), `DetectionResult`, `AccessItemResponse` (Item + detection status), `AccessItemListResponse`, `CreateAccessItemRequest`, `UpdateAccessItemRequest`, `ResolveAccessItemsRequest` (Items []access.Item), `ResolveAccessItemsResponse` |
 
 ## service/
 
@@ -52,7 +52,7 @@ Business logic layer — orchestrates engine, database, event store, and event l
 | `settings.go`      | `GetSettings`, `UpdateSettings` (runtime, auditLogMode, disconnectKey, defaultProjectBudget, budgetAction{Warn,StopWorktrees,StopContainer,PreventStart}), `GetDefaultProjectBudget`, `getBudgetActions`, `parseFloat`/`formatFloat` helpers for DB serialization |
 | `audit.go`         | `GetAuditLog` (filtered audit events by category/projectID/worktree/source/level/time), `GetAuditSummary` (aggregate stats: sessions, tools, prompts, cost, top tools), `PostAuditEvent` (add custom audit entry), `DeleteAuditEvents` (scoped deletion with query filters), `GetAuditProjects` (distinct project names), `WriteAuditCSV` (CSV export for compliance) |
 | `host.go`          | `GetDefaults` (returns `DefaultsResponse` with user `Mounts` + `EnvVars`), `ListDirectories(path, includeFiles)` (dirs-first sort; file mode for bind mount browser), `RevealInFileManager`, `ListRuntimes` |
-| `access.go`        | `ListAccessItems(ctx)` (returns all user-created access items with detection status), `GetAccessItem(ctx, id)` (single item with detection), `CreateAccessItem(ctx, request)` (create user item), `UpdateAccessItem(ctx, id, request)` (update user item), `DeleteAccessItem(ctx, id)` (delete user item, rejects built-in), `ResolveAccessItems(ctx, itemIDs)` (batch resolution for test/preview, returns env vars + mounts), `ResolveAccessItemsForContainer(ctx, itemIDs, request)` (merges resolved items into CreateContainerRequest) |
+| `access.go`        | `ListAccessItems(ctx)` (returns all user-created access items with detection status), `GetAccessItem(ctx, id)` (single item with detection), `CreateAccessItem(ctx, request)` (create user item), `UpdateAccessItem(ctx, id, request)` (update user item), `DeleteAccessItem(ctx, id)` (delete user item, rejects built-in), `ResolveAccessItems(items []access.Item)` (resolves items directly for test/preview — no DB lookup), `ResolveAccessItemsForContainer(request)` (looks up items by ID from DB, resolves, and merges into CreateContainerRequest) |
 
 ## internal/server/
 
