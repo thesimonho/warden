@@ -347,7 +347,7 @@ export default function ProjectConfigForm({
               <div className="flex flex-col gap-0.5">
                 <span className="flex items-center gap-1.5 text-sm">
                   <span
-                    className={`inline-block h-2 w-2 shrink-0 rounded-full ${isDetected ? 'bg-green-500' : 'bg-muted-foreground/40'}`}
+                    className={`inline-block h-2 w-2 shrink-0 rounded-full ${isDetected ? 'bg-success' : 'bg-muted-foreground/40'}`}
                   />
                   <span className={isDetected ? '' : 'text-muted-foreground'}>
                     {item.label}
