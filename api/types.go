@@ -113,11 +113,30 @@ type DefaultEnvVar struct {
 	Value string `json:"value"`
 }
 
+// MountPreset groups related infrastructure mounts under a single
+// toggle in the create/edit form. Presets are identified by ID so
+// clients can match existing container mounts back to a preset.
+type MountPreset struct {
+	// ID is the stable identifier (e.g. "git", "ssh").
+	ID string `json:"id"`
+	// Label is the human-readable toggle label (e.g. "Git", "SSH").
+	Label string `json:"label"`
+	// Description explains what the preset does (shown in tooltips).
+	Description string `json:"description"`
+	// Available is true when the host has the required files/sockets.
+	Available bool `json:"available"`
+	// Mounts are the bind mounts this preset contributes.
+	Mounts []DefaultMount `json:"mounts"`
+	// EnvVars are the environment variables this preset contributes.
+	EnvVars []DefaultEnvVar `json:"envVars,omitempty"`
+}
+
 // DefaultsResponse holds server-resolved default values for the
 // create container form.
 type DefaultsResponse struct {
-	HomeDir          string         `json:"homeDir"`
-	ContainerHomeDir string         `json:"containerHomeDir"`
+	HomeDir          string          `json:"homeDir"`
+	ContainerHomeDir string          `json:"containerHomeDir"`
+	Presets          []MountPreset   `json:"presets,omitempty"`
 	Mounts           []DefaultMount  `json:"mounts,omitempty"`
 	EnvVars          []DefaultEnvVar `json:"envVars,omitempty"`
 }

@@ -52,6 +52,7 @@ export default function StaleMountsDialog({
         allowedDomains: config.allowedDomains,
         skipPermissions: config.skipPermissions,
         costBudget: config.costBudget,
+        enabledPresets: config.enabledPresets,
       })
       toast.success('Container recreated')
       onRecreated()

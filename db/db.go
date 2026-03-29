@@ -24,6 +24,7 @@ CREATE TABLE IF NOT EXISTS projects (
     network_mode      TEXT NOT NULL DEFAULT 'full',
     allowed_domains   TEXT NOT NULL DEFAULT '',
     cost_budget       REAL NOT NULL DEFAULT 0,
+    enabled_presets   TEXT NOT NULL DEFAULT '',
     container_id      TEXT NOT NULL DEFAULT '',
     container_name    TEXT NOT NULL DEFAULT ''
 );
@@ -95,6 +96,16 @@ func openDB(path string) (*sql.DB, error) {
 	if _, err := db.Exec(schema); err != nil {
 		db.Close() //nolint:errcheck
 		return nil, fmt.Errorf("creating schema: %w", err)
+	}
+
+	// Column migrations for existing databases. ALTER TABLE ADD COLUMN
+	// errors when the column already exists; ignoring the error is the
+	// conventional SQLite migration pattern without version tracking.
+	migrations := []string{
+		`ALTER TABLE projects ADD COLUMN enabled_presets TEXT NOT NULL DEFAULT ''`,
+	}
+	for _, m := range migrations {
+		_, _ = db.Exec(m) //nolint:errcheck // expected to fail if column exists
 	}
 
 	return db, nil

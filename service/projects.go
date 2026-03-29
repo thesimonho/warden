@@ -244,7 +244,7 @@ func applyDBMetadata(p *engine.Project, row *db.ProjectRow, defaultBudget float6
 		p.NetworkMode = engine.NetworkMode(row.NetworkMode)
 	}
 	if row.AllowedDomains != "" {
-		p.AllowedDomains = splitDomains(row.AllowedDomains)
+		p.AllowedDomains = splitCSV(row.AllowedDomains)
 	}
 	if row.HostPath != "" && p.MountedDir == "" {
 		p.MountedDir = row.HostPath
@@ -299,9 +299,9 @@ func (s *Service) resolveProjectName(projectID string) string {
 	return effectiveContainerName(row)
 }
 
-// splitDomains splits a comma-separated domain string into a slice.
+// splitCSV splits a comma-separated string into a slice.
 // Returns nil for empty strings.
-func splitDomains(s string) []string {
+func splitCSV(s string) []string {
 	if s == "" {
 		return nil
 	}

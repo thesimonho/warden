@@ -29,69 +29,126 @@ type preferredMount struct {
 	readOnly      bool
 }
 
-// preferredMounts lists host paths that are auto-detected and offered
-// as default bind mounts when creating a new container.
-var preferredMounts = []preferredMount{
-	{hostRelPath: ".claude", containerPath: containerHomeDir + "/.claude", readOnly: false},
-	{hostRelPath: ".gitconfig", containerPath: containerHomeDir + "/.gitconfig.host", readOnly: true},
-	{hostRelPath: ".config/git/config", containerPath: containerHomeDir + "/.gitconfig.host", readOnly: true},
-	{hostRelPath: ".ssh/config", containerPath: containerHomeDir + "/.ssh/config", readOnly: true},
-	{hostRelPath: ".ssh/known_hosts", containerPath: containerHomeDir + "/.ssh/known_hosts", readOnly: false},
-}
-
 // containerSSHAgentPath is the fixed path where the host's SSH agent
 // socket is mounted inside the container.
 const containerSSHAgentPath = "/run/ssh-agent.sock"
 
+// Preset IDs for mount passthrough toggles. Stored in the DB and
+// referenced by frontends to identify which presets are enabled.
+const (
+	PresetIDGit = "git"
+	PresetIDSSH = "ssh"
+)
+
+// gitPresetMounts are the mounts for the "git" passthrough preset.
+// Only .gitconfig is included — alternatives (e.g. .config/git/config)
+// map to the same container path and are tried in order.
+var gitPresetMounts = []preferredMount{
+	{hostRelPath: ".gitconfig", containerPath: containerHomeDir + "/.gitconfig.host", readOnly: true},
+	{hostRelPath: ".config/git/config", containerPath: containerHomeDir + "/.gitconfig.host", readOnly: true},
+}
+
+// sshPresetMounts are the file-based mounts for the "ssh" preset.
+// The ssh-agent socket is handled separately since it's optional.
+var sshPresetMounts = []preferredMount{
+	{hostRelPath: ".ssh/config", containerPath: containerHomeDir + "/.ssh/config", readOnly: true},
+	{hostRelPath: ".ssh/known_hosts", containerPath: containerHomeDir + "/.ssh/known_hosts", readOnly: false},
+}
+
+// userMounts are always-present mounts that aren't part of any preset.
+var userMounts = []preferredMount{
+	{hostRelPath: ".claude", containerPath: containerHomeDir + "/.claude", readOnly: false},
+}
+
+// buildPreset resolves a preset's mounts from host paths and returns
+// the preset with Available set based on whether any mounts resolved.
+func buildPreset(homeDir string, id, label, description string, candidates []preferredMount) MountPreset {
+	preset := MountPreset{
+		ID:          id,
+		Label:       label,
+		Description: description,
+	}
+
+	seen := make(map[string]bool)
+	for _, pm := range candidates {
+		if seen[pm.containerPath] {
+			continue
+		}
+		hostPath := filepath.Join(homeDir, pm.hostRelPath)
+		if _, err := os.Stat(hostPath); err == nil {
+			preset.Mounts = append(preset.Mounts, DefaultMount{
+				HostPath:      hostPath,
+				ContainerPath: pm.containerPath,
+				ReadOnly:      pm.readOnly,
+			})
+			seen[pm.containerPath] = true
+		}
+	}
+
+	preset.Available = len(preset.Mounts) > 0
+	return preset
+}
+
 // GetDefaults returns server-resolved default values for the create
-// container form, including auto-detected bind mounts and env vars.
+// container form, including auto-detected bind mounts grouped into
+// presets (Git, SSH) and standalone user mounts.
 func (s *Service) GetDefaults() DefaultsResponse {
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
 		homeDir = ""
 	}
 
+	var presets []MountPreset
 	var mounts []DefaultMount
+	var envVars []DefaultEnvVar
+
 	if homeDir != "" {
-		seen := make(map[string]bool)
-		for _, pm := range preferredMounts {
-			if seen[pm.containerPath] {
-				continue
+		// Git preset: .gitconfig passthrough.
+		gitPreset := buildPreset(homeDir, PresetIDGit, "Git",
+			"Mounts host .gitconfig read-only so git commands use your identity and settings.",
+			gitPresetMounts)
+		presets = append(presets, gitPreset)
+
+		// SSH preset: config, known_hosts, and optionally the agent socket.
+		sshPreset := buildPreset(homeDir, PresetIDSSH, "SSH",
+			"Mounts SSH config and known_hosts. Forwards the ssh-agent socket so git over SSH works without copying keys.",
+			sshPresetMounts)
+
+		// Add ssh-agent socket if available (optional within the SSH preset).
+		if sshAuthSock := os.Getenv("SSH_AUTH_SOCK"); sshAuthSock != "" {
+			if fi, statErr := os.Stat(sshAuthSock); statErr == nil && fi.Mode().Type() == os.ModeSocket {
+				sshPreset.Mounts = append(sshPreset.Mounts, DefaultMount{
+					HostPath:      sshAuthSock,
+					ContainerPath: containerSSHAgentPath,
+					ReadOnly:      true,
+				})
+				sshPreset.EnvVars = append(sshPreset.EnvVars, DefaultEnvVar{
+					Key:   "SSH_AUTH_SOCK",
+					Value: containerSSHAgentPath,
+				})
+				sshPreset.Available = true
 			}
-			hostPath := filepath.Join(homeDir, pm.hostRelPath)
+		}
+
+		presets = append(presets, sshPreset)
+
+		// User mounts: always-present, not part of any preset.
+		for _, um := range userMounts {
+			hostPath := filepath.Join(homeDir, um.hostRelPath)
 			if _, statErr := os.Stat(hostPath); statErr == nil {
 				mounts = append(mounts, DefaultMount{
 					HostPath:      hostPath,
-					ContainerPath: pm.containerPath,
-					ReadOnly:      pm.readOnly,
+					ContainerPath: um.containerPath,
+					ReadOnly:      um.readOnly,
 				})
-				seen[pm.containerPath] = true
 			}
-		}
-	}
-
-	var envVars []DefaultEnvVar
-
-	// Forward the host's SSH agent socket if available. This lets
-	// git push/pull via SSH work without copying private keys into
-	// the container — the host's already-unlocked agent handles auth.
-	if sshAuthSock := os.Getenv("SSH_AUTH_SOCK"); sshAuthSock != "" {
-		if fi, statErr := os.Stat(sshAuthSock); statErr == nil && fi.Mode().Type() == os.ModeSocket {
-			mounts = append(mounts, DefaultMount{
-				HostPath:      sshAuthSock,
-				ContainerPath: containerSSHAgentPath,
-				ReadOnly:      true,
-			})
-			envVars = append(envVars, DefaultEnvVar{
-				Key:   "SSH_AUTH_SOCK",
-				Value: containerSSHAgentPath,
-			})
 		}
 	}
 
 	return DefaultsResponse{
 		HomeDir:          homeDir,
 		ContainerHomeDir: containerHomeDir,
+		Presets:          presets,
 		Mounts:           mounts,
 		EnvVars:          envVars,
 	}
