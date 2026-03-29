@@ -149,6 +149,38 @@ export function eventLabel(event: string): string {
   return event.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
 }
 
+/** Fields known to carry JSON-encoded strings from Claude Code hooks. */
+const JSON_STRING_FIELDS = new Set(['toolInput'])
+
+/**
+ * Prepares event data for human-readable display in the expanded row detail.
+ * Shallow — only processes top-level string values.
+ *
+ * - Parses known JSON-encoded string fields (e.g. `toolInput`) into objects.
+ * - Converts literal `\n` sequences in string values to real newlines.
+ */
+export function formatDataForDisplay(data: Record<string, unknown>): Record<string, unknown> {
+  const result: Record<string, unknown> = {}
+  for (const [key, value] of Object.entries(data)) {
+    if (typeof value !== 'string') {
+      result[key] = value
+      continue
+    }
+    // Parse known JSON string fields into objects for readable display.
+    if (JSON_STRING_FIELDS.has(key) && (value.startsWith('{') || value.startsWith('['))) {
+      try {
+        result[key] = JSON.parse(value)
+        continue
+      } catch {
+        // Not valid JSON — fall through to string handling.
+      }
+    }
+    // Convert literal \n sequences to real newlines for display.
+    result[key] = value.includes('\\n') ? value.replace(/\\n/g, '\n') : value
+  }
+  return result
+}
+
 /** Extracts a display message from an event entry. */
 export function entryMessage(entry: AuditLogEntry): string {
   if (entry.msg) return entry.msg

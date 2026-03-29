@@ -39,22 +39,24 @@ func (s *Service) CreateWorktree(ctx context.Context, project *db.ProjectRow, na
 	worktreeID, err := s.docker.CreateWorktree(ctx, project.ContainerID, name, project.SkipPermissions)
 	if err != nil {
 		s.audit.Write(db.Entry{
-			Source:    db.SourceBackend,
-			Level:     db.LevelError,
-			ProjectID: project.ProjectID,
-			Worktree:  name,
-			Event:     "worktree_create_failed",
-			Message:   err.Error(),
+			Source:        db.SourceBackend,
+			Level:         db.LevelError,
+			ProjectID:     project.ProjectID,
+			ContainerName: containerName,
+			Worktree:      name,
+			Event:         "worktree_create_failed",
+			Message:       err.Error(),
 		})
 		return nil, err
 	}
 
 	s.audit.Write(db.Entry{
-		Source:    db.SourceBackend,
-		Level:     db.LevelInfo,
-		ProjectID: project.ProjectID,
-		Worktree:  worktreeID,
-		Event:     "worktree_created",
+		Source:        db.SourceBackend,
+		Level:         db.LevelInfo,
+		ProjectID:     project.ProjectID,
+		ContainerName: containerName,
+		Worktree:      worktreeID,
+		Event:         "worktree_created",
 	})
 
 	if containerName != "" && s.store != nil {
@@ -74,12 +76,13 @@ func (s *Service) ConnectTerminal(ctx context.Context, project *db.ProjectRow, w
 	resultID, err := s.docker.ConnectTerminal(ctx, project.ContainerID, worktreeID, project.SkipPermissions)
 	if err != nil {
 		s.audit.Write(db.Entry{
-			Source:    db.SourceBackend,
-			Level:     db.LevelError,
-			ProjectID: project.ProjectID,
-			Worktree:  worktreeID,
-			Event:     "terminal_connect_failed",
-			Message:   err.Error(),
+			Source:        db.SourceBackend,
+			Level:         db.LevelError,
+			ProjectID:     project.ProjectID,
+			ContainerName: containerName,
+			Worktree:      worktreeID,
+			Event:         "terminal_connect_failed",
+			Message:       err.Error(),
 		})
 		return nil, err
 	}
@@ -107,12 +110,13 @@ func (s *Service) DisconnectTerminal(ctx context.Context, project *db.ProjectRow
 
 	if err := s.docker.DisconnectTerminal(ctx, project.ContainerID, worktreeID); err != nil {
 		s.audit.Write(db.Entry{
-			Source:    db.SourceBackend,
-			Level:     db.LevelError,
-			ProjectID: project.ProjectID,
-			Worktree:  worktreeID,
-			Event:     "terminal_disconnect_failed",
-			Message:   err.Error(),
+			Source:        db.SourceBackend,
+			Level:         db.LevelError,
+			ProjectID:     project.ProjectID,
+			ContainerName: containerName,
+			Worktree:      worktreeID,
+			Event:         "terminal_disconnect_failed",
+			Message:       err.Error(),
 		})
 		return nil, err
 	}
@@ -137,12 +141,13 @@ func (s *Service) KillWorktreeProcess(ctx context.Context, project *db.ProjectRo
 
 	if err := s.docker.KillWorktreeProcess(ctx, project.ContainerID, worktreeID); err != nil {
 		s.audit.Write(db.Entry{
-			Source:    db.SourceBackend,
-			Level:     db.LevelError,
-			ProjectID: project.ProjectID,
-			Worktree:  worktreeID,
-			Event:     "worktree_kill_failed",
-			Message:   err.Error(),
+			Source:        db.SourceBackend,
+			Level:         db.LevelError,
+			ProjectID:     project.ProjectID,
+			ContainerName: containerName,
+			Worktree:      worktreeID,
+			Event:         "worktree_kill_failed",
+			Message:       err.Error(),
 		})
 		return nil, err
 	}
@@ -161,12 +166,13 @@ func (s *Service) RemoveWorktree(ctx context.Context, project *db.ProjectRow, wo
 
 	if err := s.docker.RemoveWorktree(ctx, project.ContainerID, worktreeID); err != nil {
 		s.audit.Write(db.Entry{
-			Source:    db.SourceBackend,
-			Level:     db.LevelError,
-			ProjectID: project.ProjectID,
-			Worktree:  worktreeID,
-			Event:     "worktree_remove_failed",
-			Message:   err.Error(),
+			Source:        db.SourceBackend,
+			Level:         db.LevelError,
+			ProjectID:     project.ProjectID,
+			ContainerName: containerName,
+			Worktree:      worktreeID,
+			Event:         "worktree_remove_failed",
+			Message:       err.Error(),
 		})
 		return nil, err
 	}
@@ -176,11 +182,12 @@ func (s *Service) RemoveWorktree(ctx context.Context, project *db.ProjectRow, wo
 	}
 
 	s.audit.Write(db.Entry{
-		Source:    db.SourceBackend,
-		Level:     db.LevelInfo,
-		ProjectID: project.ProjectID,
-		Worktree:  worktreeID,
-		Event:     "worktree_removed",
+		Source:        db.SourceBackend,
+		Level:         db.LevelInfo,
+		ProjectID:     project.ProjectID,
+		ContainerName: containerName,
+		Worktree:      worktreeID,
+		Event:         "worktree_removed",
 	})
 
 	if containerName != "" && s.store != nil {
@@ -198,11 +205,12 @@ func (s *Service) CleanupWorktrees(ctx context.Context, project *db.ProjectRow) 
 	removed, err := s.docker.CleanupOrphanedWorktrees(ctx, project.ContainerID)
 	if err != nil {
 		s.audit.Write(db.Entry{
-			Source:    db.SourceBackend,
-			Level:     db.LevelError,
-			ProjectID: project.ProjectID,
-			Event:     "worktree_cleanup_failed",
-			Message:   err.Error(),
+			Source:        db.SourceBackend,
+			Level:         db.LevelError,
+			ProjectID:     project.ProjectID,
+			ContainerName: containerName,
+			Event:         "worktree_cleanup_failed",
+			Message:       err.Error(),
 		})
 		return nil, err
 	}
@@ -215,11 +223,12 @@ func (s *Service) CleanupWorktrees(ctx context.Context, project *db.ProjectRow) 
 
 	for _, wid := range removed {
 		s.audit.Write(db.Entry{
-			Source:    db.SourceBackend,
-			Level:     db.LevelInfo,
-			ProjectID: project.ProjectID,
-			Worktree:  wid,
-			Event:     "worktree_cleaned_up",
+			Source:        db.SourceBackend,
+			Level:         db.LevelInfo,
+			ProjectID:     project.ProjectID,
+			ContainerName: containerName,
+			Worktree:      wid,
+			Event:         "worktree_cleaned_up",
 		})
 	}
 

@@ -224,12 +224,13 @@ func (s *Service) RestartProject(ctx context.Context, project *db.ProjectRow) (*
 		var staleErr *engine.StaleMountsError
 		if errors.As(err, &staleErr) {
 			s.audit.Write(db.Entry{
-				Source:    db.SourceBackend,
-				Level:     db.LevelError,
-				ProjectID: project.ProjectID,
-				Event:     "restart_blocked_stale_mounts",
-				Message:   "bind mounts are stale — recreate the container to refresh mounts",
-				Attrs:     map[string]any{"stalePaths": staleErr.StalePaths},
+				Source:        db.SourceBackend,
+				Level:         db.LevelError,
+				ProjectID:     project.ProjectID,
+				ContainerName: containerName,
+				Event:         "restart_blocked_stale_mounts",
+				Message:       "bind mounts are stale — recreate the container to refresh mounts",
+				Attrs:         map[string]any{"stalePaths": staleErr.StalePaths},
 			})
 		}
 		return nil, err
@@ -265,6 +266,7 @@ func (s *Service) HandleContainerStale(containerName string) {
 	if s.db != nil {
 		if row, err := s.db.GetProjectByContainerName(containerName); err == nil && row != nil {
 			projectID = row.ProjectID
+			containerName = effectiveContainerName(row)
 		}
 	}
 
