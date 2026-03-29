@@ -11,7 +11,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Switch } from '@/components/ui/switch'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
-import DirectoryBrowser from '@/components/home/directory-browser'
+import DirectoryBrowser from '@/components/ui/directory-browser'
 
 /** A single key-value pair for environment variables. */
 interface EnvVarEntry {
