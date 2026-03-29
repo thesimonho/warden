@@ -193,7 +193,8 @@ Subscribe to `GET /api/v1/events` for real-time updates:
 
     eventSource.addEventListener("project_state", (event) => {
       const data = JSON.parse(event.data);
-      console.log(`Project cost: ${data.cost}`);
+      // Fields: projectId, containerName, totalCost, messageCount, needsInput, notificationType
+      console.log(`Project ${data.projectId}: cost=${data.totalCost}, needsInput=${data.needsInput}`);
     });
     ```
   </TabItem>
@@ -230,7 +231,7 @@ Subscribe to `GET /api/v1/events` for real-time updates:
   </TabItem>
 </Tabs>
 
-Events include `worktree_state` (terminal state changes), `project_state` (cost updates), `worktree_list_changed`, `budget_exceeded` (when a project exceeds its cost budget), and `budget_container_stopped` (after budget enforcement stops a container — includes `containerId` for matching against project views).
+Events include `worktree_state` (attention/terminal state changes per worktree), `project_state` (aggregated cost + attention state per project), `worktree_list_changed`, `budget_exceeded` (when a project exceeds its cost budget), and `budget_container_stopped` (after budget enforcement stops a container — includes `containerId` for matching against project views).
 
 ## Terminal lifecycle
 

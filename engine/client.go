@@ -177,24 +177,16 @@ func (dc *DockerClient) enrichProjectStatus(ctx context.Context, projects []Proj
 			}
 
 			activeCount := 0
-			hasNeedsInput := false
-			var projectNotificationType NotificationType
-
 			for _, wt := range worktrees {
 				if wt.State == WorktreeStateConnected {
 					activeCount++
 				}
-				if wt.NeedsInput {
-					hasNeedsInput = true
-					if projectNotificationType == "" || notificationPriority(wt.NotificationType) > notificationPriority(projectNotificationType) {
-						projectNotificationType = wt.NotificationType
-					}
-				}
 			}
 
 			projects[idx].ActiveWorktreeCount = activeCount
-			projects[idx].NeedsInput = hasNeedsInput
-			projects[idx].NotificationType = projectNotificationType
+			// Attention state (NeedsInput, NotificationType) is push-based
+			// via the event bus, not derivable from container inspection.
+			// The service layer overlays it from the event store.
 
 			if activeCount > 0 {
 				projects[idx].ClaudeStatus = ClaudeStatusWorking

@@ -66,7 +66,7 @@ Warden runs as a host process that manages project containers. Communication flo
 
 2. **File-based event delivery** — each container has a host directory bind-mounted at `/var/warden/events/`. Claude Code hook scripts (`warden-event.sh`) write atomic JSON files (`.tmp` → rename to `.json`) containing attention state, session lifecycle, tool use, cost updates, and heartbeats. The backend watches all event directories using fsnotify (sub-millisecond on Linux) with a polling fallback every 2 seconds (reliable on all platforms including Docker Desktop). Filesystem permissions handle access control — no network listener or auth token is needed.
 
-3. **SSE + WebSocket** — the event bus fans out state changes to all connected browsers via Server-Sent Events (`worktree_state`, `project_state`, `worktree_list_changed`, `budget_exceeded`, `budget_container_stopped`). Terminal I/O streams over WebSocket with binary frames for PTY data and text frames for control messages (resize).
+3. **SSE + WebSocket** — the event bus fans out state changes to all connected browsers via Server-Sent Events (`worktree_state` for per-worktree attention/terminal changes, `project_state` for aggregated cost + attention per project, `worktree_list_changed`, `budget_exceeded`, `budget_container_stopped`). Terminal I/O streams over WebSocket with binary frames for PTY data and text frames for control messages (resize).
 
 ### Single-gateway funnels
 

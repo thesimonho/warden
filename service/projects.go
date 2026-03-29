@@ -68,6 +68,7 @@ func (s *Service) ListProjects(ctx context.Context) ([]engine.Project, error) {
 	}
 
 	s.overlayCost(ctx, projects)
+	s.overlayAttention(projects)
 	return projects, nil
 }
 
@@ -297,6 +298,21 @@ func (s *Service) resolveProjectName(projectID string) string {
 		return ""
 	}
 	return effectiveContainerName(row)
+}
+
+// overlayAttention merges event-bus attention state onto the project list.
+// Uses the same aggregation logic as the SSE broadcast path to keep
+// poll-based and push-based results consistent.
+func (s *Service) overlayAttention(projects []engine.Project) {
+	if s.store == nil {
+		return
+	}
+	for i := range projects {
+		if projects[i].State != "running" {
+			continue
+		}
+		projects[i].NeedsInput, projects[i].NotificationType = s.store.AggregateContainerAttention(projects[i].Name)
+	}
 }
 
 // splitCSV splits a comma-separated string into a slice.

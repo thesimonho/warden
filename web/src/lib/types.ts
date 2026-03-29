@@ -195,6 +195,8 @@ export interface ProjectStateEvent {
   containerName: string
   totalCost: number
   messageCount: number
+  needsInput: boolean
+  notificationType?: NotificationType
 }
 
 /** Payload for `worktree_list_changed` SSE events. */

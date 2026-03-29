@@ -244,6 +244,21 @@ func (s *Store) GetWorktreeState(containerName, worktreeID string) WorktreeState
 	return WorktreeState{}
 }
 
+// GetContainerWorktreeStates returns all worktree attention states for a container.
+// Used by the service layer to aggregate attention across worktrees at the project level.
+func (s *Store) GetContainerWorktreeStates(containerName string) map[string]WorktreeState {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	result := make(map[string]WorktreeState)
+	for key, att := range s.attention {
+		if key.containerName == containerName {
+			result[key.worktreeID] = *att
+		}
+	}
+	return result
+}
+
 // GetProjectCost returns the cost state for a container.
 // Returns zero value if no cost data exists.
 func (s *Store) GetProjectCost(containerName string) ProjectCost {
@@ -285,7 +300,10 @@ func (s *Store) handleAttention(key worktreeKey, event ContainerEvent) []pending
 	}
 	s.attention[key] = att
 
-	return []pendingBroadcast{buildWorktreeBroadcast(event.ProjectID, event.ContainerName, event.WorktreeID, att, s.terminals[key])}
+	return []pendingBroadcast{
+		buildWorktreeBroadcast(event.ProjectID, event.ContainerName, event.WorktreeID, att, s.terminals[key]),
+		s.buildProjectBroadcast(event.ProjectID, event.ContainerName),
+	}
 }
 
 // handleAttentionClear clears attention state (user responded or Claude resumed).
@@ -301,7 +319,10 @@ func (s *Store) handleAttentionClear(key worktreeKey, event ContainerEvent) []pe
 	}
 	s.attention[key] = att
 
-	return []pendingBroadcast{buildWorktreeBroadcast(event.ProjectID, event.ContainerName, event.WorktreeID, att, s.terminals[key])}
+	return []pendingBroadcast{
+		buildWorktreeBroadcast(event.ProjectID, event.ContainerName, event.WorktreeID, att, s.terminals[key]),
+		s.buildProjectBroadcast(event.ProjectID, event.ContainerName),
+	}
 }
 
 // handleNeedsAnswer sets attention for an AskUserQuestion tool call.
@@ -317,7 +338,10 @@ func (s *Store) handleNeedsAnswer(key worktreeKey, event ContainerEvent) []pendi
 	}
 	s.attention[key] = att
 
-	return []pendingBroadcast{buildWorktreeBroadcast(event.ProjectID, event.ContainerName, event.WorktreeID, att, s.terminals[key])}
+	return []pendingBroadcast{
+		buildWorktreeBroadcast(event.ProjectID, event.ContainerName, event.WorktreeID, att, s.terminals[key]),
+		s.buildProjectBroadcast(event.ProjectID, event.ContainerName),
+	}
 }
 
 // handleSessionStart marks the worktree as having an active Claude session
@@ -329,10 +353,15 @@ func (s *Store) handleSessionStart(key worktreeKey, event ContainerEvent) []pend
 		return nil // No change — skip broadcast.
 	}
 
+	hadAttention := existing != nil && existing.NeedsInput
 	state := &WorktreeState{SessionActive: true, UpdatedAt: event.Timestamp}
 	s.attention[key] = state
 
-	return []pendingBroadcast{buildWorktreeBroadcast(event.ProjectID, event.ContainerName, event.WorktreeID, state, s.terminals[key])}
+	broadcasts := []pendingBroadcast{buildWorktreeBroadcast(event.ProjectID, event.ContainerName, event.WorktreeID, state, s.terminals[key])}
+	if hadAttention {
+		broadcasts = append(broadcasts, s.buildProjectBroadcast(event.ProjectID, event.ContainerName))
+	}
+	return broadcasts
 }
 
 // handleSessionEnd marks the worktree's Claude session as ended
@@ -344,10 +373,15 @@ func (s *Store) handleSessionEnd(key worktreeKey, event ContainerEvent) []pendin
 		return nil // No change — skip broadcast.
 	}
 
+	hadAttention := existing != nil && existing.NeedsInput
 	state := &WorktreeState{SessionActive: false, UpdatedAt: event.Timestamp}
 	s.attention[key] = state
 
-	return []pendingBroadcast{buildWorktreeBroadcast(event.ProjectID, event.ContainerName, event.WorktreeID, state, s.terminals[key])}
+	broadcasts := []pendingBroadcast{buildWorktreeBroadcast(event.ProjectID, event.ContainerName, event.WorktreeID, state, s.terminals[key])}
+	if hadAttention {
+		broadcasts = append(broadcasts, s.buildProjectBroadcast(event.ProjectID, event.ContainerName))
+	}
+	return broadcasts
 }
 
 // handleStop processes a stop event, updating cost data if present.
@@ -368,7 +402,7 @@ func (s *Store) handleStop(key worktreeKey, event ContainerEvent) ([]pendingBroa
 				UpdatedAt:    event.Timestamp,
 			}
 			s.costs[event.ContainerName] = cost
-			broadcasts = append(broadcasts, projectBroadcast(event.ProjectID, event.ContainerName, cost))
+			broadcasts = append(broadcasts, s.buildProjectBroadcast(event.ProjectID, event.ContainerName))
 		}
 	}
 
@@ -661,31 +695,69 @@ func buildWorktreeBroadcast(projectID, containerName, worktreeID string, att *Wo
 	return pendingBroadcast{event: SSEWorktreeState, data: payload}
 }
 
-// projectBroadcast creates a pending broadcast for a project cost change.
 // ProjectStatePayload is the JSON shape sent over SSE for project_state events.
+// Carries both cost and attention state so the home page can update in real time.
 type ProjectStatePayload struct {
-	ProjectID     string  `json:"projectId,omitempty"`
-	ContainerName string  `json:"containerName"`
-	TotalCost     float64 `json:"totalCost"`
-	MessageCount  int     `json:"messageCount"`
+	ProjectID        string                  `json:"projectId,omitempty"`
+	ContainerName    string                  `json:"containerName"`
+	TotalCost        float64                 `json:"totalCost"`
+	MessageCount     int                     `json:"messageCount"`
+	NeedsInput       bool                    `json:"needsInput"`
+	NotificationType engine.NotificationType `json:"notificationType,omitempty"`
 }
 
-func projectBroadcast(projectID, containerName string, cost *ProjectCost) pendingBroadcast {
-	return pendingBroadcast{
-		event: SSEProjectState,
-		data: ProjectStatePayload{
-			ProjectID:     projectID,
-			ContainerName: containerName,
-			TotalCost:     cost.TotalCost,
-			MessageCount:  cost.MessageCount,
-		},
+// buildProjectBroadcast creates a project_state broadcast with complete state:
+// aggregated attention across all worktrees plus current cost. Every project_state
+// event carries the full snapshot so the frontend can apply it unconditionally.
+// Must be called under lock.
+func (s *Store) buildProjectBroadcast(projectID, containerName string) pendingBroadcast {
+	needsInput, highestType := s.aggregateContainerAttention(containerName)
+
+	payload := ProjectStatePayload{
+		ProjectID:        projectID,
+		ContainerName:    containerName,
+		NeedsInput:       needsInput,
+		NotificationType: highestType,
 	}
+
+	if cost, ok := s.costs[containerName]; ok {
+		payload.TotalCost = cost.TotalCost
+		payload.MessageCount = cost.MessageCount
+	}
+
+	return pendingBroadcast{event: SSEProjectState, data: payload}
+}
+
+// AggregateContainerAttention returns the highest-priority attention state
+// across all worktrees for a container. The internal variant (lowercase) is
+// used under existing lock; this public variant acquires its own read lock.
+func (s *Store) AggregateContainerAttention(containerName string) (needsInput bool, highest engine.NotificationType) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.aggregateContainerAttention(containerName)
+}
+
+// aggregateContainerAttention returns the highest-priority attention state
+// across all worktrees for a container. Must be called under lock.
+func (s *Store) aggregateContainerAttention(containerName string) (needsInput bool, highest engine.NotificationType) {
+	for key, att := range s.attention {
+		if key.containerName != containerName || !att.NeedsInput {
+			continue
+		}
+		needsInput = true
+		if highest == "" || engine.NotificationPriority(att.NotificationType) > engine.NotificationPriority(highest) {
+			highest = att.NotificationType
+		}
+	}
+	return
 }
 
 // writeToAuditLog persists a container event to the audit log via the
-// AuditWriter. Skips heartbeat events. The writer handles mode filtering.
+// AuditWriter. Skips heartbeat and attention_clear events — heartbeats
+// are too frequent, and attention_clear fires on every user prompt with
+// no independent audit value (the user_prompt event already captures this).
 func (s *Store) writeToAuditLog(writer *db.AuditWriter, event ContainerEvent) {
-	if writer == nil || event.Type == EventHeartbeat {
+	if writer == nil || event.Type == EventHeartbeat || event.Type == EventAttentionClear {
 		return
 	}
 

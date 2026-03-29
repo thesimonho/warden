@@ -1180,7 +1180,7 @@ func (rt *routes) handleRevealInFileManager(w http.ResponseWriter, r *http.Reque
 //
 //	@Summary		Subscribe to events (SSE)
 //	@Description	Opens a Server-Sent Events stream for real-time updates. Event types:
-//	@Description	worktree_state (attention/terminal changes), project_state (cost updates),
+//	@Description	worktree_state (attention/terminal changes), project_state (cost + attention updates),
 //	@Description	worktree_list_changed (worktree added/removed), heartbeat (keepalive every 15s).
 //	@Tags			streaming
 //	@Success		200	{string}	string	"SSE event stream"

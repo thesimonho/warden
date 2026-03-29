@@ -35,9 +35,9 @@ const (
 	NotificationElicitationDialog NotificationType = "elicitation_dialog"
 )
 
-// notificationPriority returns a numeric priority for notification types.
+// NotificationPriority returns a numeric priority for notification types.
 // Higher values indicate more urgent attention (permission_prompt > elicitation > idle).
-func notificationPriority(nt NotificationType) int {
+func NotificationPriority(nt NotificationType) int {
 	switch nt {
 	case NotificationPermissionPrompt:
 		return 3

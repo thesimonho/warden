@@ -1000,7 +1000,7 @@ paths:
     get:
       description: |-
         Opens a Server-Sent Events stream for real-time updates. Event types:
-        worktree_state (attention/terminal changes), project_state (cost updates),
+        worktree_state (attention/terminal changes), project_state (cost + attention updates),
         worktree_list_changed (worktree added/removed), heartbeat (keepalive every 15s).
       responses:
         "200":
