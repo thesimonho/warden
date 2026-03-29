@@ -16,6 +16,8 @@ import (
 	"github.com/coder/websocket"
 	dtypes "github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
+
+	"github.com/thesimonho/warden/engine"
 )
 
 // pingInterval is how often the server pings the browser to detect dead connections.
@@ -28,10 +30,8 @@ const pingTimeout = 10 * time.Second
 // Terminal input is typically tiny, but paste events can be large.
 const readLimit = 128 * 1024 // 128 KB
 
-// containerUser is the non-root user inside project containers. The exec
-// viewer must run as the same user that owns the abduco session so it can
-// find the socket file in the correct home directory.
-const containerUser = "dev"
+// containerUser references the non-root user inside project containers.
+var containerUser = engine.ContainerUser
 
 // ExecAPI is the subset of the Docker client used by the proxy.
 // Both Docker and Podman implement these through the same SDK.

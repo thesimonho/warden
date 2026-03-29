@@ -133,6 +133,9 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				a.detailView = nil
 				return a.switchTab(TabSettings)
 			case key.Matches(msg, a.keys.Tab3):
+				a.detailView = nil
+				return a.switchTab(TabAccess)
+			case key.Matches(msg, a.keys.Tab4):
 				if a.auditLogMode != api.AuditLogOff {
 					a.detailView = nil
 					return a.switchTab(TabAudit)
@@ -157,6 +160,8 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case key.Matches(msg, a.keys.Tab2):
 			return a.switchTab(TabSettings)
 		case key.Matches(msg, a.keys.Tab3):
+			return a.switchTab(TabAccess)
+		case key.Matches(msg, a.keys.Tab4):
 			if a.auditLogMode != api.AuditLogOff {
 				return a.switchTab(TabAudit)
 			}
@@ -340,6 +345,8 @@ func (a App) viewForTab(tab Tab) View {
 		return NewSettingsView(a.client)
 	case TabAudit:
 		return NewAuditLogView(a.client)
+	case TabAccess:
+		return NewAccessView(a.client)
 	default:
 		return NewProjectsView(a.client)
 	}
@@ -347,7 +354,7 @@ func (a App) viewForTab(tab Tab) View {
 
 // rebuildTabs sets the tab list based on event log mode.
 func (a *App) rebuildTabs() {
-	a.tabs = []Tab{TabProjects, TabSettings}
+	a.tabs = []Tab{TabProjects, TabSettings, TabAccess}
 	if a.auditLogMode != api.AuditLogOff {
 		a.tabs = append(a.tabs, TabAudit)
 	}

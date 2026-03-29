@@ -96,7 +96,7 @@ export default function AddProjectDialog({
           networkMode: data.networkMode,
           allowedDomains: data.allowedDomains,
           costBudget: data.costBudget,
-          enabledPresets: data.enabledPresets,
+          enabledAccessItems: data.enabledAccessItems,
         }
 
         if (isEditMode && editProjectId) {

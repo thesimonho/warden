@@ -43,6 +43,9 @@ import type {
   ServerSettings,
   AuditFilters,
   AuditSummary,
+  AccessItemResponse,
+  AccessCredential,
+  ResolvedItem,
 } from '@/lib/types'
 
 /** Base URL for API requests. Empty string since Vite proxies /api to the backend. */
@@ -492,24 +495,10 @@ export interface DefaultEnvVar {
   value: string
 }
 
-/**
- * A group of related infrastructure mounts presented as a single toggle.
- * Presets are identified by ID so clients can match container mounts back.
- */
-export interface MountPreset {
-  id: string
-  label: string
-  description: string
-  available: boolean
-  mounts: DefaultMount[]
-  envVars?: DefaultEnvVar[]
-}
-
 /** Server-resolved default values for the create container form. */
 export interface Defaults {
   homeDir: string
   containerHomeDir: string
-  presets?: MountPreset[]
   mounts: DefaultMount[]
   envVars?: DefaultEnvVar[]
 }
@@ -609,4 +598,122 @@ export async function deleteAuditEvents(filters?: AuditFilters): Promise<void> {
   const query = params.toString()
   const path = query ? `/api/v1/audit?${query}` : '/api/v1/audit'
   await apiFetch(path, { method: 'DELETE' })
+}
+
+// --- Access Items ---
+
+/** Response shape from GET /api/v1/access. */
+interface AccessItemListResponse {
+  items: AccessItemResponse[]
+}
+
+/**
+ * Fetches all access items with detection status.
+ *
+ * @returns An array of access items enriched with host detection results.
+ */
+export async function fetchAccessItems(): Promise<AccessItemResponse[]> {
+  const response = await apiFetch('/api/v1/access')
+  const body = (await response.json()) as AccessItemListResponse
+  return body.items
+}
+
+/**
+ * Fetches a single access item by ID.
+ *
+ * @param id - The access item identifier.
+ * @returns The access item with detection status.
+ */
+export async function fetchAccessItem(id: string): Promise<AccessItemResponse> {
+  const response = await apiFetch(`/api/v1/access/${id}`)
+  return response.json() as Promise<AccessItemResponse>
+}
+
+/** Request body for creating a user-defined access item. */
+interface CreateAccessItemRequest {
+  label: string
+  description: string
+  credentials: AccessCredential[]
+}
+
+/**
+ * Creates a new user-defined access item.
+ *
+ * @param req - The access item definition.
+ * @returns The created access item with detection status.
+ */
+export async function createAccessItem(req: CreateAccessItemRequest): Promise<AccessItemResponse> {
+  const response = await apiFetch('/api/v1/access', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(req),
+  })
+  return response.json() as Promise<AccessItemResponse>
+}
+
+/** Request body for updating a user-defined access item. */
+interface UpdateAccessItemRequest {
+  label?: string
+  description?: string
+  credentials?: AccessCredential[]
+}
+
+/**
+ * Updates a user-defined access item.
+ *
+ * @param id - The access item identifier.
+ * @param req - The fields to update.
+ * @returns The updated access item with detection status.
+ */
+export async function updateAccessItem(
+  id: string,
+  req: UpdateAccessItemRequest,
+): Promise<AccessItemResponse> {
+  const response = await apiFetch(`/api/v1/access/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(req),
+  })
+  return response.json() as Promise<AccessItemResponse>
+}
+
+/**
+ * Deletes a user-defined access item. Rejects deletion of built-in items.
+ *
+ * @param id - The access item identifier.
+ */
+export async function deleteAccessItem(id: string): Promise<void> {
+  await apiFetch(`/api/v1/access/${id}`, { method: 'DELETE' })
+}
+
+/**
+ * Resets a built-in access item to its default configuration.
+ *
+ * @param id - The access item identifier.
+ * @returns The reset access item with detection status.
+ */
+export async function resetAccessItem(id: string): Promise<AccessItemResponse> {
+  const response = await apiFetch(`/api/v1/access/${id}/reset`, { method: 'POST' })
+  return response.json() as Promise<AccessItemResponse>
+}
+
+/** Response shape from POST /api/v1/access/resolve. */
+interface ResolveAccessItemsResponse {
+  items: ResolvedItem[]
+}
+
+/**
+ * Resolves access items for test/preview, returning the computed injections.
+ *
+ * @param itemIds - The access item IDs to resolve.
+ * @returns An array of resolved items with per-credential injection details.
+ */
+export async function resolveAccessItems(itemIds: string[]): Promise<ResolvedItem[]> {
+  const response = await apiFetch('/api/v1/access/resolve', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ itemIds }),
+  })
+  const body = (await response.json()) as ResolveAccessItemsResponse
+  return body.items
 }

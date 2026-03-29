@@ -306,7 +306,7 @@ export default function DirectoryBrowser({
     <div ref={containerRef} className="relative flex-1">
       {/* Closed state: show committed value as a clickable field */}
       {!isOpen && (
-        <div className="border-input focus-within:border-ring focus-within:ring-ring/50 dark:bg-input/30 flex h-9 w-full items-center rounded border bg-transparent shadow-xs transition-[color,box-shadow] focus-within:ring-[3px]">
+        <div className="border-input focus-within:border-ring focus-within:ring-ring/50 bg-content-2 flex h-9 w-full items-center rounded border shadow-xs transition-[color,box-shadow] focus-within:ring-[3px]">
           <button
             type="button"
             onClick={handleOpen}

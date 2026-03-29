@@ -1,8 +1,8 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ArrowRight, Info, Loader2, Plus, Trash2 } from 'lucide-react'
-import type { ContainerConfig, Mount, NetworkMode } from '@/lib/types'
-import { fetchDefaults, fetchSettings } from '@/lib/api'
-import type { MountPreset } from '@/lib/api'
+import type { AccessItemResponse, ContainerConfig, Mount, NetworkMode } from '@/lib/types'
+import { fetchAccessItems, fetchDefaults, fetchSettings } from '@/lib/api'
+import { containerPathToDisplay, containerPathToAbsolute } from '@/lib/utils'
 import { restrictedDomains } from '@/lib/domain-groups'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -46,7 +46,7 @@ export interface ProjectConfigFormData {
   networkMode: NetworkMode
   allowedDomains?: string[]
   costBudget?: number
-  enabledPresets?: string[]
+  enabledAccessItems?: string[]
 }
 
 /** Default container image for new projects. */
@@ -97,15 +97,15 @@ export default function ProjectConfigForm({
       ? String(initialValues.costBudget)
       : '',
   )
-  const [presets, setPresets] = useState<MountPreset[]>([])
-  const [presetToggles, setPresetToggles] = useState<Record<string, boolean>>({})
+  const [accessItems, setAccessItems] = useState<AccessItemResponse[]>([])
+  const [accessToggles, setAccessToggles] = useState<Record<string, boolean>>({})
   const [error, setError] = useState<string | null>(null)
   const [advancedOpen, setAdvancedOpen] = useState(false)
   const [homeDir, setHomeDir] = useState('')
   const [containerHomeDir, setContainerHomeDir] = useState('')
   const defaultsLoaded = useRef(false)
 
-  /** Fetches server-resolved defaults on first render. */
+  /** Fetches server-resolved defaults and access items on first render. */
   useEffect(() => {
     if (defaultsLoaded.current) return
     defaultsLoaded.current = true
@@ -118,26 +118,6 @@ export default function ProjectConfigForm({
         if (defaults.containerHomeDir) {
           setContainerHomeDir(defaults.containerHomeDir)
         }
-        if (defaults.presets?.length) {
-          setPresets(defaults.presets)
-
-          if (mode === 'create') {
-            // Enable all available presets by default.
-            const toggles: Record<string, boolean> = {}
-            for (const preset of defaults.presets) {
-              toggles[preset.id] = preset.available
-            }
-            setPresetToggles(toggles)
-          } else {
-            // Edit mode: read enabled presets from stored config.
-            const enabled = new Set(initialValues?.enabledPresets ?? [])
-            const toggles: Record<string, boolean> = {}
-            for (const preset of defaults.presets) {
-              toggles[preset.id] = preset.available && enabled.has(preset.id)
-            }
-            setPresetToggles(toggles)
-          }
-        }
         if (mode === 'create') {
           if (defaults.mounts?.length > 0) {
             setMounts(defaults.mounts)
@@ -145,6 +125,29 @@ export default function ProjectConfigForm({
           if (defaults.envVars?.length) {
             setEnvVars(defaults.envVars)
           }
+        }
+      })
+      .catch(() => {})
+
+    fetchAccessItems()
+      .then((items) => {
+        setAccessItems(items)
+
+        if (mode === 'create') {
+          // Enable all detected access items by default.
+          const toggles: Record<string, boolean> = {}
+          for (const item of items) {
+            toggles[item.id] = item.detection.available
+          }
+          setAccessToggles(toggles)
+        } else {
+          // Edit mode: read enabled access items from stored config.
+          const enabled = new Set(initialValues?.enabledAccessItems ?? [])
+          const toggles: Record<string, boolean> = {}
+          for (const item of items) {
+            toggles[item.id] = item.detection.available && enabled.has(item.id)
+          }
+          setAccessToggles(toggles)
         }
       })
       .catch(() => {})
@@ -207,29 +210,7 @@ export default function ProjectConfigForm({
       }
     }
 
-    // Merge enabled preset mounts/envVars into the flat lists.
-    const allMounts = [...mounts.filter((m) => !presetContainerPaths.has(m.containerPath))]
-    for (const preset of presets) {
-      if (presetToggles[preset.id]) {
-        for (const pm of preset.mounts) {
-          allMounts.push({
-            hostPath: pm.hostPath,
-            containerPath: pm.containerPath,
-            readOnly: pm.readOnly,
-          })
-        }
-        if (preset.envVars) {
-          for (const ev of preset.envVars) {
-            const trimmedKey = ev.key.trim()
-            if (trimmedKey && !envMap[trimmedKey]) {
-              envMap[trimmedKey] = ev.value
-            }
-          }
-        }
-      }
-    }
-
-    const validMounts = allMounts.filter((m) => m.hostPath.trim() && m.containerPath.trim())
+    const validMounts = mounts.filter((m) => m.hostPath.trim() && m.containerPath.trim())
     const parsedDomains =
       networkMode === 'restricted'
         ? allowedDomains
@@ -237,7 +218,7 @@ export default function ProjectConfigForm({
             .map((d) => d.trim())
             .filter(Boolean)
         : undefined
-    const enabledPresetIds = presets.filter((p) => presetToggles[p.id]).map((p) => p.id)
+    const enabledIds = accessItems.filter((item) => accessToggles[item.id]).map((item) => item.id)
 
     onSubmit({
       name: name.trim(),
@@ -249,71 +230,25 @@ export default function ProjectConfigForm({
       networkMode,
       allowedDomains: parsedDomains,
       costBudget: parseFloat(costBudget) || 0,
-      enabledPresets: enabledPresetIds.length > 0 ? enabledPresetIds : undefined,
+      enabledAccessItems: enabledIds.length > 0 ? enabledIds : undefined,
     })
   }
 
-  /** Replaces the container home directory prefix with ~ for display. */
   const containerToDisplay = useCallback(
-    (path: string) => {
-      if (!containerHomeDir || !path) return path
-      if (path === containerHomeDir) return '~'
-      if (path.startsWith(containerHomeDir + '/')) return '~' + path.slice(containerHomeDir.length)
-      return path
-    },
+    (path: string) => containerPathToDisplay(path, containerHomeDir),
     [containerHomeDir],
   )
 
-  /** Expands a leading ~ to the container home directory. */
   const containerToAbsolute = useCallback(
-    (input: string) => {
-      if (!containerHomeDir || !input.startsWith('~')) return input
-      if (input === '~') return containerHomeDir
-      if (input.startsWith('~/')) return containerHomeDir + input.slice(1)
-      return input
-    },
+    (input: string) => containerPathToAbsolute(input, containerHomeDir),
     [containerHomeDir],
   )
-
-  /** Container paths that belong to any preset (used to filter the bind mounts grid). */
-  const presetContainerPaths = useMemo(() => {
-    const paths = new Set<string>()
-    for (const preset of presets) {
-      for (const m of preset.mounts) {
-        paths.add(m.containerPath)
-      }
-    }
-    return paths
-  }, [presets])
 
   /** User-visible mounts with their original indices (for safe mutation of the mounts array). */
-  const visibleMounts = useMemo(
-    () =>
-      mounts
-        .map((mount, index) => ({ mount, index }))
-        .filter(({ mount }) => !presetContainerPaths.has(mount.containerPath)),
-    [mounts, presetContainerPaths],
-  )
-
-  /** Env var keys that belong to any preset. */
-  const presetEnvKeys = useMemo(() => {
-    const keys = new Set<string>()
-    for (const preset of presets) {
-      for (const ev of preset.envVars ?? []) {
-        keys.add(ev.key)
-      }
-    }
-    return keys
-  }, [presets])
+  const visibleMounts = useMemo(() => mounts.map((mount, index) => ({ mount, index })), [mounts])
 
   /** User-visible env vars with their original indices. */
-  const visibleEnvVars = useMemo(
-    () =>
-      envVars
-        .map((entry, index) => ({ entry, index }))
-        .filter(({ entry }) => !presetEnvKeys.has(entry.key)),
-    [envVars, presetEnvKeys],
-  )
+  const visibleEnvVars = useMemo(() => envVars.map((entry, index) => ({ entry, index })), [envVars])
 
   const isEditMode = mode === 'edit'
   const isValid = useMemo(
@@ -392,10 +327,47 @@ export default function ProjectConfigForm({
       </FormField>
 
       <div className="space-y-2">
+        <label className="font-medium">Access</label>
+        <p className="text-muted-foreground text-sm">Passthrough access items to containers.</p>
+        {accessItems.length === 0 && (
+          <p className="text-muted-foreground text-sm">No access items configured.</p>
+        )}
+        {accessItems.map((item) => {
+          const isDetected = item.detection.available
+          return (
+            <label key={item.id} className="flex items-start gap-2 py-1">
+              <Checkbox
+                checked={accessToggles[item.id] ?? false}
+                onCheckedChange={(checked) =>
+                  setAccessToggles((prev) => ({ ...prev, [item.id]: checked === true }))
+                }
+                disabled={isSubmitting || disabled || !isDetected}
+                className="mt-0.5"
+              />
+              <div className="flex flex-col gap-0.5">
+                <span className="flex items-center gap-1.5 text-sm">
+                  <span
+                    className={`inline-block h-2 w-2 shrink-0 rounded-full ${isDetected ? 'bg-green-500' : 'bg-muted-foreground/40'}`}
+                  />
+                  <span className={isDetected ? '' : 'text-muted-foreground'}>
+                    {item.label}
+                    {!isDetected && ' (unavailable)'}
+                  </span>
+                </span>
+                {item.description && (
+                  <span className="text-muted-foreground text-xs">{item.description}</span>
+                )}
+              </div>
+            </label>
+          )
+        })}
+      </div>
+
+      <div className="space-y-2">
         <div className="space-y-0.5">
           <label className="font-medium">
             <span className="flex items-center gap-1.5">
-              Network Access
+              Network
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Info className="text-muted-foreground h-3.5 w-3.5" />
@@ -510,8 +482,8 @@ export default function ProjectConfigForm({
                     </TooltipTrigger>
                     <TooltipContent side="right" className="max-w-64">
                       <p>
-                        Mount host directories into the container. Toggle passthrough presets below
-                        to include common infrastructure mounts automatically.
+                        Mount host directories into the container. Toggle access items below to
+                        include credential passthrough automatically.
                       </p>
                     </TooltipContent>
                   </Tooltip>
@@ -533,37 +505,6 @@ export default function ProjectConfigForm({
                 Add
               </Button>
             </div>
-
-            {presets.length > 0 && (
-              <div className="flex items-center gap-3">
-                <span className="text-muted-foreground text-sm">Passthrough:</span>
-                {presets.map((preset) => (
-                  <label key={preset.id} className="flex items-center gap-1.5 text-sm">
-                    <Checkbox
-                      checked={presetToggles[preset.id] ?? false}
-                      onCheckedChange={(checked) =>
-                        setPresetToggles((prev) => ({ ...prev, [preset.id]: checked === true }))
-                      }
-                      disabled={isSubmitting || disabled || !preset.available}
-                    />
-                    <span className={preset.available ? '' : 'text-muted-foreground'}>
-                      {preset.label}
-                    </span>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Info className="text-muted-foreground h-3 w-3" />
-                      </TooltipTrigger>
-                      <TooltipContent side="top" className="max-w-72">
-                        <p>
-                          {preset.description}
-                          {!preset.available && ' (not detected on host)'}
-                        </p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </label>
-                ))}
-              </div>
-            )}
 
             {visibleMounts.length === 0 && (
               <p className="text-muted-foreground text-sm">No additional bind mounts configured.</p>

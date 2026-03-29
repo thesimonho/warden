@@ -12,6 +12,7 @@ For each package, you can also view the documentation on [pkg.go.dev](https://pk
 | Package | Description | pkg.go.dev |
 | --- | --- | --- |
 | `warden` | High-level `App` — wires everything together | [View](https://pkg.go.dev/github.com/thesimonho/warden) |
+| `access` | Credential passthrough model (items, credentials, resolution) | [View](https://pkg.go.dev/github.com/thesimonho/warden/access) |
 | `api` | API contract types (request/response/result) | [View](https://pkg.go.dev/github.com/thesimonho/warden/api) |
 | `agent` | Agent status provider interface | [View](https://pkg.go.dev/github.com/thesimonho/warden/agent) |
 | `client` | HTTP client for the Warden API | [View](https://pkg.go.dev/github.com/thesimonho/warden/client) |

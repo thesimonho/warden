@@ -39,22 +39,6 @@ components:
           description: UniqueWorktrees is the number of distinct worktrees with events.
           type: integer
       type: object
-    api.DefaultEnvVar:
-      properties:
-        key:
-          type: string
-        value:
-          type: string
-      type: object
-    api.DefaultMount:
-      properties:
-        containerPath:
-          type: string
-        hostPath:
-          type: string
-        readOnly:
-          type: boolean
-      type: object
     api.DiffFileSummary:
       properties:
         additions:
@@ -107,33 +91,6 @@ components:
           type: string
         path:
           type: string
-      type: object
-    api.MountPreset:
-      properties:
-        available:
-          description: Available is true when the host has the required files/sockets.
-          type: boolean
-        description:
-          description: Description explains what the preset does (shown in tooltips).
-          type: string
-        envVars:
-          description: EnvVars are the environment variables this preset contributes.
-          items:
-            $ref: '#/components/schemas/api.DefaultEnvVar'
-          type: array
-          uniqueItems: false
-        id:
-          description: ID is the stable identifier (e.g. "git", "ssh").
-          type: string
-        label:
-          description: Label is the human-readable toggle label (e.g. "Git", "SSH").
-          type: string
-        mounts:
-          description: Mounts are the bind mounts this preset contributes.
-          items:
-            $ref: '#/components/schemas/api.DefaultMount'
-          type: array
-          uniqueItems: false
       type: object
     api.PostAuditEventRequest:
       properties:
@@ -252,8 +209,8 @@ components:
           description: CostBudget is the per-project cost limit in USD (0 = use global
             default).
           type: number
-        enabledPresets:
-          description: EnabledPresets lists active mount preset IDs (e.g. ["git","ssh"]).
+        enabledAccessItems:
+          description: EnabledAccessItems lists active access item IDs (e.g. ["git","ssh"]).
           items:
             type: string
           type: array
@@ -291,8 +248,8 @@ components:
           description: CostBudget is the per-project cost limit in USD (0 = use global
             default).
           type: number
-        enabledPresets:
-          description: EnabledPresets lists active mount preset IDs (e.g. ["git","ssh"]).
+        enabledAccessItems:
+          description: EnabledAccessItems lists active access item IDs (e.g. ["git","ssh"]).
           items:
             type: string
           type: array
@@ -624,28 +581,6 @@ components:
         projectId:
           description: ProjectID is the deterministic project identifier.
           type: string
-      type: object
-    service.DefaultsResponse:
-      properties:
-        containerHomeDir:
-          type: string
-        envVars:
-          items:
-            $ref: '#/components/schemas/api.DefaultEnvVar'
-          type: array
-          uniqueItems: false
-        homeDir:
-          type: string
-        mounts:
-          items:
-            $ref: '#/components/schemas/api.DefaultMount'
-          type: array
-          uniqueItems: false
-        presets:
-          items:
-            $ref: '#/components/schemas/api.MountPreset'
-          type: array
-          uniqueItems: false
       type: object
     service.ProjectResult:
       properties:
@@ -981,21 +916,6 @@ paths:
       summary: Get audit summary
       tags:
       - audit
-  /api/v1/defaults:
-    get:
-      description: |-
-        Returns server-resolved default values for the create container form,
-        including the host home directory and auto-detected bind mounts.
-      responses:
-        "200":
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/service.DefaultsResponse'
-          description: OK
-      summary: Get defaults
-      tags:
-      - host
   /api/v1/events:
     get:
       description: |-

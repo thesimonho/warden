@@ -24,7 +24,7 @@ CREATE TABLE IF NOT EXISTS projects (
     network_mode      TEXT NOT NULL DEFAULT 'full',
     allowed_domains   TEXT NOT NULL DEFAULT '',
     cost_budget       REAL NOT NULL DEFAULT 0,
-    enabled_presets   TEXT NOT NULL DEFAULT '',
+    enabled_access_items TEXT NOT NULL DEFAULT '',
     container_id      TEXT NOT NULL DEFAULT '',
     container_name    TEXT NOT NULL DEFAULT ''
 );
@@ -62,6 +62,14 @@ CREATE TABLE IF NOT EXISTS session_costs (
     created_at   TEXT NOT NULL,
     updated_at   TEXT NOT NULL,
     PRIMARY KEY (project_id, session_id)
+);
+
+CREATE TABLE IF NOT EXISTS access_items (
+    id          TEXT PRIMARY KEY,
+    label       TEXT NOT NULL,
+    description TEXT NOT NULL DEFAULT '',
+    method      TEXT NOT NULL DEFAULT 'transport',
+    credentials TEXT NOT NULL
 );
 
 CREATE INDEX IF NOT EXISTS idx_projects_host_path ON projects(host_path);
@@ -102,7 +110,10 @@ func openDB(path string) (*sql.DB, error) {
 	// errors when the column already exists; ignoring the error is the
 	// conventional SQLite migration pattern without version tracking.
 	migrations := []string{
-		`ALTER TABLE projects ADD COLUMN enabled_presets TEXT NOT NULL DEFAULT ''`,
+		// Rename enabled_presets → enabled_access_items for existing databases.
+		`ALTER TABLE projects RENAME COLUMN enabled_presets TO enabled_access_items`,
+		// Fallback: add the column if it doesn't exist yet (new DB with old schema).
+		`ALTER TABLE projects ADD COLUMN enabled_access_items TEXT NOT NULL DEFAULT ''`,
 	}
 	for _, m := range migrations {
 		_, _ = db.Exec(m) //nolint:errcheck // expected to fail if column exists

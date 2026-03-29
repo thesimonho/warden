@@ -12,6 +12,7 @@ var (
 	_ help.KeyMap = WorktreeKeyMap{}
 	_ help.KeyMap = SettingsKeyMap{}
 	_ help.KeyMap = AuditLogKeyMap{}
+	_ help.KeyMap = AccessKeyMap{}
 )
 
 // moreHelp is appended to every ShortHelp to show the toggle hint.
@@ -55,7 +56,7 @@ func DefaultGlobalKeyMap() GlobalKeyMap {
 		),
 		Tab3: key.NewBinding(
 			key.WithKeys("3"),
-			key.WithHelp("3", "audit log"),
+			key.WithHelp("3", "access"),
 		),
 		Tab4: key.NewBinding(
 			key.WithKeys("4"),
@@ -276,5 +277,58 @@ func (k AuditLogKeyMap) FullHelp() [][]key.Binding {
 	return [][]key.Binding{
 		{k.CategoryFilter, k.LevelFilter, k.SourceFilter, k.ProjectFilter},
 		{k.TimeRange, k.AutoRefresh, k.Refresh, k.Clear},
+	}
+}
+
+// AccessKeyMap defines key bindings for the access management view.
+type AccessKeyMap struct {
+	Edit    key.Binding
+	New     key.Binding
+	Delete  key.Binding
+	Reset   key.Binding
+	Test    key.Binding
+	Refresh key.Binding
+}
+
+// DefaultAccessKeyMap returns the default access view key bindings.
+func DefaultAccessKeyMap() AccessKeyMap {
+	return AccessKeyMap{
+		Edit: key.NewBinding(
+			key.WithKeys("e", "enter"),
+			key.WithHelp("e/enter", "edit"),
+		),
+		New: key.NewBinding(
+			key.WithKeys("n"),
+			key.WithHelp("n", "new"),
+		),
+		Delete: key.NewBinding(
+			key.WithKeys("d"),
+			key.WithHelp("d", "delete"),
+		),
+		Reset: key.NewBinding(
+			key.WithKeys("r"),
+			key.WithHelp("r", "reset"),
+		),
+		Test: key.NewBinding(
+			key.WithKeys("t"),
+			key.WithHelp("t", "test"),
+		),
+		Refresh: key.NewBinding(
+			key.WithKeys("R"),
+			key.WithHelp("R", "refresh"),
+		),
+	}
+}
+
+// ShortHelp returns bindings shown in the compact help bar.
+func (k AccessKeyMap) ShortHelp() []key.Binding {
+	return []key.Binding{k.Edit, k.New, k.Delete, moreHelp}
+}
+
+// FullHelp returns bindings shown in expanded help.
+func (k AccessKeyMap) FullHelp() [][]key.Binding {
+	return [][]key.Binding{
+		{k.Edit, k.New, k.Delete},
+		{k.Reset, k.Test, k.Refresh},
 	}
 }

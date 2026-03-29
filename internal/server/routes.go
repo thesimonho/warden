@@ -13,6 +13,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/thesimonho/warden/api"
 	"github.com/thesimonho/warden/db"
 	"github.com/thesimonho/warden/engine"
 	"github.com/thesimonho/warden/eventbus"
@@ -82,6 +83,13 @@ func registerAPIRoutes(mux *http.ServeMux, svc *service.Service, broker *eventbu
 	mux.HandleFunc("DELETE /api/v1/audit", rt.handleDeleteAuditEvents)
 	mux.HandleFunc("GET /api/v1/filesystem/directories", rt.handleListDirectories)
 	mux.HandleFunc("POST /api/v1/filesystem/reveal", rt.handleRevealInFileManager)
+	mux.HandleFunc("GET /api/v1/access", rt.handleListAccessItems)
+	mux.HandleFunc("POST /api/v1/access", rt.handleCreateAccessItem)
+	mux.HandleFunc("GET /api/v1/access/{id}", rt.handleGetAccessItem)
+	mux.HandleFunc("PUT /api/v1/access/{id}", rt.handleUpdateAccessItem)
+	mux.HandleFunc("DELETE /api/v1/access/{id}", rt.handleDeleteAccessItem)
+	mux.HandleFunc("POST /api/v1/access/{id}/reset", rt.handleResetAccessItem)
+	mux.HandleFunc("POST /api/v1/access/resolve", rt.handleResolveAccessItems)
 	mux.HandleFunc("GET /api/v1/defaults", rt.handleDefaults)
 	mux.HandleFunc("GET /api/v1/events", rt.handleSSE)
 	mux.HandleFunc("GET /api/v1/projects/{projectId}/ws/{wid}", rt.handleTerminalWS)
@@ -1076,6 +1084,127 @@ func (rt *routes) handleDeleteAuditEvents(w http.ResponseWriter, r *http.Request
 //	@Tags			host
 //	@Success		200	{object}	service.DefaultsResponse
 //	@Router			/api/v1/defaults [get]
+// --- Access item handlers ---
+
+func (rt *routes) handleListAccessItems(w http.ResponseWriter, _ *http.Request) {
+	items, err := rt.svc.ListAccessItems()
+	if err != nil {
+		writeError(w, ErrCodeInternal, "failed to list access items", http.StatusInternalServerError)
+		slog.Error("list access items", "err", err)
+		return
+	}
+	writeJSON(w, api.AccessItemListResponse{Items: items})
+}
+
+func (rt *routes) handleGetAccessItem(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	item, err := rt.svc.GetAccessItem(id)
+	if err != nil {
+		if errors.Is(err, service.ErrNotFound) {
+			writeError(w, ErrCodeNotFound, "access item not found", http.StatusNotFound)
+			return
+		}
+		writeError(w, ErrCodeInternal, "failed to get access item", http.StatusInternalServerError)
+		slog.Error("get access item", "id", id, "err", err)
+		return
+	}
+	writeJSON(w, item)
+}
+
+func (rt *routes) handleCreateAccessItem(w http.ResponseWriter, r *http.Request) {
+	var req api.CreateAccessItemRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, ErrCodeInvalidBody, "invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	item, err := rt.svc.CreateAccessItem(req)
+	if err != nil {
+		if errors.Is(err, service.ErrInvalidInput) {
+			writeError(w, ErrCodeInvalidBody, err.Error(), http.StatusBadRequest)
+			return
+		}
+		writeError(w, ErrCodeInternal, "failed to create access item", http.StatusInternalServerError)
+		slog.Error("create access item", "err", err)
+		return
+	}
+	writeJSONCreated(w, item)
+}
+
+func (rt *routes) handleUpdateAccessItem(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	var req api.UpdateAccessItemRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, ErrCodeInvalidBody, "invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	item, err := rt.svc.UpdateAccessItem(id, req)
+	if err != nil {
+		if errors.Is(err, service.ErrNotFound) {
+			writeError(w, ErrCodeNotFound, "access item not found", http.StatusNotFound)
+			return
+		}
+		if errors.Is(err, service.ErrInvalidInput) {
+			writeError(w, ErrCodeInvalidBody, err.Error(), http.StatusBadRequest)
+			return
+		}
+		writeError(w, ErrCodeInternal, "failed to update access item", http.StatusInternalServerError)
+		slog.Error("update access item", "id", id, "err", err)
+		return
+	}
+	writeJSON(w, item)
+}
+
+func (rt *routes) handleDeleteAccessItem(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	if err := rt.svc.DeleteAccessItem(id); err != nil {
+		if errors.Is(err, service.ErrInvalidInput) {
+			writeError(w, ErrCodeInvalidBody, err.Error(), http.StatusBadRequest)
+			return
+		}
+		writeError(w, ErrCodeInternal, "failed to delete access item", http.StatusInternalServerError)
+		slog.Error("delete access item", "id", id, "err", err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (rt *routes) handleResetAccessItem(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	item, err := rt.svc.ResetAccessItem(id)
+	if err != nil {
+		if errors.Is(err, service.ErrInvalidInput) {
+			writeError(w, ErrCodeInvalidBody, err.Error(), http.StatusBadRequest)
+			return
+		}
+		writeError(w, ErrCodeInternal, "failed to reset access item", http.StatusInternalServerError)
+		slog.Error("reset access item", "id", id, "err", err)
+		return
+	}
+	writeJSON(w, item)
+}
+
+func (rt *routes) handleResolveAccessItems(w http.ResponseWriter, r *http.Request) {
+	var req api.ResolveAccessItemsRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, ErrCodeInvalidBody, "invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	resp, err := rt.svc.ResolveAccessItems(req.ItemIDs)
+	if err != nil {
+		if errors.Is(err, service.ErrNotFound) {
+			writeError(w, ErrCodeNotFound, err.Error(), http.StatusNotFound)
+			return
+		}
+		writeError(w, ErrCodeInternal, "failed to resolve access items", http.StatusInternalServerError)
+		slog.Error("resolve access items", "err", err)
+		return
+	}
+	writeJSON(w, resp)
+}
+
 func (rt *routes) handleDefaults(w http.ResponseWriter, _ *http.Request) {
 	writeJSON(w, rt.svc.GetDefaults())
 }

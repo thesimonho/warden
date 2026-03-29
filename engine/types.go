@@ -183,8 +183,8 @@ type CreateContainerRequest struct {
 	AllowedDomains []string `json:"allowedDomains,omitempty"`
 	// CostBudget is the per-project cost limit in USD (0 = use global default).
 	CostBudget float64 `json:"costBudget,omitempty"`
-	// EnabledPresets lists active mount preset IDs (e.g. ["git","ssh"]).
-	EnabledPresets []string `json:"enabledPresets,omitempty"`
+	// EnabledAccessItems lists active access item IDs (e.g. ["git","ssh"]).
+	EnabledAccessItems []string `json:"enabledAccessItems,omitempty"`
 }
 
 // ContainerConfig holds the editable configuration of an existing container.
@@ -202,8 +202,8 @@ type ContainerConfig struct {
 	AllowedDomains []string `json:"allowedDomains,omitempty"`
 	// CostBudget is the per-project cost limit in USD (0 = use global default).
 	CostBudget float64 `json:"costBudget"`
-	// EnabledPresets lists active mount preset IDs (e.g. ["git","ssh"]).
-	EnabledPresets []string `json:"enabledPresets,omitempty"`
+	// EnabledAccessItems lists active access item IDs (e.g. ["git","ssh"]).
+	EnabledAccessItems []string `json:"enabledAccessItems,omitempty"`
 }
 
 // Client defines the interface for interacting with Docker containers.

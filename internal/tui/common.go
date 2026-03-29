@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"github.com/thesimonho/warden/access"
 	"github.com/thesimonho/warden/api"
 	"github.com/thesimonho/warden/db"
 	"github.com/thesimonho/warden/engine"
@@ -18,6 +19,8 @@ const (
 	TabSettings
 	// TabAudit is the unified audit log viewer.
 	TabAudit
+	// TabAccess is the access management view.
+	TabAccess
 )
 
 // TabLabels maps each tab to its display label.
@@ -25,6 +28,7 @@ var TabLabels = map[Tab]string{
 	TabProjects: "Projects",
 	TabSettings: "Settings",
 	TabAudit:    "Audit Log",
+	TabAccess:   "Access",
 }
 
 // --- Async result messages ---
@@ -72,6 +76,18 @@ type AuditProjectsLoadedMsg struct {
 type DefaultsLoadedMsg struct {
 	Defaults *api.DefaultsResponse
 	Err      error
+}
+
+// AccessItemsLoadedMsg carries the result of a ListAccessItems call.
+type AccessItemsLoadedMsg struct {
+	Items []api.AccessItemResponse
+	Err   error
+}
+
+// AccessItemResolvedMsg carries the result of a ResolveAccessItems call.
+type AccessItemResolvedMsg struct {
+	Items []access.ResolvedItem
+	Err   error
 }
 
 // --- Operation result messages ---

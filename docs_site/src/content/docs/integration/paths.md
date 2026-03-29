@@ -24,6 +24,7 @@ All packages are importable via `go get github.com/thesimonho/warden`:
 | Package         | Purpose                                            |
 | --------------- | -------------------------------------------------- |
 | `warden` (root) | High-level `App` — wires everything together       |
+| `access`        | Credential passthrough model (items, credentials, resolution) |
 | `api`           | API contract types (request/response/result)       |
 | `client`        | Typed HTTP client for the Warden API               |
 | `service`       | Business logic layer                               |
