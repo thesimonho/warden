@@ -5,7 +5,23 @@ import { Slot } from 'radix-ui'
 import { cn } from '@/lib/utils'
 
 const buttonVariants = cva(
-  "cursor-pointer inline-flex shrink-0 items-center justify-center gap-2 rounded font-medium whitespace-nowrap transition-all outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-error aria-invalid:ring-error/20 dark:aria-invalid:ring-error/40 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+  [
+    // Layout
+    'cursor-pointer inline-flex shrink-0 items-center justify-center gap-2 rounded',
+    // Typography
+    'font-medium whitespace-nowrap',
+    // Transitions
+    'transition-all outline-none',
+    // Focus
+    'focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50',
+    // Disabled
+    'disabled:pointer-events-none disabled:opacity-50',
+    // Validation
+    'aria-invalid:border-error aria-invalid:ring-error/20',
+    'dark:aria-invalid:ring-error/40',
+    // Child SVG
+    "[&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+  ].join(' '),
   {
     variants: {
       variant: {

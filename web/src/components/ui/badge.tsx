@@ -5,7 +5,22 @@ import { Slot } from 'radix-ui'
 import { cn } from '@/lib/utils'
 
 const badgeVariants = cva(
-  'inline-flex w-fit shrink-0 items-center justify-center gap-1 overflow-hidden rounded border border-transparent px-2 py-0.5 text-sm font-medium whitespace-nowrap transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 aria-invalid:border-error aria-invalid:ring-error/20 dark:aria-invalid:ring-error/40 [&>svg]:pointer-events-none [&>svg]:size-3',
+  [
+    // Layout & sizing
+    'inline-flex w-fit shrink-0 items-center justify-center gap-1',
+    'overflow-hidden rounded border border-transparent px-2 py-0.5',
+    // Typography
+    'text-sm font-medium whitespace-nowrap',
+    // Transitions
+    'transition-[color,box-shadow]',
+    // Focus
+    'focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50',
+    // Validation
+    'aria-invalid:border-error aria-invalid:ring-error/20',
+    'dark:aria-invalid:ring-error/40',
+    // Child SVG
+    '[&>svg]:pointer-events-none [&>svg]:size-3',
+  ].join(' '),
   {
     variants: {
       variant: {

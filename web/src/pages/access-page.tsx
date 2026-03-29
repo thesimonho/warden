@@ -43,7 +43,7 @@ import {
   resetAccessItem,
   resolveAccessItems,
 } from '@/lib/api'
-import DirectoryBrowser from '@/components/home/directory-browser'
+import DirectoryBrowser from '@/components/ui/directory-browser'
 import type {
   AccessItemResponse,
   AccessCredential,
