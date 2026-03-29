@@ -349,8 +349,8 @@ func TestConnectTerminal_FreshSession(t *testing.T) {
 	}
 	// Without User: "dev", Docker exec defaults to root which doesn't have
 	// ~/.local/bin in PATH (where Claude Code is installed).
-	if createCall.User != containerUser {
-		t.Errorf("expected exec User %q, got %q", containerUser, createCall.User)
+	if createCall.User != ContainerUser {
+		t.Errorf("expected exec User %q, got %q", ContainerUser, createCall.User)
 	}
 }
 

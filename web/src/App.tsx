@@ -4,6 +4,7 @@ import Layout from '@/components/layout'
 import HomePage from '@/pages/home-page'
 import WorkspacePage from '@/pages/workspace-page'
 import ProjectPage from '@/pages/project-page'
+import AccessPage from '@/pages/access-page'
 import AuditPage from '@/pages/audit-page'
 
 /** Root application component with client-side routing. */
@@ -16,6 +17,7 @@ export default function App() {
             <Route path="/" element={<HomePage />} />
             <Route path="/projects/:id" element={<ProjectPage />} />
             <Route path="/workspace" element={<WorkspacePage />} />
+            <Route path="/access" element={<AccessPage />} />
             <Route path="/audit" element={<AuditPage />} />
           </Route>
         </Routes>

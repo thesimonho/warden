@@ -15,6 +15,8 @@ import (
 	"github.com/coder/websocket"
 	dtypes "github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
+
+	"github.com/thesimonho/warden/engine"
 )
 
 // hijackedPipe creates a HijackedResponse backed by an in-memory pipe.
@@ -325,8 +327,8 @@ func TestProxyExecRunsAsContainerUser(t *testing.T) {
 	}
 
 	opts := mock.getLastCreate()
-	if opts.User != containerUser {
-		t.Errorf("expected exec User %q, got %q", containerUser, opts.User)
+	if opts.User != engine.ContainerUser {
+		t.Errorf("expected exec User %q, got %q", engine.ContainerUser, opts.User)
 	}
 
 	ptyWriter.Close() //nolint:errcheck

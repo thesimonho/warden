@@ -6,6 +6,7 @@ package tui
 import (
 	"context"
 
+	"github.com/thesimonho/warden/access"
 	"github.com/thesimonho/warden/api"
 	"github.com/thesimonho/warden/client"
 	"github.com/thesimonho/warden/db"
@@ -142,6 +143,34 @@ type Client interface {
 	// DeleteAuditEvents removes events matching the given filters.
 	// API: DELETE /api/v1/audit
 	DeleteAuditEvents(ctx context.Context, filters api.AuditFilters) error
+
+	// ListAccessItems returns all access items with detection status.
+	// API: GET /api/v1/access
+	ListAccessItems(ctx context.Context) (*api.AccessItemListResponse, error)
+
+	// GetAccessItem returns a single access item by ID.
+	// API: GET /api/v1/access/{id}
+	GetAccessItem(ctx context.Context, id string) (*api.AccessItemResponse, error)
+
+	// CreateAccessItem creates a user-defined access item.
+	// API: POST /api/v1/access
+	CreateAccessItem(ctx context.Context, req api.CreateAccessItemRequest) (*access.Item, error)
+
+	// UpdateAccessItem updates a user-defined access item.
+	// API: PUT /api/v1/access/{id}
+	UpdateAccessItem(ctx context.Context, id string, req api.UpdateAccessItemRequest) (*access.Item, error)
+
+	// DeleteAccessItem removes a user-defined access item.
+	// API: DELETE /api/v1/access/{id}
+	DeleteAccessItem(ctx context.Context, id string) error
+
+	// ResetAccessItem restores a built-in access item to its default.
+	// API: POST /api/v1/access/{id}/reset
+	ResetAccessItem(ctx context.Context, id string) (*access.Item, error)
+
+	// ResolveAccessItems resolves access items for preview/testing.
+	// API: POST /api/v1/access/resolve
+	ResolveAccessItems(ctx context.Context, req api.ResolveAccessItemsRequest) (*api.ResolveAccessItemsResponse, error)
 
 	// SubscribeEvents returns a channel of real-time SSE events and an
 	// unsubscribe function. The channel is closed when the context is

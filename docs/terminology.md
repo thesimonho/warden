@@ -4,12 +4,13 @@ These terms must be used consistently throughout Warden's codebase, UI text, com
 
 ## Core terms
 
-| Term         | Definition                                                                                                                                           | Managed by |
-| ------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- |
-| **Project**  | A workspace directory on the host + a container that runs Claude Code against it. Identified by a deterministic 12-char hex `project_id` (SHA-256 of resolved host path).                                                                    | Warden     |
+| Term          | Definition                                                                                                                                           | Managed by |
+| ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- |
+| **Project**   | A workspace directory on the host + a container that runs Claude Code against it. Identified by a deterministic 12-char hex `project_id` (SHA-256 of resolved host path).                                                                    | Warden     |
 | **ProjectID** | Deterministic 12-character hex identifier computed from SHA-256 of the resolved absolute host path. Used as the primary key in the database and for associating events/costs with projects across container rebuilds.     | Warden     |
-| **Worktree** | An isolated working directory within a project (via `git worktree`), or the implicit workspace root for non-git repos. The unit of independent work. | Warden     |
-| **Terminal** | The xterm.js web interface the user sees and types into. A disposable viewer into a worktree. Connects via WebSocket to the Go backend proxy.       | Warden     |
+| **Worktree**  | An isolated working directory within a project (via `git worktree`), or the implicit workspace root for non-git repos. The unit of independent work. | Warden     |
+| **Terminal**  | The xterm.js web interface the user sees and types into. A disposable viewer into a worktree. Connects via WebSocket to the Go backend proxy.       | Warden     |
+| **Access Item** | A general-purpose credential and mount provider. Includes built-in items (Git, SSH) for common infrastructure needs and user-defined items for custom access methods. Each item has a detection mechanism to verify availability on the host. | Warden |
 
 ## Banned terms
 

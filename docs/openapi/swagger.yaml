@@ -108,32 +108,88 @@ components:
         path:
           type: string
       type: object
-    api.MountPreset:
+    api.AccessItemListResponse:
+      properties:
+        items:
+          description: Items is the list of all access items (user + built-in) with detection status.
+          items:
+            $ref: '#/components/schemas/api.AccessItemResponse'
+          type: array
+      type: object
+    api.AccessItemResponse:
+      properties:
+        credentials:
+          additionalProperties: {}
+          description: Credentials holds the method-specific credential data.
+          type: object
+        description:
+          description: Description explains what this access item provides.
+          type: string
+        detectionResult:
+          $ref: '#/components/schemas/api.DetectionResult'
+        id:
+          description: ID is the stable identifier (e.g. "builtin_git", "builtin_ssh", or user UUID).
+          type: string
+        label:
+          description: Label is the human-readable display name.
+          type: string
+        method:
+          description: Method is the access method (e.g. "git", "ssh").
+          type: string
+      type: object
+    api.CreateAccessItemRequest:
+      properties:
+        credentials:
+          additionalProperties: {}
+          description: Credentials holds method-specific credential data.
+          type: object
+        description:
+          type: string
+        label:
+          type: string
+        method:
+          type: string
+      type: object
+    api.DetectionResult:
       properties:
         available:
           description: Available is true when the host has the required files/sockets.
           type: boolean
-        description:
-          description: Description explains what the preset does (shown in tooltips).
+        hostPathResolved:
+          description: HostPathResolved is the resolved host path (if detection succeeded).
           type: string
-        envVars:
-          description: EnvVars are the environment variables this preset contributes.
+      type: object
+    api.ResolveAccessItemsRequest:
+      properties:
+        itemIds:
+          description: ItemIds is the list of access item IDs to resolve.
           items:
-            $ref: '#/components/schemas/api.DefaultEnvVar'
+            type: string
           type: array
-          uniqueItems: false
-        id:
-          description: ID is the stable identifier (e.g. "git", "ssh").
-          type: string
-        label:
-          description: Label is the human-readable toggle label (e.g. "Git", "SSH").
-          type: string
+      type: object
+    api.ResolveAccessItemsResponse:
+      properties:
+        envVars:
+          additionalProperties:
+            type: string
+          description: EnvVars are the resolved environment variables.
+          type: object
         mounts:
-          description: Mounts are the bind mounts this preset contributes.
+          description: Mounts are the resolved bind mounts.
           items:
             $ref: '#/components/schemas/api.DefaultMount'
           type: array
-          uniqueItems: false
+      type: object
+    api.UpdateAccessItemRequest:
+      properties:
+        credentials:
+          additionalProperties: {}
+          description: Credentials holds method-specific credential data.
+          type: object
+        description:
+          type: string
+        label:
+          type: string
       type: object
     api.PostAuditEventRequest:
       properties:
@@ -252,8 +308,8 @@ components:
           description: CostBudget is the per-project cost limit in USD (0 = use global
             default).
           type: number
-        enabledPresets:
-          description: EnabledPresets lists active mount preset IDs (e.g. ["git","ssh"]).
+        enabledAccessItems:
+          description: EnabledAccessItems lists active access item IDs (e.g. ["builtin_git","builtin_ssh"]).
           items:
             type: string
           type: array
@@ -291,8 +347,8 @@ components:
           description: CostBudget is the per-project cost limit in USD (0 = use global
             default).
           type: number
-        enabledPresets:
-          description: EnabledPresets lists active mount preset IDs (e.g. ["git","ssh"]).
+        enabledAccessItems:
+          description: EnabledAccessItems lists active access item IDs (e.g. ["builtin_git","builtin_ssh"]).
           items:
             type: string
           type: array
@@ -641,11 +697,6 @@ components:
             $ref: '#/components/schemas/api.DefaultMount'
           type: array
           uniqueItems: false
-        presets:
-          items:
-            $ref: '#/components/schemas/api.MountPreset'
-          type: array
-          uniqueItems: false
       type: object
     service.ProjectResult:
       properties:
@@ -981,6 +1032,201 @@ paths:
       summary: Get audit summary
       tags:
       - audit
+  /api/v1/access:
+    get:
+      description: List all access items (user-created and built-in) with detection status.
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/api.AccessItemListResponse'
+          description: OK
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/server.apiError'
+          description: Internal Server Error
+      summary: List access items
+      tags:
+      - access
+    post:
+      description: Create a new user-defined access item.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/api.CreateAccessItemRequest'
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/api.AccessItemResponse'
+          description: OK
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/server.apiError'
+          description: Bad Request
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/server.apiError'
+          description: Internal Server Error
+      summary: Create access item
+      tags:
+      - access
+  /api/v1/access/{id}:
+    delete:
+      description: Delete a user-defined access item. Built-in items cannot be deleted.
+      parameters:
+      - description: Access item ID
+        in: path
+        name: id
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                properties:
+                  deleted:
+                    type: boolean
+                type: object
+          description: OK
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/server.apiError'
+          description: Bad Request (cannot delete built-in item)
+        "404":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/server.apiError'
+          description: Not Found
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/server.apiError'
+          description: Internal Server Error
+      summary: Delete access item
+      tags:
+      - access
+    get:
+      description: Get a single access item with detection status.
+      parameters:
+      - description: Access item ID
+        in: path
+        name: id
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/api.AccessItemResponse'
+          description: OK
+        "404":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/server.apiError'
+          description: Not Found
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/server.apiError'
+          description: Internal Server Error
+      summary: Get access item
+      tags:
+      - access
+    put:
+      description: Update a user-defined access item.
+      parameters:
+      - description: Access item ID
+        in: path
+        name: id
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/api.UpdateAccessItemRequest'
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/api.AccessItemResponse'
+          description: OK
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/server.apiError'
+          description: Bad Request
+        "404":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/server.apiError'
+          description: Not Found
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/server.apiError'
+          description: Internal Server Error
+      summary: Update access item
+      tags:
+      - access
+  /api/v1/access/resolve:
+    post:
+      description: Resolve access items for test/preview (batch resolution).
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/api.ResolveAccessItemsRequest'
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/api.ResolveAccessItemsResponse'
+          description: OK
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/server.apiError'
+          description: Bad Request
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/server.apiError'
+          description: Internal Server Error
+      summary: Resolve access items
+      tags:
+      - access
   /api/v1/defaults:
     get:
       description: |-

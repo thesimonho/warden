@@ -47,6 +47,10 @@ export default defineConfig({
 					],
 				},
 				{
+					label: "Features",
+					autogenerate: { directory: "features" },
+				},
+				{
 					label: "Integration",
 					items: [
 						{ slug: "integration/architecture" },

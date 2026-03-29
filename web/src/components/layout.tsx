@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link, Outlet } from 'react-router-dom'
 import { Toaster } from 'sonner'
-import { Settings, ShieldCheck } from 'lucide-react'
+import { Box, KeyRound, Settings, ShieldCheck } from 'lucide-react'
 import { useTheme } from '@/hooks/use-theme'
 import { loadSettings, saveSettings, type Settings as DashboardSettings } from '@/lib/settings'
 import { fetchSettings } from '@/lib/api'
@@ -54,6 +54,26 @@ export default function Layout() {
             <img src="/logo.svg" alt="Warden" className="h-5 dark:invert" />
           </Link>
           <div className="flex items-center gap-1">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button data-testid="projects-button" size="sm" variant="ghost" asChild>
+                  <Link to="/">
+                    <Box />
+                  </Link>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Projects</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button data-testid="access-button" size="sm" variant="ghost" asChild>
+                  <Link to="/access">
+                    <KeyRound />
+                  </Link>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Access</TooltipContent>
+            </Tooltip>
             {auditLogMode !== 'off' && (
               <Tooltip>
                 <TooltipTrigger asChild>

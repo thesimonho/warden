@@ -6,6 +6,8 @@ import (
 
 	"charm.land/bubbles/v2/textinput"
 	"charm.land/lipgloss/v2"
+
+	"github.com/thesimonho/warden/access"
 )
 
 // Form field styles.
@@ -350,16 +352,16 @@ func (v *ContainerFormView) fieldView(field int) string {
 		return boolSelector(v.skipPerm)
 
 	case fieldGitPassthrough:
-		if !v.isPresetAvailable(presetIDGit) {
+		if !v.isAccessItemAvailable(access.BuiltInIDGit) {
 			return Styles.Muted.Render("(unavailable)")
 		}
-		return boolSelector(v.presetToggles[presetIDGit])
+		return boolSelector(v.accessToggles[access.BuiltInIDGit])
 
 	case fieldSSHPassthrough:
-		if !v.isPresetAvailable(presetIDSSH) {
+		if !v.isAccessItemAvailable(access.BuiltInIDSSH) {
 			return Styles.Muted.Render("(unavailable)")
 		}
-		return boolSelector(v.presetToggles[presetIDSSH])
+		return boolSelector(v.accessToggles[access.BuiltInIDSSH])
 	}
 	return ""
 }

@@ -9,6 +9,7 @@ import (
 	"github.com/docker/docker/api/types/container"
 
 	warden "github.com/thesimonho/warden"
+	"github.com/thesimonho/warden/access"
 	"github.com/thesimonho/warden/api"
 	"github.com/thesimonho/warden/client"
 	"github.com/thesimonho/warden/db"
@@ -20,8 +21,8 @@ import (
 // Compile-time check: ServiceAdapter must satisfy Client.
 var _ Client = (*ServiceAdapter)(nil)
 
-// containerUser is the non-root user inside Warden containers.
-const containerUser = "dev"
+// containerUser references the non-root user inside Warden containers.
+var containerUser = engine.ContainerUser
 
 // ServiceAdapter wraps a [warden.App] to satisfy the [Client] interface
 // for embedded mode (single-process deployment). Most methods delegate
@@ -268,6 +269,47 @@ func (a *ServiceAdapter) PostAuditEvent(_ context.Context, req api.PostAuditEven
 func (a *ServiceAdapter) DeleteAuditEvents(_ context.Context, filters api.AuditFilters) error {
 	_, err := a.app.Service.DeleteAuditEvents(filters)
 	return err
+}
+
+// --- Access Items ---
+
+// ListAccessItems delegates to service.ListAccessItems.
+func (a *ServiceAdapter) ListAccessItems(_ context.Context) (*api.AccessItemListResponse, error) {
+	items, err := a.app.Service.ListAccessItems()
+	if err != nil {
+		return nil, err
+	}
+	return &api.AccessItemListResponse{Items: items}, nil
+}
+
+// GetAccessItem delegates to service.GetAccessItem.
+func (a *ServiceAdapter) GetAccessItem(_ context.Context, id string) (*api.AccessItemResponse, error) {
+	return a.app.Service.GetAccessItem(id)
+}
+
+// CreateAccessItem delegates to service.CreateAccessItem.
+func (a *ServiceAdapter) CreateAccessItem(_ context.Context, req api.CreateAccessItemRequest) (*access.Item, error) {
+	return a.app.Service.CreateAccessItem(req)
+}
+
+// UpdateAccessItem delegates to service.UpdateAccessItem.
+func (a *ServiceAdapter) UpdateAccessItem(_ context.Context, id string, req api.UpdateAccessItemRequest) (*access.Item, error) {
+	return a.app.Service.UpdateAccessItem(id, req)
+}
+
+// DeleteAccessItem delegates to service.DeleteAccessItem.
+func (a *ServiceAdapter) DeleteAccessItem(_ context.Context, id string) error {
+	return a.app.Service.DeleteAccessItem(id)
+}
+
+// ResetAccessItem delegates to service.ResetAccessItem.
+func (a *ServiceAdapter) ResetAccessItem(_ context.Context, id string) (*access.Item, error) {
+	return a.app.Service.ResetAccessItem(id)
+}
+
+// ResolveAccessItems delegates to service.ResolveAccessItems.
+func (a *ServiceAdapter) ResolveAccessItems(_ context.Context, req api.ResolveAccessItemsRequest) (*api.ResolveAccessItemsResponse, error) {
+	return a.app.Service.ResolveAccessItems(req.ItemIDs)
 }
 
 // --- Real-time Events ---

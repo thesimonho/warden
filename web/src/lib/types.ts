@@ -251,8 +251,8 @@ export interface CreateContainerRequest {
   allowedDomains?: string[]
   /** Per-project cost limit in USD (0 = use global default). */
   costBudget?: number
-  /** Active mount preset IDs (e.g. ["git", "ssh"]). */
-  enabledPresets?: string[]
+  /** Active access item IDs (e.g. ["git", "ssh"]). */
+  enabledAccessItems?: string[]
 }
 
 /** Editable configuration of an existing container. */
@@ -269,8 +269,136 @@ export interface ContainerConfig {
   allowedDomains?: string[]
   /** Per-project cost limit in USD (0 = use global default). */
   costBudget: number
-  /** Active mount preset IDs (e.g. ["git", "ssh"]). */
-  enabledPresets?: string[]
+  /** Active access item IDs (e.g. ["git", "ssh"]). */
+  enabledAccessItems?: string[]
+}
+
+// --- Access System ---
+
+/** Source type for how to detect/read a credential on the host. */
+export type AccessSourceType = 'env' | 'file' | 'socket' | 'command'
+
+/** Injection type for how to deliver a credential into the container. */
+export type AccessInjectionType = 'env' | 'mount_file' | 'mount_socket'
+
+/** A host source describing where a credential value lives. */
+export interface AccessSource {
+  /** The kind of host source. */
+  type: AccessSourceType
+  /** The env var name, file path, socket path, or command string. */
+  value: string
+}
+
+/** An optional transformation applied between source resolution and injection. */
+export interface AccessTransform {
+  /** The transformation type (e.g. "strip_lines", "git_include"). */
+  type: string
+  /** Type-specific configuration parameters. */
+  params?: Record<string, string>
+}
+
+/** Describes how a resolved credential is delivered into the container. */
+export interface AccessInjection {
+  /** The kind of container injection. */
+  type: AccessInjectionType
+  /** The env var name or container path for the injection target. */
+  key: string
+  /** Static override for the resolved value. */
+  value?: string
+  /** Whether the mount is read-only (for mount injections). */
+  readOnly?: boolean
+}
+
+/** A single credential pairing host sources with container injections. */
+export interface AccessCredential {
+  /** Human-readable name for this credential. */
+  label: string
+  /** Sources tried in order; the first detected value is used. */
+  sources: AccessSource[]
+  /** Optional transformation applied to the resolved value. */
+  transform?: AccessTransform
+  /** Container-side delivery targets. */
+  injections: AccessInjection[]
+}
+
+/** A named group of credentials for host-to-container passthrough. */
+export interface AccessItem {
+  /** Stable identifier. Built-in items use well-known IDs; user items get UUIDs. */
+  id: string
+  /** Human-readable display name. */
+  label: string
+  /** Explains what this access item provides. */
+  description: string
+  /** Delivery strategy (only "transport" for now). */
+  method: string
+  /** The individual credential entries in this group. */
+  credentials: AccessCredential[]
+  /** True for items that ship with Warden. */
+  builtIn: boolean
+}
+
+/** Per-credential detection status on the current host. */
+export interface AccessCredentialStatus {
+  /** The credential's human-readable name. */
+  label: string
+  /** True when at least one source was detected. */
+  available: boolean
+  /** Which source was detected (empty when unavailable). */
+  sourceMatched?: string
+}
+
+/** Detection result for an access item showing host availability. */
+export interface AccessDetectionResult {
+  /** The access item identifier. */
+  id: string
+  /** The access item display name. */
+  label: string
+  /** True when at least one credential was detected. */
+  available: boolean
+  /** Per-credential detection results. */
+  credentials: AccessCredentialStatus[]
+}
+
+/** An access item enriched with host detection status. */
+export interface AccessItemResponse extends AccessItem {
+  /** Per-credential availability on the current host. */
+  detection: AccessDetectionResult
+}
+
+/** A single resolved delivery into the container. */
+export interface ResolvedInjection {
+  /** The injection kind (env, mount_file, mount_socket). */
+  type: AccessInjectionType
+  /** The env var name or container path. */
+  key: string
+  /** The resolved content (env var value, host file path, or host socket path). */
+  value: string
+  /** Whether the mount is read-only. */
+  readOnly?: boolean
+}
+
+/** Resolution output for a single credential. */
+export interface ResolvedCredential {
+  /** The credential's human-readable name. */
+  label: string
+  /** True when a source was detected and all injections were produced. */
+  resolved: boolean
+  /** Which source was matched (empty when unresolved). */
+  sourceMatched?: string
+  /** The resolved container-side deliveries. */
+  injections?: ResolvedInjection[]
+  /** Error message when resolution failed. */
+  error?: string
+}
+
+/** Full resolution output for an access item. */
+export interface ResolvedItem {
+  /** The access item identifier. */
+  id: string
+  /** The access item display name. */
+  label: string
+  /** Per-credential resolution results. */
+  credentials: ResolvedCredential[]
 }
 
 /** Information about a detected container runtime. */

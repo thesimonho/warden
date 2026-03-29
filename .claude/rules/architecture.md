@@ -20,12 +20,14 @@ Warden is an **engine-first product**. The container engine and security model a
 
 3a. **The `api/` package holds the API contract types** (request/response/result structs). These are shared by `service/`, `client/`, and the TUI. When adding a new service method, define its request/response types in `api/`. The `service/` package re-exports them via type aliases for backward compatibility.
 
-4. **`internal/server/` and `internal/terminal/` stay in `internal/`.** They are HTTP-specific plumbing, not part of the public API. Everything else is importable by external Go consumers.
+4. **The `access/` package is public and importable.** It provides the general-purpose access item library (types, resolution, and built-in items) with no dependencies on service/db/engine. Consumers can use it to resolve credentials and mounts without needing the full Warden engine.
 
-5. **`warden.New()` in `warden.go` is the library entry point.** All engine initialization wiring lives here. The `cmd/` binaries should be thin — they call `warden.New()`, set up their UI layer, and run. Do not put engine initialization logic in `cmd/` files.
+5. **`internal/server/` and `internal/terminal/` stay in `internal/`.** They are HTTP-specific plumbing, not part of the public API. Everything else is importable by external Go consumers.
 
-6. **Do not optimize the frontend code in ways that break its value as a reference.** Efficiency is good, but clarity for developers reading the code is more important. If a change makes the implementation faster but harder to understand as a pattern to copy, don't make it. Add a comment explaining the trade-off if needed.
+6. **`warden.New()` in `warden.go` is the library entry point.** All engine initialization wiring lives here. The `cmd/` binaries should be thin — they call `warden.New()`, set up their UI layer, and run. Do not put engine initialization logic in `cmd/` files.
 
-7. **All audit writes go through `db.AuditWriter`.** Never call `db.Store.Write()` directly for audit events. The writer handles mode filtering via a `standardEvents` allowlist before persisting to the audit DB.
+7. **Do not optimize the frontend code in ways that break its value as a reference.** Efficiency is good, but clarity for developers reading the code is more important. If a change makes the implementation faster but harder to understand as a pattern to copy, don't make it. Add a comment explaining the trade-off if needed.
+
+8. **All audit writes go through `db.AuditWriter`.** Never call `db.Store.Write()` directly for audit events. The writer handles mode filtering via a `standardEvents` allowlist before persisting to the audit DB.
 
 See the [Integration Paths](https://thesimonho.github.io/warden/integration/paths/) page for the full integration guide that developers follow.

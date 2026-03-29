@@ -12,6 +12,7 @@ MODULE_PATH="github.com/thesimonho/warden"
 
 PACKAGES=(
   "."
+  "access"
   "agent"
   "api"
   "client"

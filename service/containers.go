@@ -20,6 +20,11 @@ func (s *Service) CreateContainer(ctx context.Context, req engine.CreateContaine
 		return nil, err
 	}
 
+	// Resolve enabled access items into env vars and mounts.
+	if err := s.ResolveAccessItemsForContainer(&req); err != nil {
+		return nil, fmt.Errorf("resolving access items: %w", err)
+	}
+
 	containerID, err := s.docker.CreateContainer(ctx, req)
 	if err != nil {
 		return nil, err
@@ -86,8 +91,8 @@ func (s *Service) InspectContainer(ctx context.Context, project *db.ProjectRow) 
 		}
 	}
 	cfg.CostBudget = project.CostBudget
-	if project.EnabledPresets != "" {
-		cfg.EnabledPresets = splitCSV(project.EnabledPresets)
+	if project.EnabledAccessItems != "" {
+		cfg.EnabledAccessItems = splitCSV(project.EnabledAccessItems)
 	}
 
 	return cfg, nil
@@ -99,6 +104,11 @@ func (s *Service) UpdateContainer(ctx context.Context, project *db.ProjectRow, r
 	row, err := projectRowFromRequest(req)
 	if err != nil {
 		return nil, err
+	}
+
+	// Resolve enabled access items into env vars and mounts.
+	if err := s.ResolveAccessItemsForContainer(&req); err != nil {
+		return nil, fmt.Errorf("resolving access items: %w", err)
 	}
 
 	newID, err := s.docker.RecreateContainer(ctx, project.ContainerID, req)
@@ -163,8 +173,8 @@ func projectRowFromRequest(req engine.CreateContainerRequest) (db.ProjectRow, er
 		row.AllowedDomains = strings.Join(req.AllowedDomains, ",")
 	}
 	row.CostBudget = req.CostBudget
-	if len(req.EnabledPresets) > 0 {
-		row.EnabledPresets = strings.Join(req.EnabledPresets, ",")
+	if len(req.EnabledAccessItems) > 0 {
+		row.EnabledAccessItems = strings.Join(req.EnabledAccessItems, ",")
 	}
 
 	return row, nil

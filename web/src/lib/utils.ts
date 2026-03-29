@@ -18,6 +18,22 @@ export function parentDir(path: string): string {
   return path.replace(/\/[^/]+\/?$/, '') || '/'
 }
 
+/** Replaces a container home directory prefix with ~ for display. */
+export function containerPathToDisplay(path: string, containerHomeDir: string): string {
+  if (!containerHomeDir || !path) return path
+  if (path === containerHomeDir) return '~'
+  if (path.startsWith(containerHomeDir + '/')) return '~' + path.slice(containerHomeDir.length)
+  return path
+}
+
+/** Expands a leading ~ to the absolute container home path. */
+export function containerPathToAbsolute(input: string, containerHomeDir: string): string {
+  if (!containerHomeDir || !input.startsWith('~')) return input
+  if (input === '~') return containerHomeDir
+  if (input.startsWith('~/')) return containerHomeDir + input.slice(1)
+  return input
+}
+
 /** Returns a human-readable relative time string for a Unix timestamp in seconds. */
 export function relativeTime(unixSeconds: number): string {
   const diffSeconds = Math.floor(Date.now() / 1000 - unixSeconds)
