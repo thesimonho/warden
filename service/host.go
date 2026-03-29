@@ -50,8 +50,10 @@ var gitPresetMounts = []preferredMount{
 
 // sshPresetMounts are the file-based mounts for the "ssh" preset.
 // The ssh-agent socket is handled separately since it's optional.
+// NOTE: config is mounted as config.host (read-only staging path);
+// the container entrypoint filters it before use — see user-entrypoint.sh.
 var sshPresetMounts = []preferredMount{
-	{hostRelPath: ".ssh/config", containerPath: containerHomeDir + "/.ssh/config", readOnly: true},
+	{hostRelPath: ".ssh/config", containerPath: containerHomeDir + "/.ssh/config.host", readOnly: true},
 	{hostRelPath: ".ssh/known_hosts", containerPath: containerHomeDir + "/.ssh/known_hosts", readOnly: false},
 }
 

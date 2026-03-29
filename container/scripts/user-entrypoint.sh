@@ -55,6 +55,21 @@ fi
 git config --global --add safe.directory '*'
 
 # -------------------------------------------------------------------
+# SSH: copy staged host config, stripping IdentitiesOnly so the
+# forwarded ssh-agent can offer keys without being blocked by
+# directives that reference key files not present in the container.
+# The host file is bind-mounted read-only at ~/.ssh/config.host;
+# the filtered copy at ~/.ssh/config is writable by the container.
+# -------------------------------------------------------------------
+SSHCONFIG_HOST="$HOME/.ssh/config.host"
+if [ -f "$SSHCONFIG_HOST" ]; then
+  mkdir -p "$HOME/.ssh"
+  # SSH has no include mechanism like git, so we copy and filter instead.
+  # Case-insensitive match (/I) because OpenSSH keywords are case-insensitive.
+  (umask 077; sed '/^[[:space:]]*IdentitiesOnly/Id' "$SSHCONFIG_HOST" > "$HOME/.ssh/config")
+fi
+
+# -------------------------------------------------------------------
 # Terminal tracking directory — ephemeral, reset on every startup.
 # Each worktree with an active terminal gets a subdirectory containing
 # its port number and attention state. Stale entries are harmless and
