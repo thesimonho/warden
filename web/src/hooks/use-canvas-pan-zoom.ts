@@ -64,7 +64,7 @@ export function useCanvasPanZoom() {
   })
   const [isPanning, setIsPanning] = useState(false)
 
-  const containerRef = useRef<HTMLDivElement>(null)
+  const [containerEl, setContainerEl] = useState<HTMLDivElement | null>(null)
   const transformRef = useRef(transform)
   useEffect(() => {
     transformRef.current = transform
@@ -181,13 +181,13 @@ export function useCanvasPanZoom() {
 
   // Attach wheel listener in capture phase with { passive: false } so
   // preventDefault() works and we fire before xterm.js's own wheel handler.
+  // Re-attaches when the canvas mounts/unmounts (e.g. switching from grid view).
   useEffect(() => {
-    const el = containerRef.current
-    if (!el) return
+    if (!containerEl) return
 
-    el.addEventListener('wheel', handleWheel, { passive: false, capture: true })
-    return () => el.removeEventListener('wheel', handleWheel, { capture: true })
-  }, [handleWheel])
+    containerEl.addEventListener('wheel', handleWheel, { passive: false, capture: true })
+    return () => containerEl.removeEventListener('wheel', handleWheel, { capture: true })
+  }, [containerEl, handleWheel])
 
   /**
    * Starts a pan gesture on Ctrl+left-click pointer down.
@@ -327,7 +327,7 @@ export function useCanvasPanZoom() {
   )
 
   return {
-    containerRef,
+    setContainerEl,
     transform,
     isPanning,
     handlePointerDown,
