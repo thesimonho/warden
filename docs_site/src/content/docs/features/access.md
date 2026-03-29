@@ -164,14 +164,6 @@ Use this to verify custom items work before attaching them to a project.
 
 The Access system is available through all three integration paths:
 
-### Go Library
-
-The `access` package (`github.com/thesimonho/warden/access`) is public and importable with no dependencies on other Warden packages:
-
-- `access.Resolve(item)` — resolve an item's credentials and return injections
-- `access.Detect(item)` — check credential availability without reading values
-- `access.BuiltInItems()` — get the default Git and SSH items
-
 ### HTTP API
 
 All access operations are available via REST endpoints:
@@ -207,5 +199,13 @@ resolved, _ := c.ResolveAccessItems(ctx, api.ResolveAccessItemsRequest{
     ItemIDs: []string{"git", "ssh", item.ID},
 })
 ```
+
+### Go Library
+
+The `access` package (`github.com/thesimonho/warden/access`) is public and importable with no dependencies on other Warden packages:
+
+- `access.Resolve(item)` — resolve an item's credentials and return injections
+- `access.Detect(item)` — check credential availability without reading values
+- `access.BuiltInItems()` — get the default Git and SSH items
 
 See the [Go Packages](/warden/reference/go/) reference for full API documentation.
