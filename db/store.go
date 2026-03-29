@@ -364,7 +364,7 @@ func (l *Store) Close() error {
 
 // projectColumns is the SELECT column list shared by project queries.
 const projectColumns = `project_id, name, host_path, added_at, image, env_vars, mounts, original_mounts,
-	skip_permissions, network_mode, allowed_domains, cost_budget, container_id, container_name`
+	skip_permissions, network_mode, allowed_domains, cost_budget, enabled_presets, container_id, container_name`
 
 // InsertProject adds a project to the database. If a project with the same
 // project ID already exists, it is replaced (upsert).
@@ -394,8 +394,9 @@ func (l *Store) InsertProject(p ProjectRow) error {
 	_, err := l.db.Exec(
 		`INSERT OR REPLACE INTO projects
 		 (project_id, name, host_path, added_at, image, env_vars, mounts, original_mounts,
-		  skip_permissions, network_mode, allowed_domains, cost_budget, container_id, container_name)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		  skip_permissions, network_mode, allowed_domains, cost_budget, enabled_presets,
+		  container_id, container_name)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		p.ProjectID,
 		p.Name,
 		p.HostPath,
@@ -408,6 +409,7 @@ func (l *Store) InsertProject(p ProjectRow) error {
 		p.NetworkMode,
 		p.AllowedDomains,
 		p.CostBudget,
+		p.EnabledPresets,
 		p.ContainerID,
 		p.ContainerName,
 	)
@@ -569,6 +571,7 @@ func scanProjectRow(s scanner) (*ProjectRow, error) {
 		&p.ProjectID, &p.Name, &p.HostPath, &addedAtStr, &p.Image,
 		&envVars, &mounts, &origMounts,
 		&skipPerms, &p.NetworkMode, &p.AllowedDomains, &p.CostBudget,
+		&p.EnabledPresets,
 		&p.ContainerID, &p.ContainerName,
 	)
 	if err != nil {

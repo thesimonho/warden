@@ -140,6 +140,8 @@ type ProjectRow struct {
 	AllowedDomains string
 	// CostBudget is the per-project cost limit in USD (0 = use global default).
 	CostBudget float64
+	// EnabledPresets is a comma-separated list of active mount preset IDs (e.g. "git,ssh").
+	EnabledPresets string
 	// ContainerID is the Docker-assigned container ID (empty when no container exists).
 	ContainerID string
 	// ContainerName is the Docker container name (may differ from Name if renamed).

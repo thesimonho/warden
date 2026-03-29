@@ -39,10 +39,18 @@ const (
 	fieldAdvanced
 	// --- Advanced fields (visible when advancedOpen) ---
 	fieldImage
-	fieldMounts  // section header with "add" action
-	fieldEnvVars // section header with "add" action
+	fieldGitPassthrough // toggle for git config passthrough
+	fieldSSHPassthrough // toggle for SSH passthrough
+	fieldMounts         // section header with "add" action
+	fieldEnvVars        // section header with "add" action
 	fieldSubmit
 	fieldCount
+)
+
+// Preset IDs — must match service.PresetIDGit and service.PresetIDSSH.
+const (
+	presetIDGit = "git"
+	presetIDSSH = "ssh"
 )
 
 // Network mode options.
@@ -81,6 +89,10 @@ type ContainerFormView struct {
 	// Advanced section.
 	advancedOpen bool
 
+	// Mount presets (Git, SSH passthrough toggles).
+	presets       []api.MountPreset
+	presetToggles map[string]bool
+
 	// Bind mounts.
 	mounts       []engine.Mount
 	mountCursor  int // sub-cursor within the mounts list (-1 = header/add)
@@ -118,9 +130,10 @@ type containerConfigLoadedMsg struct {
 // NewContainerFormView creates a container creation form.
 func NewContainerFormView(client Client) *ContainerFormView {
 	v := &ContainerFormView{
-		client:  client,
-		loading: true,
-		keys:    DefaultFormKeyMap(),
+		client:        client,
+		loading:       true,
+		keys:          DefaultFormKeyMap(),
+		presetToggles: make(map[string]bool),
 	}
 	v.initFields("", "", "ghcr.io/thesimonho/warden:latest", "full", defaultAllowedDomains, false)
 	return v
@@ -129,10 +142,11 @@ func NewContainerFormView(client Client) *ContainerFormView {
 // NewContainerEditView creates a container editing form.
 func NewContainerEditView(client Client, editID string) *ContainerFormView {
 	v := &ContainerFormView{
-		client:  client,
-		editID:  editID,
-		loading: true,
-		keys:    DefaultFormKeyMap(),
+		client:        client,
+		editID:        editID,
+		loading:       true,
+		keys:          DefaultFormKeyMap(),
+		presetToggles: make(map[string]bool),
 	}
 	v.initFields("", "", "", "", "", false)
 	return v
@@ -227,6 +241,21 @@ func (v *ContainerFormView) Update(msg tea.Msg) (View, tea.Cmd) {
 		if v.inputs[1].Value() == "" && v.defaults.HomeDir != "" {
 			v.inputs[1].SetValue(v.defaults.HomeDir)
 		}
+
+		// Initialize presets and toggles.
+		if len(v.defaults.Presets) > 0 {
+			v.presets = v.defaults.Presets
+			if v.editID == "" {
+				// Create mode: enable all available presets.
+				for _, p := range v.presets {
+					v.presetToggles[p.ID] = p.Available
+				}
+			} else if len(v.mounts) > 0 {
+				// Edit mode: config loaded before defaults — strip preset items now.
+				v.stripPresetItems()
+			}
+		}
+
 		if v.editID == "" && len(v.mounts) == 0 && len(v.defaults.Mounts) > 0 {
 			for _, dm := range v.defaults.Mounts {
 				v.mounts = append(v.mounts, engine.Mount{
@@ -282,6 +311,14 @@ func (v *ContainerFormView) Update(msg tea.Msg) (View, tea.Cmd) {
 				v.envVars = append(v.envVars, envVarEntry{key: k, value: val})
 			}
 		}
+
+		// Set toggle state from stored presets, then strip preset
+		// mounts/env vars so cursor navigates user items only.
+		for _, id := range msg.Config.EnabledPresets {
+			v.presetToggles[id] = true
+		}
+		v.stripPresetItems()
+
 		v.loading = false
 		return v, nil
 
@@ -455,6 +492,10 @@ func (v *ContainerFormView) cycleSelection() (View, tea.Cmd) {
 		v.network = (v.network + 1) % len(networkModes)
 	case fieldSkipPerms:
 		v.skipPerm = !v.skipPerm
+	case fieldGitPassthrough:
+		v.togglePreset(presetIDGit)
+	case fieldSSHPassthrough:
+		v.togglePreset(presetIDSSH)
 	}
 	return v, nil
 }
@@ -464,7 +505,7 @@ func (v *ContainerFormView) isFieldVisible(field int) bool {
 	switch field {
 	case fieldDomains:
 		return networkModes[v.network] == "restricted"
-	case fieldImage, fieldMounts, fieldEnvVars:
+	case fieldImage, fieldGitPassthrough, fieldSSHPassthrough, fieldMounts, fieldEnvVars:
 		return v.advancedOpen
 	}
 	return true
@@ -559,6 +600,10 @@ func (v *ContainerFormView) activateField() (View, tea.Cmd) {
 		v.skipPerm = !v.skipPerm
 	case fieldAdvanced:
 		v.advancedOpen = !v.advancedOpen
+	case fieldGitPassthrough:
+		v.togglePreset(presetIDGit)
+	case fieldSSHPassthrough:
+		v.togglePreset(presetIDSSH)
 
 	case fieldMounts:
 		return v.activateMountField()
@@ -731,10 +776,36 @@ func (v *ContainerFormView) submit() tea.Cmd {
 		}
 	}
 
+	// Collect user mounts (excluding preset-owned paths).
+	presetPaths := v.presetContainerPaths()
 	var validMounts []engine.Mount
 	for _, m := range v.mounts {
-		if strings.TrimSpace(m.HostPath) != "" && strings.TrimSpace(m.ContainerPath) != "" {
-			validMounts = append(validMounts, m)
+		if strings.TrimSpace(m.HostPath) == "" || strings.TrimSpace(m.ContainerPath) == "" {
+			continue
+		}
+		if presetPaths[m.ContainerPath] {
+			continue
+		}
+		validMounts = append(validMounts, m)
+	}
+
+	// Merge enabled preset mounts and env vars.
+	for _, p := range v.presets {
+		if !v.presetToggles[p.ID] {
+			continue
+		}
+		for _, pm := range p.Mounts {
+			validMounts = append(validMounts, engine.Mount{
+				HostPath:      pm.HostPath,
+				ContainerPath: pm.ContainerPath,
+				ReadOnly:      pm.ReadOnly,
+			})
+		}
+		for _, ev := range p.EnvVars {
+			k := strings.TrimSpace(ev.Key)
+			if k != "" && envMap[k] == "" {
+				envMap[k] = ev.Value
+			}
 		}
 	}
 
@@ -756,6 +827,13 @@ func (v *ContainerFormView) submit() tea.Cmd {
 		req.Mounts = validMounts
 	}
 
+	// Collect enabled preset IDs.
+	for _, p := range v.presets {
+		if v.presetToggles[p.ID] {
+			req.EnabledPresets = append(req.EnabledPresets, p.ID)
+		}
+	}
+
 	if v.editID != "" {
 		return func() tea.Msg {
 			_, err := v.client.UpdateContainer(context.Background(), v.editID, req)
@@ -767,3 +845,70 @@ func (v *ContainerFormView) submit() tea.Cmd {
 		return OperationResultMsg{Operation: "create", Err: err}
 	}
 }
+
+// stripPresetItems removes preset-owned mounts and env vars from
+// v.mounts and v.envVars so the cursor only navigates user items.
+// Toggle state must be set before calling this.
+func (v *ContainerFormView) stripPresetItems() {
+	if len(v.presets) == 0 {
+		return
+	}
+
+	presetPaths := v.presetContainerPaths()
+	var userMounts []engine.Mount
+	for _, m := range v.mounts {
+		if !presetPaths[m.ContainerPath] {
+			userMounts = append(userMounts, m)
+		}
+	}
+	v.mounts = userMounts
+
+	presetKeys := v.presetEnvKeys()
+	var userEnvVars []envVarEntry
+	for _, e := range v.envVars {
+		if !presetKeys[e.key] {
+			userEnvVars = append(userEnvVars, e)
+		}
+	}
+	v.envVars = userEnvVars
+}
+
+// togglePreset flips the toggle for a preset if it is available.
+func (v *ContainerFormView) togglePreset(id string) {
+	if v.isPresetAvailable(id) {
+		v.presetToggles[id] = !v.presetToggles[id]
+	}
+}
+
+// isPresetAvailable returns whether a preset with the given ID exists and is available.
+func (v *ContainerFormView) isPresetAvailable(id string) bool {
+	for _, p := range v.presets {
+		if p.ID == id {
+			return p.Available
+		}
+	}
+	return false
+}
+
+// presetContainerPaths returns the set of container paths owned by any preset.
+func (v *ContainerFormView) presetContainerPaths() map[string]bool {
+	paths := make(map[string]bool)
+	for _, p := range v.presets {
+		for _, m := range p.Mounts {
+			paths[m.ContainerPath] = true
+		}
+	}
+	return paths
+}
+
+// presetEnvKeys returns the set of env var keys owned by any preset.
+func (v *ContainerFormView) presetEnvKeys() map[string]bool {
+	keys := make(map[string]bool)
+	for _, p := range v.presets {
+		for _, ev := range p.EnvVars {
+			keys[ev.Key] = true
+		}
+	}
+	return keys
+}
+

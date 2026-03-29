@@ -77,7 +77,7 @@ func (s *Service) InspectContainer(ctx context.Context, project *db.ProjectRow) 
 		cfg.NetworkMode = engine.NetworkMode(project.NetworkMode)
 	}
 	if project.AllowedDomains != "" {
-		cfg.AllowedDomains = splitDomains(project.AllowedDomains)
+		cfg.AllowedDomains = splitCSV(project.AllowedDomains)
 	}
 	if len(project.Mounts) > 0 {
 		var mounts []engine.Mount
@@ -86,6 +86,9 @@ func (s *Service) InspectContainer(ctx context.Context, project *db.ProjectRow) 
 		}
 	}
 	cfg.CostBudget = project.CostBudget
+	if project.EnabledPresets != "" {
+		cfg.EnabledPresets = splitCSV(project.EnabledPresets)
+	}
 
 	return cfg, nil
 }
@@ -160,6 +163,9 @@ func projectRowFromRequest(req engine.CreateContainerRequest) (db.ProjectRow, er
 		row.AllowedDomains = strings.Join(req.AllowedDomains, ",")
 	}
 	row.CostBudget = req.CostBudget
+	if len(req.EnabledPresets) > 0 {
+		row.EnabledPresets = strings.Join(req.EnabledPresets, ",")
+	}
 
 	return row, nil
 }

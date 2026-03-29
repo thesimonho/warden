@@ -15,6 +15,7 @@ type (
 	PostAuditEventRequest   = api.PostAuditEventRequest
 	DefaultMount            = api.DefaultMount
 	DefaultEnvVar           = api.DefaultEnvVar
+	MountPreset             = api.MountPreset
 	DefaultsResponse        = api.DefaultsResponse
 	DirEntry                = api.DirEntry
 	AuditFilters            = api.AuditFilters
