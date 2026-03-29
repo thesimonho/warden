@@ -132,7 +132,7 @@ Heading elements (`h1`--`h3`) have base styles defined in `src/index.css` -- don
 
 | File                             | Purpose                                                                         |
 | -------------------------------- | ------------------------------------------------------------------------------- |
-| `hooks/use-projects.ts`          | Polls `/api/projects` at configurable interval, provides loading/refreshing/error/refetch. Handles `budget_exceeded` SSE events with toast notification and auto-refetch. Budget container-stopped redirect is handled in `project-page.tsx` via `use-event-source.ts`. |
+| `hooks/use-projects.ts`          | Polls `/api/projects` at configurable interval, provides loading/refreshing/error/refetch. Applies `project_state` SSE events for real-time cost and attention updates (`needsInput`, `notificationType`). Handles `budget_exceeded` SSE events with toast notification and auto-refetch. Budget container-stopped redirect is handled in `project-page.tsx` via `use-event-source.ts`. |
 | `hooks/use-diff.ts`              | On-demand diff fetch for the Changes tab. Fetches when `enabled` is true, returns `{ diff, isLoading, error, refetch }`. No polling/SSE. |
 | `hooks/use-worktrees.ts`         | Polls `/api/projects/{id}/worktrees` for worktree state; applies push-based terminal state from SSE `WorktreeStateEvent` |
 | `hooks/use-terminal.ts`          | xterm.js lifecycle: create/attach xterm instance, WebSocket connection to `/api/projects/{id}/ws/{wid}`, resize events, reconnect logic, cleanup on unmount. Buffers incoming WebSocket messages and flushes to xterm.js once per `requestAnimationFrame` to prevent rapid output bursts from blocking the main thread. |

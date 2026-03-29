@@ -718,6 +718,48 @@ func TestBuildWorktreeBroadcast_IncludesTerminalState(t *testing.T) {
 	}
 }
 
+func TestStore_GetContainerWorktreeStates(t *testing.T) {
+	store := NewStore(nil, nil)
+
+	// Two worktrees in proj-1, one in proj-2.
+	store.HandleEvent(ContainerEvent{
+		Type:          EventAttention,
+		ContainerName: "proj-1",
+		WorktreeID:    "wt-1",
+		Data:          mustMarshal(t, AttentionData{NotificationType: engine.NotificationPermissionPrompt}),
+		Timestamp:     time.Now(),
+	})
+	store.HandleEvent(ContainerEvent{
+		Type:          EventSessionStart,
+		ContainerName: "proj-1",
+		WorktreeID:    "wt-2",
+		Timestamp:     time.Now(),
+	})
+	store.HandleEvent(ContainerEvent{
+		Type:          EventAttention,
+		ContainerName: "proj-2",
+		WorktreeID:    "main",
+		Data:          mustMarshal(t, AttentionData{NotificationType: engine.NotificationIdlePrompt}),
+		Timestamp:     time.Now(),
+	})
+
+	states := store.GetContainerWorktreeStates("proj-1")
+	if len(states) != 2 {
+		t.Fatalf("expected 2 worktree states for proj-1, got %d", len(states))
+	}
+	if !states["wt-1"].NeedsInput {
+		t.Error("expected wt-1 NeedsInput=true")
+	}
+	if states["wt-2"].NeedsInput {
+		t.Error("expected wt-2 NeedsInput=false")
+	}
+
+	// proj-2 should not leak into proj-1.
+	if _, ok := states["main"]; ok {
+		t.Error("proj-2 worktree leaked into proj-1 states")
+	}
+}
+
 func TestStore_EvictWorktree_ClearsAllState(t *testing.T) {
 	store := NewStore(nil, nil)
 
@@ -901,4 +943,220 @@ func TestStore_HandleStop_CallbackWithNilData(t *testing.T) {
 	if !called {
 		t.Error("stop callback must be called even with nil data")
 	}
+}
+
+// ---------------------------------------------------------------------------
+// Project-level attention broadcast
+// ---------------------------------------------------------------------------
+
+func TestStore_AttentionEmitsProjectStateBroadcast(t *testing.T) {
+	broker := NewBroker()
+	defer broker.Shutdown()
+	ch, unsub := broker.Subscribe()
+	defer unsub()
+
+	store := NewStore(broker, nil)
+
+	store.HandleEvent(ContainerEvent{
+		Type:          EventAttention,
+		ContainerName: "proj-1",
+		ProjectID:     "project-1",
+		WorktreeID:    "main",
+		Data:          mustMarshal(t, AttentionData{NotificationType: engine.NotificationPermissionPrompt}),
+		Timestamp:     time.Now(),
+	})
+
+	// Expect two broadcasts: worktree_state + project_state.
+	var gotWorktree, gotProject bool
+	for range 2 {
+		select {
+		case event := <-ch:
+			switch event.Event {
+			case SSEWorktreeState:
+				gotWorktree = true
+			case SSEProjectState:
+				gotProject = true
+				var payload ProjectStatePayload
+				if err := json.Unmarshal(event.Data, &payload); err != nil {
+					t.Fatalf("failed to unmarshal project_state: %v", err)
+				}
+				if !payload.NeedsInput {
+					t.Error("expected project needsInput=true")
+				}
+				if payload.NotificationType != engine.NotificationPermissionPrompt {
+					t.Errorf("expected permission_prompt, got %s", payload.NotificationType)
+				}
+				if payload.ProjectID != "project-1" {
+					t.Errorf("expected project-1, got %s", payload.ProjectID)
+				}
+			}
+		case <-time.After(time.Second):
+			t.Fatal("timed out waiting for broadcast")
+		}
+	}
+	if !gotWorktree {
+		t.Error("expected worktree_state broadcast")
+	}
+	if !gotProject {
+		t.Error("expected project_state broadcast")
+	}
+}
+
+func TestStore_AttentionClearEmitsProjectStateBroadcast(t *testing.T) {
+	broker := NewBroker()
+	defer broker.Shutdown()
+
+	store := NewStore(broker, nil)
+
+	// Set attention first (without subscribing yet — we don't need those broadcasts).
+	store.HandleEvent(ContainerEvent{
+		Type:          EventAttention,
+		ContainerName: "proj-1",
+		ProjectID:     "project-1",
+		WorktreeID:    "main",
+		Data:          mustMarshal(t, AttentionData{NotificationType: engine.NotificationPermissionPrompt}),
+		Timestamp:     time.Now(),
+	})
+
+	// Now subscribe and clear attention.
+	ch, unsub := broker.Subscribe()
+	defer unsub()
+
+	store.HandleEvent(ContainerEvent{
+		Type:          EventAttentionClear,
+		ContainerName: "proj-1",
+		ProjectID:     "project-1",
+		WorktreeID:    "main",
+		Timestamp:     time.Now(),
+	})
+
+	// Expect project_state with needsInput=false.
+	var gotProjectState bool
+	for range 2 {
+		select {
+		case event := <-ch:
+			if event.Event == SSEProjectState {
+				gotProjectState = true
+				var payload ProjectStatePayload
+				if err := json.Unmarshal(event.Data, &payload); err != nil {
+					t.Fatalf("failed to unmarshal: %v", err)
+				}
+				if payload.NeedsInput {
+					t.Error("expected project needsInput=false after clear")
+				}
+			}
+		case <-time.After(time.Second):
+			t.Fatal("timed out waiting for broadcast")
+		}
+	}
+	if !gotProjectState {
+		t.Error("expected project_state broadcast on attention clear")
+	}
+}
+
+func TestStore_ProjectAttentionAggregatesHighestPriority(t *testing.T) {
+	broker := NewBroker()
+	defer broker.Shutdown()
+
+	store := NewStore(broker, nil)
+
+	// First worktree: idle_prompt (low priority).
+	store.HandleEvent(ContainerEvent{
+		Type:          EventAttention,
+		ContainerName: "proj-1",
+		ProjectID:     "project-1",
+		WorktreeID:    "wt-1",
+		Data:          mustMarshal(t, AttentionData{NotificationType: engine.NotificationIdlePrompt}),
+		Timestamp:     time.Now(),
+	})
+
+	// Subscribe before the second event.
+	ch, unsub := broker.Subscribe()
+	defer unsub()
+
+	// Second worktree: permission_prompt (high priority).
+	store.HandleEvent(ContainerEvent{
+		Type:          EventAttention,
+		ContainerName: "proj-1",
+		ProjectID:     "project-1",
+		WorktreeID:    "wt-2",
+		Data:          mustMarshal(t, AttentionData{NotificationType: engine.NotificationPermissionPrompt}),
+		Timestamp:     time.Now(),
+	})
+
+	// Find the project_state broadcast.
+	for range 2 {
+		select {
+		case event := <-ch:
+			if event.Event == SSEProjectState {
+				var payload ProjectStatePayload
+				if err := json.Unmarshal(event.Data, &payload); err != nil {
+					t.Fatalf("failed to unmarshal: %v", err)
+				}
+				if !payload.NeedsInput {
+					t.Error("expected project needsInput=true")
+				}
+				if payload.NotificationType != engine.NotificationPermissionPrompt {
+					t.Errorf("expected highest-priority permission_prompt, got %s", payload.NotificationType)
+				}
+				return
+			}
+		case <-time.After(time.Second):
+			t.Fatal("timed out waiting for broadcast")
+		}
+	}
+	t.Error("expected project_state broadcast with aggregated attention")
+}
+
+func TestStore_ProjectAttentionIncludesCost(t *testing.T) {
+	broker := NewBroker()
+	defer broker.Shutdown()
+
+	store := NewStore(broker, nil)
+
+	// Record a cost first via a stop event.
+	store.HandleEvent(ContainerEvent{
+		Type:          EventStop,
+		ContainerName: "proj-1",
+		ProjectID:     "project-1",
+		WorktreeID:    "main",
+		Data:          mustMarshal(t, CostData{TotalCost: 5.25, SessionID: "sess-1"}),
+		Timestamp:     time.Now(),
+	})
+
+	ch, unsub := broker.Subscribe()
+	defer unsub()
+
+	// Trigger an attention event.
+	store.HandleEvent(ContainerEvent{
+		Type:          EventAttention,
+		ContainerName: "proj-1",
+		ProjectID:     "project-1",
+		WorktreeID:    "main",
+		Data:          mustMarshal(t, AttentionData{NotificationType: engine.NotificationIdlePrompt}),
+		Timestamp:     time.Now(),
+	})
+
+	// The project_state broadcast should include both attention and cost.
+	for range 2 {
+		select {
+		case event := <-ch:
+			if event.Event == SSEProjectState {
+				var payload ProjectStatePayload
+				if err := json.Unmarshal(event.Data, &payload); err != nil {
+					t.Fatalf("failed to unmarshal: %v", err)
+				}
+				if !payload.NeedsInput {
+					t.Error("expected needsInput=true")
+				}
+				if payload.TotalCost != 5.25 {
+					t.Errorf("expected cost 5.25, got %f", payload.TotalCost)
+				}
+				return
+			}
+		case <-time.After(time.Second):
+			t.Fatal("timed out waiting for broadcast")
+		}
+	}
+	t.Error("expected project_state broadcast")
 }

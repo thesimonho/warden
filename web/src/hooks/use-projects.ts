@@ -62,16 +62,28 @@ export function useProjects(pollIntervalMs = DEFAULT_POLL_INTERVAL_MS): UseProje
     return () => clearInterval(interval)
   }, [refetch, pollIntervalMs])
 
-  /** Applies a project_state SSE event to local state. */
+  /** Applies a project_state SSE event to local state (cost + attention). */
   const handleProjectState = useCallback((event: ProjectStateEvent) => {
     startTransition(() => {
       setProjects((prev) => {
         const index = prev.findIndex((p) => p.projectId === event.projectId)
         if (index === -1) return prev
         const project = prev[index]
-        if (project.totalCost === event.totalCost) return prev
+
+        const costChanged = event.totalCost > 0 && project.totalCost !== event.totalCost
+        const attentionChanged =
+          project.needsInput !== event.needsInput ||
+          project.notificationType !== event.notificationType
+
+        if (!costChanged && !attentionChanged) return prev
+
         const updated = [...prev]
-        updated[index] = { ...project, totalCost: event.totalCost }
+        updated[index] = {
+          ...project,
+          ...(costChanged && { totalCost: event.totalCost }),
+          needsInput: event.needsInput,
+          notificationType: event.notificationType,
+        }
         return updated
       })
     })

@@ -4,10 +4,12 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/thesimonho/warden/api"
 	"github.com/thesimonho/warden/db"
 	"github.com/thesimonho/warden/engine"
+	"github.com/thesimonho/warden/eventbus"
 )
 
 func TestListProjects(t *testing.T) {
@@ -238,6 +240,87 @@ func TestStopProject_Error(t *testing.T) {
 	_, err := svc.StopProject(context.Background(), row)
 	if err == nil {
 		t.Fatal("expected error")
+	}
+}
+
+func TestListProjects_OverlaysAttention(t *testing.T) {
+	t.Parallel()
+
+	mock := &mockEngine{
+		projects: []engine.Project{
+			{ID: "abc123def456", Name: "my-project", State: "running"},
+		},
+	}
+
+	database := testDB(t)
+	_ = database.InsertProject(db.ProjectRow{ProjectID: "my-project", Name: "my-project", HostPath: "/test/my-project"})
+
+	store := eventbus.NewStore(nil, nil)
+	store.HandleEvent(eventbus.ContainerEvent{
+		Type:          eventbus.EventAttention,
+		ContainerName: "my-project",
+		WorktreeID:    "main",
+		Data:          []byte(`{"notificationType":"permission_prompt"}`),
+		Timestamp:     time.Now(),
+	})
+
+	svc := New(mock, database, store, nil)
+
+	projects, err := svc.ListProjects(context.Background())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if !projects[0].NeedsInput {
+		t.Error("expected project needsInput=true from event store")
+	}
+	if projects[0].NotificationType != "permission_prompt" {
+		t.Errorf("expected notificationType 'permission_prompt', got %q", projects[0].NotificationType)
+	}
+}
+
+func TestListProjects_OverlaysAttentionHighestPriority(t *testing.T) {
+	t.Parallel()
+
+	mock := &mockEngine{
+		projects: []engine.Project{
+			{ID: "abc123def456", Name: "my-project", State: "running"},
+		},
+	}
+
+	database := testDB(t)
+	_ = database.InsertProject(db.ProjectRow{ProjectID: "my-project", Name: "my-project", HostPath: "/test/my-project"})
+
+	store := eventbus.NewStore(nil, nil)
+	// One worktree needs idle_prompt (low priority)
+	store.HandleEvent(eventbus.ContainerEvent{
+		Type:          eventbus.EventAttention,
+		ContainerName: "my-project",
+		WorktreeID:    "wt-1",
+		Data:          []byte(`{"notificationType":"idle_prompt"}`),
+		Timestamp:     time.Now(),
+	})
+	// Another worktree needs permission_prompt (high priority)
+	store.HandleEvent(eventbus.ContainerEvent{
+		Type:          eventbus.EventAttention,
+		ContainerName: "my-project",
+		WorktreeID:    "wt-2",
+		Data:          []byte(`{"notificationType":"permission_prompt"}`),
+		Timestamp:     time.Now(),
+	})
+
+	svc := New(mock, database, store, nil)
+
+	projects, err := svc.ListProjects(context.Background())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if !projects[0].NeedsInput {
+		t.Error("expected project needsInput=true")
+	}
+	if projects[0].NotificationType != "permission_prompt" {
+		t.Errorf("expected highest-priority 'permission_prompt', got %q", projects[0].NotificationType)
 	}
 }
 
