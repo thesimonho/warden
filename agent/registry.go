@@ -14,6 +14,28 @@ const (
 	DefaultAgentType = ClaudeCode
 )
 
+// AllTypes lists all supported agent type identifiers in display order.
+var AllTypes = []string{ClaudeCode, Codex}
+
+// DisplayLabels maps agent type identifiers to human-readable labels.
+var DisplayLabels = map[string]string{
+	ClaudeCode: "Claude Code",
+	Codex:      "OpenAI Codex",
+}
+
+// ShortLabel returns a compact display label for the given agent type,
+// falling back to the type string itself when no mapping exists.
+func ShortLabel(agentType string) string {
+	switch agentType {
+	case ClaudeCode:
+		return "claude"
+	case Codex:
+		return "codex"
+	default:
+		return agentType
+	}
+}
+
 // Registry holds StatusProvider instances keyed by agent type name.
 // It allows the engine to resolve the correct provider for a container
 // based on its WARDEN_AGENT_TYPE env var.

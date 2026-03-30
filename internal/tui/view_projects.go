@@ -11,6 +11,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 
+	"github.com/thesimonho/warden/agent"
 	"github.com/thesimonho/warden/engine"
 	"github.com/thesimonho/warden/eventbus"
 	"github.com/thesimonho/warden/internal/tui/components"
@@ -219,16 +220,17 @@ func (v *ProjectsView) selectedProject() *engine.Project {
 func projectColumns(width int) []table.Column {
 	// Fixed-width columns; Name gets all remaining space.
 	// Each column has 2 chars of cell padding (Padding(0,1) on each side).
-	const statusW, worktreeW, costW, networkW = 10, 10, 8, 12
-	const numCols = 5
+	const agentW, statusW, worktreeW, costW, networkW = 8, 10, 10, 8, 12
+	const numCols = 6
 	const cellPadding = 2 * numCols
-	fixed := statusW + worktreeW + costW + networkW
+	fixed := agentW + statusW + worktreeW + costW + networkW
 	nameW := width - fixed - cellPadding
 	if nameW < 12 {
 		nameW = 12
 	}
 	return []table.Column{
 		{Title: "Name", Width: nameW},
+		{Title: "Agent", Width: agentW},
 		{Title: "Status", Width: statusW},
 		{Title: "Worktrees", Width: worktreeW},
 		{Title: "Cost", Width: costW},
@@ -249,6 +251,7 @@ func projectRows(projects []engine.Project) []table.Row {
 
 		rows[i] = table.Row{
 			p.Name,
+			agent.ShortLabel(p.AgentType),
 			state,
 			worktreeInfo,
 			cost,

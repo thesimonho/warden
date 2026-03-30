@@ -1,4 +1,18 @@
-# Hooks
+# Hooks & Types
+
+## Types (`lib/types.ts`)
+
+| Export | Purpose |
+| --- | --- |
+| `AgentType` | Union type: `'claude-code' \| 'codex'` |
+| `DEFAULT_AGENT_TYPE` | Default agent type for new projects/containers |
+| `agentTypeOptions` | Array of `{ value: AgentType, label: string }` for UI selectors |
+| `agentTypeLabels` | Map of agent type → display label |
+| `Project.agentType` | Agent type field (changed from `string` to `AgentType`) |
+| `CreateContainerRequest.agentType` | Optional agent type for container creation |
+| `ContainerConfig.agentType` | Required agent type field |
+
+## Hooks
 
 | File | Purpose |
 | --- | --- |

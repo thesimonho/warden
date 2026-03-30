@@ -25,7 +25,7 @@ interface CanvasViewProps {
   isSelected: boolean
   /** Whether a layout animation is in progress. */
   isLayoutAnimating: boolean
-  /** Worktree state label (e.g. "Claude exited"). */
+  /** Worktree state label (e.g. "Agent exited"). */
   stateLabel?: string
   /** Worktree state dot CSS class. */
   stateDotClass: string

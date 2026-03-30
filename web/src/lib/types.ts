@@ -1,3 +1,21 @@
+/**
+ * CLI agent type running inside a project container.
+ * String values must match the constants in agent/registry.go.
+ */
+export type AgentType = 'claude-code' | 'codex'
+
+/** Default agent type for new projects. */
+export const DEFAULT_AGENT_TYPE: AgentType = 'claude-code'
+
+/** All supported agent types in display order. */
+export const agentTypeOptions: AgentType[] = ['claude-code', 'codex']
+
+/** Human-readable display labels for each agent type. */
+export const agentTypeLabels: Record<AgentType, string> = {
+  'claude-code': 'Claude Code',
+  codex: 'OpenAI Codex',
+}
+
 /** Network isolation level for a container. */
 export type NetworkMode = 'full' | 'restricted' | 'none'
 
@@ -20,7 +38,7 @@ export const worktreeStateIndicator: Record<
   { dotClass: string; textClass: string; label: string }
 > = {
   connected: { dotClass: 'bg-success', textClass: 'text-success', label: 'Connected' },
-  shell: { dotClass: 'bg-warning', textClass: 'text-warning', label: 'Claude exited' },
+  shell: { dotClass: 'bg-warning', textClass: 'text-warning', label: 'Agent exited' },
   background: {
     dotClass: 'bg-active animate-pulse',
     textClass: 'text-active',
@@ -43,7 +61,7 @@ export function hasActiveTerminal(worktree: { state: WorktreeState }): boolean {
 /** Derives a human-readable label for the worktree state. */
 export function deriveStateLabel(state: WorktreeState, exitCode?: number): string | undefined {
   if (state === 'shell') {
-    return exitCode != null && exitCode !== 0 ? `Exited (${exitCode})` : 'Claude exited'
+    return exitCode != null && exitCode !== 0 ? `Exited (${exitCode})` : 'Agent exited'
   }
   if (state === 'background') return 'Background'
   return undefined
@@ -68,8 +86,8 @@ export interface Project {
   name: string
   /** Absolute path on the host for the project directory. */
   hostPath: string
-  /** The CLI agent type running in this project (e.g. "claude-code", "codex"). */
-  agentType: string
+  /** The CLI agent type running in this project. */
+  agentType: AgentType
   type: string
   /** Docker image the container was built from. */
   image: string
@@ -242,6 +260,8 @@ export interface CreateContainerRequest {
   name: string
   image: string
   projectPath: string
+  /** CLI agent type (defaults to "claude-code" if omitted). */
+  agentType?: AgentType
   envVars?: Record<string, string>
   /** Additional bind mounts from host into the container. */
   mounts?: Mount[]
@@ -262,6 +282,8 @@ export interface ContainerConfig {
   name: string
   image: string
   projectPath: string
+  /** CLI agent type running in this project. */
+  agentType: AgentType
   envVars?: Record<string, string>
   mounts?: Mount[]
   skipPermissions: boolean

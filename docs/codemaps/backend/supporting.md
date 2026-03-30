@@ -29,7 +29,7 @@ Multi-agent abstraction for status extraction, session parsing, and event transl
 
 | File | Purpose |
 | --- | --- |
-| `registry.go` | `Registry` (agent type → StatusProvider resolver), constants: `ClaudeCode`, `Codex`, `DefaultAgentType`; methods: `Register(name, provider)`, `Get(name)`, `Default()`, `Resolve(agentType)` (fallback to default) |
+| `registry.go` | `Registry` (agent type → StatusProvider resolver), constants: `ClaudeCode`, `Codex`, `DefaultAgentType`; `AllTypes` (slice of agent type IDs in display order), `DisplayLabels` (map of agent type ID → human-readable label), `ShortLabel()` (compact label for UI); methods: `Register(name, provider)`, `Get(name)`, `Default()`, `Resolve(agentType)` (fallback to default) |
 | `types.go` | `Status`, `ModelInfo`, `TokenUsage` — agent-agnostic metric types; `ParsedEventType` constants (`EventSessionStart/End`, `EventToolUse`, `EventUserPrompt`, `EventTurnComplete/Duration`, `EventTokenUpdate`); `ParsedEvent` (Type, SessionID, Timestamp, Model, ToolName, ToolInput, Prompt, DurationMs, Tokens, EstimatedCostUSD, GitBranch, WorktreeID); `ProjectInfo` (WorkspaceDir, ProjectName) |
 | `parser.go` | `SessionParser` interface: `ParseLine([]byte) []ParsedEvent` (parse JSONL line), `SessionDir(homeDir, ProjectInfo) string` (host-side session file path) |
 | `session_watcher.go` | `SessionWatcher` (monitors JSONL session directory, tails new lines, handles file rotation via fsnotify + polling fallback, feeds parsed events to callback), lifecycle: `Start(ctx)`, `Stop()` |
@@ -47,6 +47,7 @@ Multi-agent abstraction for status extraction, session parsing, and event transl
 | `codex/pricing.go` | `EstimateCost(model string, usage TokenUsage) float64` — OpenAI model pricing (gpt-5.4, gpt-5.4-mini, gpt-5.3-codex, claude-3-5-sonnet via OpenAI API) |
 | `codex/parser_test.go` | Tests for Codex parser: fixture parsing, session start/response items, token accumulation, model mapping, interface compliance, uses `ValidateJSONL` for event count verification, optional `TestValidateLive` for CI validation (env-gated via `VALIDATE_JSONL`) |
 | `codex/pricing_test.go` | Tests for Codex pricing: model lookup, token cost calculation |
+| `types.go` — Agent display | Constants updated: "Claude exited" → "Agent exited" in worktree state comments |
 
 ## runtime/
 

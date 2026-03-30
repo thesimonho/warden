@@ -56,7 +56,7 @@ type WorktreeState string
 const (
 	// WorktreeStateConnected means a terminal is running with Claude active.
 	WorktreeStateConnected WorktreeState = "connected"
-	// WorktreeStateShell means Claude exited but the bash shell is still alive via ttyd.
+	// WorktreeStateShell means the agent exited but the bash shell is still alive.
 	WorktreeStateShell WorktreeState = "shell"
 	// WorktreeStateBackground means the abduco session is alive but ttyd is not
 	// serving (e.g. browser closed). Claude Code may still be working.

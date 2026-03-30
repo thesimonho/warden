@@ -420,7 +420,7 @@ func (ec *EngineClient) enrichWorktreeState(ctx context.Context, containerID str
 
 		if ts.abducoAlive {
 			if ts.exitCode >= 0 {
-				// Claude exited but shell is still alive
+				// Agent exited but shell is still alive
 				worktrees[i].State = WorktreeStateShell
 				worktrees[i].ExitCode = ts.exitCode
 			} else {

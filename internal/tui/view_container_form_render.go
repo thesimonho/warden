@@ -8,6 +8,7 @@ import (
 	"charm.land/lipgloss/v2"
 
 	"github.com/thesimonho/warden/access"
+	"github.com/thesimonho/warden/agent"
 )
 
 // Form field styles.
@@ -168,10 +169,17 @@ func (v *ContainerFormView) buildFieldLines() ([]string, int) {
 	}
 
 	// Core fields.
+	appendField(fieldAgentType, "Agent", v.fieldView(fieldAgentType), "")
 	appendField(fieldName, "Name", v.fieldView(fieldName), "")
 	appendField(fieldPath, "Project Path", v.fieldView(fieldPath), "Host directory to mount")
 
-	appendField(fieldSkipPerms, "Skip Permissions", v.fieldView(fieldSkipPerms), "Auto-approve all Claude Code actions")
+	var skipPermsDesc string
+	if agentTypes[v.agentType] == agent.Codex {
+		skipPermsDesc = "Auto-approve all Codex actions (--full-auto)"
+	} else {
+		skipPermsDesc = "Auto-approve all Claude Code actions (--dangerously-skip-permissions)"
+	}
+	appendField(fieldSkipPerms, "Skip Permissions", v.fieldView(fieldSkipPerms), skipPermsDesc)
 	appendField(fieldBudget, "Project Budget (USD)", v.fieldView(fieldBudget), "Auto-pauses agents when exceeded")
 	appendField(fieldNetwork, "Network", v.fieldView(fieldNetwork), networkDescriptions[networkModes[v.network]])
 
@@ -306,6 +314,19 @@ func (v *ContainerFormView) renderEnvItems(isActive bool) []string {
 
 func (v *ContainerFormView) fieldView(field int) string {
 	switch field {
+	case fieldAgentType:
+		selected := agentTypes[v.agentType]
+		var parts []string
+		for _, at := range agentTypes {
+			label := agentTypeLabels[at]
+			if at == selected {
+				parts = append(parts, formCursor.Render("["+label+"]"))
+			} else {
+				parts = append(parts, Styles.Muted.Render(" "+label+" "))
+			}
+		}
+		return strings.Join(parts, " ")
+
 	case fieldName:
 		return textInputView(v.inputs[0], v.editing && v.cursor == fieldName)
 	case fieldPath:

@@ -37,7 +37,7 @@ const (
 	EventTerminalDisconnected ContainerEventType = "terminal_disconnected"
 	// EventProcessKilled means abduco was killed — the worktree is fully dead.
 	EventProcessKilled ContainerEventType = "process_killed"
-	// EventSessionExit means Claude exited inside a terminal (exit code available).
+	// EventSessionExit means the agent exited inside a terminal (exit code available).
 	EventSessionExit ContainerEventType = "session_exit"
 	// EventToolUse is logged for every PreToolUse hook event, capturing the tool name and input.
 	EventToolUse ContainerEventType = "tool_use"

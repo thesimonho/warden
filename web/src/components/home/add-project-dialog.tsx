@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { AlertTriangle, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import type { ContainerConfig } from '@/lib/types'
+import { DEFAULT_AGENT_TYPE } from '@/lib/types'
 import { addProject, createContainer, fetchContainerConfig, updateContainer } from '@/lib/api'
 import {
   Dialog,
@@ -90,6 +91,7 @@ export default function AddProjectDialog({
           name: data.name,
           image: data.image,
           projectPath: data.projectPath,
+          agentType: data.agentType,
           envVars: data.envVars,
           mounts: data.mounts,
           skipPermissions: data.skipPermissions,
@@ -143,6 +145,7 @@ export default function AddProjectDialog({
         name: createForProject.name,
         projectPath: createForProject.hostPath,
         image: '',
+        agentType: DEFAULT_AGENT_TYPE,
         skipPermissions: false,
         networkMode: 'full',
         costBudget: 0,

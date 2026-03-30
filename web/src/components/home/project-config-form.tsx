@@ -1,6 +1,13 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ArrowRight, Info, Loader2, Plus, Trash2 } from 'lucide-react'
-import type { AccessItemResponse, ContainerConfig, Mount, NetworkMode } from '@/lib/types'
+import type {
+  AccessItemResponse,
+  AgentType,
+  ContainerConfig,
+  Mount,
+  NetworkMode,
+} from '@/lib/types'
+import { agentTypeLabels, agentTypeOptions, DEFAULT_AGENT_TYPE } from '@/lib/types'
 import { fetchAccessItems, fetchDefaults, fetchSettings } from '@/lib/api'
 import { containerPathToDisplay, containerPathToAbsolute } from '@/lib/utils'
 import { restrictedDomains } from '@/lib/domain-groups'
@@ -40,6 +47,7 @@ export interface ProjectConfigFormData {
   name: string
   image: string
   projectPath: string
+  agentType: AgentType
   envVars?: Record<string, string>
   mounts?: Mount[]
   skipPermissions: boolean
@@ -74,6 +82,9 @@ export default function ProjectConfigForm({
   disabled = false,
   error: externalError,
 }: ProjectConfigFormProps) {
+  const [agentType, setAgentType] = useState<AgentType>(
+    initialValues?.agentType ?? DEFAULT_AGENT_TYPE,
+  )
   const [name, setName] = useState(initialValues?.name ?? '')
   const [projectPath, setProjectPath] = useState(initialValues?.projectPath ?? '')
   const [image, setImage] = useState(initialValues?.image ?? DEFAULT_IMAGE)
@@ -224,6 +235,7 @@ export default function ProjectConfigForm({
       name: name.trim(),
       image: image.trim(),
       projectPath: projectPath.trim(),
+      agentType,
       envVars: Object.keys(envMap).length > 0 ? envMap : undefined,
       mounts: validMounts.length > 0 ? validMounts : undefined,
       skipPermissions,
@@ -260,6 +272,32 @@ export default function ProjectConfigForm({
 
   return (
     <div className="space-y-8">
+      <div className="space-y-1.5">
+        <label className="font-medium">
+          Agent<span className="text-error ml-0.5">*</span>
+        </label>
+        <div className="flex gap-2">
+          {agentTypeOptions.map((type) => (
+            <Button
+              key={type}
+              type="button"
+              size="sm"
+              variant={agentType === type ? 'default' : 'outline'}
+              onClick={() => setAgentType(type)}
+              disabled={isSubmitting || isEditMode}
+              className="flex-1"
+            >
+              {agentTypeLabels[type]}
+            </Button>
+          ))}
+        </div>
+        {isEditMode && (
+          <p className="text-muted-foreground text-sm">
+            Agent type cannot be changed after creation.
+          </p>
+        )}
+      </div>
+
       <FormField label="Container Name" required>
         <Input
           placeholder="my-project"
@@ -296,7 +334,9 @@ export default function ProjectConfigForm({
             Skip permission prompts
           </label>
           <p className="text-muted-foreground text-sm">
-            Auto-approve all actions (<code>--dangerously-skip-permissions</code>).
+            Auto-approve all actions (
+            <code>{agentType === 'codex' ? '--full-auto' : '--dangerously-skip-permissions'}</code>
+            ).
           </p>
         </div>
         <Switch

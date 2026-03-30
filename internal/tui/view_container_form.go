@@ -11,6 +11,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/thesimonho/warden/access"
+	"github.com/thesimonho/warden/agent"
 	"github.com/thesimonho/warden/api"
 	"github.com/thesimonho/warden/engine"
 	"github.com/thesimonho/warden/internal/tui/components"
@@ -31,7 +32,8 @@ sum.golang.org`
 
 // Form field indices.
 const (
-	fieldName = iota
+	fieldAgentType = iota
+	fieldName
 	fieldPath
 	fieldSkipPerms
 	fieldBudget
@@ -48,6 +50,11 @@ const (
 	fieldCount
 )
 
+// Agent type options sourced from the agent registry.
+var agentTypes = agent.AllTypes
+
+// agentTypeLabels maps agent type IDs to display labels.
+var agentTypeLabels = agent.DisplayLabels
 
 // Network mode options.
 var networkModes = []string{"full", "restricted", "none"}
@@ -79,8 +86,9 @@ type ContainerFormView struct {
 	domains     textarea.Model
 
 	// Selection fields.
-	network  int // index into networkModes
-	skipPerm bool
+	agentType int // index into agentTypes
+	network   int // index into networkModes
+	skipPerm  bool
 
 	// Advanced section.
 	advancedOpen bool
@@ -293,6 +301,12 @@ func (v *ContainerFormView) Update(msg tea.Msg) (View, tea.Cmd) {
 		v.inputs[0].SetValue(msg.Config.Name)
 		v.inputs[1].SetValue(msg.Config.ProjectPath)
 		v.inputs[2].SetValue(msg.Config.Image)
+		for i, at := range agentTypes {
+			if at == msg.Config.AgentType {
+				v.agentType = i
+				break
+			}
+		}
 		for i, m := range networkModes {
 			if m == string(msg.Config.NetworkMode) {
 				v.network = i
@@ -488,6 +502,10 @@ func (v *ContainerFormView) handleBrowsingKey(msg tea.KeyPressMsg) (View, tea.Cm
 // cycleSelection cycles the value of selection fields (tab key).
 func (v *ContainerFormView) cycleSelection() (View, tea.Cmd) {
 	switch v.cursor {
+	case fieldAgentType:
+		if v.editID == "" { // read-only in edit mode
+			v.agentType = (v.agentType + 1) % len(agentTypes)
+		}
 	case fieldNetwork:
 		v.network = (v.network + 1) % len(networkModes)
 	case fieldSkipPerms:
@@ -594,6 +612,10 @@ func (v *ContainerFormView) activateField() (View, tea.Cmd) {
 		v.editing = true
 		return v, v.domains.Focus()
 
+	case fieldAgentType:
+		if v.editID == "" {
+			v.agentType = (v.agentType + 1) % len(agentTypes)
+		}
 	case fieldNetwork:
 		v.network = (v.network + 1) % len(networkModes)
 	case fieldSkipPerms:
@@ -789,6 +811,7 @@ func (v *ContainerFormView) submit() tea.Cmd {
 		Name:            name,
 		ProjectPath:     path,
 		Image:           v.inputs[2].Value(),
+		AgentType:       agentTypes[v.agentType],
 		NetworkMode:     engine.NetworkMode(networkModes[v.network]),
 		AllowedDomains:  domains,
 		SkipPermissions: v.skipPerm,
