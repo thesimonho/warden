@@ -36,6 +36,7 @@ import (
 
 	"github.com/thesimonho/warden/agent"
 	"github.com/thesimonho/warden/agent/claudecode"
+	"github.com/thesimonho/warden/agent/codex"
 	"github.com/thesimonho/warden/db"
 	"github.com/thesimonho/warden/engine"
 	"github.com/thesimonho/warden/engine/seccomp"
@@ -133,6 +134,7 @@ func New(opts Options) (*App, error) {
 
 	agentRegistry := agent.NewRegistry()
 	agentRegistry.Register(agent.ClaudeCode, claudecode.NewProvider())
+	agentRegistry.Register(agent.Codex, codex.NewProvider())
 
 	socketPath := runtime.SocketForRuntime(context.Background(), runtimeName)
 	engineClient, err := engine.NewClient(socketPath, string(runtimeName), agentRegistry)
