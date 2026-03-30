@@ -84,6 +84,12 @@ type App struct {
 	// directories and trigger cleanup.
 	Watcher *eventbus.Watcher
 
+	// sessionWatchers tracks active JSONL session file watchers per project ID.
+	sessionWatchers   map[string]*agent.SessionWatcher
+	sessionWatchersMu sync.Mutex
+	agentRegistry     *agent.Registry
+	eventHandler      func(eventbus.ContainerEvent) // store.HandleEvent
+
 	livenessCancel context.CancelFunc
 	closeOnce      sync.Once
 }
@@ -173,12 +179,15 @@ func New(opts Options) (*App, error) {
 	store.SetStaleCallback(svc.HandleContainerStale)
 
 	return &App{
-		Service:        svc,
-		Broker:         broker,
-		DB:             database,
-		Engine:         engineClient,
-		Watcher:        watcher,
-		livenessCancel: livenessCancel,
+		Service:         svc,
+		Broker:          broker,
+		DB:              database,
+		Engine:          engineClient,
+		Watcher:         watcher,
+		sessionWatchers: make(map[string]*agent.SessionWatcher),
+		agentRegistry:   agentRegistry,
+		eventHandler:    store.HandleEvent,
+		livenessCancel:  livenessCancel,
 	}, nil
 }
 
@@ -237,6 +246,15 @@ func (a *App) CreateProject(
 	}
 	// Register the container's event directory for fsnotify fast-path detection.
 	a.Watcher.WatchContainerDir(name)
+
+	// Start JSONL session file watcher for real-time event parsing.
+	agentType := req.AgentType
+	if agentType == "" {
+		agentType = agent.DefaultAgentType
+	}
+	workspaceDir := engine.ContainerWorkspaceDir(name)
+	a.StartSessionWatcher(result.ProjectID, name, agentType, workspaceDir)
+
 	return result, nil
 }
 
@@ -267,6 +285,8 @@ func (a *App) DeleteProject(ctx context.Context, id string) (*service.ContainerR
 	if err != nil {
 		return nil, err
 	}
+	// Stop the JSONL session watcher for this project.
+	a.StopSessionWatcher(id)
 	// Best-effort DB removal — the container is already gone.
 	if result.ProjectID != "" {
 		if _, removeErr := a.Service.RemoveProject(result.ProjectID); removeErr != nil {
@@ -397,11 +417,84 @@ func (a *App) GetProjectStatus(ctx context.Context, name string) (*ProjectStatus
 	}, nil
 }
 
+// StartSessionWatcher creates and starts a JSONL session file watcher for
+// a project. The watcher tails session files, parses events, and feeds
+// them into the eventbus pipeline. Call StopSessionWatcher when the
+// container stops or is removed.
+func (a *App) StartSessionWatcher(projectID, containerName, agentType string, workspaceDir string) {
+	a.sessionWatchersMu.Lock()
+	defer a.sessionWatchersMu.Unlock()
+
+	// Already watching this project.
+	if _, exists := a.sessionWatchers[projectID]; exists {
+		return
+	}
+
+	provider, ok := a.agentRegistry.Get(agentType)
+	if !ok {
+		return
+	}
+
+	parser := provider.NewSessionParser()
+	if parser == nil {
+		return
+	}
+
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		slog.Warn("failed to get home dir for session watcher", "project", projectID, "err", err)
+		return
+	}
+
+	sessionDir := parser.SessionDir(homeDir, agent.ProjectInfo{
+		WorkspaceDir: workspaceDir,
+		ProjectName:  containerName,
+	})
+
+	// Create a callback that converts parsed events to container events
+	// and feeds them into the existing event pipeline.
+	callback := func(event agent.ParsedEvent) {
+		ce := service.SessionEventToContainerEvent(event, projectID, containerName, "main")
+		if ce != nil && a.eventHandler != nil {
+			a.eventHandler(*ce)
+		}
+	}
+
+	sw := agent.NewSessionWatcher(parser, sessionDir, callback)
+	if err := sw.Start(context.Background()); err != nil {
+		slog.Warn("failed to start session watcher", "project", projectID, "err", err)
+		return
+	}
+
+	a.sessionWatchers[projectID] = sw
+	slog.Info("started session watcher", "project", projectID, "dir", sessionDir)
+}
+
+// StopSessionWatcher stops and removes the session watcher for a project.
+func (a *App) StopSessionWatcher(projectID string) {
+	a.sessionWatchersMu.Lock()
+	defer a.sessionWatchersMu.Unlock()
+
+	if sw, exists := a.sessionWatchers[projectID]; exists {
+		sw.Stop()
+		delete(a.sessionWatchers, projectID)
+		slog.Info("stopped session watcher", "project", projectID)
+	}
+}
+
 // Close shuts down all subsystems gracefully. Safe to call multiple times.
 func (a *App) Close() {
 	a.closeOnce.Do(func() {
 		a.livenessCancel()
 		a.Broker.Shutdown()
+
+		// Stop all session watchers.
+		a.sessionWatchersMu.Lock()
+		for id, sw := range a.sessionWatchers {
+			sw.Stop()
+			delete(a.sessionWatchers, id)
+		}
+		a.sessionWatchersMu.Unlock()
 
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()

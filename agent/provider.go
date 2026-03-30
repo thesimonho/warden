@@ -29,4 +29,10 @@ type StatusProvider interface {
 	// Returns nil for keys where no status data is available.
 	// Returns an empty map if the config data is empty or unparseable.
 	ExtractStatus(configData []byte) map[string]*Status
+
+	// NewSessionParser creates a new stateful parser for JSONL session files.
+	// Each parser instance accumulates state (e.g. token counts) across lines,
+	// so a new parser should be created per session file. Returns nil if the
+	// provider does not support JSONL parsing.
+	NewSessionParser() SessionParser
 }

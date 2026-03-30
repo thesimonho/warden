@@ -32,6 +32,11 @@ func (p *Provider) ProcessName() string {
 	return "claude"
 }
 
+// NewSessionParser creates a stateful JSONL parser for Claude Code sessions.
+func (p *Provider) NewSessionParser() agent.SessionParser {
+	return NewParser()
+}
+
 // ConfigFilePath returns the path to .claude.json inside the container.
 func (p *Provider) ConfigFilePath() string {
 	return configFilePath

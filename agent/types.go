@@ -45,3 +45,69 @@ type TokenUsage struct {
 	CacheReadTokens  int64
 	CacheWriteTokens int64
 }
+
+// ParsedEventType identifies the kind of event parsed from a session JSONL line.
+// These string values intentionally match eventbus.ContainerEventType constants
+// so the wiring layer can map between them without translation. The types are
+// separate because agent/ must not import eventbus/ (would create a cycle).
+type ParsedEventType string
+
+const (
+	// EventSessionStart marks the beginning of an agent session.
+	EventSessionStart ParsedEventType = "session_start"
+	// EventSessionEnd marks the end of an agent session.
+	EventSessionEnd ParsedEventType = "session_end"
+	// EventToolUse records a tool invocation by the agent.
+	EventToolUse ParsedEventType = "tool_use"
+	// EventUserPrompt records a user message to the agent.
+	EventUserPrompt ParsedEventType = "user_prompt"
+	// EventTurnComplete marks the end of an agent turn (stop_reason: end_turn).
+	EventTurnComplete ParsedEventType = "turn_complete"
+	// EventTurnDuration records how long a turn took.
+	EventTurnDuration ParsedEventType = "turn_duration"
+	// EventTokenUpdate carries cumulative token usage for the session.
+	EventTokenUpdate ParsedEventType = "token_update"
+)
+
+// ParsedEvent is an agent-agnostic event produced by parsing a session JSONL line.
+// The parser converts agent-specific JSONL formats into these uniform events,
+// which are then mapped to eventbus events for SSE broadcast and audit logging.
+type ParsedEvent struct {
+	// Type identifies what kind of event this is.
+	Type ParsedEventType
+
+	// SessionID is the agent's session identifier.
+	SessionID string
+	// Timestamp is when the event occurred (ISO 8601).
+	Timestamp string
+
+	// Model is the AI model used (populated on assistant events).
+	Model string
+	// ToolName is the tool invoked (populated on ToolUse events).
+	ToolName string
+	// ToolInput is a summary of the tool input (populated on ToolUse events, truncated).
+	ToolInput string
+	// Prompt is the user's message text (populated on UserPrompt events).
+	Prompt string
+
+	// DurationMs is the turn duration in milliseconds (populated on TurnDuration events).
+	DurationMs int64
+
+	// Tokens holds cumulative token usage (populated on TokenUpdate events).
+	Tokens TokenUsage
+	// EstimatedCostUSD is the estimated cost from tokens (populated on TokenUpdate events).
+	EstimatedCostUSD float64
+
+	// GitBranch is the current git branch (populated on SessionStart).
+	GitBranch string
+	// WorktreeID is the worktree identifier (populated on SessionStart if available).
+	WorktreeID string
+}
+
+// ProjectInfo provides project metadata for session file discovery.
+type ProjectInfo struct {
+	// WorkspaceDir is the container-side workspace directory.
+	WorkspaceDir string
+	// ProjectName is the user-chosen project name.
+	ProjectName string
+}
