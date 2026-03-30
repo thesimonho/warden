@@ -2,6 +2,7 @@ package agent
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"io"
 	"log/slog"
@@ -33,8 +34,9 @@ type SessionWatcher struct {
 	cancel context.CancelFunc
 	wg     sync.WaitGroup
 
-	mu          sync.Mutex
-	currentFile string // path of the file currently being tailed
+	mu             sync.Mutex
+	currentFile    string             // path of the file currently being tailed
+	cancelTailFile context.CancelFunc // cancels the current tailFile goroutine
 }
 
 // NewSessionWatcher creates a watcher for JSONL session files.
@@ -62,7 +64,7 @@ func (sw *SessionWatcher) Start(ctx context.Context) error {
 
 	// Start tailing the most recent session file, if one exists.
 	if latest := sw.findLatestJSONL(); latest != "" {
-		sw.startTailing(ctx, latest)
+		sw.switchToFile(ctx, latest)
 	}
 
 	// Watch for new .jsonl files (session rotation).
@@ -173,6 +175,7 @@ func (sw *SessionWatcher) pollForNewFiles(ctx context.Context) {
 }
 
 // switchToFile starts tailing a new file if it differs from the current one.
+// Cancels the previous tailFile goroutine before starting the new one.
 func (sw *SessionWatcher) switchToFile(ctx context.Context, path string) {
 	sw.mu.Lock()
 	defer sw.mu.Unlock()
@@ -181,9 +184,17 @@ func (sw *SessionWatcher) switchToFile(ctx context.Context, path string) {
 		return
 	}
 
+	// Cancel the previous tailer so it exits immediately.
+	if sw.cancelTailFile != nil {
+		sw.cancelTailFile()
+	}
+
 	sw.logger.Info("switching to new session file", "path", filepath.Base(path))
 	sw.currentFile = path
-	sw.startTailing(ctx, path)
+
+	tailCtx, tailCancel := context.WithCancel(ctx)
+	sw.cancelTailFile = tailCancel
+	sw.startTailing(tailCtx, path)
 }
 
 // startTailing opens a file and begins reading new lines from the end.
@@ -214,6 +225,10 @@ func (sw *SessionWatcher) tailFile(ctx context.Context, path string) {
 	}
 
 	reader := bufio.NewReader(f)
+
+	// Read any lines already present to minimize initial latency.
+	sw.readNewLines(reader)
+
 	ticker := time.NewTicker(sessionPollInterval)
 	defer ticker.Stop()
 
@@ -222,14 +237,6 @@ func (sw *SessionWatcher) tailFile(ctx context.Context, path string) {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			// Check if we've been superseded by a newer file.
-			sw.mu.Lock()
-			isStale := sw.currentFile != path
-			sw.mu.Unlock()
-			if isStale {
-				return
-			}
-
 			sw.readNewLines(reader)
 		}
 	}
@@ -246,7 +253,7 @@ func (sw *SessionWatcher) readNewLines(reader *bufio.Reader) {
 		}
 
 		// Skip empty lines.
-		line = trimLine(line)
+		line = bytes.TrimRight(line, "\r\n ")
 		if len(line) == 0 {
 			continue
 		}
@@ -258,10 +265,3 @@ func (sw *SessionWatcher) readNewLines(reader *bufio.Reader) {
 	}
 }
 
-// trimLine removes trailing whitespace (newlines, carriage returns).
-func trimLine(line []byte) []byte {
-	for len(line) > 0 && (line[len(line)-1] == '\n' || line[len(line)-1] == '\r' || line[len(line)-1] == ' ') {
-		line = line[:len(line)-1]
-	}
-	return line
-}

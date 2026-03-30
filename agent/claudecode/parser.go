@@ -11,6 +11,10 @@ import (
 // maxToolInputLength is the maximum length of tool input included in events.
 const maxToolInputLength = 1000
 
+// maxPromptLength is the maximum length of user prompt text included in events.
+// Matches the truncation in warden-event.sh for consistency.
+const maxPromptLength = 500
+
 // Parser implements agent.SessionParser for Claude Code session JSONL files.
 // It is stateful — token counts accumulate across lines within a session.
 // Create a new Parser for each session file.
@@ -51,8 +55,6 @@ func (p *Parser) ParseLine(line []byte) []agent.ParsedEvent {
 // JSONL files for a project. Claude encodes the container-side workspace
 // path by replacing "/" with "-" to form the directory name.
 func (p *Parser) SessionDir(homeDir string, project agent.ProjectInfo) string {
-	// Claude stores sessions at ~/.claude/projects/<encoded-path>/
-	// where <encoded-path> replaces "/" with "-" in the container workspace path.
 	encoded := encodeWorkspacePath(project.WorkspaceDir)
 	return fmt.Sprintf("%s/.claude/projects/%s", homeDir, encoded)
 }
@@ -145,7 +147,7 @@ func (p *Parser) parseUser(entry SessionEntry) []agent.ParsedEvent {
 		Type:      agent.EventUserPrompt,
 		SessionID: entry.SessionID,
 		Timestamp: entry.Timestamp,
-		Prompt:    truncateString(promptText, 500),
+		Prompt:    truncateString(promptText, maxPromptLength),
 		GitBranch: entry.GitBranch,
 	}}
 }
@@ -179,10 +181,12 @@ func truncateToolInput(input map[string]any) string {
 	return truncateString(string(data), maxToolInputLength)
 }
 
-// truncateString caps a string at maxLen characters, appending "…" if truncated.
+// truncateString caps a string at maxLen runes, appending "…" if truncated.
+// Uses rune count to avoid splitting multi-byte UTF-8 characters.
 func truncateString(s string, maxLen int) string {
-	if len(s) <= maxLen {
+	runes := []rune(s)
+	if len(runes) <= maxLen {
 		return s
 	}
-	return s[:maxLen] + "…"
+	return string(runes[:maxLen]) + "…"
 }

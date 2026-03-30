@@ -453,8 +453,13 @@ func (a *App) StartSessionWatcher(projectID, containerName, agentType string, wo
 
 	// Create a callback that converts parsed events to container events
 	// and feeds them into the existing event pipeline.
+	sessionCtx := service.SessionContext{
+		ProjectID:     projectID,
+		ContainerName: containerName,
+		WorktreeID:    "main",
+	}
 	callback := func(event agent.ParsedEvent) {
-		ce := service.SessionEventToContainerEvent(event, projectID, containerName, "main")
+		ce := service.SessionEventToContainerEvent(event, sessionCtx)
 		if ce != nil && a.eventHandler != nil {
 			a.eventHandler(*ce)
 		}

@@ -4,7 +4,7 @@ Smaller backend packages that don't warrant individual files.
 
 ## Entry Points
 
-- `warden.go` — top-level `App` type: `New(Options)` wires SQLite database, runtime detection, engine client, event bus pipeline, and service layer into a ready-to-use handle; `Close()` shuts down all subsystems (idempotent via `sync.Once`). Convenience methods (all take project ID and call `resolveProject(id)` to fetch `*db.ProjectRow` before delegating to service): `CreateProject(ctx, name, hostPath, opts)`, `DeleteProject(ctx, projectID)`, `StopProject(ctx, projectID)`, `RestartProject(ctx, projectID)`, `StopAll(ctx)` (pre-loads all project rows to avoid N+1), `RestartWorktree(ctx, projectID, worktreeID)`, `GetProjectStatus(ctx, projectName)`. Returns typed result structs (`ProjectResult`, `WorktreeResult`, `ContainerResult`). This is the primary entry point for Go library consumers.
+- `warden.go` — top-level `App` type: `New(Options)` wires SQLite database, runtime detection, engine client, event bus pipeline, and service layer into a ready-to-use handle; `Close()` shuts down all subsystems (idempotent via `sync.Once`). Convenience methods (all take project ID and call `resolveProject(id)` to fetch `*db.ProjectRow` before delegating to service): `CreateProject(ctx, name, hostPath, opts)`, `DeleteProject(ctx, projectID)`, `StopProject(ctx, projectID)`, `RestartProject(ctx, projectID)`, `StopAll(ctx)` (pre-loads all project rows to avoid N+1), `RestartWorktree(ctx, projectID, worktreeID)`, `GetProjectStatus(ctx, projectName)`. Returns typed result structs (`ProjectResult`, `WorktreeResult`, `ContainerResult`). Session watcher lifecycle: `StartSessionWatcher(projectID, containerName, agentType, workspaceDir)` creates and starts a JSONL watcher (called by `CreateProject` after container creation), `StopSessionWatcher(projectID)` stops and removes the watcher (called by `DeleteProject`). Field: `sessionWatchers map[string]*agent.SessionWatcher`. This is the primary entry point for Go library consumers.
 
 | Binary | File | Purpose |
 | --- | --- | --- |
@@ -25,13 +25,20 @@ Public Go package for general-purpose access item management. Pure library — n
 
 ## agent/
 
-Agent status provider abstraction for extracting metrics from CLI agents running inside containers.
+Multi-agent abstraction for status extraction, session parsing, and event translation.
 
 | File | Purpose |
 | --- | --- |
-| `types.go` | `Status`, `ModelInfo`, `TokenUsage` — agent-agnostic metric types |
-| `provider.go` | `StatusProvider` interface: `Name()`, `ConfigFilePath()`, `ExtractStatus([]byte) map[string]*Status` |
-| `claudecode/provider.go` | Claude Code implementation — reads `.claude.json`, parses per-project metrics keyed by workdir |
+| `registry.go` | `Registry` (agent type → StatusProvider resolver), constants: `ClaudeCode`, `Codex`, `DefaultAgentType`; methods: `Register(name, provider)`, `Get(name)`, `Default()`, `Resolve(agentType)` (fallback to default) |
+| `types.go` | `Status`, `ModelInfo`, `TokenUsage` — agent-agnostic metric types; `ParsedEventType` constants (`EventSessionStart/End`, `EventToolUse`, `EventUserPrompt`, `EventTurnComplete/Duration`, `EventTokenUpdate`); `ParsedEvent` (Type, SessionID, Timestamp, Model, ToolName, ToolInput, Prompt, DurationMs, Tokens, EstimatedCostUSD, GitBranch, WorktreeID); `ProjectInfo` (WorkspaceDir, ProjectName) |
+| `parser.go` | `SessionParser` interface: `ParseLine([]byte) []ParsedEvent` (parse JSONL line), `SessionDir(homeDir, ProjectInfo) string` (host-side session file path) |
+| `session_watcher.go` | `SessionWatcher` (monitors JSONL session directory, tails new lines, handles file rotation via fsnotify + polling fallback, feeds parsed events to callback), lifecycle: `Start(ctx)`, `Stop()` |
+| `provider.go` | `StatusProvider` interface: `Name()`, `ProcessName()` (CLI binary name for pgrep), `ConfigFilePath()`, `ExtractStatus([]byte) map[string]*Status`, `NewSessionParser() SessionParser` |
+| `claudecode/provider.go` | Claude Code implementation — reads `.claude.json`, parses per-workspace metrics; implements `Name()`, `ProcessName()`, `ConfigFilePath()`, `ExtractStatus()`, `NewSessionParser()` |
+| `claudecode/parser.go` | Claude Code `Parser` — implements `SessionParser`, stateful token/cost accumulation per session, parses lines via `jsonl_unmarshal.go` |
+| `claudecode/jsonl_types.go` | `SessionEntry`, `MessageBody`, `ContentField`, `ContentBlock` (polymorphic content), `UsageInfo` — JSONL line types |
+| `claudecode/jsonl_unmarshal.go` | Polymorphic unmarshaling for content field (assistant, user, thinking blocks) |
+| `claudecode/pricing.go` | `EstimateCost(tokens TokenUsage) float64` — per-model token pricing lookup |
 | `claudecode/provider_test.go` | Tests for Claude Code provider: parsing, model mapping, multi-project, interface compliance |
 
 ## runtime/

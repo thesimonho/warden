@@ -8,11 +8,18 @@ import (
 	"github.com/thesimonho/warden/eventbus"
 )
 
+// SessionContext identifies the project and worktree a parsed event belongs to.
+type SessionContext struct {
+	ProjectID     string
+	ContainerName string
+	WorktreeID    string
+}
+
 // SessionEventToContainerEvent converts a ParsedEvent from the JSONL parser
 // into a ContainerEvent for the event pipeline (store → broker → SSE →
 // frontend, audit log). Returns nil for events that don't map to container
 // event types.
-func SessionEventToContainerEvent(event agent.ParsedEvent, projectID, containerName, worktreeID string) *eventbus.ContainerEvent {
+func SessionEventToContainerEvent(event agent.ParsedEvent, ctx SessionContext) *eventbus.ContainerEvent {
 	eventType := mapEventType(event.Type)
 	if eventType == "" {
 		return nil
@@ -20,9 +27,9 @@ func SessionEventToContainerEvent(event agent.ParsedEvent, projectID, containerN
 
 	ce := &eventbus.ContainerEvent{
 		Type:          eventType,
-		ContainerName: containerName,
-		ProjectID:     projectID,
-		WorktreeID:    worktreeID,
+		ContainerName: ctx.ContainerName,
+		ProjectID:     ctx.ProjectID,
+		WorktreeID:    ctx.WorktreeID,
 		Timestamp:     parseTimestamp(event.Timestamp),
 	}
 
@@ -59,8 +66,6 @@ func mapEventType(parsed agent.ParsedEventType) eventbus.ContainerEventType {
 		return eventbus.EventToolUse
 	case agent.EventUserPrompt:
 		return eventbus.EventUserPrompt
-	case agent.EventTurnComplete:
-		return eventbus.EventStop
 	case agent.EventTokenUpdate:
 		// Token updates carry cost data and are mapped to stop events so
 		// they flow through the existing cost persistence pipeline.
