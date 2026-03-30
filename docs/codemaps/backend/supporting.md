@@ -33,18 +33,19 @@ Multi-agent abstraction for status extraction, session parsing, and event transl
 | `types.go` | `Status`, `ModelInfo`, `TokenUsage` — agent-agnostic metric types; `ParsedEventType` constants (`EventSessionStart/End`, `EventToolUse`, `EventUserPrompt`, `EventTurnComplete/Duration`, `EventTokenUpdate`); `ParsedEvent` (Type, SessionID, Timestamp, Model, ToolName, ToolInput, Prompt, DurationMs, Tokens, EstimatedCostUSD, GitBranch, WorktreeID); `ProjectInfo` (WorkspaceDir, ProjectName) |
 | `parser.go` | `SessionParser` interface: `ParseLine([]byte) []ParsedEvent` (parse JSONL line), `SessionDir(homeDir, ProjectInfo) string` (host-side session file path) |
 | `session_watcher.go` | `SessionWatcher` (monitors JSONL session directory, tails new lines, handles file rotation via fsnotify + polling fallback, feeds parsed events to callback), lifecycle: `Start(ctx)`, `Stop()` |
+| `validate.go` | `ValidateJSONL(parser SessionParser, reader io.Reader) *ValidationResult` — validates JSONL lines from a reader and returns event counts; `ValidationResult` type with `RequireLineCount(expected)` and `CheckLineCount(expected)` assertion methods. Used by parser tests and CI validation workflows. |
 | `provider.go` | `StatusProvider` interface: `Name()`, `ProcessName()` (CLI binary name for pgrep), `ConfigFilePath()`, `ExtractStatus([]byte) map[string]*Status`, `NewSessionParser() SessionParser` |
 | `claudecode/provider.go` | Claude Code implementation — reads `.claude.json`, parses per-workspace metrics; implements `Name()`, `ProcessName()`, `ConfigFilePath()`, `ExtractStatus()`, `NewSessionParser()` |
 | `claudecode/parser.go` | Claude Code `Parser` — implements `SessionParser`, stateful token/cost accumulation per session, parses lines via `jsonl_unmarshal.go` |
 | `claudecode/jsonl_types.go` | `SessionEntry`, `MessageBody`, `ContentField`, `ContentBlock` (polymorphic content), `UsageInfo` — JSONL line types |
 | `claudecode/jsonl_unmarshal.go` | Polymorphic unmarshaling for content field (assistant, user, thinking blocks) |
 | `claudecode/pricing.go` | `EstimateCost(tokens TokenUsage) float64` — per-model token pricing lookup |
-| `claudecode/provider_test.go` | Tests for Claude Code provider: parsing, model mapping, multi-project, interface compliance |
+| `claudecode/provider_test.go` | Tests for Claude Code provider: parsing, model mapping, multi-project, interface compliance, optional `TestValidateLive` for CI validation (env-gated via `VALIDATE_JSONL`) |
 | `codex/provider.go` | Codex implementation — no config file, cost from JSONL only; implements `Name()`, `ProcessName()`, `ExtractStatus()`, `NewSessionParser()` |
 | `codex/parser.go` | Codex `Parser` — implements `SessionParser`, parses lines via `jsonl_unmarshal.go`, maps session_meta/response_item/event_msg to `ParsedEvent` |
 | `codex/jsonl_types.go` | `RolloutItem`, `SessionMeta`, `TurnContext`, `ResponseItem`, `EventMsg`, `TokenCountInfo`, `RateLimits` — JSONL line types matching Codex format |
 | `codex/pricing.go` | `EstimateCost(model string, usage TokenUsage) float64` — OpenAI model pricing (gpt-5.4, gpt-5.4-mini, gpt-5.3-codex, claude-3-5-sonnet via OpenAI API) |
-| `codex/parser_test.go` | Tests for Codex parser: fixture parsing, session start/response items, token accumulation, model mapping, interface compliance |
+| `codex/parser_test.go` | Tests for Codex parser: fixture parsing, session start/response items, token accumulation, model mapping, interface compliance, uses `ValidateJSONL` for event count verification, optional `TestValidateLive` for CI validation (env-gated via `VALIDATE_JSONL`) |
 | `codex/pricing_test.go` | Tests for Codex pricing: model lookup, token cost calculation |
 
 ## runtime/

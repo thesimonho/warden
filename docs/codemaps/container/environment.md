@@ -42,17 +42,20 @@ This ensures all vars passed via `docker run -e` or `podman run -e` are availabl
 ### Terminal Storage
 
 ```
-/project/.warden-terminals/          # Ephemeral — cleared on container restart
-  .gitignore                           # '*' — prevents tracking artifacts
-  <worktree-id>/
-    exit_code                          # Claude's exit code (present when Claude exited)
+/project/.warden/                      # Agent-agnostic Warden directory
+  .gitignore                           # Covers entire .warden/ subtree
+  terminals/                           # Ephemeral — cleared on container restart
+    <worktree-id>/
+      exit_code                        # Agent's exit code (present when agent exited)
 ```
 
 ### Worktree Storage
 
 ```
-/project/.claude/worktrees/          # Persistent — survives container restarts
-  <worktree-id>/                       # git worktree checkout (created by Claude's --worktree or Warden's git worktree add)
+/project/.claude/worktrees/          # Claude Code worktrees — persistent, survives container restarts
+  <worktree-id>/                       # git worktree checkout (created by Claude's --worktree)
+/project/.warden/worktrees/          # Non-Claude agent worktrees — persistent, survives container restarts
+  <worktree-id>/                       # git worktree checkout (created by Codex or other agents)
 ```
 
 ## Event Bus Communication

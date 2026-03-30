@@ -75,9 +75,10 @@ fi
 # its port number and attention state. Stale entries are harmless and
 # cleared here on startup.
 # -------------------------------------------------------------------
-rm -rf "${WORKSPACE_DIR}/.warden-terminals"
-mkdir -p "${WORKSPACE_DIR}/.warden-terminals"
-echo '*' > "${WORKSPACE_DIR}/.warden-terminals/.gitignore"
+mkdir -p "${WORKSPACE_DIR}/.warden"
+echo '*' > "${WORKSPACE_DIR}/.warden/.gitignore"
+rm -rf "${WORKSPACE_DIR}/.warden/terminals"
+mkdir -p "${WORKSPACE_DIR}/.warden/terminals"
 
 # -------------------------------------------------------------------
 # Heartbeat — ping the host event bus periodically so the backend can

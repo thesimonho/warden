@@ -24,7 +24,7 @@ See the ownership table in [`terminology.md`](terminology.md#what-warden-manages
 Warden tracks minimal per-worktree terminal state:
 
 ```
-<workspace>/.warden-terminals/{worktree-id}/
+<workspace>/.warden/terminals/{worktree-id}/
 └── exit_code   # Claude's exit code (written when Claude exits)
 ```
 
@@ -327,7 +327,7 @@ Conversation management (start, resume, history) is entirely Claude Code's respo
 
 ### Terminal tracking is ephemeral
 
-The `.warden-terminals/` directory only tracks which worktrees have active terminals. It is reset on container startup. Stale entries are harmless. The entrypoint does not need to clean up session state — there is no session state to clean up.
+The `.warden/terminals/` directory only tracks which worktrees have active terminals. It is reset on container startup. Stale entries are harmless. The entrypoint does not need to clean up session state — there is no session state to clean up.
 
 ### WebSocket Connections
 

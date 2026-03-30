@@ -46,5 +46,4 @@ skills-lock.json
 Thumbs.db
 
 # warden
-.warden-debug*
-.warden-user-hook*
+.warden/

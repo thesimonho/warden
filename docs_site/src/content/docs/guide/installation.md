@@ -54,7 +54,7 @@ docker pull ghcr.io/thesimonho/warden:latest
 
 ## Building from source
 
-Requires [Go 1.26+](https://go.dev/dl/) and [Node.js 24+](https://nodejs.org/).
+Requires [Git](https://git-scm.com/downloads), [Go 1.26+](https://go.dev/dl/), and [Node.js 24+](https://nodejs.org/).
 
 ```bash
 git clone https://github.com/thesimonho/warden.git

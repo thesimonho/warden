@@ -21,6 +21,24 @@ Warden is a layered system. Each layer is independently usable:
 
 The engine and security model are the core. Everything above is a consumer of the engine's public interfaces — including Warden's own frontends. You can integrate at any layer: use the HTTP API from any language, import the Go client for typed access, or embed the engine directly as a Go library.
 
+## Workspace directory structure
+
+Inside containers, Warden stores agent-specific files and state at dedicated paths:
+
+```
+<workspace>/
+├── .warden/
+│   ├── terminals/           # Terminal state (ephemeral, per-worktree)
+│   └── worktrees/           # Non-Claude agent worktrees (Codex, future)
+├── .claude/
+│   └── worktrees/           # Claude Code worktrees (hardcoded by Claude)
+└── ... (project files)
+```
+
+- `.warden/terminals/` tracks active terminal processes per worktree. It's ephemeral and reset on container startup.
+- `.warden/worktrees/` stores worktrees for non-Claude agents (e.g., Codex). Isolated from Claude's worktrees to prevent conflicts.
+- `.claude/worktrees/` is Claude Code's hardcoded location for its own worktrees. Not configurable.
+
 ## Infrastructure layout
 
 Warden runs as a host process that manages project containers. Communication flows in three directions: the backend talks to containers via the Docker/Podman API, containers write events to a bind-mounted directory that the backend watches, and the backend fans out state to browsers via SSE and WebSocket.

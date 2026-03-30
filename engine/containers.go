@@ -29,8 +29,8 @@ const containerEventDir = "/var/warden/events"
 var ErrNameTaken = fmt.Errorf("container name already in use")
 
 // checkNameAvailable returns ErrNameTaken if a container with the given name already exists.
-func (dc *EngineClient) checkNameAvailable(ctx context.Context, name string) error {
-	_, err := dc.api.ContainerInspect(ctx, name)
+func (ec *EngineClient) checkNameAvailable(ctx context.Context, name string) error {
+	_, err := ec.api.ContainerInspect(ctx, name)
 	if err != nil {
 		return nil // container doesn't exist, name is available
 	}
@@ -38,14 +38,14 @@ func (dc *EngineClient) checkNameAvailable(ctx context.Context, name string) err
 }
 
 // ensureImage pulls the container image if it is not already available locally.
-func (dc *EngineClient) ensureImage(ctx context.Context, imageName string) error {
-	_, err := dc.api.ImageInspect(ctx, imageName)
+func (ec *EngineClient) ensureImage(ctx context.Context, imageName string) error {
+	_, err := ec.api.ImageInspect(ctx, imageName)
 	if err == nil {
 		return nil
 	}
 
 	slog.Info("pulling image", "image", imageName)
-	reader, err := dc.api.ImagePull(ctx, imageName, image.PullOptions{})
+	reader, err := ec.api.ImagePull(ctx, imageName, image.PullOptions{})
 	if err != nil {
 		return fmt.Errorf("pulling image %q: %w", imageName, err)
 	}
@@ -62,7 +62,7 @@ func (dc *EngineClient) ensureImage(ctx context.Context, imageName string) error
 
 // CreateContainer creates and starts a new project container with the
 // given configuration. Returns the container ID (truncated to 12 chars).
-func (dc *EngineClient) CreateContainer(ctx context.Context, req CreateContainerRequest) (string, error) {
+func (ec *EngineClient) CreateContainer(ctx context.Context, req CreateContainerRequest) (string, error) {
 	if req.Name == "" {
 		return "", fmt.Errorf("container name is required")
 	}
@@ -81,7 +81,7 @@ func (dc *EngineClient) CreateContainer(ctx context.Context, req CreateContainer
 		return "", fmt.Errorf("stat project path for UID/GID: %w", err)
 	}
 
-	if err := dc.checkNameAvailable(ctx, req.Name); err != nil {
+	if err := ec.checkNameAvailable(ctx, req.Name); err != nil {
 		return "", err
 	}
 
@@ -90,7 +90,7 @@ func (dc *EngineClient) CreateContainer(ctx context.Context, req CreateContainer
 		image = defaultImage
 	}
 
-	if err := dc.ensureImage(ctx, image); err != nil {
+	if err := ec.ensureImage(ctx, image); err != nil {
 		return "", err
 	}
 
@@ -163,8 +163,8 @@ func (dc *EngineClient) CreateContainer(ctx context.Context, req CreateContainer
 	}
 
 	// Create and bind-mount the event directory for file-based IPC.
-	if dc.eventBaseDir != "" {
-		eventHostDir := filepath.Join(dc.eventBaseDir, req.Name, "events")
+	if ec.eventBaseDir != "" {
+		eventHostDir := filepath.Join(ec.eventBaseDir, req.Name, "events")
 		if mkErr := os.MkdirAll(eventHostDir, 0o777); mkErr != nil {
 			return "", fmt.Errorf("creating event directory: %w", mkErr)
 		}
@@ -175,9 +175,9 @@ func (dc *EngineClient) CreateContainer(ctx context.Context, req CreateContainer
 		binds = append(binds, fmt.Sprintf("%s:%s", eventHostDir, containerEventDir))
 	}
 
-	seccompValue := dc.seccompProfileJSON
-	if dc.runtimeName == "podman" {
-		seccompValue = dc.seccompProfilePath
+	seccompValue := ec.seccompProfileJSON
+	if ec.runtimeName == "podman" {
+		seccompValue = ec.seccompProfilePath
 	}
 	capDrop, capAdd, securityOpts := buildSecurityConfig(networkMode, seccompValue)
 
@@ -201,19 +201,19 @@ func (dc *EngineClient) CreateContainer(ctx context.Context, req CreateContainer
 	// Rootless Podman maps the host UID to root inside the container,
 	// breaking bind mount ownership for the dev user. --userns=keep-id
 	// preserves the host UID mapping so bind mounts work the same as Docker.
-	if dc.runtimeName == "podman" {
+	if ec.runtimeName == "podman" {
 		hostConfig.UsernsMode = "keep-id"
 	}
 
-	resp, err := dc.api.ContainerCreate(ctx, containerConfig, hostConfig, nil, nil, req.Name)
+	resp, err := ec.api.ContainerCreate(ctx, containerConfig, hostConfig, nil, nil, req.Name)
 	if err != nil {
 		return "", fmt.Errorf("creating container %q: %w", req.Name, err)
 	}
 
-	if err := dc.api.ContainerStart(ctx, resp.ID, container.StartOptions{}); err != nil {
+	if err := ec.api.ContainerStart(ctx, resp.ID, container.StartOptions{}); err != nil {
 		// Remove the created-but-not-started container so it doesn't block
 		// future attempts with an ErrNameTaken error.
-		_ = dc.api.ContainerRemove(ctx, resp.ID, container.RemoveOptions{Force: true})
+		_ = ec.api.ContainerRemove(ctx, resp.ID, container.RemoveOptions{Force: true})
 		return "", fmt.Errorf("starting container %q: %w", req.Name, err)
 	}
 
@@ -228,21 +228,21 @@ func (dc *EngineClient) CreateContainer(ctx context.Context, req CreateContainer
 
 // stopAndRemove stops a container (ignoring already-stopped errors) and force-removes it,
 // clearing its git repo cache entry.
-func (dc *EngineClient) stopAndRemove(ctx context.Context, id string) error {
+func (ec *EngineClient) stopAndRemove(ctx context.Context, id string) error {
 	timeout := int(stopTimeout.Seconds())
-	_ = dc.api.ContainerStop(ctx, id, container.StopOptions{Timeout: &timeout})
+	_ = ec.api.ContainerStop(ctx, id, container.StopOptions{Timeout: &timeout})
 
-	if err := dc.api.ContainerRemove(ctx, id, container.RemoveOptions{Force: true}); err != nil {
+	if err := ec.api.ContainerRemove(ctx, id, container.RemoveOptions{Force: true}); err != nil {
 		return fmt.Errorf("removing container %s: %w", id, err)
 	}
 
-	dc.gitRepoCache.Delete(id)
+	ec.gitRepoCache.Delete(id)
 	return nil
 }
 
 // DeleteContainer stops and removes a container, clearing its git repo cache entry.
-func (dc *EngineClient) DeleteContainer(ctx context.Context, id string) error {
-	if err := dc.stopAndRemove(ctx, id); err != nil {
+func (ec *EngineClient) DeleteContainer(ctx context.Context, id string) error {
+	if err := ec.stopAndRemove(ctx, id); err != nil {
 		return err
 	}
 	slog.Info("deleted container", "id", id)
@@ -251,8 +251,8 @@ func (dc *EngineClient) DeleteContainer(ctx context.Context, id string) error {
 
 // InspectContainer returns the editable configuration of an existing container
 // by parsing its inspect data (binds, env vars, labels).
-func (dc *EngineClient) InspectContainer(ctx context.Context, id string) (*ContainerConfig, error) {
-	info, err := dc.api.ContainerInspect(ctx, id)
+func (ec *EngineClient) InspectContainer(ctx context.Context, id string) (*ContainerConfig, error) {
+	info, err := ec.api.ContainerInspect(ctx, id)
 	if err != nil {
 		return nil, fmt.Errorf("inspecting container %s: %w", id, err)
 	}
@@ -345,8 +345,8 @@ func (dc *EngineClient) InspectContainer(ctx context.Context, id string) (*Conta
 // RecreateContainer replaces a stopped container with a new one using updated config.
 // The old container is renamed to a temporary name before creating the replacement,
 // so it can be restored if the create fails (atomic swap).
-func (dc *EngineClient) RecreateContainer(ctx context.Context, id string, req CreateContainerRequest) (string, error) {
-	info, err := dc.api.ContainerInspect(ctx, id)
+func (ec *EngineClient) RecreateContainer(ctx context.Context, id string, req CreateContainerRequest) (string, error) {
+	info, err := ec.api.ContainerInspect(ctx, id)
 	if err != nil {
 		return "", fmt.Errorf("inspecting container for recreate: %w", err)
 	}
@@ -359,14 +359,14 @@ func (dc *EngineClient) RecreateContainer(ctx context.Context, id string, req Cr
 	// Rename the old container to free up the name for the replacement.
 	// If anything fails after this point, we rename it back.
 	tempName := oldName + "-warden-replacing"
-	if err := dc.api.ContainerRename(ctx, id, tempName); err != nil {
+	if err := ec.api.ContainerRename(ctx, id, tempName); err != nil {
 		return "", fmt.Errorf("renaming old container: %w", err)
 	}
 
-	newID, err := dc.CreateContainer(ctx, req)
+	newID, err := ec.CreateContainer(ctx, req)
 	if err != nil {
 		// Restore the old container's name so the user isn't left with nothing.
-		if renameErr := dc.api.ContainerRename(ctx, id, oldName); renameErr != nil {
+		if renameErr := ec.api.ContainerRename(ctx, id, oldName); renameErr != nil {
 			slog.Error("failed to restore old container name after failed recreate",
 				"id", id, "tempName", tempName, "err", renameErr)
 		}
@@ -374,13 +374,13 @@ func (dc *EngineClient) RecreateContainer(ctx context.Context, id string, req Cr
 	}
 
 	// New container created successfully — remove the old one.
-	if err := dc.stopAndRemove(ctx, id); err != nil {
+	if err := ec.stopAndRemove(ctx, id); err != nil {
 		slog.Warn("replacement created but failed to remove old container",
 			"oldId", id, "newId", newID, "err", err)
 	}
 
 	// Stop the new container so it doesn't auto-start — the user can start it manually.
-	if err := dc.api.ContainerStop(ctx, newID, container.StopOptions{}); err != nil {
+	if err := ec.api.ContainerStop(ctx, newID, container.StopOptions{}); err != nil {
 		slog.Warn("could not stop recreated container", "id", newID, "err", err)
 	}
 

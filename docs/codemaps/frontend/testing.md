@@ -4,7 +4,7 @@
 
 | File | Tests |
 | --- | --- |
-| `lib/api.test.ts` | `worktreeHostPath` (modern/legacy/fallback path mapping), `createWorktree` (POST, body, content-type), `connectTerminal`, `disconnectTerminal`, `fetchWorktreeDiff` (GET, URL construction, response parsing) |
+| `lib/api.test.ts` | `worktreeHostPath` (modern/legacy/fallback path mapping for `.claude/worktrees/` and `.warden/worktrees/`, new test case for `.warden/worktrees/` path mapping), `createWorktree` (POST, body, content-type), `connectTerminal`, `disconnectTerminal`, `fetchWorktreeDiff` (GET, URL construction, response parsing) |
 | `lib/cost.test.ts` | `formatCost`, `formatDuration` |
 | `lib/settings.test.ts` | `loadSettings`/`saveSettings` (localStorage, including notifications toggle) |
 | `lib/types.test.ts` | `hasActiveTerminal`, `isConnectedWorktree`, `isSessionAlive` (all worktree states incl. background) |

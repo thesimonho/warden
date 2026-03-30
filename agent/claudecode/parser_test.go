@@ -8,16 +8,15 @@ import (
 	"github.com/thesimonho/warden/agent"
 )
 
-// parseFixture reads the test JSONL fixture and parses all lines,
-// returning the collected events.
-func parseFixture(t *testing.T) []agent.ParsedEvent {
+// parseFixtureEvents reads the fixture and collects all parsed events.
+func parseFixtureEvents(t *testing.T) []agent.ParsedEvent {
 	t.Helper()
 
 	f, err := os.Open("testdata/session.jsonl")
 	if err != nil {
 		t.Fatalf("opening fixture: %v", err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	parser := NewParser()
 	var allEvents []agent.ParsedEvent
@@ -36,42 +35,46 @@ func parseFixture(t *testing.T) []agent.ParsedEvent {
 
 func TestParseFixture_EventCounts(t *testing.T) {
 	t.Parallel()
-	events := parseFixture(t)
 
-	counts := make(map[agent.ParsedEventType]int)
-	for _, e := range events {
-		counts[e.Type]++
+	f, err := os.Open("testdata/session.jsonl")
+	if err != nil {
+		t.Fatalf("opening fixture: %v", err)
+	}
+	defer func() { _ = f.Close() }()
+
+	result, err := agent.ValidateJSONL(NewParser(), f)
+	if err != nil {
+		t.Fatalf("validating fixture: %v", err)
 	}
 
-	// 3 tool uses: Read, Write, Bash
-	if got := counts[agent.EventToolUse]; got != 3 {
+	// Minimum events any valid Claude session must produce.
+	result.Require(agent.EventToolUse, 1)
+	result.Require(agent.EventTokenUpdate, 1)
+	if err := result.Check(); err != nil {
+		t.Fatalf("baseline validation failed: %v", err)
+	}
+
+	// Exact counts for this fixture.
+	if got := result.Counts[agent.EventToolUse]; got != 3 {
 		t.Errorf("ToolUse events = %d, want 3", got)
 	}
-
-	// 1 user prompt (the initial request; tool results are filtered out)
-	if got := counts[agent.EventUserPrompt]; got != 1 {
+	if got := result.Counts[agent.EventUserPrompt]; got != 1 {
 		t.Errorf("UserPrompt events = %d, want 1", got)
 	}
-
-	// 4 token updates (one per assistant message)
-	if got := counts[agent.EventTokenUpdate]; got != 4 {
+	if got := result.Counts[agent.EventTokenUpdate]; got != 4 {
 		t.Errorf("TokenUpdate events = %d, want 4", got)
 	}
-
-	// 1 turn complete (the final assistant message with stop_reason: end_turn)
-	if got := counts[agent.EventTurnComplete]; got != 1 {
+	if got := result.Counts[agent.EventTurnComplete]; got != 1 {
 		t.Errorf("TurnComplete events = %d, want 1", got)
 	}
-
-	// 1 turn duration (system entry)
-	if got := counts[agent.EventTurnDuration]; got != 1 {
+	if got := result.Counts[agent.EventTurnDuration]; got != 1 {
 		t.Errorf("TurnDuration events = %d, want 1", got)
 	}
 }
 
 func TestParseFixture_ToolNames(t *testing.T) {
 	t.Parallel()
-	events := parseFixture(t)
+	events := parseFixtureEvents(t)
 
 	var toolNames []string
 	for _, e := range events {
@@ -93,7 +96,7 @@ func TestParseFixture_ToolNames(t *testing.T) {
 
 func TestParseFixture_TokensAccumulate(t *testing.T) {
 	t.Parallel()
-	events := parseFixture(t)
+	events := parseFixtureEvents(t)
 
 	var lastTokenEvent agent.ParsedEvent
 	for _, e := range events {
@@ -104,10 +107,10 @@ func TestParseFixture_TokensAccumulate(t *testing.T) {
 
 	// Cumulative tokens across all 4 assistant messages:
 	// input: 1500+100+80+60 = 1740
-	// output: 200+150+120+80 = 550
 	if lastTokenEvent.Tokens.InputTokens != 1740 {
 		t.Errorf("cumulative input tokens = %d, want 1740", lastTokenEvent.Tokens.InputTokens)
 	}
+	// output: 200+150+120+80 = 550
 	if lastTokenEvent.Tokens.OutputTokens != 550 {
 		t.Errorf("cumulative output tokens = %d, want 550", lastTokenEvent.Tokens.OutputTokens)
 	}
@@ -122,7 +125,7 @@ func TestParseFixture_TokensAccumulate(t *testing.T) {
 
 func TestParseFixture_ModelPopulated(t *testing.T) {
 	t.Parallel()
-	events := parseFixture(t)
+	events := parseFixtureEvents(t)
 
 	for _, e := range events {
 		if e.Type == agent.EventTokenUpdate && e.Model == "" {
@@ -136,7 +139,7 @@ func TestParseFixture_ModelPopulated(t *testing.T) {
 
 func TestParseFixture_UserPromptContent(t *testing.T) {
 	t.Parallel()
-	events := parseFixture(t)
+	events := parseFixtureEvents(t)
 
 	for _, e := range events {
 		if e.Type == agent.EventUserPrompt {
@@ -154,7 +157,7 @@ func TestParseFixture_UserPromptContent(t *testing.T) {
 
 func TestParseFixture_TurnDuration(t *testing.T) {
 	t.Parallel()
-	events := parseFixture(t)
+	events := parseFixtureEvents(t)
 
 	for _, e := range events {
 		if e.Type == agent.EventTurnDuration {
@@ -169,7 +172,7 @@ func TestParseFixture_TurnDuration(t *testing.T) {
 
 func TestParseFixture_EstimatedCost(t *testing.T) {
 	t.Parallel()
-	events := parseFixture(t)
+	events := parseFixtureEvents(t)
 
 	var lastCost float64
 	for _, e := range events {
@@ -185,7 +188,7 @@ func TestParseFixture_EstimatedCost(t *testing.T) {
 
 func TestParseFixture_SessionID(t *testing.T) {
 	t.Parallel()
-	events := parseFixture(t)
+	events := parseFixtureEvents(t)
 
 	for _, e := range events {
 		if e.SessionID != "test-session-001" {
@@ -237,4 +240,33 @@ func TestSessionDir(t *testing.T) {
 	if dir != want {
 		t.Errorf("SessionDir = %q, want %q", dir, want)
 	}
+}
+
+// TestValidateLive validates a live JSONL file captured from a real Claude Code
+// session. Skipped when VALIDATE_JSONL is not set. Used by CI to verify the
+// parser works against the latest CLI output.
+func TestValidateLive(t *testing.T) {
+	jsonlPath := os.Getenv("VALIDATE_JSONL")
+	if jsonlPath == "" {
+		t.Skip("VALIDATE_JSONL not set, skipping live validation")
+	}
+
+	f, err := os.Open(jsonlPath)
+	if err != nil {
+		t.Fatalf("opening live JSONL: %v", err)
+	}
+	defer func() { _ = f.Close() }()
+
+	result, err := agent.ValidateJSONL(NewParser(), f)
+	if err != nil {
+		t.Fatalf("parsing live JSONL: %v", err)
+	}
+
+	result.Require(agent.EventToolUse, 1)
+	result.Require(agent.EventTokenUpdate, 1)
+	if err := result.Check(); err != nil {
+		t.Fatalf("live validation failed: %v", err)
+	}
+
+	t.Logf("live validation passed: %d total events, counts: %v", result.TotalEvents, result.Counts)
 }

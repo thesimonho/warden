@@ -151,6 +151,7 @@ Your PR will be checked by these workflows:
 | `ci.yml`              | PRs targeting `main`             | Go tests, TS typecheck, TS tests                                                     |
 | `release-please.yml`  | Push to `main`                   | Automated releases, cross-platform binary builds (linux/darwin/windows × amd64/arm64) |
 | `container.yml`       | Push to `main` (`container/**`), release | Build container image + devcontainer feature (`:latest` on push, semver on release)   |
+| `container-scheduled.yml` | Daily schedule (5 AM UTC)    | Validates container image, builds CLIs, validates JSONL parsers, pushes only on success |
 
 ## Stack
 

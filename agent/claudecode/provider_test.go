@@ -48,7 +48,7 @@ func TestParseConfig_ProjectWithoutSessionData(t *testing.T) {
 func TestParseConfig_SingleProject(t *testing.T) {
 	input := []byte(`{
 		"projects": {
-			"/project/.worktrees/abc-123": {
+			"/project/.claude/worktrees/abc-123": {
 				"lastCost": 0.0523,
 				"lastAPIDuration": 1500,
 				"lastDuration": 45000,
@@ -78,9 +78,9 @@ func TestParseConfig_SingleProject(t *testing.T) {
 		t.Fatalf("expected 1 entry, got %d", len(result))
 	}
 
-	status, ok := result["/project/.worktrees/abc-123"]
+	status, ok := result["/project/.claude/worktrees/abc-123"]
 	if !ok {
-		t.Fatal("expected entry for /project/.worktrees/abc-123")
+		t.Fatal("expected entry for /project/.claude/worktrees/abc-123")
 	}
 
 	if status.CostUSD != 0.0523 {
@@ -124,7 +124,7 @@ func TestParseConfig_SingleProject(t *testing.T) {
 func TestParseConfig_MultipleProjects(t *testing.T) {
 	input := []byte(`{
 		"projects": {
-			"/project/.worktrees/session-a": {
+			"/project/.claude/worktrees/session-a": {
 				"lastCost": 0.01,
 				"lastTotalInputTokens": 100,
 				"lastTotalOutputTokens": 50,
@@ -134,7 +134,7 @@ func TestParseConfig_MultipleProjects(t *testing.T) {
 					}
 				}
 			},
-			"/project/.worktrees/session-b": {
+			"/project/.claude/worktrees/session-b": {
 				"lastCost": 0.05,
 				"lastTotalInputTokens": 500,
 				"lastTotalOutputTokens": 200,
@@ -156,7 +156,7 @@ func TestParseConfig_MultipleProjects(t *testing.T) {
 		t.Fatalf("expected 2 entries (skipping /project with no data), got %d", len(result))
 	}
 
-	a := result["/project/.worktrees/session-a"]
+	a := result["/project/.claude/worktrees/session-a"]
 	if a == nil {
 		t.Fatal("missing session-a")
 		return // unreachable but helps staticcheck
@@ -165,7 +165,7 @@ func TestParseConfig_MultipleProjects(t *testing.T) {
 		t.Errorf("session-a model = %q, want Sonnet 4.6", a.Model.DisplayName)
 	}
 
-	b := result["/project/.worktrees/session-b"]
+	b := result["/project/.claude/worktrees/session-b"]
 	if b == nil {
 		t.Fatal("missing session-b")
 		return // unreachable but helps staticcheck

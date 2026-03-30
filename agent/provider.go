@@ -23,7 +23,7 @@ type StatusProvider interface {
 	// keyed by the working directory path that the agent was running in.
 	//
 	// For agents that use worktrees, the key is the worktree path
-	// (e.g. "/project/.worktrees/abc-123"). For non-worktree sessions,
+	// (e.g. "/project/.claude/worktrees/abc-123"). For non-worktree sessions,
 	// the key is the project root (e.g. "/project").
 	//
 	// Returns nil for keys where no status data is available.

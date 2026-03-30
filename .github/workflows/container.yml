@@ -32,51 +32,12 @@ jobs:
   # ── Push to main: build and tag :latest ──────────────────────────────
   build-image:
     if: ${{ !inputs.tag_name }}
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-      - name: Log in to GHCR
-        uses: docker/login-action@v4
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v4
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v4
-      - name: Extract metadata
-        uses: docker/metadata-action@v6
-        id: meta
-        with:
-          images: ghcr.io/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}
-          tags: |
-            type=raw,value=latest
-            type=sha,prefix=sha-,format=short
-          labels: |
-            org.opencontainers.image.description=Project container image with abduco, Claude Code CLI, and Codex CLI for Warden sessions
-      - name: Build and push
-        uses: docker/build-push-action@v6
-        with:
-          context: ./container
-          push: true
-          platforms: linux/amd64,linux/arm64
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          provenance: false
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-      - name: Delete old untagged GHCR image versions
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          versions=$(gh api -H "Accept: application/vnd.github+json" \
-            "/user/packages/container/${{ env.IMAGE_NAME }}/versions" |
-            jq '[.[] | select(.metadata.container.tags | length == 0)] | sort_by(.created_at) | reverse | .[2:] | .[].id')
-          for version_id in $versions; do
-            echo "Deleting untagged image version ID: $version_id"
-            gh api --method DELETE "/user/packages/container/${{ env.IMAGE_NAME }}/versions/$version_id" || true
-          done
+    uses: ./.github/workflows/container-build.yml
+    with:
+      push: true
+      tags: |
+        type=raw,value=latest
+        type=sha,prefix=sha-,format=short
 
   push-feature-latest:
     if: ${{ !inputs.tag_name }}
@@ -107,54 +68,15 @@ jobs:
   # ── Release: build and tag with semver ────────────────────────────────
   build-image-release:
     if: ${{ inputs.tag_name }}
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-      - name: Log in to GHCR
-        uses: docker/login-action@v4
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v4
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v4
-      - name: Extract metadata
-        uses: docker/metadata-action@v6
-        id: meta
-        with:
-          images: ghcr.io/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}
-          tags: |
-            type=raw,value=latest
-            type=raw,value=${{ inputs.tag_name }}
-            type=raw,value=v${{ inputs.major }}.${{ inputs.minor }}
-            type=raw,value=v${{ inputs.major }}
-            type=sha,prefix=sha-,format=short
-          labels: |
-            org.opencontainers.image.description=Project container image with abduco, Claude Code CLI, and Codex CLI for Warden sessions
-      - name: Build and push
-        uses: docker/build-push-action@v6
-        with:
-          context: ./container
-          push: true
-          platforms: linux/amd64,linux/arm64
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          provenance: false
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-      - name: Delete old untagged GHCR image versions
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          versions=$(gh api -H "Accept: application/vnd.github+json" \
-            "/user/packages/container/${{ env.IMAGE_NAME }}/versions" |
-            jq '[.[] | select(.metadata.container.tags | length == 0)] | sort_by(.created_at) | reverse | .[2:] | .[].id')
-          for version_id in $versions; do
-            echo "Deleting untagged image version ID: $version_id"
-            gh api --method DELETE "/user/packages/container/${{ env.IMAGE_NAME }}/versions/$version_id" || true
-          done
+    uses: ./.github/workflows/container-build.yml
+    with:
+      push: true
+      tags: |
+        type=raw,value=latest
+        type=raw,value=${{ inputs.tag_name }}
+        type=raw,value=v${{ inputs.major }}.${{ inputs.minor }}
+        type=raw,value=v${{ inputs.major }}
+        type=sha,prefix=sha-,format=short
 
   publish-feature-release:
     if: ${{ inputs.tag_name }}

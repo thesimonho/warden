@@ -64,13 +64,15 @@ func TestWorktreeIDFromPath(t *testing.T) {
 		expected string
 	}{
 		{name: "project root", path: "/home/dev/my-app", wsDir: "/home/dev/my-app", expected: "main"},
-		{name: "legacy worktree path", path: "/home/dev/my-app/.worktrees/feature-x", wsDir: "/home/dev/my-app", expected: "feature-x"},
-		{name: "legacy worktree with dots", path: "/home/dev/my-app/.worktrees/fix.bug", wsDir: "/home/dev/my-app", expected: "fix.bug"},
 		{name: "claude worktree path", path: "/home/dev/my-app/.claude/worktrees/griod", wsDir: "/home/dev/my-app", expected: "griod"},
 		{name: "claude worktree with hyphens", path: "/home/dev/my-app/.claude/worktrees/my-feature", wsDir: "/home/dev/my-app", expected: "my-feature"},
+		{name: "claude worktree with dots", path: "/home/dev/my-app/.claude/worktrees/fix.bug", wsDir: "/home/dev/my-app", expected: "fix.bug"},
+		{name: "warden worktree path", path: "/home/dev/my-app/.warden/worktrees/feature-x", wsDir: "/home/dev/my-app", expected: "feature-x"},
+		{name: "warden worktree with dots", path: "/home/dev/my-app/.warden/worktrees/fix.bug", wsDir: "/home/dev/my-app", expected: "fix.bug"},
 		{name: "unrecognized path", path: "/some/other/path", wsDir: "/home/dev/my-app", expected: "main"},
-		{name: "legacy /project path", path: "/project", wsDir: "/project", expected: "main"},
-		{name: "legacy /project worktree", path: "/project/.claude/worktrees/feat", wsDir: "/project", expected: "feat"},
+		{name: "/project path", path: "/project", wsDir: "/project", expected: "main"},
+		{name: "/project claude worktree", path: "/project/.claude/worktrees/feat", wsDir: "/project", expected: "feat"},
+		{name: "/project warden worktree", path: "/project/.warden/worktrees/feat", wsDir: "/project", expected: "feat"},
 	}
 
 	for _, tc := range tests {
@@ -91,11 +93,11 @@ func TestParseGitWorktreeList(t *testing.T) {
 HEAD abc123def456789
 branch refs/heads/main
 
-worktree /project/.worktrees/feature-x
+worktree /project/.claude/worktrees/feature-x
 HEAD def456abc123789
 branch refs/heads/feature-x
 
-worktree /project/.worktrees/fix.login
+worktree /project/.claude/worktrees/fix.login
 HEAD 789abc123def456
 branch refs/heads/fix/login
 `

@@ -56,6 +56,15 @@ describe('worktreeHostPath', () => {
     expect(result).toBe('/home/simon/myapp/.claude/worktrees/feat')
   })
 
+  it('maps warden worktree subpath to host dir', () => {
+    const result = worktreeHostPath(
+      '/home/simon/myapp',
+      '/home/dev/myapp/.warden/worktrees/feature-x',
+      '/home/dev/myapp',
+    )
+    expect(result).toBe('/home/simon/myapp/.warden/worktrees/feature-x')
+  })
+
   it('falls back to raw path when no prefix matches', () => {
     const result = worktreeHostPath('/home/simon/myapp', '/some/other/path', '/home/dev/myapp')
     expect(result).toBe('/home/simon/myapp/some/other/path')

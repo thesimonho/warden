@@ -31,7 +31,7 @@ if [[ ! "$WORKTREE_ID" =~ ^[a-zA-Z0-9][a-zA-Z0-9._-]*$ ]]; then
 fi
 
 WORKSPACE_DIR="${WARDEN_WORKSPACE_DIR:-/project}"
-TERMINAL_DIR="${WORKSPACE_DIR}/.warden-terminals/${WORKTREE_ID}"
+TERMINAL_DIR="${WORKSPACE_DIR}/.warden/terminals/${WORKTREE_ID}"
 mkdir -p "$TERMINAL_DIR"
 
 # -------------------------------------------------------------------
@@ -60,9 +60,11 @@ case "$AGENT_TYPE" in
     # Codex has no --worktree flag — create the worktree manually and
     # set the working directory to the worktree path.
     if [ "$IS_GIT_REPO" = true ] && [ "$WORKTREE_ID" != "main" ]; then
-      WORKTREE_PATH="${WORKSPACE_DIR}/.claude/worktrees/${WORKTREE_ID}"
+      WORKTREE_PATH="${WORKSPACE_DIR}/.warden/worktrees/${WORKTREE_ID}"
       if [ ! -d "$WORKTREE_PATH" ]; then
-        git -C "$WORKSPACE_DIR" worktree add "$WORKTREE_PATH" -b "$WORKTREE_ID" 2>/dev/null || true
+        git -C "$WORKSPACE_DIR" worktree add "$WORKTREE_PATH" -b "$WORKTREE_ID" 2>/dev/null \
+          || git -C "$WORKSPACE_DIR" worktree add "$WORKTREE_PATH" "$WORKTREE_ID" 2>/dev/null \
+          || true
       fi
       if [ -d "$WORKTREE_PATH" ]; then
         WORK_DIR="$WORKTREE_PATH"

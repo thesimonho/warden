@@ -57,7 +57,7 @@ warden_check_event_env() {
 
 # warden_extract_worktree_id derives the worktree ID from a cwd path.
 # Claude Code worktrees: .claude/worktrees/<id>
-# Legacy worktrees: .worktrees/<id>
+# Warden-managed worktrees: .warden/worktrees/<id>
 # Workspace root: "main"
 #
 # Usage: WORKTREE_ID=$(warden_extract_worktree_id "$CWD" "$WORKSPACE_DIR")
@@ -68,7 +68,7 @@ warden_extract_worktree_id() {
   fi
   if [[ "$cwd" =~ /\.claude/worktrees/([^/]+) ]]; then
     printf '%s' "${BASH_REMATCH[1]}"
-  elif [[ "$cwd" =~ /\.worktrees/([^/]+) ]]; then
+  elif [[ "$cwd" =~ /\.warden/worktrees/([^/]+) ]]; then
     printf '%s' "${BASH_REMATCH[1]}"
   elif [ "$cwd" = "$workspace_dir" ] || [[ "$cwd" =~ ^${workspace_dir}/ ]]; then
     printf 'main'

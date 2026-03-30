@@ -9,7 +9,19 @@ A **Terminal** is the interface into a worktree. Terminals connect to a persiste
 
 ## Creating Worktrees
 
-Create a worktree by providing a name. Warden creates an isolated directory with its own git branch, starts Claude Code, and connects your terminal. For non-git projects, the worktree is simply the project root directory.
+Create a worktree by providing a name. Warden creates an isolated directory with its own git branch, starts the agent, and connects your terminal. For non-git projects, the worktree is simply the project root directory.
+
+### Worktree Storage
+
+Worktrees are stored at agent-specific paths within the project:
+
+| Agent       | Path                                  | Notes                                                   |
+|-------------|---------------------------------------|-----------------------------------------------------------|
+| **Claude**  | `.claude/worktrees/{worktree-id}/`    | Hardcoded by Claude Code. Cannot be configured.         |
+| **Codex**   | `.warden/worktrees/{worktree-id}/`    | Warden-managed path for other agents (future support).  |
+| **Others**  | `.warden/worktrees/{worktree-id}/`    | Same location for other supported agents.               |
+
+Each agent has its own isolated worktree directory so multiple agents can work on different branches within the same project simultaneously without interference.
 
 ## Terminal Actions
 

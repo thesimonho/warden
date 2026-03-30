@@ -5,6 +5,7 @@ description: Get up and running with Warden in under a minute.
 
 ## Prerequisites
 
+- [Git](https://git-scm.com/downloads) — required for worktree support
 - [Docker](https://docs.docker.com/get-docker/) or [Podman](https://podman.io/docs/installation)
 - [Claude Code](https://docs.anthropic.com/en/docs/agents-and-tools/claude-code/overview) — currently the only supported agent (more coming soon)
 

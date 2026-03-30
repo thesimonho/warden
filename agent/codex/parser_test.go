@@ -8,14 +8,15 @@ import (
 	"github.com/thesimonho/warden/agent"
 )
 
-func parseFixture(t *testing.T) []agent.ParsedEvent {
+// parseFixtureEvents reads the fixture and collects all parsed events.
+func parseFixtureEvents(t *testing.T) []agent.ParsedEvent {
 	t.Helper()
 
 	f, err := os.Open("testdata/session.jsonl")
 	if err != nil {
 		t.Fatalf("opening fixture: %v", err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	parser := NewParser()
 	var allEvents []agent.ParsedEvent
@@ -34,42 +35,46 @@ func parseFixture(t *testing.T) []agent.ParsedEvent {
 
 func TestParseFixture_EventCounts(t *testing.T) {
 	t.Parallel()
-	events := parseFixture(t)
 
-	counts := make(map[agent.ParsedEventType]int)
-	for _, e := range events {
-		counts[e.Type]++
+	f, err := os.Open("testdata/session.jsonl")
+	if err != nil {
+		t.Fatalf("opening fixture: %v", err)
+	}
+	defer func() { _ = f.Close() }()
+
+	result, err := agent.ValidateJSONL(NewParser(), f)
+	if err != nil {
+		t.Fatalf("validating fixture: %v", err)
 	}
 
-	// 1 session start (session_meta)
-	if got := counts[agent.EventSessionStart]; got != 1 {
+	// Minimum events any valid Codex session must produce.
+	result.Require(agent.EventToolUse, 1)
+	result.Require(agent.EventTokenUpdate, 1)
+	if err := result.Check(); err != nil {
+		t.Fatalf("baseline validation failed: %v", err)
+	}
+
+	// Exact counts for this fixture.
+	if got := result.Counts[agent.EventSessionStart]; got != 1 {
 		t.Errorf("SessionStart events = %d, want 1", got)
 	}
-
-	// 3 tool uses (3 exec_command function_calls)
-	if got := counts[agent.EventToolUse]; got != 3 {
+	if got := result.Counts[agent.EventToolUse]; got != 3 {
 		t.Errorf("ToolUse events = %d, want 3", got)
 	}
-
-	// 1 user prompt
-	if got := counts[agent.EventUserPrompt]; got != 1 {
+	if got := result.Counts[agent.EventUserPrompt]; got != 1 {
 		t.Errorf("UserPrompt events = %d, want 1", got)
 	}
-
-	// 3 token updates (one per token_count with info)
-	if got := counts[agent.EventTokenUpdate]; got != 3 {
+	if got := result.Counts[agent.EventTokenUpdate]; got != 3 {
 		t.Errorf("TokenUpdate events = %d, want 3", got)
 	}
-
-	// 1 turn complete (task_complete)
-	if got := counts[agent.EventTurnComplete]; got != 1 {
+	if got := result.Counts[agent.EventTurnComplete]; got != 1 {
 		t.Errorf("TurnComplete events = %d, want 1", got)
 	}
 }
 
 func TestParseFixture_ToolNames(t *testing.T) {
 	t.Parallel()
-	events := parseFixture(t)
+	events := parseFixtureEvents(t)
 
 	var toolNames []string
 	for _, e := range events {
@@ -78,7 +83,6 @@ func TestParseFixture_ToolNames(t *testing.T) {
 		}
 	}
 
-	// All 3 are exec_command calls
 	for i, name := range toolNames {
 		if name != "exec_command" {
 			t.Errorf("tool[%d] = %q, want %q", i, name, "exec_command")
@@ -88,7 +92,7 @@ func TestParseFixture_ToolNames(t *testing.T) {
 
 func TestParseFixture_TokensFromLastUpdate(t *testing.T) {
 	t.Parallel()
-	events := parseFixture(t)
+	events := parseFixtureEvents(t)
 
 	var lastTokenEvent agent.ParsedEvent
 	for _, e := range events {
@@ -112,7 +116,7 @@ func TestParseFixture_TokensFromLastUpdate(t *testing.T) {
 
 func TestParseFixture_ModelPopulated(t *testing.T) {
 	t.Parallel()
-	events := parseFixture(t)
+	events := parseFixtureEvents(t)
 
 	for _, e := range events {
 		if e.Type == agent.EventTokenUpdate && e.Model == "" {
@@ -126,7 +130,7 @@ func TestParseFixture_ModelPopulated(t *testing.T) {
 
 func TestParseFixture_SessionStart(t *testing.T) {
 	t.Parallel()
-	events := parseFixture(t)
+	events := parseFixtureEvents(t)
 
 	for _, e := range events {
 		if e.Type == agent.EventSessionStart {
@@ -144,7 +148,7 @@ func TestParseFixture_SessionStart(t *testing.T) {
 
 func TestParseFixture_EstimatedCost(t *testing.T) {
 	t.Parallel()
-	events := parseFixture(t)
+	events := parseFixtureEvents(t)
 
 	var lastCost float64
 	for _, e := range events {
@@ -188,4 +192,33 @@ func TestSessionDir(t *testing.T) {
 	if dir != want {
 		t.Errorf("SessionDir = %q, want %q", dir, want)
 	}
+}
+
+// TestValidateLive validates a live JSONL file captured from a real Codex
+// session. Skipped when VALIDATE_JSONL is not set. Used by CI to verify the
+// parser works against the latest CLI output.
+func TestValidateLive(t *testing.T) {
+	jsonlPath := os.Getenv("VALIDATE_JSONL")
+	if jsonlPath == "" {
+		t.Skip("VALIDATE_JSONL not set, skipping live validation")
+	}
+
+	f, err := os.Open(jsonlPath)
+	if err != nil {
+		t.Fatalf("opening live JSONL: %v", err)
+	}
+	defer func() { _ = f.Close() }()
+
+	result, err := agent.ValidateJSONL(NewParser(), f)
+	if err != nil {
+		t.Fatalf("parsing live JSONL: %v", err)
+	}
+
+	result.Require(agent.EventToolUse, 1)
+	result.Require(agent.EventTokenUpdate, 1)
+	if err := result.Check(); err != nil {
+		t.Fatalf("live validation failed: %v", err)
+	}
+
+	t.Logf("live validation passed: %d total events, counts: %v", result.TotalEvents, result.Counts)
 }
