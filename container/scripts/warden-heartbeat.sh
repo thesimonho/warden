@@ -33,10 +33,6 @@ source /usr/local/bin/warden-write-event.sh
 while true; do
   sleep "$INTERVAL"
 
-  JSON=$(jq -cn \
-    --arg cn "$CONTAINER_NAME" \
-    --arg pid "$PROJECT_ID" \
-    '{"type":"heartbeat","containerName":$cn,"projectId":$pid,"worktreeId":""}')
-
-  warden_write_event "$JSON"
+  WORKTREE_ID=""
+  warden_write_event "$(warden_build_event_json "heartbeat" "{}")"
 done

@@ -58,7 +58,7 @@ INPUT=$(cat)
 # Claude Code stores worktrees at .claude/worktrees/<id>;
 # .worktrees/<id> is the legacy path.
 # -------------------------------------------------------------------
-CWD=$(echo "$INPUT" | jq -r '.cwd // empty' 2>/dev/null)
+CWD=$(warden_extract_field "$INPUT" "cwd")
 WORKTREE_ID=""
 
 WORKSPACE_DIR="${WARDEN_WORKSPACE_DIR:-/project}"
@@ -76,7 +76,7 @@ fi
 # For session_end, the worktree directory may already be removed.
 # Extract worktree ID from transcript_path instead.
 if [ "$EVENT_TYPE" = "session_end" ] && [ "$WORKTREE_ID" = "main" ]; then
-  TRANSCRIPT_PATH=$(echo "$INPUT" | jq -r '.transcript_path // empty' 2>/dev/null)
+  TRANSCRIPT_PATH=$(warden_extract_field "$INPUT" "transcript_path")
   if [[ "$TRANSCRIPT_PATH" =~ -project--claude-worktrees-([^/]+)/ ]]; then
     WORKTREE_ID="${BASH_REMATCH[1]}"
   fi
@@ -84,6 +84,8 @@ fi
 
 # -------------------------------------------------------------------
 # Build event-specific data payload.
+# Simple string fields use warden_extract_field (no jq fork). Fields
+# with arbitrary content or multiple fields use a single jq call.
 # -------------------------------------------------------------------
 DATA="{}"
 
@@ -94,16 +96,11 @@ case "$EVENT_TYPE" in
     # even if SessionEnd was cancelled by Ctrl-C.
     send_cost_event
 
-    SESSION_ID=$(echo "$INPUT" | jq -r '.session_id // empty' 2>/dev/null)
-    MODEL=$(echo "$INPUT" | jq -r '.model // empty' 2>/dev/null)
-    SOURCE=$(echo "$INPUT" | jq -r '.source // empty' 2>/dev/null)
-    if [ -n "$SESSION_ID" ] || [ -n "$MODEL" ] || [ -n "$SOURCE" ]; then
-      DATA=$(jq -cn \
-        --arg sid "$SESSION_ID" \
-        --arg model "$MODEL" \
-        --arg source "$SOURCE" \
-        '{"sessionId": $sid, "model": $model, "source": $source}')
-    fi
+    DATA=$(printf '%s' "$INPUT" | jq -c '{
+      sessionId: (.session_id // ""),
+      model: (.model // ""),
+      source: (.source // "")
+    }')
     ;;
 
   session_end)
@@ -111,40 +108,31 @@ case "$EVENT_TYPE" in
     # capture cost data before the .claude.json entry may be cleaned up.
     send_cost_event
 
-    REASON=$(echo "$INPUT" | jq -r '.reason // empty' 2>/dev/null)
+    REASON=$(warden_extract_field "$INPUT" "reason")
     if [ -n "$REASON" ]; then
-      DATA=$(jq -cn --arg reason "$REASON" '{"reason": $reason}')
+      DATA="{\"reason\":\"${REASON}\"}"
     fi
     ;;
 
   notification)
-    NOTIFICATION_TYPE=$(echo "$INPUT" | jq -r '.notification_type // empty' 2>/dev/null)
+    NOTIFICATION_TYPE=$(warden_extract_field "$INPUT" "notification_type")
     if [ -n "$NOTIFICATION_TYPE" ]; then
-      DATA=$(jq -cn --arg nt "$NOTIFICATION_TYPE" '{"notificationType": $nt}')
+      DATA="{\"notificationType\":\"${NOTIFICATION_TYPE}\"}"
     fi
     # Map Claude Code's "notification" hook to eventbus.EventAttention.
     EVENT_TYPE="attention"
     ;;
 
   pre_tool_use)
-    TOOL_NAME=$(echo "$INPUT" | jq -r '.tool_name // empty' 2>/dev/null)
-    TOOL_INPUT=$(echo "$INPUT" | jq -r '.tool_input // empty' 2>/dev/null)
-    TOOL_INPUT_TRUNCATED=$(printf '%.1000s' "$TOOL_INPUT")
+    TOOL_NAME=$(warden_extract_field "$INPUT" "tool_name")
 
     # Write a tool_use audit event for every tool invocation (backgrounded
     # to avoid adding latency — the attention event below is synchronous).
-    TOOL_USE_DATA=$(jq -cn \
+    # Single jq call extracts tool_input and builds the data object.
+    TOOL_USE_DATA=$(printf '%s' "$INPUT" | jq -c \
       --arg tool "$TOOL_NAME" \
-      --arg input "$TOOL_INPUT_TRUNCATED" \
-      '{"toolName": $tool, "toolInput": $input}')
-    TOOL_USE_JSON=$(jq -cn \
-      --arg type "tool_use" \
-      --arg cn "$CONTAINER_NAME" \
-      --arg pid "$PROJECT_ID" \
-      --arg wt "$WORKTREE_ID" \
-      --argjson data "$TOOL_USE_DATA" \
-      '{"type": $type, "containerName": $cn, "projectId": $pid, "worktreeId": $wt, "data": $data}')
-    warden_write_event "$TOOL_USE_JSON" &
+      '{toolName: $tool, toolInput: (.tool_input // "")[:1000]}')
+    warden_write_event "$(warden_build_event_json "tool_use" "$TOOL_USE_DATA")" &
 
     # Also send attention state event (existing behavior).
     if [ "$TOOL_NAME" = "AskUserQuestion" ]; then
@@ -152,21 +140,13 @@ case "$EVENT_TYPE" in
     else
       EVENT_TYPE="attention_clear"
     fi
-    DATA=$(jq -cn --arg tool "$TOOL_NAME" '{"toolName": $tool}')
+    DATA="{\"toolName\":\"${TOOL_NAME}\"}"
     ;;
 
   user_prompt_submit)
     # Write attention_clear first (existing real-time state behavior).
-    CLEAR_JSON=$(jq -cn \
-      --arg type "attention_clear" \
-      --arg cn "$CONTAINER_NAME" \
-      --arg pid "$PROJECT_ID" \
-      --arg wt "$WORKTREE_ID" \
-      --argjson data '{}' \
-      '{"type": $type, "containerName": $cn, "projectId": $pid, "worktreeId": $wt, "data": $data}')
-    warden_write_event "$CLEAR_JSON"
+    warden_write_event "$(warden_build_event_json "attention_clear" "{}")"
 
-    # Log the user prompt as a separate event.
     # Claude Code's UserPromptSubmit hook fires for both real user input and
     # system-injected messages. There's no field to distinguish them — only
     # the prompt text differs. Filter out known system tags to avoid polluting
@@ -179,97 +159,87 @@ case "$EVENT_TYPE" in
     fi
 
     EVENT_TYPE="user_prompt"
-    TRUNCATED=$(printf '%.500s' "$PROMPT")
-    DATA=$(jq -cn --arg prompt "$TRUNCATED" '{"prompt": $prompt}')
+    DATA=$(jq -cn --arg prompt "$(printf '%.500s' "$PROMPT")" '{"prompt": $prompt}')
     ;;
 
   post_tool_use_failure)
-    TOOL_NAME=$(echo "$INPUT" | jq -r '.tool_name // empty' 2>/dev/null)
-    ERROR_MSG=$(echo "$INPUT" | jq -r '.error // empty' 2>/dev/null)
-    ERROR_TRUNCATED=$(printf '%.500s' "$ERROR_MSG")
+    DATA=$(printf '%s' "$INPUT" | jq -c '{
+      toolName: (.tool_name // ""),
+      error: (.error // "")[:500]
+    }')
     EVENT_TYPE="tool_use_failure"
-    DATA=$(jq -cn \
-      --arg tool "$TOOL_NAME" \
-      --arg error "$ERROR_TRUNCATED" \
-      '{"toolName": $tool, "error": $error}')
     ;;
 
   stop_failure)
-    ERROR_MSG=$(echo "$INPUT" | jq -r '.error // empty' 2>/dev/null)
-    ERROR_DETAILS=$(echo "$INPUT" | jq -r '.error_details // empty' 2>/dev/null)
-    EVENT_TYPE="stop_failure"
-    DATA=$(jq -cn \
-      --arg error "$ERROR_MSG" \
-      --arg details "$ERROR_DETAILS" \
-      '{"error": $error, "errorDetails": $details}')
+    DATA=$(printf '%s' "$INPUT" | jq -c '{
+      error: (.error // ""),
+      errorDetails: (.error_details // "")
+    }')
     ;;
 
   permission_request)
-    TOOL_NAME=$(echo "$INPUT" | jq -r '.tool_name // empty' 2>/dev/null)
-    EVENT_TYPE="permission_request"
-    DATA=$(jq -cn --arg tool "$TOOL_NAME" '{"toolName": $tool}')
+    TOOL_NAME=$(warden_extract_field "$INPUT" "tool_name")
+    if [ -n "$TOOL_NAME" ]; then
+      DATA="{\"toolName\":\"${TOOL_NAME}\"}"
+    fi
     ;;
 
   subagent_start|subagent_stop)
-    AGENT_ID=$(echo "$INPUT" | jq -r '.agent_id // empty' 2>/dev/null)
-    AGENT_TYPE=$(echo "$INPUT" | jq -r '.agent_type // empty' 2>/dev/null)
-    DATA=$(jq -cn \
-      --arg id "$AGENT_ID" \
-      --arg type "$AGENT_TYPE" \
-      '{"agentId": $id, "agentType": $type}')
+    DATA=$(printf '%s' "$INPUT" | jq -c '{
+      agentId: (.agent_id // ""),
+      agentType: (.agent_type // "")
+    }')
     ;;
 
   config_change)
-    CONFIG_SOURCE=$(echo "$INPUT" | jq -r '.source // empty' 2>/dev/null)
-    FILE_PATH=$(echo "$INPUT" | jq -r '.file_path // empty' 2>/dev/null)
-    EVENT_TYPE="config_change"
-    DATA=$(jq -cn \
-      --arg source "$CONFIG_SOURCE" \
-      --arg path "$FILE_PATH" \
-      '{"source": $source, "filePath": $path}')
+    DATA=$(printf '%s' "$INPUT" | jq -c '{
+      source: (.source // ""),
+      filePath: (.file_path // "")
+    }')
     ;;
 
   instructions_loaded)
-    FILE_PATH=$(echo "$INPUT" | jq -r '.file_path // empty' 2>/dev/null)
-    LOAD_REASON=$(echo "$INPUT" | jq -r '.load_reason // empty' 2>/dev/null)
-    EVENT_TYPE="instructions_loaded"
-    DATA=$(jq -cn \
-      --arg path "$FILE_PATH" \
-      --arg reason "$LOAD_REASON" \
-      '{"filePath": $path, "loadReason": $reason}')
+    DATA=$(printf '%s' "$INPUT" | jq -c '{
+      filePath: (.file_path // ""),
+      loadReason: (.load_reason // "")
+    }')
     ;;
 
   task_completed)
-    TASK_ID=$(echo "$INPUT" | jq -r '.task_id // empty' 2>/dev/null)
-    TASK_SUBJECT=$(echo "$INPUT" | jq -r '.task_subject // empty' 2>/dev/null)
-    EVENT_TYPE="task_completed"
-    DATA=$(jq -cn \
-      --arg id "$TASK_ID" \
-      --arg subject "$TASK_SUBJECT" \
-      '{"taskId": $id, "taskSubject": $subject}')
+    DATA=$(printf '%s' "$INPUT" | jq -c '{
+      taskId: (.task_id // ""),
+      taskSubject: (.task_subject // "")
+    }')
     ;;
 
   elicitation)
-    MCP_SERVER=$(echo "$INPUT" | jq -r '.mcp_server_name // empty' 2>/dev/null)
-    EVENT_TYPE="elicitation"
-    DATA=$(jq -cn --arg server "$MCP_SERVER" '{"mcpServerName": $server}')
+    MCP_SERVER=$(warden_extract_field "$INPUT" "mcp_server_name")
+    if [ -n "$MCP_SERVER" ]; then
+      DATA="{\"mcpServerName\":\"${MCP_SERVER}\"}"
+    fi
     ;;
 
   elicitation_result)
-    MCP_SERVER=$(echo "$INPUT" | jq -r '.mcp_server_name // empty' 2>/dev/null)
-    ACTION=$(echo "$INPUT" | jq -r '.action // empty' 2>/dev/null)
-    EVENT_TYPE="elicitation_result"
-    DATA=$(jq -cn \
-      --arg server "$MCP_SERVER" \
-      --arg action "$ACTION" \
-      '{"mcpServerName": $server, "action": $action}')
+    DATA=$(printf '%s' "$INPUT" | jq -c '{
+      mcpServerName: (.mcp_server_name // ""),
+      action: (.action // "")
+    }')
     ;;
 
   stop)
-    COST_DATA=$(read_cost_data)
-    if [ -n "$COST_DATA" ] && [ "$COST_DATA" != "{}" ]; then
-      DATA="$COST_DATA"
-    fi
+    # Background the entire stop event (cost read + event write) so the
+    # script exits immediately and Claude Code can fire the Notification
+    # hook without waiting for the slow jq-based cost read from .claude.json.
+    # Cost capture has multiple redundant paths, so missing this one on a
+    # fast container shutdown is acceptable.
+    {
+      COST_DATA=$(read_cost_data)
+      if [ -n "$COST_DATA" ] && [ "$COST_DATA" != "{}" ]; then
+        DATA="$COST_DATA"
+      fi
+      warden_write_event "$(warden_build_event_json "$EVENT_TYPE" "$DATA")"
+    } &
+    exit 0
     ;;
 esac
 
@@ -277,14 +247,6 @@ esac
 # Write event to the event directory. Atomic file write with
 # nanosecond timestamp filename for rough chronological ordering.
 # -------------------------------------------------------------------
-JSON=$(jq -cn \
-  --arg type "$EVENT_TYPE" \
-  --arg cn "$CONTAINER_NAME" \
-  --arg pid "$PROJECT_ID" \
-  --arg wt "$WORKTREE_ID" \
-  --argjson data "$DATA" \
-  '{"type": $type, "containerName": $cn, "projectId": $pid, "worktreeId": $wt, "data": $data}')
-
-warden_write_event "$JSON"
+warden_write_event "$(warden_build_event_json "$EVENT_TYPE" "$DATA")"
 
 exit 0

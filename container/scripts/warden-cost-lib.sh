@@ -48,14 +48,6 @@ send_cost_event() {
   local cost_data
   cost_data=$(read_cost_data)
   if [ -n "$cost_data" ] && [ "$cost_data" != "{}" ]; then
-    local cost_json
-    cost_json=$(jq -cn \
-      --arg type "stop" \
-      --arg cn "$CONTAINER_NAME" \
-      --arg pid "${PROJECT_ID:-}" \
-      --arg wt "$WORKTREE_ID" \
-      --argjson data "$cost_data" \
-      '{"type": $type, "containerName": $cn, "projectId": $pid, "worktreeId": $wt, "data": $data}')
-    warden_write_event "$cost_json"
+    warden_write_event "$(warden_build_event_json "stop" "$cost_data")"
   fi
 }

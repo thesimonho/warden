@@ -14,7 +14,9 @@ paths:
 
 ## Attention tracking
 
-Claude Code's hook events (Notification, PreToolUse, UserPromptSubmit) are pushed via `warden-event.sh` to a bind-mounted event directory (`WARDEN_EVENT_DIR`) → `eventbus/watcher.go` detects files and parses events → `eventbus/store.go` tracks attention state → SSE broadcasts to frontend. The watcher watches the directory using fsnotify (fast path) + polling every 2s (reliable fallback). Filesystem permissions handle access control (no bearer token needed). `UserPromptSubmit` fires two events: `attention_clear` (internal state — not written to audit log) and `user_prompt` (logged with prompt text, truncated to 500 chars).
+Claude Code's hook events (Notification, PreToolUse, UserPromptSubmit) are pushed via `warden-event.sh` to a bind-mounted event directory (`WARDEN_EVENT_DIR`) → `eventbus/watcher.go` detects files and parses events → `eventbus/store.go` tracks attention state → SSE broadcasts to frontend → audit log write. The watcher watches the directory using fsnotify (fast path) + polling every 2s (reliable fallback). Filesystem permissions handle access control (no bearer token needed). `UserPromptSubmit` fires two events: `attention_clear` (internal state — not written to audit log) and `user_prompt` (logged with prompt text, truncated to 500 chars).
+
+The `Stop` hook is backgrounded in `warden-event.sh` so it doesn't block Claude Code from firing the subsequent `Notification` hook. In `HandleEvent()`, SSE broadcast runs before audit DB write — both are independent operations outside the store lock, but broadcasting first minimizes frontend notification latency.
 
 Every attention state change emits both a `worktree_state` SSE event (per-worktree) and a `project_state` SSE event (aggregated across all worktrees, with the highest-priority notification type). This keeps project cards and browser notifications in sync without the frontend needing to aggregate.
 
