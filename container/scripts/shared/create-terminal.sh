@@ -6,9 +6,9 @@ set -euo pipefail
 #
 # Usage: create-terminal.sh <worktree-id> [--skip-permissions]
 #
-# Starts an abduco session running Claude Code with --worktree for git
-# repos. When Claude exits, the bash shell stays alive so the user can
-# run follow-up commands.
+# Starts an abduco session running the configured agent (Claude Code
+# or Codex) for the given worktree. When the agent exits, the bash
+# shell stays alive so the user can run follow-up commands.
 #
 # The worktree-id is either a git worktree name (for git repos) or
 # "main" for non-git repos (the workspace root).
@@ -35,10 +35,11 @@ TERMINAL_DIR="${WORKSPACE_DIR}/.warden-terminals/${WORKTREE_ID}"
 mkdir -p "$TERMINAL_DIR"
 
 # -------------------------------------------------------------------
-# Determine working directory and Claude flags
+# Determine working directory and agent type
 # -------------------------------------------------------------------
 IS_GIT_REPO=false
 WORK_DIR="$WORKSPACE_DIR"
+AGENT_TYPE="${WARDEN_AGENT_TYPE:-claude-code}"
 
 if git -C "$WORKSPACE_DIR" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
   IS_GIT_REPO=true
@@ -48,24 +49,56 @@ fi
 rm -f "${TERMINAL_DIR}/exit_code"
 
 # -------------------------------------------------------------------
-# Build the command to run inside abduco
+# Build the agent command based on agent type.
 #
-# Launches interactive Claude Code. When the user exits Claude, we
-# write the exit status and drop to a bash shell so the abduco session
-# stays alive for follow-up work (inspect output, run commands, etc).
+# Claude Code: uses --worktree flag to manage worktrees natively.
+# Codex: has no --worktree flag. Warden creates the git worktree and
+#   sets the working directory before launching Codex.
 # -------------------------------------------------------------------
-CLAUDE_FLAGS=""
-if [ "$IS_GIT_REPO" = true ] && [ "$WORKTREE_ID" != "main" ]; then
-  CLAUDE_FLAGS="--worktree '${WORKTREE_ID}'"
-fi
-if [ "$SKIP_PERMISSIONS" = "--skip-permissions" ]; then
-  CLAUDE_FLAGS="--dangerously-skip-permissions ${CLAUDE_FLAGS}"
-fi
+case "$AGENT_TYPE" in
+  codex)
+    # Codex has no --worktree flag — create the worktree manually and
+    # set the working directory to the worktree path.
+    if [ "$IS_GIT_REPO" = true ] && [ "$WORKTREE_ID" != "main" ]; then
+      WORKTREE_PATH="${WORKSPACE_DIR}/.claude/worktrees/${WORKTREE_ID}"
+      if [ ! -d "$WORKTREE_PATH" ]; then
+        git -C "$WORKSPACE_DIR" worktree add "$WORKTREE_PATH" -b "$WORKTREE_ID" 2>/dev/null || true
+      fi
+      if [ -d "$WORKTREE_PATH" ]; then
+        WORK_DIR="$WORKTREE_PATH"
+      else
+        echo '{"error":"failed to create git worktree"}' >&2
+        exit 1
+      fi
+    fi
 
-INNER_CMD="cd '${WORK_DIR}' && claude ${CLAUDE_FLAGS}; \
+    AGENT_CMD="codex --no-alt-screen"
+    if [ "$SKIP_PERMISSIONS" = "--skip-permissions" ]; then
+      AGENT_CMD="codex --no-alt-screen --dangerously-bypass-approvals-and-sandbox"
+    fi
+    ;;
+
+  *) # claude-code (default)
+    AGENT_CMD="claude"
+    if [ "$IS_GIT_REPO" = true ] && [ "$WORKTREE_ID" != "main" ]; then
+      AGENT_CMD="${AGENT_CMD} --worktree '${WORKTREE_ID}'"
+    fi
+    if [ "$SKIP_PERMISSIONS" = "--skip-permissions" ]; then
+      AGENT_CMD="${AGENT_CMD} --dangerously-skip-permissions"
+    fi
+    ;;
+esac
+
+# -------------------------------------------------------------------
+# Build the command to run inside abduco.
+#
+# Launches the agent interactively. When the user exits, we write the
+# exit status and drop to a bash shell so the abduco session stays
+# alive for follow-up work (inspect output, run commands, etc).
+# -------------------------------------------------------------------
+INNER_CMD="cd '${WORK_DIR}' && ${AGENT_CMD}; \
   EXIT_CODE=\$?; \
   echo \$EXIT_CODE > '${TERMINAL_DIR}/exit_code'; \
-  /usr/local/bin/warden-capture-cost.sh '${WORKTREE_ID}'; \
   /usr/local/bin/warden-push-event.sh session_exit '${WORKTREE_ID}' '{\"exitCode\":'\$EXIT_CODE'}'; \
   exec bash"
 

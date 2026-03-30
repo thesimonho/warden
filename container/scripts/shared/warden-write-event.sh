@@ -41,6 +41,40 @@ _warden_enforce_safety_valve() {
   fi
 }
 
+# warden_check_event_env validates that the required environment
+# variables for event delivery are set. Returns 1 if any are missing,
+# allowing callers to exit early: `warden_check_event_env || exit 0`
+#
+# Sets CONTAINER_NAME and PROJECT_ID as side effects (shared by all
+# event scripts).
+warden_check_event_env() {
+  CONTAINER_NAME="${WARDEN_CONTAINER_NAME:-}"
+  if [ -z "$CONTAINER_NAME" ]; then return 1; fi
+  PROJECT_ID="${WARDEN_PROJECT_ID:-}"
+  if [ -z "${WARDEN_EVENT_DIR:-}" ]; then return 1; fi
+  return 0
+}
+
+# warden_extract_worktree_id derives the worktree ID from a cwd path.
+# Claude Code worktrees: .claude/worktrees/<id>
+# Legacy worktrees: .worktrees/<id>
+# Workspace root: "main"
+#
+# Usage: WORKTREE_ID=$(warden_extract_worktree_id "$CWD" "$WORKSPACE_DIR")
+warden_extract_worktree_id() {
+  local cwd="$1" workspace_dir="$2"
+  if [ -z "$cwd" ]; then
+    return
+  fi
+  if [[ "$cwd" =~ /\.claude/worktrees/([^/]+) ]]; then
+    printf '%s' "${BASH_REMATCH[1]}"
+  elif [[ "$cwd" =~ /\.worktrees/([^/]+) ]]; then
+    printf '%s' "${BASH_REMATCH[1]}"
+  elif [ "$cwd" = "$workspace_dir" ] || [[ "$cwd" =~ ^${workspace_dir}/ ]]; then
+    printf 'main'
+  fi
+}
+
 # warden_extract_field extracts a simple top-level string value from
 # JSON using bash pattern matching. Avoids forking jq for simple reads.
 # Returns empty string if the field is missing or null.

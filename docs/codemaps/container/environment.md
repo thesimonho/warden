@@ -9,7 +9,7 @@ Each worktree has one process layer in the container:
 ```
 abduco (process manager — holds the PTY alive)
  └── bash
-      └── claude (or just bash if Claude exited)
+      └── claude/codex (or just bash if the agent exited)
 ```
 
 | Component | Role | Can be killed without losing work? |
@@ -33,6 +33,7 @@ This ensures all vars passed via `docker run -e` or `podman run -e` are availabl
 - `WARDEN_WORKSPACE_DIR` — container-side workspace path (e.g. `/home/dev/my-project`). Shell scripts use `${WARDEN_WORKSPACE_DIR:-/project}` for backward compatibility.
 - `WARDEN_PROJECT_ID` — deterministic 12-char hex identifier (SHA-256 of resolved absolute host path). Used by event-posting scripts to tag events with project identity.
 - `WARDEN_EVENT_DIR` — bind-mounted event directory path (`/var/warden/events`)
+- `WARDEN_AGENT_TYPE` — agent type (`claude-code` or `codex`). Controls which CLI launches in `create-terminal.sh` and which parser/provider the engine uses.
 - `WARDEN_NETWORK_MODE` — network isolation mode (`full`/`restricted`/`none`)
 - `WARDEN_ALLOWED_DOMAINS` — comma-separated domain list for `restricted` mode (optional)
 
@@ -50,8 +51,8 @@ This ensures all vars passed via `docker run -e` or `podman run -e` are availabl
 ### Worktree Storage
 
 ```
-/project/.worktrees/                 # Persistent — survives container restarts
-  <worktree-id>/                       # git worktree checkout (created by `git worktree add`)
+/project/.claude/worktrees/          # Persistent — survives container restarts
+  <worktree-id>/                       # git worktree checkout (created by Claude's --worktree or Warden's git worktree add)
 ```
 
 ## Event Bus Communication

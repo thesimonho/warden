@@ -1,88 +1,102 @@
 # Container Scripts
 
-All scripts live at `container/scripts/` and are copied to `/usr/local/bin/` inside the container.
+Scripts are organized into subdirectories under `container/scripts/` and copied to `/usr/local/bin/` inside the container by `install-warden.sh`.
+
+```
+container/scripts/
+  install-tools.sh              # Wrapper for devcontainer path (calls sub-scripts)
+  install-system-deps.sh        # System packages, GitHub CLI, Node.js, abduco/gosu (devcontainer)
+  install-user.sh               # dev user, workspace dirs, .profile env forwarding
+  install-claude.sh             # Claude Code CLI + managed-settings.json hooks
+  install-codex.sh              # Codex CLI (npm install -g @openai/codex)
+  install-warden.sh             # Copy scripts to /usr/local/bin/, create /project
+  shared/                       # Agent-agnostic scripts
+    entrypoint.sh               # Root-phase: UID remapping, iptables, exec gosu
+    user-entrypoint.sh          # User-phase (PID 1): env forwarding, git config, heartbeat
+    create-terminal.sh          # Agent-aware terminal creation (branches on WARDEN_AGENT_TYPE)
+    disconnect-terminal.sh      # Disconnect viewer, abduco continues
+    kill-worktree.sh            # Kill abduco + all processes for a worktree
+    warden-write-event.sh       # Shared atomic event file write library
+    warden-push-event.sh        # Terminal lifecycle event helper
+    warden-heartbeat.sh         # Background heartbeat (every 10s)
+    setup-network-isolation.sh  # iptables OUTPUT rules for network modes
+  claude/
+    warden-event-claude.sh      # Claude attention state dispatcher (notification, pre_tool_use, user_prompt)
+  codex/
+    warden-event-codex.sh       # Placeholder (Codex has no hooks yet)
+```
+
+## Install Scripts
+
+The Dockerfile calls each install script as a separate `RUN` instruction for layer caching. The devcontainer feature path calls `install-tools.sh` which orchestrates all sub-scripts in order.
+
+| Script | Layer | Changes when... |
+|--------|-------|-----------------|
+| `install-system-deps.sh` | 1 | New system packages added |
+| `install-user.sh` | 2 | User setup or env forwarding changes |
+| `install-claude.sh` | 3 | Claude CLI releases or hook config changes |
+| `install-codex.sh` | 4 | Codex CLI releases |
+| `install-warden.sh` | 5 | Any Warden script changes (most frequent) |
 
 ## Terminal Lifecycle
 
 ### create-terminal.sh
 
-Accepts `<worktree-id> [--skip-permissions]`:
+Accepts `<worktree-id> [--skip-permissions]`. Branches on `WARDEN_AGENT_TYPE` env var:
 
-- Validates worktree ID (alphanumeric, hyphens, underscores, dots; no path traversal)
-- Starts abduco session `warden-<worktree-id>`
-- Launches Claude Code with `--worktree <worktree-id>` (no `--session-id`)
-- If `--skip-permissions` is passed, adds `--dangerously-skip-permissions` to the Claude invocation
-- When Claude exits, captures cost from `.claude.json` via `warden-capture-cost.sh`, records exit code to `.warden-terminals/<worktree-id>/exit_code`, pushes `session_exit` event, then drops to `exec bash` so the shell stays alive
-- Outputs JSON `{"worktreeId":"..."}` to stdout
+- **claude-code** (default): launches `claude --worktree <id>` (Claude manages worktrees natively). Adds `--dangerously-skip-permissions` if requested.
+- **codex**: creates the git worktree manually (`git worktree add`) if it doesn't exist, then launches `codex --no-alt-screen` in the worktree directory. Adds `--dangerously-bypass-approvals-and-sandbox` if skip-permissions is requested.
+
+When the agent exits: records exit code, pushes `session_exit` event, drops to `exec bash`.
 
 ### disconnect-terminal.sh
 
-- Kills abduco session via `pkill`
-- Pushes `terminal_disconnected` event (via `warden-push-event.sh`)
-- Removes the terminal tracking directory entry (NOT the git worktree itself)
-- Outputs `{"status":"disconnected"}` to stdout
+Pushes `terminal_disconnected` event. Removes terminal tracking state. Abduco continues running.
 
 ### kill-worktree.sh
 
-- Kills abduco for a worktree
-- Pushes `process_killed` event (via `warden-push-event.sh`)
-- Removes all terminal tracking state
+Kills abduco for a worktree. Pushes `process_killed` event. Removes all terminal tracking state.
 
 ## Event Scripts
 
+### warden-write-event.sh
+
+Shared library sourced by all event-producing scripts. Provides:
+
+- `warden_extract_field "$json" "field"` — bash regex extraction for simple string values (no jq fork)
+- `warden_build_event_json "$type" "$data"` — constructs event envelope JSON (requires `CONTAINER_NAME`, `PROJECT_ID`, `WORKTREE_ID`)
+- `warden_write_event "$json"` — atomic write to event directory (`.tmp` → `.json` rename)
+
 ### warden-heartbeat.sh
 
-- Runs as background process (started by entrypoint.sh)
-- Writes a heartbeat event to the bind-mounted event directory every 10s
-- Allows backend liveness checker to detect stale containers
+Background process (started by entrypoint.sh). Writes heartbeat event every 10s for backend liveness detection.
 
 ### warden-push-event.sh
 
-Thin wrapper around `warden-write-event.sh` for terminal lifecycle events (`terminal_disconnected`, `process_killed`). Used by `disconnect-terminal.sh` and `kill-worktree.sh`.
+Thin wrapper for terminal lifecycle events (`terminal_disconnected`, `process_killed`, `session_exit`).
 
-### warden-write-event.sh
+### claude/warden-event-claude.sh
 
-Shared library sourced by all event-producing scripts. Provides three functions:
+Attention state dispatcher for Claude Code hooks. With the JSONL session parser as primary data source, only three hooks remain active:
 
-- `warden_extract_field "$json" "field"` — bash regex extraction for simple top-level string values (no jq fork). Only safe for identifier-like values; use jq for arbitrary content.
-- `warden_build_event_json "$type" "$data"` — constructs the standard event envelope JSON string using bash interpolation (no jq fork). Requires `CONTAINER_NAME`, `PROJECT_ID`, `WORKTREE_ID` to be set.
-- `warden_write_event "$json"` — atomically writes an event file to the bind-mounted event directory (write to `.tmp`, rename to `.json`). Adds a timestamp via bash string manipulation. Filename format: `<epoch_ns>-<pid>.json`.
+- **Notification** → `attention` event (permission prompts, idle, elicitation)
+- **PreToolUse** → `attention_clear` or `needs_answer` (for AskUserQuestion)
+- **UserPromptSubmit** → `attention_clear` + `user_prompt` audit event
 
-### setup-network-isolation.sh
+All other events (session lifecycle, tool use, cost, etc.) are parsed from the JSONL session file by the Go backend.
 
-Configures iptables OUTPUT rules based on `WARDEN_NETWORK_MODE`. Runs in the entrypoint before user code executes. See [security.md](security.md) for the full network isolation details.
+### codex/warden-event-codex.sh
 
-### warden-event.sh
-
-Event bus dispatcher: writes hook events to bind-mounted event directory via `warden-write-event.sh`. The dispatcher determines the worktree ID from Claude's cwd path (`/project/.claude/worktrees/<id>` → id, `/project` → "main").
-
-### warden-cost-lib.sh
-
-Shared cost functions: `read_cost_data` + `send_cost_event` (sourced by `warden-event.sh` and `warden-capture-cost.sh`).
-
-### warden-capture-cost.sh
-
-Post-exit cost capture: sources `warden-cost-lib.sh` and fires stop event via `warden-write-event.sh`.
+Placeholder. Codex does not currently support hooks (upstream gap). When hook support is added, this script will handle attention state events.
 
 ## Attention Tracking
 
-Claude Code's `Notification` hook (configured via managed settings at `/etc/claude-code/managed-settings.json`) pushes the notification type to the event bus via `warden-event.sh`. Attention types:
+Claude Code's hooks push attention state to the event bus via `claude/warden-event.sh`. Attention types from the Notification hook:
 
 - `permission_prompt` — Claude needs tool approval
-- `idle_prompt` — Claude is done and waiting for the next prompt
+- `idle_prompt` — Claude is done, waiting for the next prompt
 - `elicitation_dialog` — Claude is asking the user a question
-- `auth_success` — authentication completed (not treated as attention-requiring)
 
-`UserPromptSubmit` and `PreToolUse` hooks push attention-clear events when the user responds or Claude resumes work. `PreToolUse` with `tool_name == "AskUserQuestion"` pushes a `needs_answer` event instead. All hooks merge with user/project hooks — they never override user configuration.
+`UserPromptSubmit` and `PreToolUse` hooks push attention-clear events when the user responds. `PreToolUse` with `tool_name == "AskUserQuestion"` pushes `needs_answer` instead.
 
-## Audit Logging Modes
-
-The `auditLogMode` setting (off/standard/detailed) controls which Claude Code hook events are captured by managed settings and written to the event directory. The backend broadcasts mode changes to all running containers via SSE.
-
-**off mode** — No hooks registered. No events logged.
-
-**standard mode** — Only attention-tracking hooks registered (`Notification`, `UserPromptSubmit`, `PreToolUse`). Terminal lifecycle and cost events are always logged.
-
-**detailed mode** — All major Claude Code hooks registered, including: `SessionStart`, `SessionEnd`, `Stop`, `Notification`, `UserPromptSubmit`, `PreToolUse`, `PostToolUseFailure`, `StopFailure`, `PermissionRequest`, `SubagentStart`/`SubagentStop`, `ConfigChange`, `InstructionsLoaded`, `TaskCompleted`, `Elicitation`/`ElicitationResult`.
-
-**Not hooked**: `WorktreeCreate` — registering any hook replaces Claude Code's default `git worktree` creation behavior, breaking worktree setup.
+Codex attention tracking is a known upstream gap — no hooks available yet.

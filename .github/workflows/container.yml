@@ -54,7 +54,7 @@ jobs:
             type=raw,value=latest
             type=sha,prefix=sha-,format=short
           labels: |
-            org.opencontainers.image.description=Project container image with abduco and Claude Code CLI for Warden sessions
+            org.opencontainers.image.description=Project container image with abduco, Claude Code CLI, and Codex CLI for Warden sessions
       - name: Build and push
         uses: docker/build-push-action@v6
         with:
@@ -92,6 +92,9 @@ jobs:
           mkdir -p _staging/session-tools
           cp container/devcontainer-feature/* _staging/session-tools/
           cp container/scripts/*.sh _staging/session-tools/
+          cp container/scripts/shared/*.sh _staging/session-tools/
+          cp container/scripts/claude/*.sh _staging/session-tools/
+          cp container/scripts/codex/*.sh _staging/session-tools/
       - name: Push feature as :latest
         run: |
           cd _staging/session-tools
@@ -129,7 +132,7 @@ jobs:
             type=raw,value=v${{ inputs.major }}
             type=sha,prefix=sha-,format=short
           labels: |
-            org.opencontainers.image.description=Project container image with abduco and Claude Code CLI for Warden sessions
+            org.opencontainers.image.description=Project container image with abduco, Claude Code CLI, and Codex CLI for Warden sessions
       - name: Build and push
         uses: docker/build-push-action@v6
         with:
@@ -163,6 +166,9 @@ jobs:
           mkdir -p _staging/session-tools
           cp container/devcontainer-feature/* _staging/session-tools/
           cp container/scripts/*.sh _staging/session-tools/
+          cp container/scripts/shared/*.sh _staging/session-tools/
+          cp container/scripts/claude/*.sh _staging/session-tools/
+          cp container/scripts/codex/*.sh _staging/session-tools/
       - name: Log in to GHCR
         uses: docker/login-action@v4
         with:

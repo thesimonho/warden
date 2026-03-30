@@ -7,6 +7,7 @@ Installs the terminal infrastructure required by [Warden](https://github.com/the
 - **abduco** — terminal persistence across viewer disconnections
 - **gosu** — lightweight privilege drop for the entrypoint
 - **Claude Code CLI** — AI coding assistant
+- **Codex CLI** — AI coding assistant (OpenAI)
 - **Terminal scripts** — `create-terminal.sh`, `disconnect-terminal.sh`, `entrypoint.sh`, `user-entrypoint.sh`
 - **`dev` user** — non-root user for running terminals
 
