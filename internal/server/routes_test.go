@@ -21,8 +21,8 @@ import (
 	"github.com/thesimonho/warden/service"
 )
 
-// mockDockerClient implements engine.Client for testing.
-type mockDockerClient struct {
+// mockEngineClient implements engine.Client for testing.
+type mockEngineClient struct {
 	projects           []engine.Project
 	projectsErr        error
 	stopErr            error
@@ -47,81 +47,81 @@ type mockDockerClient struct {
 	validateErr        error
 }
 
-func (m *mockDockerClient) ListProjects(_ context.Context, _ []string) ([]engine.Project, error) {
+func (m *mockEngineClient) ListProjects(_ context.Context, _ []string) ([]engine.Project, error) {
 	return m.projects, m.projectsErr
 }
 
-func (m *mockDockerClient) StopProject(_ context.Context, _ string) error {
+func (m *mockEngineClient) StopProject(_ context.Context, _ string) error {
 	return m.stopErr
 }
 
-func (m *mockDockerClient) RestartProject(_ context.Context, _ string, _ []engine.Mount) error {
+func (m *mockEngineClient) RestartProject(_ context.Context, _ string, _ []engine.Mount) error {
 	return m.restartErr
 }
 
-func (m *mockDockerClient) CreateContainer(_ context.Context, _ engine.CreateContainerRequest) (string, error) {
+func (m *mockEngineClient) CreateContainer(_ context.Context, _ engine.CreateContainerRequest) (string, error) {
 	return m.containerID, m.containerErr
 }
 
-func (m *mockDockerClient) DeleteContainer(_ context.Context, _ string) error {
+func (m *mockEngineClient) DeleteContainer(_ context.Context, _ string) error {
 	return m.deleteContainerErr
 }
 
-func (m *mockDockerClient) CleanupEventDir(_ string) {}
+func (m *mockEngineClient) CleanupEventDir(_ string) {}
 
-func (m *mockDockerClient) InspectContainer(_ context.Context, _ string) (*engine.ContainerConfig, error) {
+func (m *mockEngineClient) InspectContainer(_ context.Context, _ string) (*engine.ContainerConfig, error) {
 	return m.inspectConfig, m.inspectErr
 }
 
-func (m *mockDockerClient) RecreateContainer(_ context.Context, _ string, _ engine.CreateContainerRequest) (string, error) {
+func (m *mockEngineClient) RecreateContainer(_ context.Context, _ string, _ engine.CreateContainerRequest) (string, error) {
 	return m.recreateID, m.recreateErr
 }
 
-func (m *mockDockerClient) ListWorktrees(_ context.Context, _ string, _ bool) ([]engine.Worktree, error) {
+func (m *mockEngineClient) ListWorktrees(_ context.Context, _ string, _ bool) ([]engine.Worktree, error) {
 	return m.worktrees, m.worktreesErr
 }
 
-func (m *mockDockerClient) CreateWorktree(_ context.Context, _, _ string, _ bool) (string, error) {
+func (m *mockEngineClient) CreateWorktree(_ context.Context, _, _ string, _ bool) (string, error) {
 	return m.createWorktreeResp, m.createWorktreeErr
 }
 
-func (m *mockDockerClient) ConnectTerminal(_ context.Context, _, _ string, _ bool) (string, error) {
+func (m *mockEngineClient) ConnectTerminal(_ context.Context, _, _ string, _ bool) (string, error) {
 	return m.connectResp, m.connectErr
 }
 
-func (m *mockDockerClient) DisconnectTerminal(_ context.Context, _, _ string) error {
+func (m *mockEngineClient) DisconnectTerminal(_ context.Context, _, _ string) error {
 	return m.disconnectErr
 }
 
-func (m *mockDockerClient) KillWorktreeProcess(_ context.Context, _, _ string) error {
+func (m *mockEngineClient) KillWorktreeProcess(_ context.Context, _, _ string) error {
 	return m.killWorktreeErr
 }
 
-func (m *mockDockerClient) RemoveWorktree(_ context.Context, _, _ string) error {
+func (m *mockEngineClient) RemoveWorktree(_ context.Context, _, _ string) error {
 	return nil
 }
 
-func (m *mockDockerClient) CleanupOrphanedWorktrees(_ context.Context, _ string) ([]string, error) {
+func (m *mockEngineClient) CleanupOrphanedWorktrees(_ context.Context, _ string) ([]string, error) {
 	return nil, nil
 }
 
-func (m *mockDockerClient) ValidateInfrastructure(_ context.Context, _ string) (bool, []string, error) {
+func (m *mockEngineClient) ValidateInfrastructure(_ context.Context, _ string) (bool, []string, error) {
 	return m.validateValid, m.validateMissing, m.validateErr
 }
 
-func (m *mockDockerClient) ReadAgentStatus(_ context.Context, _ string) (map[string]*agent.Status, error) {
+func (m *mockEngineClient) ReadAgentStatus(_ context.Context, _ string) (map[string]*agent.Status, error) {
 	return nil, nil
 }
 
-func (m *mockDockerClient) IsEstimatedCost(_ context.Context, _ string) bool {
+func (m *mockEngineClient) IsEstimatedCost(_ context.Context, _ string) bool {
 	return false
 }
 
-func (m *mockDockerClient) ReadAgentCostAndBillingType(_ context.Context, _, _ string) (*engine.AgentCostResult, error) {
+func (m *mockEngineClient) ReadAgentCostAndBillingType(_ context.Context, _, _ string) (*engine.AgentCostResult, error) {
 	return &engine.AgentCostResult{}, nil
 }
 
-func (m *mockDockerClient) GetWorktreeDiff(_ context.Context, _, _ string) (*api.DiffResponse, error) {
+func (m *mockEngineClient) GetWorktreeDiff(_ context.Context, _, _ string) (*api.DiffResponse, error) {
 	return nil, nil
 }
 
@@ -160,7 +160,7 @@ func insertTestProject(t *testing.T, database *db.Store) string {
 func TestHandleListProjects(t *testing.T) {
 	t.Parallel()
 
-	mock := &mockDockerClient{
+	mock := &mockEngineClient{
 		projects: []engine.Project{
 			{ID: "abc123def456", Name: "test-project", State: "running", Status: "Up 2 hours"},
 		},
@@ -194,7 +194,7 @@ func TestHandleListProjects(t *testing.T) {
 func TestHandleListProjects_Error(t *testing.T) {
 	t.Parallel()
 
-	mock := &mockDockerClient{
+	mock := &mockEngineClient{
 		projectsErr: errors.New("docker daemon unavailable"),
 	}
 
@@ -213,7 +213,7 @@ func TestHandleListProjects_Error(t *testing.T) {
 func TestHandleAddProject(t *testing.T) {
 	t.Parallel()
 
-	mock := &mockDockerClient{}
+	mock := &mockEngineClient{}
 	database := testDB(t)
 	mux := http.NewServeMux()
 	registerAPIRoutes(mux, service.New(mock, database, nil, nil), nil, nil)
@@ -240,7 +240,7 @@ func TestHandleAddProject(t *testing.T) {
 func TestHandleAddProject_InvalidName(t *testing.T) {
 	t.Parallel()
 
-	mock := &mockDockerClient{}
+	mock := &mockEngineClient{}
 	mux := http.NewServeMux()
 	registerAPIRoutes(mux, service.New(mock, testDB(t), nil, nil), nil, nil)
 
@@ -257,7 +257,7 @@ func TestHandleAddProject_InvalidName(t *testing.T) {
 func TestHandleRemoveProject(t *testing.T) {
 	t.Parallel()
 
-	mock := &mockDockerClient{}
+	mock := &mockEngineClient{}
 	database := testDB(t)
 	pid := insertTestProject(t, database)
 
@@ -281,7 +281,7 @@ func TestHandleRemoveProject(t *testing.T) {
 func TestHandleStopProject(t *testing.T) {
 	t.Parallel()
 
-	mock := &mockDockerClient{}
+	mock := &mockEngineClient{}
 	database := testDB(t)
 	pid := insertTestProject(t, database)
 	mux := http.NewServeMux()
@@ -299,7 +299,7 @@ func TestHandleStopProject(t *testing.T) {
 func TestHandleStopProject_InvalidID(t *testing.T) {
 	t.Parallel()
 
-	mock := &mockDockerClient{}
+	mock := &mockEngineClient{}
 	mux := http.NewServeMux()
 	registerAPIRoutes(mux, service.New(mock, testDB(t), nil, nil), nil, nil)
 
@@ -315,7 +315,7 @@ func TestHandleStopProject_InvalidID(t *testing.T) {
 func TestHandleStopProject_DockerError(t *testing.T) {
 	t.Parallel()
 
-	mock := &mockDockerClient{
+	mock := &mockEngineClient{
 		stopErr: errors.New("container not found"),
 	}
 	database := testDB(t)
@@ -335,7 +335,7 @@ func TestHandleStopProject_DockerError(t *testing.T) {
 func TestHandleRestartProject(t *testing.T) {
 	t.Parallel()
 
-	mock := &mockDockerClient{}
+	mock := &mockEngineClient{}
 	database := testDB(t)
 	pid := insertTestProject(t, database)
 	mux := http.NewServeMux()
@@ -353,7 +353,7 @@ func TestHandleRestartProject(t *testing.T) {
 func TestHandleListWorktrees(t *testing.T) {
 	t.Parallel()
 
-	mock := &mockDockerClient{
+	mock := &mockEngineClient{
 		worktrees: []engine.Worktree{
 			{ID: "main", ProjectID: testContainerID, Path: "/project", Branch: "main", State: "connected"},
 			{ID: "feature-x", ProjectID: testContainerID, Path: "/project/.worktrees/feature-x", Branch: "feature-x", State: "disconnected"},
@@ -388,7 +388,7 @@ func TestHandleListWorktrees(t *testing.T) {
 func TestHandleListWorktrees_Error(t *testing.T) {
 	t.Parallel()
 
-	mock := &mockDockerClient{
+	mock := &mockEngineClient{
 		worktreesErr: errors.New("container not found"),
 	}
 	database := testDB(t)
@@ -408,7 +408,7 @@ func TestHandleListWorktrees_Error(t *testing.T) {
 func TestHandleCreateWorktree(t *testing.T) {
 	t.Parallel()
 
-	mock := &mockDockerClient{
+	mock := &mockEngineClient{
 		createWorktreeResp: "feature-y",
 	}
 	database := testDB(t)
@@ -438,7 +438,7 @@ func TestHandleCreateWorktree(t *testing.T) {
 func TestHandleCreateWorktree_MissingName(t *testing.T) {
 	t.Parallel()
 
-	mock := &mockDockerClient{}
+	mock := &mockEngineClient{}
 	database := testDB(t)
 	pid := insertTestProject(t, database)
 	mux := http.NewServeMux()
@@ -457,7 +457,7 @@ func TestHandleCreateWorktree_MissingName(t *testing.T) {
 func TestHandleCreateWorktree_InvalidBody(t *testing.T) {
 	t.Parallel()
 
-	mock := &mockDockerClient{}
+	mock := &mockEngineClient{}
 	database := testDB(t)
 	pid := insertTestProject(t, database)
 	mux := http.NewServeMux()
@@ -476,7 +476,7 @@ func TestHandleCreateWorktree_InvalidBody(t *testing.T) {
 func TestHandleConnectTerminal(t *testing.T) {
 	t.Parallel()
 
-	mock := &mockDockerClient{
+	mock := &mockEngineClient{
 		connectResp: "main",
 	}
 	database := testDB(t)
@@ -496,7 +496,7 @@ func TestHandleConnectTerminal(t *testing.T) {
 func TestHandleConnectTerminal_InvalidWorktreeID(t *testing.T) {
 	t.Parallel()
 
-	mock := &mockDockerClient{}
+	mock := &mockEngineClient{}
 	database := testDB(t)
 	pid := insertTestProject(t, database)
 	mux := http.NewServeMux()
@@ -515,7 +515,7 @@ func TestHandleConnectTerminal_InvalidWorktreeID(t *testing.T) {
 func TestHandleDisconnectTerminal(t *testing.T) {
 	t.Parallel()
 
-	mock := &mockDockerClient{}
+	mock := &mockEngineClient{}
 	database := testDB(t)
 	pid := insertTestProject(t, database)
 	mux := http.NewServeMux()
@@ -533,7 +533,7 @@ func TestHandleDisconnectTerminal(t *testing.T) {
 func TestHandleDisconnectTerminal_Error(t *testing.T) {
 	t.Parallel()
 
-	mock := &mockDockerClient{
+	mock := &mockEngineClient{
 		disconnectErr: errors.New("terminal not found"),
 	}
 	database := testDB(t)
@@ -553,7 +553,7 @@ func TestHandleDisconnectTerminal_Error(t *testing.T) {
 func TestHandleKillWorktreeProcess(t *testing.T) {
 	t.Parallel()
 
-	mock := &mockDockerClient{}
+	mock := &mockEngineClient{}
 	database := testDB(t)
 	pid := insertTestProject(t, database)
 	mux := http.NewServeMux()
@@ -571,7 +571,7 @@ func TestHandleKillWorktreeProcess(t *testing.T) {
 func TestHandleKillWorktreeProcess_Error(t *testing.T) {
 	t.Parallel()
 
-	mock := &mockDockerClient{
+	mock := &mockEngineClient{
 		killWorktreeErr: errors.New("process not found"),
 	}
 	database := testDB(t)
@@ -591,7 +591,7 @@ func TestHandleKillWorktreeProcess_Error(t *testing.T) {
 func TestHandleCreateContainer(t *testing.T) {
 	t.Parallel()
 
-	mock := &mockDockerClient{
+	mock := &mockEngineClient{
 		containerID: "abc123def456",
 	}
 	database := testDB(t)
@@ -612,7 +612,7 @@ func TestHandleCreateContainer(t *testing.T) {
 func TestHandleCreateContainer_MissingProjectPath(t *testing.T) {
 	t.Parallel()
 
-	mock := &mockDockerClient{}
+	mock := &mockEngineClient{}
 	database := testDB(t)
 	pid := insertTestProject(t, database)
 	mux := http.NewServeMux()
@@ -637,7 +637,7 @@ func TestHandleListDirectories(t *testing.T) {
 	}
 
 	mux := http.NewServeMux()
-	registerAPIRoutes(mux, service.New(&mockDockerClient{}, testDB(t), nil, nil), nil, nil)
+	registerAPIRoutes(mux, service.New(&mockEngineClient{}, testDB(t), nil, nil), nil, nil)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/filesystem/directories?path="+dir, nil)
 	rec := httptest.NewRecorder()
@@ -664,7 +664,7 @@ func TestHandleListDirectories_MissingPath(t *testing.T) {
 	t.Parallel()
 
 	mux := http.NewServeMux()
-	registerAPIRoutes(mux, service.New(&mockDockerClient{}, testDB(t), nil, nil), nil, nil)
+	registerAPIRoutes(mux, service.New(&mockEngineClient{}, testDB(t), nil, nil), nil, nil)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/filesystem/directories", nil)
 	rec := httptest.NewRecorder()
@@ -736,7 +736,7 @@ func TestIsValidContainerName(t *testing.T) {
 func TestHandleDeleteContainer(t *testing.T) {
 	t.Parallel()
 
-	mock := &mockDockerClient{}
+	mock := &mockEngineClient{}
 	database := testDB(t)
 	pid := insertTestProject(t, database)
 	mux := http.NewServeMux()
@@ -754,7 +754,7 @@ func TestHandleDeleteContainer(t *testing.T) {
 func TestHandleDeleteContainer_Error(t *testing.T) {
 	t.Parallel()
 
-	mock := &mockDockerClient{
+	mock := &mockEngineClient{
 		deleteContainerErr: errors.New("container not found"),
 	}
 	database := testDB(t)
@@ -774,7 +774,7 @@ func TestHandleDeleteContainer_Error(t *testing.T) {
 func TestHandleDeleteContainer_NotFound(t *testing.T) {
 	t.Parallel()
 
-	mock := &mockDockerClient{}
+	mock := &mockEngineClient{}
 	mux := http.NewServeMux()
 	registerAPIRoutes(mux, service.New(mock, testDB(t), nil, nil), nil, nil)
 
@@ -790,7 +790,7 @@ func TestHandleDeleteContainer_NotFound(t *testing.T) {
 func TestHandleInspectContainer(t *testing.T) {
 	t.Parallel()
 
-	mock := &mockDockerClient{
+	mock := &mockEngineClient{
 		inspectConfig: &engine.ContainerConfig{
 			Name:        "my-project",
 			Image:       "ghcr.io/thesimonho/warden:latest",
@@ -823,7 +823,7 @@ func TestHandleInspectContainer(t *testing.T) {
 func TestHandleInspectContainer_Error(t *testing.T) {
 	t.Parallel()
 
-	mock := &mockDockerClient{
+	mock := &mockEngineClient{
 		inspectErr: errors.New("not found"),
 	}
 	database := testDB(t)
@@ -843,7 +843,7 @@ func TestHandleInspectContainer_Error(t *testing.T) {
 func TestHandleUpdateContainer(t *testing.T) {
 	t.Parallel()
 
-	mock := &mockDockerClient{
+	mock := &mockEngineClient{
 		recreateID: "def456abc123",
 	}
 	database := testDB(t)
@@ -864,7 +864,7 @@ func TestHandleUpdateContainer(t *testing.T) {
 func TestHandleUpdateContainer_MissingProjectPath(t *testing.T) {
 	t.Parallel()
 
-	mock := &mockDockerClient{}
+	mock := &mockEngineClient{}
 	database := testDB(t)
 	pid := insertTestProject(t, database)
 	mux := http.NewServeMux()
@@ -883,7 +883,7 @@ func TestHandleUpdateContainer_MissingProjectPath(t *testing.T) {
 func TestHandleValidateContainer(t *testing.T) {
 	t.Parallel()
 
-	mock := &mockDockerClient{
+	mock := &mockEngineClient{
 		validateValid:   true,
 		validateMissing: nil,
 	}
@@ -913,7 +913,7 @@ func TestHandleValidateContainer(t *testing.T) {
 func TestHandleValidateContainer_MissingInfrastructure(t *testing.T) {
 	t.Parallel()
 
-	mock := &mockDockerClient{
+	mock := &mockEngineClient{
 		validateValid:   false,
 		validateMissing: []string{"/usr/local/bin/ttyd", "/usr/local/bin/create-terminal.sh"},
 	}
@@ -949,7 +949,7 @@ func TestHandleValidateContainer_MissingInfrastructure(t *testing.T) {
 func TestHandleValidateContainer_Error(t *testing.T) {
 	t.Parallel()
 
-	mock := &mockDockerClient{
+	mock := &mockEngineClient{
 		validateErr: errors.New("container not running"),
 	}
 	database := testDB(t)
@@ -969,7 +969,7 @@ func TestHandleValidateContainer_Error(t *testing.T) {
 func TestHandleValidateContainer_NotFound(t *testing.T) {
 	t.Parallel()
 
-	mock := &mockDockerClient{}
+	mock := &mockEngineClient{}
 	mux := http.NewServeMux()
 	registerAPIRoutes(mux, service.New(mock, testDB(t), nil, nil), nil, nil)
 
@@ -989,7 +989,7 @@ func TestHandleValidateContainer_NotFound(t *testing.T) {
 func TestHandleListProjects_OverlaysCostFromDB(t *testing.T) {
 	t.Parallel()
 
-	mock := &mockDockerClient{
+	mock := &mockEngineClient{
 		projects: []engine.Project{
 			{ID: "abc123def456", Name: "my-project", State: "running"},
 		},
@@ -1026,7 +1026,7 @@ func TestHandleListProjects_OverlaysCostFromDB(t *testing.T) {
 func TestHandleListProjects_NilStoreIsNoOp(t *testing.T) {
 	t.Parallel()
 
-	mock := &mockDockerClient{
+	mock := &mockEngineClient{
 		projects: []engine.Project{
 			{ID: "abc123def456", Name: "my-project", State: "running", TotalCost: 0},
 		},
@@ -1052,7 +1052,7 @@ func TestHandleListProjects_NilStoreIsNoOp(t *testing.T) {
 func TestHandleListWorktrees_OverlaysAttentionFromStore(t *testing.T) {
 	t.Parallel()
 
-	mock := &mockDockerClient{
+	mock := &mockEngineClient{
 		worktrees: []engine.Worktree{
 			{ID: "main", ProjectID: testContainerID, State: engine.WorktreeStateConnected},
 			{ID: "feature-x", ProjectID: testContainerID, State: engine.WorktreeStateDisconnected},
@@ -1108,7 +1108,7 @@ func TestHandleListWorktrees_OverlaysAttentionFromStore(t *testing.T) {
 func TestHandleListWorktrees_AttentionClearOverlay(t *testing.T) {
 	t.Parallel()
 
-	mock := &mockDockerClient{
+	mock := &mockEngineClient{
 		worktrees: []engine.Worktree{
 			{
 				ID:               "main",
@@ -1163,7 +1163,7 @@ func TestHandleListWorktrees_AttentionClearOverlay(t *testing.T) {
 func TestHandleListWorktrees_OverlayWorksWithoutInspect(t *testing.T) {
 	t.Parallel()
 
-	mock := &mockDockerClient{
+	mock := &mockEngineClient{
 		worktrees: []engine.Worktree{
 			{ID: "main", ProjectID: testContainerID, State: engine.WorktreeStateConnected},
 		},
@@ -1204,7 +1204,7 @@ func TestHandleListWorktrees_OverlayWorksWithoutInspect(t *testing.T) {
 func TestHandleListWorktrees_SessionEndTransitionsToShell(t *testing.T) {
 	t.Parallel()
 
-	mock := &mockDockerClient{
+	mock := &mockEngineClient{
 		worktrees: []engine.Worktree{
 			{ID: "main", ProjectID: testContainerID, State: engine.WorktreeStateConnected},
 		},

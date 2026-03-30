@@ -9,16 +9,16 @@ import (
 	"github.com/thesimonho/warden/api"
 )
 
-// ClaudeStatus represents whether Claude Code is actively running inside a container.
-type ClaudeStatus string
+// AgentStatus represents whether the agent CLI is actively running inside a container.
+type AgentStatus string
 
 const (
-	// ClaudeStatusIdle means no Claude process is running.
-	ClaudeStatusIdle ClaudeStatus = "idle"
-	// ClaudeStatusWorking means a Claude process is currently active.
-	ClaudeStatusWorking ClaudeStatus = "working"
-	// ClaudeStatusUnknown means the status could not be determined.
-	ClaudeStatusUnknown ClaudeStatus = "unknown"
+	// AgentStatusIdle means no agent process is running.
+	AgentStatusIdle AgentStatus = "idle"
+	// AgentStatusWorking means an agent process is currently active.
+	AgentStatusWorking AgentStatus = "working"
+	// AgentStatusUnknown means the status could not be determined.
+	AgentStatusUnknown AgentStatus = "unknown"
 )
 
 // NotificationType represents the kind of attention Claude Code needs from the user.
@@ -108,7 +108,7 @@ type Project struct {
 	SSHPort      string       `json:"sshPort"`
 	State        string       `json:"state"`
 	Status       string       `json:"status"`
-	ClaudeStatus ClaudeStatus `json:"claudeStatus"`
+	AgentStatus AgentStatus `json:"agentStatus"`
 	// NeedsInput is true when any worktree requires user attention.
 	NeedsInput bool `json:"needsInput,omitempty"`
 	// NotificationType indicates why Claude needs attention (e.g. permission_prompt, idle_prompt).
@@ -124,6 +124,8 @@ type Project struct {
 	CostBudget float64 `json:"costBudget"`
 	// IsGitRepo indicates whether the container's /project is a git repository.
 	IsGitRepo bool `json:"isGitRepo"`
+	// AgentType identifies the CLI agent running in this project (e.g. "claude-code", "codex").
+	AgentType string `json:"agentType"`
 	// SkipPermissions indicates whether terminals should skip permission prompts.
 	SkipPermissions bool `json:"skipPermissions"`
 	// MountedDir is the host directory mounted into the container.
@@ -171,7 +173,9 @@ type CreateContainerRequest struct {
 	Name        string            `json:"name"`
 	Image       string            `json:"image"`
 	ProjectPath string            `json:"projectPath"`
-	EnvVars     map[string]string `json:"envVars,omitempty"`
+	// AgentType selects the CLI agent to run (e.g. "claude-code", "codex"). Defaults to "claude-code".
+	AgentType string            `json:"agentType,omitempty"`
+	EnvVars   map[string]string `json:"envVars,omitempty"`
 	// Mounts is a list of additional bind mounts from host into the container.
 	Mounts []Mount `json:"mounts,omitempty"`
 	// SkipPermissions controls whether terminals skip permission prompts.
@@ -193,6 +197,8 @@ type ContainerConfig struct {
 	Name            string            `json:"name"`
 	Image           string            `json:"image"`
 	ProjectPath     string            `json:"projectPath"`
+	// AgentType identifies the CLI agent running in this project.
+	AgentType       string            `json:"agentType"`
 	EnvVars         map[string]string `json:"envVars,omitempty"`
 	Mounts          []Mount           `json:"mounts,omitempty"`
 	SkipPermissions bool              `json:"skipPermissions"`

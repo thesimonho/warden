@@ -34,27 +34,29 @@ func ContainerWorkspaceDir(projectName string) string {
 	return defaultContainerHome + "/" + projectName
 }
 
-// DockerClient wraps the Docker Engine SDK client.
-type DockerClient struct {
+// EngineClient wraps the Docker/Podman Engine SDK client for container operations.
+type EngineClient struct {
 	api                client.APIClient
-	agentProvider      agent.StatusProvider
+	agentRegistry      *agent.Registry
 	runtimeName        string   // "docker" or "podman"
 	eventBaseDir       string   // host-side base directory for event files
 	seccompProfilePath string   // host-side path to the seccomp JSON profile file (Podman)
 	seccompProfileJSON string   // inline seccomp profile JSON (Docker)
 	gitRepoCache       sync.Map // containerID -> bool, cached per container lifetime
 	workspaceDirCache  sync.Map // containerID -> string, cached workspace dir
+	agentTypeCache     sync.Map // containerID -> string, cached agent type (immutable per container)
 }
 
-// NewClient creates a DockerClient using the given socket path.
+// NewClient creates an EngineClient using the given socket path.
 // The runtimeName ("docker" or "podman") determines runtime-specific
 // container configuration (e.g. --userns=keep-id for Podman).
+// The registry maps agent type names to StatusProvider implementations.
 // When socketPath is empty, falls back to client.FromEnv (default Docker behavior).
 //
 // The socketPath can be an absolute Unix path (/var/run/docker.sock),
 // a Windows named pipe (//./pipe/docker_engine), or a URI with scheme
 // (unix://, npipe://, tcp://).
-func NewClient(socketPath string, runtimeName string, provider agent.StatusProvider) (*DockerClient, error) {
+func NewClient(socketPath string, runtimeName string, registry *agent.Registry) (*EngineClient, error) {
 	opts := []client.Opt{client.WithAPIVersionNegotiation()}
 	if socketPath != "" {
 		opts = append(opts, client.WithHost(cruntime.SocketHost(socketPath)))
@@ -66,29 +68,29 @@ func NewClient(socketPath string, runtimeName string, provider agent.StatusProvi
 	if err != nil {
 		return nil, fmt.Errorf("creating docker client: %w", err)
 	}
-	return &DockerClient{
+	return &EngineClient{
 		api:           cli,
-		agentProvider: provider,
+		agentRegistry: registry,
 		runtimeName:   runtimeName,
 	}, nil
 }
 
 // APIClient returns the underlying Docker/Podman API client.
 // Used by the terminal proxy to create exec sessions with TTY mode.
-func (dc *DockerClient) APIClient() client.APIClient {
+func (dc *EngineClient) APIClient() client.APIClient {
 	return dc.api
 }
 
 // SetEventBaseDir configures the host-side base directory for event files.
 // Each container gets a subdirectory at <baseDir>/<containerName>/events/
 // that is bind-mounted into the container at /var/warden/events/.
-func (dc *DockerClient) SetEventBaseDir(dir string) {
+func (dc *EngineClient) SetEventBaseDir(dir string) {
 	dc.eventBaseDir = dir
 }
 
 // CleanupEventDir removes the event directory for a container.
 // Called after a container is deleted to prevent orphaned directories.
-func (dc *DockerClient) CleanupEventDir(containerName string) {
+func (dc *EngineClient) CleanupEventDir(containerName string) {
 	if dc.eventBaseDir == "" || containerName == "" {
 		return
 	}
@@ -99,7 +101,7 @@ func (dc *DockerClient) CleanupEventDir(containerName string) {
 // SetSeccompProfile configures the seccomp profile for new containers.
 // Docker's API requires inline JSON in SecurityOpt, while Podman requires
 // a file path (inline JSON triggers "file name too long" errors).
-func (dc *DockerClient) SetSeccompProfile(filePath string, profileJSON string) {
+func (dc *EngineClient) SetSeccompProfile(filePath string, profileJSON string) {
 	dc.seccompProfilePath = filePath
 	dc.seccompProfileJSON = profileJSON
 }
@@ -107,7 +109,7 @@ func (dc *DockerClient) SetSeccompProfile(filePath string, profileJSON string) {
 // ListProjects fetches Docker state for the given container names.
 // Names not found in Docker are returned with HasContainer: false.
 // The returned order matches the input name order.
-func (dc *DockerClient) ListProjects(ctx context.Context, names []string) ([]Project, error) {
+func (dc *EngineClient) ListProjects(ctx context.Context, names []string) ([]Project, error) {
 	if len(names) == 0 {
 		return []Project{}, nil
 	}
@@ -117,7 +119,7 @@ func (dc *DockerClient) ListProjects(ctx context.Context, names []string) ([]Pro
 	projects := make([]Project, len(names))
 	for i, name := range names {
 		nameIndex[name] = i
-		projects[i] = Project{Name: name, HasContainer: false, ClaudeStatus: ClaudeStatusUnknown}
+		projects[i] = Project{Name: name, HasContainer: false, AgentStatus: AgentStatusUnknown}
 	}
 
 	// Docker's name filter does prefix matching, so we filter exactly in code.
@@ -152,12 +154,12 @@ func (dc *DockerClient) ListProjects(ctx context.Context, names []string) ([]Pro
 // enrichProjectStatus fetches worktree data for each running container to derive
 // Claude status, worktree counts, and git repo status. Runs in parallel.
 // Cost is overlaid separately from the event store at the routes layer.
-func (dc *DockerClient) enrichProjectStatus(ctx context.Context, projects []Project) {
+func (dc *EngineClient) enrichProjectStatus(ctx context.Context, projects []Project) {
 	var wg sync.WaitGroup
 
 	for i := range projects {
 		if !projects[i].HasContainer || projects[i].State != "running" {
-			projects[i].ClaudeStatus = ClaudeStatusUnknown
+			projects[i].AgentStatus = AgentStatusUnknown
 			continue
 		}
 
@@ -172,7 +174,7 @@ func (dc *DockerClient) enrichProjectStatus(ctx context.Context, projects []Proj
 			worktrees, err := dc.listWorktreesWithHint(ctx, projects[idx].ID, projects[idx].IsGitRepo, false)
 			if err != nil {
 				slog.Debug("worktree list failed for status enrichment", "container", projects[idx].ID, "err", err)
-				projects[idx].ClaudeStatus = dc.checkClaudeStatus(ctx, projects[idx].ID)
+				projects[idx].AgentStatus = dc.checkAgentStatus(ctx, projects[idx].ID)
 				return
 			}
 
@@ -189,11 +191,11 @@ func (dc *DockerClient) enrichProjectStatus(ctx context.Context, projects []Proj
 			// The service layer overlays it from the event store.
 
 			if activeCount > 0 {
-				projects[idx].ClaudeStatus = ClaudeStatusWorking
+				projects[idx].AgentStatus = AgentStatusWorking
 			} else {
 				// Fall back to pgrep for cases where Claude was started
 				// manually outside of Warden's terminal management
-				projects[idx].ClaudeStatus = dc.checkClaudeStatus(ctx, projects[idx].ID)
+				projects[idx].AgentStatus = dc.checkAgentStatus(ctx, projects[idx].ID)
 			}
 		}(i)
 	}
@@ -201,32 +203,39 @@ func (dc *DockerClient) enrichProjectStatus(ctx context.Context, projects []Proj
 	wg.Wait()
 }
 
-// checkClaudeStatus runs pgrep inside the container to detect a running Claude process.
+// checkAgentStatus runs pgrep inside the container to detect a running agent process.
+// Uses the provider's ProcessName for the correct binary to search for.
 // Uses -x for exact process name match to avoid false positives.
-func (dc *DockerClient) checkClaudeStatus(ctx context.Context, containerID string) ClaudeStatus {
+func (dc *EngineClient) checkAgentStatus(ctx context.Context, containerID string) AgentStatus {
+	provider := dc.resolveProvider(ctx, containerID)
+	processName := "claude"
+	if provider != nil {
+		processName = provider.ProcessName()
+	}
+
 	execCfg := container.ExecOptions{
-		Cmd:          []string{"pgrep", "-x", "claude"},
+		Cmd:          []string{"pgrep", "-x", processName},
 		AttachStdout: true,
 		AttachStderr: true,
 	}
 
 	output, err := dc.execAndCapture(ctx, containerID, execCfg)
 	if err != nil {
-		slog.Debug("claude status check failed", "container", containerID, "err", err)
-		return ClaudeStatusUnknown
+		slog.Debug("agent status check failed", "container", containerID, "err", err)
+		return AgentStatusUnknown
 	}
 
 	if strings.TrimSpace(output) != "" {
-		return ClaudeStatusWorking
+		return AgentStatusWorking
 	}
-	return ClaudeStatusIdle
+	return AgentStatusIdle
 }
 
 // workspaceDir resolves the container-side workspace directory for a container.
 // Reads WARDEN_WORKSPACE_DIR from the container's env vars (set at creation).
 // Falls back to scanning bind mounts, then /project for legacy containers.
 // The result is cached per container ID.
-func (dc *DockerClient) workspaceDir(ctx context.Context, containerID string) string {
+func (dc *EngineClient) workspaceDir(ctx context.Context, containerID string) string {
 	if cached, ok := dc.workspaceDirCache.Load(containerID); ok {
 		return cached.(string)
 	}
@@ -237,7 +246,7 @@ func (dc *DockerClient) workspaceDir(ctx context.Context, containerID string) st
 }
 
 // resolveWorkspaceDir inspects a container to find its workspace directory.
-func (dc *DockerClient) resolveWorkspaceDir(ctx context.Context, containerID string) string {
+func (dc *EngineClient) resolveWorkspaceDir(ctx context.Context, containerID string) string {
 	info, err := dc.api.ContainerInspect(ctx, containerID)
 	if err != nil {
 		return "/project" // Fallback for legacy containers.
@@ -296,7 +305,7 @@ func (dc *DockerClient) resolveWorkspaceDir(ctx context.Context, containerID str
 // checkIsGitRepo checks whether the workspace is a git repository inside the container.
 // The result is cached per container ID since this value is effectively static for
 // the lifetime of a running container.
-func (dc *DockerClient) checkIsGitRepo(ctx context.Context, containerID string) bool {
+func (dc *EngineClient) checkIsGitRepo(ctx context.Context, containerID string) bool {
 	if cached, ok := dc.gitRepoCache.Load(containerID); ok {
 		return cached.(bool)
 	}
@@ -424,7 +433,7 @@ func findHostPort(ports []container.Port, containerPort uint16) string {
 
 // execAndCapture runs an exec command and returns its demuxed stdout as a string.
 // Docker wraps exec output in a multiplexed stream; stdcopy strips the framing.
-func (dc *DockerClient) execAndCapture(ctx context.Context, containerID string, cfg container.ExecOptions) (string, error) {
+func (dc *EngineClient) execAndCapture(ctx context.Context, containerID string, cfg container.ExecOptions) (string, error) {
 	resp, err := dc.api.ContainerExecCreate(ctx, containerID, cfg)
 	if err != nil {
 		return "", fmt.Errorf("creating exec: %w", err)
@@ -448,7 +457,7 @@ func (dc *DockerClient) execAndCapture(ctx context.Context, containerID string, 
 // command exits with a non-zero status. Use this for scripts that must succeed
 // (e.g. create-terminal.sh). Use execAndCapture for commands where non-zero exits
 // are expected (e.g. pgrep, git rev-parse on non-git repos).
-func (dc *DockerClient) execAndCaptureStrict(ctx context.Context, containerID string, cfg container.ExecOptions) (string, error) {
+func (dc *EngineClient) execAndCaptureStrict(ctx context.Context, containerID string, cfg container.ExecOptions) (string, error) {
 	resp, err := dc.api.ContainerExecCreate(ctx, containerID, cfg)
 	if err != nil {
 		return "", fmt.Errorf("creating exec: %w", err)
@@ -490,7 +499,7 @@ var requiredBinaries = []string{
 // ValidateInfrastructure checks whether a container has the required Warden
 // terminal infrastructure installed. Uses POSIX `test -x` to check each binary
 // so it works in minimal containers without `which`.
-func (dc *DockerClient) ValidateInfrastructure(ctx context.Context, containerID string) (bool, []string, error) {
+func (dc *EngineClient) ValidateInfrastructure(ctx context.Context, containerID string) (bool, []string, error) {
 	// Build a single command that tests all binaries and reports missing ones
 	var checks []string
 	for _, bin := range requiredBinaries {
@@ -518,7 +527,7 @@ func (dc *DockerClient) ValidateInfrastructure(ctx context.Context, containerID 
 }
 
 // StopProject gracefully stops a container with a 30-second timeout.
-func (dc *DockerClient) StopProject(ctx context.Context, id string) error {
+func (dc *EngineClient) StopProject(ctx context.Context, id string) error {
 	timeout := int(stopTimeout.Seconds())
 	err := dc.api.ContainerStop(ctx, id, container.StopOptions{
 		Timeout: &timeout,
@@ -539,7 +548,7 @@ func (dc *DockerClient) StopProject(ctx context.Context, id string) error {
 //
 // originalMounts are the pre-symlink-resolution mount specs from the DB.
 // When nil, mount validation is skipped (container predates the migration).
-func (dc *DockerClient) RestartProject(ctx context.Context, id string, originalMounts []Mount) error {
+func (dc *EngineClient) RestartProject(ctx context.Context, id string, originalMounts []Mount) error {
 	if err := dc.validateMountSources(ctx, id, originalMounts); err != nil {
 		return err
 	}
@@ -562,7 +571,7 @@ func (dc *DockerClient) RestartProject(ctx context.Context, id string, originalM
 // returns a StaleMountsError to block the restart.
 //
 // originalMounts come from the DB. When nil, validation is skipped.
-func (dc *DockerClient) validateMountSources(ctx context.Context, id string, originalMounts []Mount) error {
+func (dc *EngineClient) validateMountSources(ctx context.Context, id string, originalMounts []Mount) error {
 	if len(originalMounts) == 0 {
 		return nil
 	}

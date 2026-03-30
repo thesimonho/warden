@@ -4,6 +4,7 @@ import (
 	"cmp"
 	"context"
 	"fmt"
+	"log/slog"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -28,8 +29,11 @@ type preferredMount struct {
 }
 
 // userMounts are always-present mounts that aren't part of any access item.
+// Both config directories are mandatory for JSONL session file parsing and
+// agent config passthrough (API keys, managed settings, hooks).
 var userMounts = []preferredMount{
 	{hostRelPath: ".claude", containerPath: containerHomeDir + "/.claude", readOnly: false},
+	{hostRelPath: ".codex", containerPath: containerHomeDir + "/.codex", readOnly: false},
 }
 
 // GetDefaults returns server-resolved default values for the create
@@ -46,13 +50,18 @@ func (s *Service) GetDefaults() DefaultsResponse {
 	if homeDir != "" {
 		for _, um := range userMounts {
 			hostPath := filepath.Join(homeDir, um.hostRelPath)
-			if _, statErr := os.Stat(hostPath); statErr == nil {
-				mounts = append(mounts, DefaultMount{
-					HostPath:      hostPath,
-					ContainerPath: um.containerPath,
-					ReadOnly:      um.readOnly,
-				})
+			// Create the directory if it doesn't exist — these mounts are
+			// mandatory for JSONL parsing and agent config passthrough.
+			if _, statErr := os.Stat(hostPath); statErr != nil {
+				if mkErr := os.MkdirAll(hostPath, 0o700); mkErr != nil {
+					slog.Warn("failed to create agent config directory", "path", hostPath, "err", mkErr)
+				}
 			}
+			mounts = append(mounts, DefaultMount{
+				HostPath:      hostPath,
+				ContainerPath: um.containerPath,
+				ReadOnly:      um.readOnly,
+			})
 		}
 	}
 

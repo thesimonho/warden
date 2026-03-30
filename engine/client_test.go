@@ -245,31 +245,31 @@ func TestCheckIsGitRepo_CachesResult(t *testing.T) {
 	}
 }
 
-func TestCheckClaudeStatus_Working(t *testing.T) {
+func TestCheckAgentStatus_Working(t *testing.T) {
 	t.Parallel()
 
 	mock := newExecMockAPI()
 	mock.onCmd("pgrep", "12345\n")
 
 	dc := newTestClient(mock)
-	status := dc.checkClaudeStatus(context.Background(), "ctr-claude")
+	status := dc.checkAgentStatus(context.Background(), "ctr-claude")
 
-	if status != ClaudeStatusWorking {
-		t.Errorf("expected ClaudeStatusWorking, got %q", status)
+	if status != AgentStatusWorking {
+		t.Errorf("expected AgentStatusWorking, got %q", status)
 	}
 }
 
-func TestCheckClaudeStatus_Idle(t *testing.T) {
+func TestCheckAgentStatus_Idle(t *testing.T) {
 	t.Parallel()
 
 	mock := newExecMockAPI()
 	mock.onCmd("pgrep", "")
 
 	dc := newTestClient(mock)
-	status := dc.checkClaudeStatus(context.Background(), "ctr-idle")
+	status := dc.checkAgentStatus(context.Background(), "ctr-idle")
 
-	if status != ClaudeStatusIdle {
-		t.Errorf("expected ClaudeStatusIdle, got %q", status)
+	if status != AgentStatusIdle {
+		t.Errorf("expected AgentStatusIdle, got %q", status)
 	}
 }
 

@@ -18,22 +18,56 @@ import (
 // This is the Go-side equivalent of the jq extraction in warden-event.sh,
 // but more reliable: it uses proper JSON parsing, doesn't depend on
 // WARDEN_EVENT_DIR being set, and runs from the host via docker exec.
-func (dc *DockerClient) ReadAgentStatus(ctx context.Context, containerID string) (map[string]*agent.Status, error) {
-	raw, err := dc.readAgentConfigRaw(ctx, containerID)
+func (dc *EngineClient) ReadAgentStatus(ctx context.Context, containerID string) (map[string]*agent.Status, error) {
+	provider := dc.resolveProvider(ctx, containerID)
+	if provider == nil {
+		return nil, fmt.Errorf("no agent provider configured")
+	}
+
+	raw, err := dc.readAgentConfigRaw(ctx, containerID, provider)
 	if err != nil {
 		return nil, err
 	}
-	return dc.agentProvider.ExtractStatus(raw), nil
+	return provider.ExtractStatus(raw), nil
+}
+
+// resolveProvider returns the StatusProvider for a container by reading
+// its WARDEN_AGENT_TYPE env var and looking up the registry. The agent
+// type is immutable per container (set at creation), so the result is
+// cached to avoid repeated ContainerInspect calls on hot paths.
+func (dc *EngineClient) resolveProvider(ctx context.Context, containerID string) agent.StatusProvider {
+	if dc.agentRegistry == nil {
+		return nil
+	}
+
+	agentType := dc.cachedAgentType(ctx, containerID)
+	return dc.agentRegistry.Resolve(agentType)
+}
+
+// cachedAgentType returns the WARDEN_AGENT_TYPE for a container, reading
+// from the container env on first call and caching for subsequent calls.
+func (dc *EngineClient) cachedAgentType(ctx context.Context, containerID string) string {
+	if cached, ok := dc.agentTypeCache.Load(containerID); ok {
+		return cached.(string)
+	}
+
+	info, err := dc.api.ContainerInspect(ctx, containerID)
+	if err != nil {
+		return ""
+	}
+	agentType := envValue(info.Config.Env, "WARDEN_AGENT_TYPE")
+	dc.agentTypeCache.Store(containerID, agentType)
+	return agentType
 }
 
 // readAgentConfigRaw reads the raw agent config file bytes from a container.
 // Shared by ReadAgentStatus and IsEstimatedCost to avoid duplicate docker exec calls.
-func (dc *DockerClient) readAgentConfigRaw(ctx context.Context, containerID string) ([]byte, error) {
-	if dc.agentProvider == nil {
+func (dc *EngineClient) readAgentConfigRaw(ctx context.Context, containerID string, provider agent.StatusProvider) ([]byte, error) {
+	if provider == nil {
 		return nil, fmt.Errorf("no agent provider configured")
 	}
 
-	configPath := dc.agentProvider.ConfigFilePath()
+	configPath := provider.ConfigFilePath()
 	output, err := dc.execAndCapture(ctx, containerID, container.ExecOptions{
 		Cmd:          []string{"cat", configPath},
 		AttachStdout: true,
@@ -71,13 +105,18 @@ type AgentCostResult struct {
 // ReadAgentCostAndBillingType reads the agent config file once and
 // extracts both cost (filtered by workspace prefix) and billing type.
 // Returns per-session cost breakdown for session-keyed DB persistence.
-func (dc *DockerClient) ReadAgentCostAndBillingType(ctx context.Context, containerID, workspacePrefix string) (*AgentCostResult, error) {
-	raw, err := dc.readAgentConfigRaw(ctx, containerID)
+func (dc *EngineClient) ReadAgentCostAndBillingType(ctx context.Context, containerID, workspacePrefix string) (*AgentCostResult, error) {
+	provider := dc.resolveProvider(ctx, containerID)
+	if provider == nil {
+		return &AgentCostResult{}, nil
+	}
+
+	raw, err := dc.readAgentConfigRaw(ctx, containerID, provider)
 	if err != nil {
 		return nil, err
 	}
 
-	statuses := dc.agentProvider.ExtractStatus(raw)
+	statuses := provider.ExtractStatus(raw)
 	sessions := sessionCostsFromStatuses(statuses, workspacePrefix)
 	if len(sessions) == 0 {
 		return &AgentCostResult{}, nil
@@ -140,8 +179,12 @@ func sessionCostsFromStatuses(statuses map[string]*agent.Status, workspacePrefix
 // (subscription user) vs actual API cost. Reads oauthAccount.billingType
 // from .claude.json — "stripe_subscription" means estimated cost.
 // Falls back to true (estimated) if the billing type can't be determined.
-func (dc *DockerClient) IsEstimatedCost(ctx context.Context, containerID string) bool {
-	raw, err := dc.readAgentConfigRaw(ctx, containerID)
+func (dc *EngineClient) IsEstimatedCost(ctx context.Context, containerID string) bool {
+	provider := dc.resolveProvider(ctx, containerID)
+	if provider == nil {
+		return true
+	}
+	raw, err := dc.readAgentConfigRaw(ctx, containerID, provider)
 	if err != nil {
 		return true
 	}

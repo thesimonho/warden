@@ -476,18 +476,21 @@ components:
       - SourceBackend
       - SourceFrontend
       - SourceContainer
-    engine.ClaudeStatus:
+    engine.AgentStatus:
       enum:
       - idle
       - working
       - unknown
       type: string
       x-enum-varnames:
-      - ClaudeStatusIdle
-      - ClaudeStatusWorking
-      - ClaudeStatusUnknown
+      - AgentStatusIdle
+      - AgentStatusWorking
+      - AgentStatusUnknown
     engine.ContainerConfig:
       properties:
+        agentType:
+          description: AgentType identifies the CLI agent running in this project.
+          type: string
         allowedDomains:
           description: AllowedDomains lists domains accessible when NetworkMode is
             "restricted".
@@ -527,6 +530,10 @@ components:
       type: object
     engine.CreateContainerRequest:
       properties:
+        agentType:
+          description: AgentType selects the CLI agent to run (e.g. "claude-code",
+            "codex"). Defaults to "claude-code".
+          type: string
         allowedDomains:
           description: AllowedDomains lists domains accessible when NetworkMode is
             "restricted".
@@ -611,6 +618,12 @@ components:
           description: ActiveWorktreeCount is the number of worktrees with connected
             terminals.
           type: integer
+        agentStatus:
+          $ref: '#/components/schemas/engine.AgentStatus'
+        agentType:
+          description: AgentType identifies the CLI agent running in this project
+            (e.g. "claude-code", "codex").
+          type: string
         allowedDomains:
           description: AllowedDomains lists domains accessible when NetworkMode is
             "restricted".
@@ -618,8 +631,6 @@ components:
             type: string
           type: array
           uniqueItems: false
-        claudeStatus:
-          $ref: '#/components/schemas/engine.ClaudeStatus'
         costBudget:
           description: CostBudget is the per-project cost limit in USD (0 = use global
             default).

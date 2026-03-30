@@ -1,8 +1,8 @@
 /** Network isolation level for a container. */
 export type NetworkMode = 'full' | 'restricted' | 'none'
 
-/** Whether Claude Code is actively running inside a container. */
-export type ClaudeStatus = 'idle' | 'working' | 'unknown'
+/** Whether the agent CLI is actively running inside a container. */
+export type AgentStatus = 'idle' | 'working' | 'unknown'
 
 /** The kind of attention Claude Code needs from the user. */
 export type NotificationType =
@@ -68,6 +68,8 @@ export interface Project {
   name: string
   /** Absolute path on the host for the project directory. */
   hostPath: string
+  /** The CLI agent type running in this project (e.g. "claude-code", "codex"). */
+  agentType: string
   type: string
   /** Docker image the container was built from. */
   image: string
@@ -81,8 +83,8 @@ export interface Project {
   state: string
   /** Docker status string, e.g. "Up 2 hours". */
   status: string
-  /** Whether Claude Code is currently active in this container. */
-  claudeStatus: ClaudeStatus
+  /** Whether the agent CLI is currently active in this container. */
+  agentStatus: AgentStatus
   /** True when any worktree requires user attention. */
   needsInput?: boolean
   /** Why Claude needs attention (permission_prompt, idle_prompt, elicitation_dialog). */

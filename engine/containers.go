@@ -11,6 +11,8 @@ import (
 
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/image"
+
+	"github.com/thesimonho/warden/agent"
 )
 
 // defaultPidsLimit is the maximum number of processes allowed in a container.
@@ -27,7 +29,7 @@ const containerEventDir = "/var/warden/events"
 var ErrNameTaken = fmt.Errorf("container name already in use")
 
 // checkNameAvailable returns ErrNameTaken if a container with the given name already exists.
-func (dc *DockerClient) checkNameAvailable(ctx context.Context, name string) error {
+func (dc *EngineClient) checkNameAvailable(ctx context.Context, name string) error {
 	_, err := dc.api.ContainerInspect(ctx, name)
 	if err != nil {
 		return nil // container doesn't exist, name is available
@@ -36,7 +38,7 @@ func (dc *DockerClient) checkNameAvailable(ctx context.Context, name string) err
 }
 
 // ensureImage pulls the container image if it is not already available locally.
-func (dc *DockerClient) ensureImage(ctx context.Context, imageName string) error {
+func (dc *EngineClient) ensureImage(ctx context.Context, imageName string) error {
 	_, err := dc.api.ImageInspect(ctx, imageName)
 	if err == nil {
 		return nil
@@ -60,7 +62,7 @@ func (dc *DockerClient) ensureImage(ctx context.Context, imageName string) error
 
 // CreateContainer creates and starts a new project container with the
 // given configuration. Returns the container ID (truncated to 12 chars).
-func (dc *DockerClient) CreateContainer(ctx context.Context, req CreateContainerRequest) (string, error) {
+func (dc *EngineClient) CreateContainer(ctx context.Context, req CreateContainerRequest) (string, error) {
 	if req.Name == "" {
 		return "", fmt.Errorf("container name is required")
 	}
@@ -128,8 +130,12 @@ func (dc *DockerClient) CreateContainer(ctx context.Context, req CreateContainer
 		fmt.Sprintf("WARDEN_HOST_GID=%d", hostGID),
 	)
 
+	// Set the agent type so container scripts know which CLI to launch.
+	// The service layer defaults this to agent.DefaultAgentType before calling.
+	envList = append(envList, fmt.Sprintf("WARDEN_AGENT_TYPE=%s", req.AgentType))
+
 	// Set the workspace directory inside the container. Each project gets
-	// a unique path (/home/dev/<name>) so Claude Code's .claude.json keys
+	// a unique path (/home/dev/<name>) so the agent's config file keys
 	// don't collide across containers (they share the file via bind mount).
 	containerWSDir := ContainerWorkspaceDir(req.Name)
 	envList = append(envList, fmt.Sprintf("WARDEN_WORKSPACE_DIR=%s", containerWSDir))
@@ -222,7 +228,7 @@ func (dc *DockerClient) CreateContainer(ctx context.Context, req CreateContainer
 
 // stopAndRemove stops a container (ignoring already-stopped errors) and force-removes it,
 // clearing its git repo cache entry.
-func (dc *DockerClient) stopAndRemove(ctx context.Context, id string) error {
+func (dc *EngineClient) stopAndRemove(ctx context.Context, id string) error {
 	timeout := int(stopTimeout.Seconds())
 	_ = dc.api.ContainerStop(ctx, id, container.StopOptions{Timeout: &timeout})
 
@@ -235,7 +241,7 @@ func (dc *DockerClient) stopAndRemove(ctx context.Context, id string) error {
 }
 
 // DeleteContainer stops and removes a container, clearing its git repo cache entry.
-func (dc *DockerClient) DeleteContainer(ctx context.Context, id string) error {
+func (dc *EngineClient) DeleteContainer(ctx context.Context, id string) error {
 	if err := dc.stopAndRemove(ctx, id); err != nil {
 		return err
 	}
@@ -245,7 +251,7 @@ func (dc *DockerClient) DeleteContainer(ctx context.Context, id string) error {
 
 // InspectContainer returns the editable configuration of an existing container
 // by parsing its inspect data (binds, env vars, labels).
-func (dc *DockerClient) InspectContainer(ctx context.Context, id string) (*ContainerConfig, error) {
+func (dc *EngineClient) InspectContainer(ctx context.Context, id string) (*ContainerConfig, error) {
 	info, err := dc.api.ContainerInspect(ctx, id)
 	if err != nil {
 		return nil, fmt.Errorf("inspecting container %s: %w", id, err)
@@ -254,6 +260,12 @@ func (dc *DockerClient) InspectContainer(ctx context.Context, id string) (*Conta
 	cfg := &ContainerConfig{
 		Name:  strings.TrimPrefix(info.Name, "/"),
 		Image: info.Config.Image,
+	}
+
+	// Read agent type from the container's env.
+	cfg.AgentType = envValue(info.Config.Env, "WARDEN_AGENT_TYPE")
+	if cfg.AgentType == "" {
+		cfg.AgentType = agent.DefaultAgentType
 	}
 
 	// Determine the workspace mount path from env vars.
@@ -333,7 +345,7 @@ func (dc *DockerClient) InspectContainer(ctx context.Context, id string) (*Conta
 // RecreateContainer replaces a stopped container with a new one using updated config.
 // The old container is renamed to a temporary name before creating the replacement,
 // so it can be restored if the create fails (atomic swap).
-func (dc *DockerClient) RecreateContainer(ctx context.Context, id string, req CreateContainerRequest) (string, error) {
+func (dc *EngineClient) RecreateContainer(ctx context.Context, id string, req CreateContainerRequest) (string, error) {
 	info, err := dc.api.ContainerInspect(ctx, id)
 	if err != nil {
 		return "", fmt.Errorf("inspecting container for recreate: %w", err)

@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/thesimonho/warden/agent"
 	"github.com/thesimonho/warden/db"
 	"github.com/thesimonho/warden/engine"
 )
@@ -173,12 +174,18 @@ func projectRowFromRequest(req engine.CreateContainerRequest) (db.ProjectRow, er
 		return db.ProjectRow{}, fmt.Errorf("computing project ID: %w", err)
 	}
 
+	agentType := req.AgentType
+	if agentType == "" {
+		agentType = agent.DefaultAgentType
+	}
+
 	row := db.ProjectRow{
 		ProjectID:       projectID,
 		Name:            req.Name,
 		AddedAt:         time.Now().UTC(),
 		Image:           req.Image,
 		HostPath:        req.ProjectPath,
+		AgentType:       agentType,
 		SkipPermissions: req.SkipPermissions,
 		NetworkMode:     string(req.NetworkMode),
 	}

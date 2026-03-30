@@ -241,6 +241,7 @@ func (s *Service) RestartProject(ctx context.Context, project *db.ProjectRow) (*
 // applyDBMetadata merges database-stored project metadata onto a single project.
 // defaultBudget is the global fallback (pass 0 if not needed).
 func applyDBMetadata(p *engine.Project, row *db.ProjectRow, defaultBudget float64) {
+	p.AgentType = row.AgentType
 	p.SkipPermissions = row.SkipPermissions
 	if row.NetworkMode != "" {
 		p.NetworkMode = engine.NetworkMode(row.NetworkMode)

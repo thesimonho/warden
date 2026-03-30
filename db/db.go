@@ -25,6 +25,7 @@ CREATE TABLE IF NOT EXISTS projects (
     allowed_domains   TEXT NOT NULL DEFAULT '',
     cost_budget       REAL NOT NULL DEFAULT 0,
     enabled_access_items TEXT NOT NULL DEFAULT '',
+    agent_type        TEXT NOT NULL DEFAULT 'claude-code',
     container_id      TEXT NOT NULL DEFAULT '',
     container_name    TEXT NOT NULL DEFAULT ''
 );
@@ -114,6 +115,8 @@ func openDB(path string) (*sql.DB, error) {
 		`ALTER TABLE projects RENAME COLUMN enabled_presets TO enabled_access_items`,
 		// Fallback: add the column if it doesn't exist yet (new DB with old schema).
 		`ALTER TABLE projects ADD COLUMN enabled_access_items TEXT NOT NULL DEFAULT ''`,
+		// Add agent_type for multi-agent support.
+		`ALTER TABLE projects ADD COLUMN agent_type TEXT NOT NULL DEFAULT 'claude-code'`,
 	}
 	for _, m := range migrations {
 		_, _ = db.Exec(m) //nolint:errcheck // expected to fail if column exists

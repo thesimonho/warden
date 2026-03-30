@@ -4,13 +4,16 @@ import (
 	"context"
 	"strings"
 	"testing"
+
+	"github.com/thesimonho/warden/agent"
 )
 
-// newTestClient creates a DockerClient backed by the exec mock API.
-func newTestClient(api *execMockAPI) *DockerClient {
-	return &DockerClient{
-		api:         api,
-		runtimeName: "podman",
+// newTestClient creates an EngineClient backed by the exec mock API.
+func newTestClient(mockAPI *execMockAPI) *EngineClient {
+	return &EngineClient{
+		api:           mockAPI,
+		agentRegistry: agent.NewRegistry(),
+		runtimeName:   "podman",
 	}
 }
 

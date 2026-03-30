@@ -27,6 +27,11 @@ func (p *Provider) Name() string {
 	return "claude-code"
 }
 
+// ProcessName returns the CLI binary name for pgrep detection.
+func (p *Provider) ProcessName() string {
+	return "claude"
+}
+
 // ConfigFilePath returns the path to .claude.json inside the container.
 func (p *Provider) ConfigFilePath() string {
 	return configFilePath

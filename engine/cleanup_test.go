@@ -8,7 +8,7 @@ import (
 
 // primeGitRepoCache pre-warms the git repo cache so checkIsGitRepo
 // doesn't fire an exec call that collides with other "git" mocks.
-func primeGitRepoCache(dc *DockerClient, containerID string, isGit bool) {
+func primeGitRepoCache(dc *EngineClient, containerID string, isGit bool) {
 	dc.gitRepoCache.Store(containerID, isGit)
 }
 

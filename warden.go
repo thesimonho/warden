@@ -34,6 +34,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/thesimonho/warden/agent"
 	"github.com/thesimonho/warden/agent/claudecode"
 	"github.com/thesimonho/warden/db"
 	"github.com/thesimonho/warden/engine"
@@ -76,7 +77,7 @@ type App struct {
 	// Engine is the container engine client. Most consumers should
 	// use Service instead; Engine is exposed for advanced use cases
 	// that need direct Docker/Podman API access.
-	Engine *engine.DockerClient
+	Engine *engine.EngineClient
 
 	// Watcher monitors bind-mounted event directories for container
 	// events. Exposed so callers can register/unregister container
@@ -124,13 +125,16 @@ func New(opts Options) (*App, error) {
 		return nil, fmt.Errorf("writing seccomp profile: %w", err)
 	}
 
+	agentRegistry := agent.NewRegistry()
+	agentRegistry.Register(agent.ClaudeCode, claudecode.NewProvider())
+
 	socketPath := runtime.SocketForRuntime(context.Background(), runtimeName)
-	dockerClient, err := engine.NewClient(socketPath, string(runtimeName), claudecode.NewProvider())
+	engineClient, err := engine.NewClient(socketPath, string(runtimeName), agentRegistry)
 	if err != nil {
 		_ = database.Close()
 		return nil, err
 	}
-	dockerClient.SetSeccompProfile(seccompPath, seccomp.ProfileJSON())
+	engineClient.SetSeccompProfile(seccompPath, seccomp.ProfileJSON())
 
 	auditModeStr := database.GetSetting("auditLogMode", "")
 	auditMode := db.AuditMode(auditModeStr)
@@ -155,12 +159,12 @@ func New(opts Options) (*App, error) {
 		_ = database.Close()
 		return nil, fmt.Errorf("starting event watcher: %w", err)
 	}
-	dockerClient.SetEventBaseDir(eventBaseDir)
+	engineClient.SetEventBaseDir(eventBaseDir)
 
 	livenessCtx, livenessCancel := context.WithCancel(context.Background())
 	go eventbus.StartLivenessChecker(livenessCtx, store)
 
-	svc := service.New(dockerClient, database, store, auditWriter)
+	svc := service.New(engineClient, database, store, auditWriter)
 
 	// Wire cost persistence and budget enforcement: on every stop event,
 	// funnel through the single gateway that persists cost and enforces
@@ -172,7 +176,7 @@ func New(opts Options) (*App, error) {
 		Service:        svc,
 		Broker:         broker,
 		DB:             database,
-		Engine:         dockerClient,
+		Engine:         engineClient,
 		Watcher:        watcher,
 		livenessCancel: livenessCancel,
 	}, nil
@@ -186,6 +190,8 @@ func New(opts Options) (*App, error) {
 type CreateProjectOptions struct {
 	// Image overrides the container image (default: ghcr.io/thesimonho/warden:latest).
 	Image string
+	// AgentType selects the CLI agent to run (e.g. "claude-code", "codex"). Defaults to "claude-code".
+	AgentType string
 	// EnvVars sets additional environment variables inside the container.
 	EnvVars map[string]string
 	// Mounts adds extra bind mounts from host into the container.
@@ -217,6 +223,7 @@ func (a *App) CreateProject(
 	}
 	if opts != nil {
 		req.Image = opts.Image
+		req.AgentType = opts.AgentType
 		req.EnvVars = opts.EnvVars
 		req.Mounts = opts.Mounts
 		req.SkipPermissions = opts.SkipPermissions

@@ -47,6 +47,9 @@ type QueryFilters struct {
 // DefaultQueryLimit is applied when QueryFilters.Limit is zero.
 const DefaultQueryLimit = 10_000
 
+// defaultAgentType is the Go-side default matching the SQL schema default.
+const defaultAgentType = "claude-code"
+
 // Source identifies where a log entry originated.
 type Source string
 
@@ -142,6 +145,8 @@ type ProjectRow struct {
 	CostBudget float64
 	// EnabledAccessItems is a comma-separated list of enabled access item IDs (e.g. "git,ssh").
 	EnabledAccessItems string
+	// AgentType identifies the CLI agent running in this project (e.g. "claude-code", "codex").
+	AgentType string
 	// ContainerID is the Docker-assigned container ID (empty when no container exists).
 	ContainerID string
 	// ContainerName is the Docker container name (may differ from Name if renamed).

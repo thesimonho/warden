@@ -11,6 +11,10 @@ type StatusProvider interface {
 	// Name returns a human-readable agent identifier (e.g. "claude-code").
 	Name() string
 
+	// ProcessName returns the CLI binary name used for pgrep process detection
+	// (e.g. "claude", "codex"). This is the executable name, not the agent type.
+	ProcessName() string
+
 	// ConfigFilePath returns the absolute path to the agent's config file
 	// inside the container (e.g. "/home/dev/.claude.json").
 	ConfigFilePath() string

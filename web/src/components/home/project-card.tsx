@@ -21,7 +21,7 @@ import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { abbreviateHomePath, cn } from '@/lib/utils'
 import StatusBadge from '@/components/home/status-badge'
-import ClaudeStatusIndicator from '@/components/home/claude-status-indicator'
+import AgentStatusIndicator from '@/components/home/agent-status-indicator'
 
 /** Props for the ProjectCard component. */
 interface ProjectCardProps {
@@ -209,8 +209,8 @@ export default function ProjectCard({
           <p className="text-muted-foreground text-sm">{project.status}</p>
           {(project.totalCost > 0.001 || project.costBudget > 0) && <CostBadge project={project} />}
           {isRunning && (
-            <ClaudeStatusIndicator
-              status={project.claudeStatus}
+            <AgentStatusIndicator
+              status={project.agentStatus}
               needsInput={project.needsInput}
               notificationType={project.notificationType}
             />
