@@ -40,6 +40,12 @@ Multi-agent abstraction for status extraction, session parsing, and event transl
 | `claudecode/jsonl_unmarshal.go` | Polymorphic unmarshaling for content field (assistant, user, thinking blocks) |
 | `claudecode/pricing.go` | `EstimateCost(tokens TokenUsage) float64` — per-model token pricing lookup |
 | `claudecode/provider_test.go` | Tests for Claude Code provider: parsing, model mapping, multi-project, interface compliance |
+| `codex/provider.go` | Codex implementation — no config file, cost from JSONL only; implements `Name()`, `ProcessName()`, `ExtractStatus()`, `NewSessionParser()` |
+| `codex/parser.go` | Codex `Parser` — implements `SessionParser`, parses lines via `jsonl_unmarshal.go`, maps session_meta/response_item/event_msg to `ParsedEvent` |
+| `codex/jsonl_types.go` | `RolloutItem`, `SessionMeta`, `TurnContext`, `ResponseItem`, `EventMsg`, `TokenCountInfo`, `RateLimits` — JSONL line types matching Codex format |
+| `codex/pricing.go` | `EstimateCost(model string, usage TokenUsage) float64` — OpenAI model pricing (gpt-5.4, gpt-5.4-mini, gpt-5.3-codex, claude-3-5-sonnet via OpenAI API) |
+| `codex/parser_test.go` | Tests for Codex parser: fixture parsing, session start/response items, token accumulation, model mapping, interface compliance |
+| `codex/pricing_test.go` | Tests for Codex pricing: model lookup, token cost calculation |
 
 ## runtime/
 

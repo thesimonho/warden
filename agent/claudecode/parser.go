@@ -2,7 +2,7 @@ package claudecode
 
 import (
 	"encoding/json"
-	"fmt"
+	"path/filepath"
 	"strings"
 
 	"github.com/thesimonho/warden/agent"
@@ -56,7 +56,7 @@ func (p *Parser) ParseLine(line []byte) []agent.ParsedEvent {
 // path by replacing "/" with "-" to form the directory name.
 func (p *Parser) SessionDir(homeDir string, project agent.ProjectInfo) string {
 	encoded := encodeWorkspacePath(project.WorkspaceDir)
-	return fmt.Sprintf("%s/.claude/projects/%s", homeDir, encoded)
+	return filepath.Join(homeDir, ".claude", "projects", encoded)
 }
 
 // encodeWorkspacePath converts a container workspace path to Claude's
@@ -147,7 +147,7 @@ func (p *Parser) parseUser(entry SessionEntry) []agent.ParsedEvent {
 		Type:      agent.EventUserPrompt,
 		SessionID: entry.SessionID,
 		Timestamp: entry.Timestamp,
-		Prompt:    truncateString(promptText, maxPromptLength),
+		Prompt:    agent.TruncateString(promptText, maxPromptLength),
 		GitBranch: entry.GitBranch,
 	}}
 }
@@ -178,15 +178,6 @@ func truncateToolInput(input map[string]any) string {
 	if err != nil {
 		return ""
 	}
-	return truncateString(string(data), maxToolInputLength)
+	return agent.TruncateString(string(data), maxToolInputLength)
 }
 
-// truncateString caps a string at maxLen runes, appending "…" if truncated.
-// Uses rune count to avoid splitting multi-byte UTF-8 characters.
-func truncateString(s string, maxLen int) string {
-	runes := []rune(s)
-	if len(runes) <= maxLen {
-		return s
-	}
-	return string(runes[:maxLen]) + "…"
-}

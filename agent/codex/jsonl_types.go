@@ -97,10 +97,3 @@ type Credits struct {
 	Balance    float64 `json:"balance"`
 }
 
-// ExecCommandEnd is the payload for "exec_command_end" event messages.
-type ExecCommandEnd struct {
-	Type     string `json:"type"`
-	CallID   string `json:"call_id"`
-	ExitCode int    `json:"exit_code"`
-	Status   string `json:"status"`
-}

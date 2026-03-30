@@ -2,7 +2,7 @@ package codex
 
 import (
 	"encoding/json"
-	"fmt"
+	"path/filepath"
 
 	"github.com/thesimonho/warden/agent"
 )
@@ -53,7 +53,7 @@ func (p *Parser) ParseLine(line []byte) []agent.ParsedEvent {
 // Codex stores all sessions under ~/.codex/sessions/ in date-based subdirectories.
 // Unlike Claude (one directory per project), Codex uses a flat date hierarchy.
 func (p *Parser) SessionDir(homeDir string, _ agent.ProjectInfo) string {
-	return fmt.Sprintf("%s/.codex/sessions", homeDir)
+	return filepath.Join(homeDir, ".codex", "sessions")
 }
 
 // parseSessionMeta extracts session identity and git info.
@@ -107,7 +107,7 @@ func (p *Parser) parseResponseItem(item RolloutItem) []agent.ParsedEvent {
 			Timestamp: item.Timestamp,
 			Model:     p.lastModel,
 			ToolName:  resp.Name,
-			ToolInput: truncateString(resp.Arguments, maxToolInputLength),
+			ToolInput: agent.TruncateString(resp.Arguments, maxToolInputLength),
 		}}
 	default:
 		// message, reasoning, function_call_output — no events.
@@ -131,7 +131,7 @@ func (p *Parser) parseEventMsg(item RolloutItem) []agent.ParsedEvent {
 			Type:      agent.EventUserPrompt,
 			SessionID: p.sessionID,
 			Timestamp: item.Timestamp,
-			Prompt:    truncateString(msg.Message, maxPromptLength),
+			Prompt:    agent.TruncateString(msg.Message, maxPromptLength),
 		}}
 
 	case "token_count":
@@ -171,11 +171,3 @@ func (p *Parser) parseEventMsg(item RolloutItem) []agent.ParsedEvent {
 	}
 }
 
-// truncateString caps a string at maxLen runes, appending "…" if truncated.
-func truncateString(s string, maxLen int) string {
-	runes := []rune(s)
-	if len(runes) <= maxLen {
-		return s
-	}
-	return string(runes[:maxLen]) + "…"
-}
