@@ -42,9 +42,11 @@ Thin wrapper around `warden-write-event.sh` for terminal lifecycle events (`term
 
 ### warden-write-event.sh
 
-- Shared helper script used by all event-posting scripts (via `warden-push-event.sh` and `warden-event.sh`)
-- Atomically writes events to the bind-mounted event directory (write to `.tmp`, rename to `.json`)
-- Filename format: `<epoch_ns>-<pid>.json`
+Shared library sourced by all event-producing scripts. Provides three functions:
+
+- `warden_extract_field "$json" "field"` — bash regex extraction for simple top-level string values (no jq fork). Only safe for identifier-like values; use jq for arbitrary content.
+- `warden_build_event_json "$type" "$data"` — constructs the standard event envelope JSON string using bash interpolation (no jq fork). Requires `CONTAINER_NAME`, `PROJECT_ID`, `WORKTREE_ID` to be set.
+- `warden_write_event "$json"` — atomically writes an event file to the bind-mounted event directory (write to `.tmp`, rename to `.json`). Adds a timestamp via bash string manipulation. Filename format: `<epoch_ns>-<pid>.json`.
 
 ### setup-network-isolation.sh
 

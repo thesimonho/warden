@@ -217,11 +217,12 @@ func (s *Store) HandleEvent(event ContainerEvent) {
 	onStop := s.onStop
 	s.mu.Unlock()
 
+	// Broadcast first so SSE notifications reach frontends before the
+	// audit DB write, which involves SQLite I/O and can add latency.
+	s.broadcast(broadcasts)
+
 	// Write to the audit log (outside the lock).
 	s.writeToAuditLog(writer, event)
-
-	// Broadcast outside the lock to avoid holding it during JSON marshal + fan-out.
-	s.broadcast(broadcasts)
 
 	// On every stop event, invoke the callback for cost persistence and
 	// budget enforcement. Uses cost data already parsed by handleStop.

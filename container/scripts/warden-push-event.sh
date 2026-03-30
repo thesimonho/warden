@@ -36,14 +36,6 @@ fi
 # shellcheck source=warden-write-event.sh
 source /usr/local/bin/warden-write-event.sh
 
-JSON=$(jq -cn \
-  --arg type "$EVENT_TYPE" \
-  --arg cn "$CONTAINER_NAME" \
-  --arg pid "$PROJECT_ID" \
-  --arg wt "$WORKTREE_ID" \
-  --argjson data "$DATA" \
-  '{"type": $type, "containerName": $cn, "projectId": $pid, "worktreeId": $wt, "data": $data}')
-
-warden_write_event "$JSON"
+warden_write_event "$(warden_build_event_json "$EVENT_TYPE" "$DATA")"
 
 exit 0
