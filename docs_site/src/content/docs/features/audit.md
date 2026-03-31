@@ -7,6 +7,8 @@ Warden provides unified event logging across all your projects. Use it for real-
 
 Audit logging is **off by default**. Enable it from Settings.
 
+<a href="/warden/audit.webp" target="_blank">![](/warden/audit.webp)</a>
+
 ## Audit Modes
 
 | Mode | What gets logged | Use case |
