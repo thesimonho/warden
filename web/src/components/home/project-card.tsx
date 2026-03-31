@@ -270,7 +270,6 @@ export default function ProjectCard({
             variant="default"
             onClick={() => navigate(`/projects/${project.projectId}`)}
             disabled={!isRunning || isOverBudget}
-            icon={ExternalLink}
           >
             View
           </Button>
