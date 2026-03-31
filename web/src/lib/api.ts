@@ -488,6 +488,8 @@ export interface DefaultMount {
   hostPath: string
   containerPath: string
   readOnly: boolean
+  /** Restricts this mount to a specific agent type. Empty means all. */
+  agentType?: string
 }
 
 /** A default environment variable resolved by the server. */

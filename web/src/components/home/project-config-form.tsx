@@ -17,7 +17,15 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Switch } from '@/components/ui/switch'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { AgentIcon } from '@/components/ui/agent-icons'
 import DirectoryBrowser from '@/components/ui/directory-browser'
 
 /** A single key-value pair for environment variables. */
@@ -62,6 +70,23 @@ const DEFAULT_IMAGE = 'ghcr.io/thesimonho/warden:latest'
 
 /** Default allowed domains for restricted network mode. */
 const DEFAULT_ALLOWED_DOMAINS = restrictedDomains.join('\n')
+
+/** Well-known agent config directory suffixes. */
+const agentConfigSuffix: Record<AgentType, string> = {
+  'claude-code': '/.claude',
+  codex: '/.codex',
+}
+
+/** Returns true if a default mount belongs to the given agent type. */
+function isMountForAgent(m: import('@/lib/api').DefaultMount, type: AgentType): boolean {
+  // Server-tagged mounts (preferred).
+  if (m.agentType) return m.agentType === type
+  // Fallback: match well-known config directory patterns.
+  for (const [agent, suffix] of Object.entries(agentConfigSuffix)) {
+    if (m.containerPath.endsWith(suffix)) return agent === type
+  }
+  return true // non-agent mount, always include
+}
 
 /**
  * Reusable form for creating or editing a project container.
@@ -115,6 +140,7 @@ export default function ProjectConfigForm({
   const [homeDir, setHomeDir] = useState('')
   const [containerHomeDir, setContainerHomeDir] = useState('')
   const defaultsLoaded = useRef(false)
+  const defaultMountsRef = useRef<import('@/lib/api').DefaultMount[]>([])
 
   /** Fetches server-resolved defaults and access items on first render. */
   useEffect(() => {
@@ -129,9 +155,12 @@ export default function ProjectConfigForm({
         if (defaults.containerHomeDir) {
           setContainerHomeDir(defaults.containerHomeDir)
         }
+        if (defaults.mounts?.length > 0) {
+          defaultMountsRef.current = defaults.mounts
+        }
         if (mode === 'create') {
           if (defaults.mounts?.length > 0) {
-            setMounts(defaults.mounts)
+            setMounts(defaults.mounts.filter((m) => isMountForAgent(m, agentType)))
           }
           if (defaults.envVars?.length) {
             setEnvVars(defaults.envVars)
@@ -174,6 +203,14 @@ export default function ProjectConfigForm({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- initialValues is stable across renders; only mode determines create/edit behavior
   }, [mode])
+
+  /** Updates agent type and re-filters default mounts. */
+  const handleAgentTypeChange = (newType: AgentType) => {
+    setAgentType(newType)
+    if (mode === 'create' && defaultMountsRef.current.length > 0) {
+      setMounts(defaultMountsRef.current.filter((m) => isMountForAgent(m, newType)))
+    }
+  }
 
   /** Adds a blank env var row. */
   const handleAddEnvVar = () => {
@@ -272,31 +309,37 @@ export default function ProjectConfigForm({
 
   return (
     <div className="space-y-8">
-      <div className="space-y-1.5">
-        <label className="font-medium">
-          Agent<span className="text-error ml-0.5">*</span>
-        </label>
-        <div className="flex gap-2">
-          {agentTypeOptions.map((type) => (
-            <Button
-              key={type}
-              type="button"
-              size="sm"
-              variant={agentType === type ? 'default' : 'outline'}
-              onClick={() => setAgentType(type)}
-              disabled={isSubmitting || isEditMode}
-              className="flex-1"
-            >
-              {agentTypeLabels[type]}
-            </Button>
-          ))}
-        </div>
+      <FormField label="Agent" required>
+        <Select
+          value={agentType}
+          onValueChange={(val) => handleAgentTypeChange(val as AgentType)}
+          disabled={isSubmitting || isEditMode}
+        >
+          <SelectTrigger className="w-full">
+            <SelectValue>
+              <span className="flex items-center gap-2">
+                <AgentIcon type={agentType} className="h-4 w-4 shrink-0" />
+                {agentTypeLabels[agentType]}
+              </span>
+            </SelectValue>
+          </SelectTrigger>
+          <SelectContent>
+            {agentTypeOptions.map((type) => (
+              <SelectItem key={type} value={type}>
+                <span className="flex items-center gap-2">
+                  <AgentIcon type={type} className="h-4 w-4 shrink-0" />
+                  {agentTypeLabels[type]}
+                </span>
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
         {isEditMode && (
           <p className="text-muted-foreground text-sm">
             Agent type cannot be changed after creation.
           </p>
         )}
-      </div>
+      </FormField>
 
       <FormField label="Container Name" required>
         <Input
@@ -335,7 +378,11 @@ export default function ProjectConfigForm({
           </label>
           <p className="text-muted-foreground text-sm">
             Auto-approve all actions (
-            <code>{agentType === 'codex' ? '--full-auto' : '--dangerously-skip-permissions'}</code>
+            <code>
+              {agentType === 'codex'
+                ? '--dangerously-bypass-approvals-and-sandbox'
+                : '--dangerously-skip-permissions'}
+            </code>
             ).
           </p>
         </div>

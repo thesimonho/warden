@@ -104,6 +104,9 @@ type DefaultMount struct {
 	HostPath      string `json:"hostPath"`
 	ContainerPath string `json:"containerPath"`
 	ReadOnly      bool   `json:"readOnly"`
+	// AgentType restricts this mount to a specific agent type.
+	// Empty means the mount applies to all agent types.
+	AgentType string `json:"agentType,omitempty"`
 }
 
 // DefaultEnvVar represents an auto-detected environment variable for the
