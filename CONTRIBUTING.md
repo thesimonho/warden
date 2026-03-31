@@ -93,7 +93,7 @@ Key directories for contributors:
 | `api/`               | API contract types (request/response structs)    |
 | `db/`                | SQLite database store                            |
 | `eventbus/`          | File-based event system (watcher, SSE broker)    |
-| `agent/`             | Claude status detection                          |
+| `agent/`             | Multi-agent abstraction (registry, parsers, status providers) |
 | `internal/server/`   | HTTP server, API routes, middleware              |
 | `internal/terminal/` | WebSocket-to-PTY proxy                           |
 | `web/`               | React + Vite frontend                            |
@@ -110,6 +110,8 @@ These rules are important to follow when contributing:
 3. **New API types go in `api/`** — shared by `service/`, `client/`, and the TUI.
 4. **`internal/` packages stay internal** — `server/` and `terminal/` are HTTP plumbing, not public API.
 5. **All audit writes go through `db.AuditWriter`** — never call `db.Store.Write()` directly for audit events.
+6. **PRs touching `agent/` should include tests for both parsers** — Claude Code and Codex each have their own JSONL parser in `agent/claudecode/` and `agent/codex/`. Changes to shared parsing logic must be validated against both.
+7. **Container install scripts are composable** — CLI-specific install scripts (`install-claude.sh`, `install-codex.sh`) are called separately for Docker layer caching. Agent-specific event scripts live in `container/scripts/claude/` and `container/scripts/codex/`.
 
 ## Submitting a pull request
 
@@ -161,7 +163,7 @@ Your PR will be checked by these workflows:
 | Frontend  | React 19, Vite 7, TypeScript              |
 | UI        | shadcn/ui, Tailwind CSS v4                |
 | Terminal  | xterm.js via WebSocket to Go proxy        |
-| Container | Ubuntu 24.04, abduco, Claude Code CLI     |
+| Container | Ubuntu 24.04, abduco, Claude Code CLI, Codex CLI |
 | Dev tools | just (task runner)                        |
 
 ## More resources

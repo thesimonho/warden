@@ -65,7 +65,7 @@ Shared library sourced by all event-producing scripts. Provides:
 
 - `warden_extract_field "$json" "field"` — bash regex extraction for simple string values (no jq fork)
 - `warden_build_event_json "$type" "$data"` — constructs event envelope JSON (requires `CONTAINER_NAME`, `PROJECT_ID`, `WORKTREE_ID`)
-- `warden_write_event "$json"` — atomic write to event directory (`.tmp` → `.json` rename). Extracts worktree ID from `.warden/worktrees/` paths; legacy `.worktrees/` and `.claude/worktrees/` paths removed.
+- `warden_write_event "$json"` — atomic write to event directory (`.tmp` → `.json` rename). Extracts worktree ID from `.claude/worktrees/` and `.warden/worktrees/` paths.
 
 ### warden-heartbeat.sh
 
@@ -91,7 +91,7 @@ Placeholder. Codex does not currently support hooks (upstream gap). When hook su
 
 ## Attention Tracking
 
-Claude Code's hooks push attention state to the event bus via `claude/warden-event.sh`. Attention types from the Notification hook:
+Claude Code's hooks push attention state to the event bus via `claude/warden-event-claude.sh`. Attention types from the Notification hook:
 
 - `permission_prompt` — Claude needs tool approval
 - `idle_prompt` — Claude is done, waiting for the next prompt

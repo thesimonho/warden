@@ -21,6 +21,13 @@ Audit logging is **off by default**. Enable it from Settings.
 Switching modes takes effect immediately. Events that occurred before enabling audit logging are not captured retroactively.
 :::
 
+## Data Sources
+
+Audit events come from two sources:
+
+- **JSONL session files** — the primary data source. Each agent writes session JSONL files that Warden's session watcher tails in real time. This provides session lifecycle, tool use, cost, and prompt events for both Claude Code and Codex.
+- **Claude Code hooks** — a supplementary channel for attention/notification state (needs permission, needs input, etc.). Codex does not support hooks, so attention-related audit events are not available for Codex projects.
+
 ## Event Categories
 
 Events are organized into seven categories:
@@ -28,8 +35,8 @@ Events are organized into seven categories:
 | Category | What it captures | Minimum mode |
 |----------|-----------------|--------------|
 | **Session** | Container and terminal lifecycle — starts, stops, connects, disconnects | Standard |
-| **Agent** | Claude's tool use, permission requests, subagent activity | Detailed |
-| **Prompt** | User prompts sent to Claude | Detailed |
+| **Agent** | Tool use, permission requests, subagent activity | Detailed |
+| **Prompt** | User prompts sent to the agent | Detailed |
 | **Config** | Settings changes, instruction file loading | Detailed |
 | **Budget** | Budget exceeded warnings, enforcement actions, cost resets | Standard |
 | **System** | Process kills, project/container deletion, audit purges | Standard |

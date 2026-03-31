@@ -11,13 +11,13 @@ All term definitions, banned terms, process architecture, terminal actions, work
 ## Mental Model
 
 - A **project** is a workspace directory on the host. It is the user's work — code, git history.
-- A **container** is disposable infrastructure that runs Claude Code against that workspace. Containers can be destroyed and recreated without losing work.
-- A **worktree** is an isolated working directory within a project (via `git worktree`). Each worktree is a unit of independent work — a feature, a bugfix, an experiment. Within a worktree, the user can have as many Claude Code conversations as they want, managed entirely by Claude Code itself.
+- A **container** is disposable infrastructure that runs an AI coding agent (Claude Code or Codex) against that workspace. Containers can be destroyed and recreated without losing work.
+- A **worktree** is an isolated working directory within a project (via `git worktree`). Each worktree is a unit of independent work — a feature, a bugfix, an experiment. Within a worktree, the user can have as many agent conversations as they want, managed entirely by the agent itself.
 - For **non-git repos**, there is exactly one implicit worktree — the workspace root. No additional worktrees can be created since there's no git branch isolation. The user still has unlimited conversations within it.
 
-### What Warden manages vs what Claude Code manages
+### What Warden manages vs what the agent manages
 
-See the ownership table in [`terminology.md`](terminology.md#what-warden-manages-vs-what-claude-code-manages).
+See the ownership table in [`terminology.md`](terminology.md#what-warden-manages-vs-what-the-agent-manages).
 
 ### Terminal Infrastructure
 
@@ -42,12 +42,16 @@ This directory is ephemeral — stale entries are harmless and reset on containe
 
 **Form fields:**
 
+- Agent type (required) — Claude Code or OpenAI Codex. Locked after creation.
 - Name (required) — container name
 - Project directory (required) — host directory to mount as the workspace inside the container
 - Image (optional) — defaults to `ghcr.io/thesimonho/warden:latest`
-- Claude config path (optional) — host `~/.claude` directory to mount
+- Skip permissions (optional) — run agent with `--dangerously-skip-permissions` (Claude) or `--full-auto` (Codex)
+- Network mode — full, restricted (with domain allowlist), or none
+- Cost budget (optional) — per-project spending limit
 - Environment variables (optional) — key-value pairs
-- Skip permissions (optional) — run Claude with `--dangerously-skip-permissions`
+- Bind mounts (optional) — additional host directories to mount
+- Access items (optional) — credentials to pass through (Git, SSH, custom)
 
 **Expected behavior:**
 
@@ -55,7 +59,7 @@ This directory is ephemeral — stale entries are harmless and reset on containe
 2. Image is pulled if not present locally.
 3. Container is created and started with a bind-mounted event directory for host communication.
 4. Container appears on the home page in "running" state.
-5. If the project already has worktrees from a previous container (in `<workspace>/.claude/worktrees/`), they appear in the sidebar and are connectable.
+5. If the project already has worktrees from a previous container (in `<workspace>/.claude/worktrees/` for Claude Code or `<workspace>/.warden/worktrees/` for Codex), they appear in the sidebar and are connectable.
 
 **Edge cases:**
 
@@ -73,7 +77,7 @@ This directory is ephemeral — stale entries are harmless and reset on containe
 
 **Expected behavior:**
 
-- Each project card shows: name, state, image, OS, active worktree count, total cost, Claude status.
+- Each project card shows: name, state, image, OS, active worktree count, total cost, agent status.
 - Cards poll for updates (configurable interval, default 10s).
 - Running containers show a green state indicator; stopped show grey.
 - If any worktree needs user attention, the card shows a notification dot with the highest-priority attention type.
@@ -108,11 +112,11 @@ This directory is ephemeral — stale entries are harmless and reset on containe
 
 **Expected behavior:**
 
-1. Dialog opens pre-populated with current container config (name, image, project directory, env vars, claude config, skip permissions).
-2. Name and project directory are read-only (cannot change after creation).
+1. Dialog opens pre-populated with current container config (agent type, name, image, project directory, env vars, skip permissions).
+2. Agent type, name, and project directory are read-only (cannot change after creation).
 3. On save: old container is stopped and removed, new one is created with updated config.
 4. The new container starts in stopped state — user must manually start it.
-5. All data is preserved — worktrees on the bind mount, Claude Code's conversation history in `~/.claude/`.
+5. All data is preserved — worktrees on the bind mount, agent conversation history in config directories (`~/.claude/`, `~/.codex/`).
 
 **Edge cases:**
 
@@ -133,7 +137,7 @@ This directory is ephemeral — stale entries are harmless and reset on containe
 4. If checkbox is checked: container is deleted first (may take up to 30s), then project is removed from config.
 5. Dialog shows loading state (spinner, disabled buttons) while operation runs.
 6. Dialog cannot be closed while operation is in progress.
-7. Worktrees and Claude Code data are NOT deleted — they belong to the project, not the container.
+7. Worktrees and agent data are NOT deleted — they belong to the project, not the container.
 8. If container deletion fails, a user-visible error notification is shown. The project is still removed from the dashboard config.
 
 **Edge cases:**
@@ -159,16 +163,16 @@ This directory is ephemeral — stale entries are harmless and reset on containe
 
 ### Core Principle
 
-A worktree is a unit of independent work. The user creates worktrees to have Claude work on separate things in parallel, each on its own branch. Within a worktree, Claude Code manages conversations internally — Warden does not track or manage conversations.
+A worktree is a unit of independent work. The user creates worktrees to have the agent work on separate things in parallel, each on its own branch. Within a worktree, the agent manages conversations internally — Warden does not track or manage conversations.
 
 ### Worktree States
 
 | State            | Meaning                                        | What happens on click                                 |
 | ---------------- | ---------------------------------------------- | ----------------------------------------------------- |
 | **connected**    | Terminal running, Claude active                | Show the existing terminal                            |
-| **shell**        | Claude exited, bash shell still alive in abduco | Show the terminal (with "Claude exited" indicator)    |
+| **shell**        | Agent exited, bash shell still alive in abduco | Show the terminal (with "Agent exited" indicator)     |
 | **background**   | abduco alive, WebSocket closed (viewer disconnected) | Reconnect: reconnect WebSocket to existing abduco |
-| **disconnected** | No processes running                           | Connect: start new terminal, launch Claude Code       |
+| **disconnected** | No processes running                           | Connect: start new terminal, launch agent              |
 
 ### 6a. Create Worktree
 
@@ -177,9 +181,9 @@ A worktree is a unit of independent work. The user creates worktrees to have Cla
 **For git repos:**
 
 1. Dialog opens with optional name field.
-2. On create: `git worktree add` creates an isolated checkout at `<workspace>/.claude/worktrees/{id}/`.
-3. abduco session started, Claude Code launched with `--worktree <id>`.
-4. If skip permissions enabled, Claude runs with `--dangerously-skip-permissions`.
+2. On create: for Claude Code, `claude --worktree <id>` creates the checkout at `<workspace>/.claude/worktrees/{id}/`. For Codex, Warden runs `git worktree add` to create the checkout at `<workspace>/.warden/worktrees/{id}/`, then launches `codex --no-alt-screen` in the worktree directory.
+3. abduco session started, agent launched in the worktree.
+4. If skip permissions enabled, the agent runs with `--dangerously-skip-permissions` (Claude) or `--full-auto` (Codex).
 5. Worktree appears in sidebar as "connected" with a green dot.
 6. Terminal loads and connects via WebSocket.
 
@@ -188,7 +192,7 @@ A worktree is a unit of independent work. The user creates worktrees to have Cla
 - There is exactly one implicit worktree: the workspace root.
 - The "New Worktree" button is hidden or disabled.
 - The single worktree is always present in the sidebar.
-- Clicking it connects a terminal running Claude Code without `--worktree`.
+- Clicking it connects a terminal running the agent without `--worktree`.
 
 **Edge cases:**
 
@@ -212,8 +216,8 @@ A worktree is a unit of independent work. The user creates worktrees to have Cla
 **Expected behavior:**
 
 1. Terminal shows the bash shell via reconnected WebSocket.
-2. Indicator shows "Claude exited" with the exit status.
-3. User can type commands in the shell, run `claude --resume`, or start a fresh Claude conversation.
+2. Indicator shows "Agent exited" with the exit status.
+3. User can type commands in the shell, run `claude --resume` (or start a new Codex session), or start a fresh agent conversation.
 4. The worktree card shows an amber/yellow dot to distinguish from fully connected.
 
 ### 6d. Click Worktree (Background — abduco alive, WebSocket closed)
@@ -233,8 +237,8 @@ A worktree is a unit of independent work. The user creates worktrees to have Cla
 **Expected behavior:**
 
 1. Automatically starts a new terminal — no intermediate screen or button.
-2. Starts abduco with Claude Code launched in the worktree directory (`--worktree <id>` for git repos).
-3. This is a fresh Claude Code conversation. The user can `/resume` a previous conversation if they want — that's Claude Code's UX, not Warden's.
+2. Starts abduco with the agent launched in the worktree directory (`--worktree <id>` for Claude Code git repos, or in the worktree path for Codex).
+3. This is a fresh agent conversation. The user can `/resume` a previous conversation if they want — that's the agent's UX, not Warden's.
 4. Worktree state becomes "connected", terminal loads via WebSocket.
 
 ### 6f. Disconnect Terminal
@@ -244,7 +248,7 @@ A worktree is a unit of independent work. The user creates worktrees to have Cla
 **Expected behavior:**
 
 1. The WebSocket connection is closed.
-2. The abduco session continues running in the background. Claude Code (if running) is unaffected.
+2. The abduco session continues running in the background. The agent (if running) is unaffected.
 3. Worktree transitions to "background" state.
 4. The worktree remains in the sidebar — clicking it reconnects (see 6d).
 5. No confirmation dialog needed — this is a non-destructive action.
@@ -255,7 +259,7 @@ A worktree is a unit of independent work. The user creates worktrees to have Cla
 
 **Expected behavior:**
 
-1. The abduco process is killed. Claude Code receives SIGHUP/SIGTERM.
+1. The abduco process is killed. The agent receives SIGHUP/SIGTERM.
 2. Terminal tracking directory is removed.
 3. Worktree transitions to "disconnected" state.
 4. The worktree card shows a grey dot.
@@ -276,7 +280,7 @@ There is no "delete worktree" action through Warden's UI. Worktrees persist as l
 
 Worktrees can require user attention. Attention state is pushed via the event bus:
 
-1. Claude Code's hook events (Notification, PreToolUse, UserPromptSubmit) are written by `warden-event.sh` to the bind-mounted event directory. The backend's file watcher detects them, tracks attention state per worktree, and broadcasts changes via SSE.
+1. For Claude Code: hook events (Notification, PreToolUse, UserPromptSubmit) are written by `warden-event-claude.sh` to the bind-mounted event directory. The backend's file watcher detects them, tracks attention state per worktree, and broadcasts changes via SSE. Codex does not yet support hooks — attention tracking for Codex projects is a known upstream gap.
 
 | Attention Type       | Priority    | Indicator                                           |
 | -------------------- | ----------- | --------------------------------------------------- |
@@ -288,9 +292,14 @@ Project cards on the home page show the highest-priority attention type across a
 
 ### 6j. Cost Tracking
 
-Cost data comes from Claude Code's native metrics in `~/.claude.json`, read by Warden's agent status provider. This gives per-project cost data (tokens, cost, duration, model) keyed by working directory path. No JSONL parsing needed.
+Cost data comes from two sources:
 
-For projects with multiple worktrees, cost is the sum across all worktree paths that Claude Code has tracked.
+1. **JSONL session files** (primary) — the Go backend parses session JSONL files to extract token usage, compute cost, and track per-session spending. This is the primary data source for both Claude Code and Codex.
+2. **Agent config files** (fallback) — Claude Code exposes per-project metrics in `~/.claude.json`. Used as a fallback when JSONL data is not available.
+
+For Claude Code API users, cost is the actual API spend. For Claude Pro/Max subscribers, cost reflects real usage but is not billed directly. For Codex, cost is estimated from token counts using published pricing.
+
+For projects with multiple worktrees, cost is the sum across all worktree sessions.
 
 ---
 
@@ -314,16 +323,16 @@ For projects with multiple worktrees, cost is the sum across all worktree paths 
 
 ## Architectural Decisions
 
-### Warden does not manage Claude Code conversations
+### Warden does not manage agent conversations
 
-Claude Code has a complete internal system for managing conversations (session index, JSONL conversation history, `/resume`). Warden does not duplicate this. Warden manages:
+Each agent CLI has its own internal system for managing conversations (session index, JSONL conversation history, `/resume` for Claude Code). Warden does not duplicate this. Warden manages:
 
 1. **Worktrees** — isolated working directories for parallel work
 2. **Terminals** — xterm.js viewers connecting the user to worktree processes via WebSocket
-3. **Notifications** — attention state pushed via event bus from Claude Code hooks
-4. **Cost** — read from Claude Code's native per-project metrics
+3. **Notifications** — attention state pushed via event bus (Claude Code hooks; Codex pending)
+4. **Cost** — parsed from JSONL session files, with agent config as fallback
 
-Conversation management (start, resume, history) is entirely Claude Code's responsibility.
+Conversation management (start, resume, history) is entirely the agent's responsibility.
 
 ### Terminal tracking is ephemeral
 
@@ -340,4 +349,4 @@ Worktrees are discovered by listing the filesystem:
 - **Git repos:** `git worktree list` inside the container gives all worktrees with their paths and branches.
 - **Non-git repos:** Exactly one implicit worktree — the workspace root itself.
 
-This is always consistent because git is the source of truth for worktrees, just as Claude Code is the source of truth for conversations.
+This is always consistent because git is the source of truth for worktrees, just as the agent is the source of truth for conversations.

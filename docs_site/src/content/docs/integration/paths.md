@@ -32,7 +32,9 @@ All packages are importable via `go get github.com/thesimonho/warden`:
 | `eventbus`      | Event system (broker, store, listener)             |
 | `db`            | SQLite database store (projects, settings, events) |
 | `runtime`       | Container runtime detection                        |
-| `agent`         | Agent status provider interface + JSONL parser helpers |
+| `agent`         | Agent abstraction, registry, and session watcher |
+| `agent/claudecode` | Claude Code JSONL parser and status provider |
+| `agent/codex`   | Codex JSONL parser and status provider |
 
 See the [Go Packages](../../reference/go/) reference for full API documentation.
 

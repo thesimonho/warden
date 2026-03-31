@@ -7,7 +7,7 @@ description: Get up and running with Warden in under a minute.
 
 - [Git](https://git-scm.com/downloads) — required for worktree support
 - [Docker](https://docs.docker.com/get-docker/) or [Podman](https://podman.io/docs/installation)
-- [Claude Code](https://docs.anthropic.com/en/docs/agents-and-tools/claude-code/overview) — currently the only supported agent (more coming soon)
+- An agent CLI account — [Claude Code](https://docs.anthropic.com/en/docs/agents-and-tools/claude-code/overview) (Anthropic) or [Codex](https://github.com/openai/codex) (OpenAI)
 
 ## Choose your binary
 
@@ -34,15 +34,32 @@ Download the binary for your platform from the [releases page](https://github.co
 
 The container image is pulled automatically from `ghcr.io/thesimonho/warden` on first use.
 
+## Create your first project
+
+When creating a project, the first field is the **agent type** — choose between Claude Code and Codex. Each project is locked to one agent at creation time.
+
+Fill in the project name and host path, configure environment variables and other settings, then create. Warden pulls the container image (if needed) and starts the project.
+
 ## Authentication
+
+### Claude Code
 
 **API key:** Pass `ANTHROPIC_API_KEY` as an environment variable when creating the container.
 
 **Subscription login:** Open the terminal and run `claude` — it prompts you to authenticate via browser. Authentication persists across restarts.
 
-## Claude config directory
+### Codex
 
-Share your host's `~/.claude` into containers (skills, MCP plugins, settings) by setting the bind mounts when creating a container. Different projects can use different config directories.
+**API key:** Pass `OPENAI_API_KEY` as an environment variable when creating the container.
+
+**Subscription login:** Open the terminal and run `codex` — it prompts you to authenticate. Authentication persists across restarts.
+
+## Agent config directories
+
+Share your host's agent config directory into containers by setting bind mounts when creating a project. Different projects can use different config directories.
+
+- **Claude Code:** `~/.claude` (skills, MCP plugins, settings)
+- **Codex:** `~/.codex` (agent configuration)
 
 ## Environment variables
 

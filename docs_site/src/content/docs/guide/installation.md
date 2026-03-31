@@ -44,6 +44,15 @@ xattr -d com.apple.quarantine warden-desktop
 
 Download the `.exe` from the releases page and run it directly. No installation required.
 
+## Prerequisites
+
+Warden supports two agent types: **Claude Code** (Anthropic) and **Codex** (OpenAI). Each project is locked to one agent at creation time.
+
+- **Claude Code** requires an Anthropic API key (`ANTHROPIC_API_KEY`) or a Claude Pro/Max subscription.
+- **Codex** requires an OpenAI API key (`OPENAI_API_KEY`) or a ChatGPT Pro/Plus subscription.
+
+Both CLIs are bundled in the container image — no additional installation needed.
+
 ## Container image
 
 The container image is pulled automatically on first use. To pull it manually:

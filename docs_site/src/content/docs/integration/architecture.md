@@ -15,7 +15,7 @@ Warden is a layered system. Each layer is independently usable:
 ├───────────────────────────────────┤
 │  Engine (Go library)              │  ← Container lifecycle, security, events
 ├───────────────────────────────────┤
-│  Container image                  │  ← Claude Code + abduco + network isolation
+│  Container image                  │  ← Agent CLIs + abduco + network isolation
 └───────────────────────────────────┘
 ```
 
@@ -80,11 +80,19 @@ Warden runs as a host process that manages project containers. Communication flo
 
 ### Communication pathways
 
-1. **Docker/Podman API** — the backend manages container lifecycle (create, start, stop, remove) and runs exec commands via the container runtime socket. Terminal WebSocket connections are bridged to `abduco -a` sessions inside containers via `docker exec` with TTY mode. Exec is also used to read `.claude.json` for agent status and cost data.
+1. **Docker/Podman API** — the backend manages container lifecycle (create, start, stop, remove) and runs exec commands via the container runtime socket. Terminal WebSocket connections are bridged to `abduco -a` sessions inside containers via `docker exec` with TTY mode. Exec is also used to read agent config files (e.g., `.claude.json`) for status and cost data.
 
-2. **File-based event delivery** — each container has a host directory bind-mounted at `/var/warden/events/`. Claude Code hook scripts (`warden-event.sh`) write atomic JSON files (`.tmp` → rename to `.json`) containing attention state, session lifecycle, tool use, cost updates, and heartbeats. The backend watches all event directories using fsnotify (sub-millisecond on Linux) with a polling fallback every 2 seconds (reliable on all platforms including Docker Desktop). Filesystem permissions handle access control — no network listener or auth token is needed.
+2. **File-based event delivery** — each container has a host directory bind-mounted at `/var/warden/events/`. Claude Code hook scripts (`warden-event-claude.sh`) write atomic JSON files (`.tmp` → rename to `.json`) containing attention state, session lifecycle, tool use, cost updates, and heartbeats. The backend watches all event directories using fsnotify (sub-millisecond on Linux) with a polling fallback every 2 seconds (reliable on all platforms including Docker Desktop). Filesystem permissions handle access control — no network listener or auth token is needed.
 
-3. **SSE + WebSocket** — the event bus fans out state changes to all connected browsers via Server-Sent Events (`worktree_state` for per-worktree attention/terminal changes, `project_state` for aggregated cost + attention per project, `worktree_list_changed`, `budget_exceeded`, `budget_container_stopped`). Terminal I/O streams over WebSocket with binary frames for PTY data and text frames for control messages (resize).
+3. **JSONL session parsing** — the primary data source for agent events. Each agent writes JSONL session files to its config directory (`~/.claude/` or `~/.codex/`), which is bind-mounted to the host. The backend watches these directories with `agent.SessionWatcher` (fsnotify-based), tails new lines, and feeds them through agent-specific parsers (`agent/claudecode/`, `agent/codex/`) that produce uniform `ParsedEvent` values. These events flow into the event bus for SSE broadcast and audit logging.
+
+    ```
+    Session file (.jsonl) → fsnotify → SessionParser.ParseLine() → ParsedEvent → eventbus → SSE
+    ```
+
+    JSONL parsing provides session lifecycle, tool use, cost, and prompt events for both agents. Hook-based events (attention/notification state) are supplementary and only available for Claude Code.
+
+4. **SSE + WebSocket** — the event bus fans out state changes to all connected browsers via Server-Sent Events (`worktree_state` for per-worktree attention/terminal changes, `project_state` for aggregated cost + attention per project, `worktree_list_changed`, `budget_exceeded`, `budget_container_stopped`). Terminal I/O streams over WebSocket with binary frames for PTY data and text frames for control messages (resize).
 
 ### Single-gateway funnels
 
@@ -95,9 +103,9 @@ Two critical write paths are enforced through single gateways to guarantee invar
 All cost data flows through one function regardless of source. This guarantees budget enforcement is never bypassed.
 
 ```
-Container hook (stop event)  ─┐
-warden-capture-cost.sh        ├──► PersistSessionCost() ──► DB write
-docker exec fallback read    ─┘         │
+JSONL session parser          ─┐
+Container hook (stop event)    ├──► PersistSessionCost() ──► DB write
+docker exec fallback read     ─┘         │
                                         ▼
                                   enforceBudget()
                                     ├── warn (SSE broadcast)

@@ -1,11 +1,11 @@
 ---
 title: Worktrees & Terminals
-description: Isolated workspaces and persistent terminal connections for Claude Code.
+description: Isolated workspaces and persistent terminal connections for AI coding agents.
 ---
 
-A **Worktree** is an isolated working directory within a project, backed by `git worktree`. Each worktree gets its own branch and directory, letting multiple Claude Code agents work on different tasks within the same project simultaneously.
+A **Worktree** is an isolated working directory within a project, backed by `git worktree`. Each worktree gets its own branch and directory, letting multiple agents work on different tasks within the same project simultaneously.
 
-A **Terminal** is the interface into a worktree. Terminals connect to a persistent process inside the container — closing the terminal doesn't kill Claude. You can reconnect later and pick up where you left off.
+A **Terminal** is the interface into a worktree. Terminals connect to a persistent process inside the container — closing the terminal doesn't kill the agent. You can reconnect later and pick up where you left off.
 
 ## Creating Worktrees
 
@@ -18,17 +18,17 @@ Worktrees are stored at agent-specific paths within the project:
 | Agent       | Path                                  | Notes                                                   |
 |-------------|---------------------------------------|-----------------------------------------------------------|
 | **Claude**  | `.claude/worktrees/{worktree-id}/`    | Hardcoded by Claude Code. Cannot be configured.         |
-| **Codex**   | `.warden/worktrees/{worktree-id}/`    | Warden-managed path for other agents (future support).  |
-| **Others**  | `.warden/worktrees/{worktree-id}/`    | Same location for other supported agents.               |
+| **Codex**   | `.warden/worktrees/{worktree-id}/`    | Warden-managed via `git worktree add/remove`.           |
+| **Others**  | `.warden/worktrees/{worktree-id}/`    | Same Warden-managed location for future agents.         |
 
-Each agent has its own isolated worktree directory so multiple agents can work on different branches within the same project simultaneously without interference.
+Claude Code manages its own worktrees internally (via `--worktree`), while Codex worktrees are managed by Warden (via `git worktree add/remove`). From the user's perspective, both behave the same — create a worktree, connect, and start working.
 
 ## Terminal Actions
 
 | Action | What happens | Destructive? |
 |--------|-------------|--------------|
-| **Connect** | Start Claude Code. Terminal connects to the worktree process. | No |
-| **Disconnect** | Close the terminal. Claude keeps running in the background. | No |
+| **Connect** | Start the agent. Terminal connects to the worktree process. | No |
+| **Disconnect** | Close the terminal. The agent keeps running in the background. | No |
 | **Reconnect** | Reattach to an existing background worktree. | No |
 | **Kill** | Terminate all processes in the worktree. | Yes |
 | **Remove** | Kill processes, then delete the worktree from disk. | Yes |
@@ -39,34 +39,34 @@ Every worktree is in one of four states:
 
 | State | What's happening | What you see |
 |-------|-----------------|-------------|
-| **Connected** | Claude is running, terminal attached | Live terminal |
-| **Shell** | Claude exited, terminal attached | Bash prompt (can `claude --resume`) |
-| **Background** | Claude is running, terminal closed | Reconnectable |
+| **Connected** | Agent is running, terminal attached | Live terminal |
+| **Shell** | Agent exited, terminal attached | Bash prompt (can resume) |
+| **Background** | Agent is running, terminal closed | Reconnectable |
 | **Disconnected** | Nothing running | Start fresh |
 
 State transitions happen automatically:
 - Close the terminal → **Connected** becomes **Background**
-- Claude finishes and exits → **Connected** becomes **Shell**
+- Agent finishes and exits → **Connected** becomes **Shell**
 - Kill the worktree process → any state becomes **Disconnected**
 - Reconnect to a background worktree → **Background** becomes **Connected**
 
-## Claude Activity
+## Agent Activity
 
-When a worktree is in the **Connected** state, Warden tracks what Claude is doing via hook events emitted from Claude Code. These sub-states tell you at a glance whether Claude needs your attention:
+When a worktree is in the **Connected** state, Warden tracks what the agent is doing. For Claude Code, attention state comes from hook events. For Codex, attention tracking is a known upstream limitation — Codex does not yet support hooks, so sub-state detection is not available. These sub-states tell you at a glance whether the agent needs your attention:
 
 | Activity | Meaning | Indicator |
 |----------|---------|-----------|
-| **Working** | Claude is actively generating or executing tools | Amber pulsing dot |
-| **Idle** | Claude is running but not actively working | Muted gray dot |
-| **Need Permission** | Claude needs tool approval | Orange pulsing dot |
-| **Need Answer** | Claude is asking a question | Red pulsing dot |
-| **Need Input** | Claude is done, waiting for next prompt | Blue pulsing dot |
+| **Working** | Agent is actively generating or executing tools | Amber pulsing dot |
+| **Idle** | Agent is running but not actively working | Muted gray dot |
+| **Need Permission** | Agent needs tool approval | Orange pulsing dot |
+| **Need Answer** | Agent is asking a question | Red pulsing dot |
+| **Need Input** | Agent is done, waiting for next prompt | Blue pulsing dot |
 
 These activity states are broadcast as real-time events via SSE, so frontends can show attention indicators across all projects without opening each terminal.
 
 ## Worktree Diff
 
-Each worktree exposes a git diff view showing uncommitted changes via the API. This lets you review what Claude has done before committing or providing feedback.
+Each worktree exposes a git diff view showing uncommitted changes via the API. This lets you review what the agent has done before committing or providing feedback.
 
 ## Cleanup
 
@@ -117,7 +117,7 @@ defer conn.Close()
 ```go
 app, _ := warden.New(warden.Options{})
 
-// Create worktree and start Claude
+// Create worktree and start agent
 result, _ := app.Service.CreateWorktree(ctx, project, "fix-auth-bug")
 
 // Terminal lifecycle

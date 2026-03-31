@@ -23,9 +23,11 @@ if err != nil {
     return err
 }
 for _, proj := range projects {
-    fmt.Printf("%s: %s\n", proj.Name, proj.State)
+    fmt.Printf("%s (%s): %s\n", proj.Name, proj.AgentType, proj.State)
 }
 ```
+
+Each project includes an `AgentType` field (`"claude-code"` or `"codex"`) that identifies which CLI agent it runs.
 
 ## Example: Create a worktree
 

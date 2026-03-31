@@ -414,50 +414,50 @@ See the detailed doc checklist below. Each item describes what to update and why
 
 #### Project docs
 
-- [ ] `CLAUDE.md` — update "What is Warden" section to say "Supports Claude Code and OpenAI Codex" instead of just Claude Code. Add Codex-specific dev commands if any.
-- [ ] `README.md` — update the supported agents line ("Claude Code — currently the only supported agent (more coming soon)" → list both).
-- [ ] `CONTRIBUTING.md` — note that PRs touching agent/ should include tests for both parsers. Note the composable install scripts for container builds.
-- [ ] `docs/terminology.md` — add "Agent Type" row to the core terms table. Add note that `WARDEN_AGENT_TYPE` env var controls which CLI launches. Note Codex-specific differences (no native worktree support, AGENTS.md instead of CLAUDE.md).
-- [ ] Create `docs/parser.md`
-- [ ] `docs/claude-hooks.md` — reframe: hooks are now a supplementary channel for attention/notification state only. JSONL session file parsing is the primary data source. List which hook events are still active (Notification only) and which are now handled by the parser.
-- [ ] `docs/ux-flows.md` — add Codex-specific flows: project creation with agent selector, worktree creation (Warden-managed), terminal connection (--no-alt-screen).
+- [x] `CLAUDE.md` — update "What is Warden" section to say "Supports Claude Code and OpenAI Codex" instead of just Claude Code. Add Codex-specific dev commands if any.
+- [x] `README.md` — update the supported agents line ("Claude Code — currently the only supported agent (more coming soon)" → list both).
+- [x] `CONTRIBUTING.md` — note that PRs touching agent/ should include tests for both parsers. Note the composable install scripts for container builds.
+- [x] `docs/terminology.md` — add "Agent Type" row to the core terms table. Add note that `WARDEN_AGENT_TYPE` env var controls which CLI launches. Note Codex-specific differences (no native worktree support, AGENTS.md instead of CLAUDE.md).
+- [x] Create `docs/parser.md`
+- [x] `docs/claude-hooks.md` — reframe: hooks are now a supplementary channel for attention/notification state only. JSONL session file parsing is the primary data source. List which hook events are still active (Notification only) and which are now handled by the parser.
+- [x] `docs/ux-flows.md` — add Codex-specific flows: project creation with agent selector, worktree creation (Warden-managed), terminal connection (--no-alt-screen).
 
 #### Codemaps (must reflect code changes)
 
-- [ ] `docs/codemaps/backend/engine.md` — renamed types (AgentStatus, engine client rename), registry pattern, JSONL watcher lifecycle, `checkAgentStatus` with per-agent process name.
-- [ ] `docs/codemaps/backend/api-types.md` — new AgentType field on request/response types, cost terminology split (isSubscriptionCost vs isEstimatedCost).
-- [ ] `docs/codemaps/backend/service.md` — mandatory config dir mounts, agent-aware container creation, session watcher lifecycle management.
-- [ ] `docs/codemaps/backend/events.md` — JSONL parser as event source alongside hooks. Data flow: JSONL → parser → ParsedEvent → eventbus.Event → store → broker → SSE.
-- [ ] `docs/codemaps/backend/database.md` — agent_type column in projects table.
-- [ ] `docs/codemaps/backend/supporting.md` — agent/ package restructure: registry, per-agent subpackages (types, parser, pricing, provider), SessionParser interface.
-- [ ] `docs/codemaps/container/scripts.md` — new directory structure (shared/, claude/, codex/), composable install scripts, which scripts are dropped/simplified.
-- [ ] `docs/codemaps/container/image.md` — both CLIs installed, Dockerfile layer order rationale, build args.
-- [ ] `docs/codemaps/container/environment.md` — WARDEN_AGENT_TYPE env var, CODEX_API_KEY (user-provided via env vars field).
-- [ ] `docs/codemaps/frontend/components.md` — agent selector component, renamed status indicator (agentStatus).
-- [ ] `docs/codemaps/frontend/hooks.md` — agentType in TypeScript types.
-- [ ] `docs/codemaps/tui/views.md` — agent type in container form and project detail views.
+- [x] `docs/codemaps/backend/engine.md` — renamed types (AgentStatus, engine client rename), registry pattern, JSONL watcher lifecycle, `checkAgentStatus` with per-agent process name.
+- [x] `docs/codemaps/backend/api-types.md` — new AgentType field on request/response types, cost terminology split (isSubscriptionCost vs isEstimatedCost).
+- [x] `docs/codemaps/backend/service.md` — mandatory config dir mounts, agent-aware container creation, session watcher lifecycle management.
+- [x] `docs/codemaps/backend/events.md` — JSONL parser as event source alongside hooks. Data flow: JSONL → parser → ParsedEvent → eventbus.Event → store → broker → SSE.
+- [x] `docs/codemaps/backend/database.md` — agent_type column in projects table.
+- [x] `docs/codemaps/backend/supporting.md` — agent/ package restructure: registry, per-agent subpackages (types, parser, pricing, provider), SessionParser interface.
+- [x] `docs/codemaps/container/scripts.md` — new directory structure (shared/, claude/, codex/), composable install scripts, which scripts are dropped/simplified.
+- [x] `docs/codemaps/container/image.md` — both CLIs installed, Dockerfile layer order rationale, build args.
+- [x] `docs/codemaps/container/environment.md` — WARDEN_AGENT_TYPE env var, CODEX_API_KEY (user-provided via env vars field).
+- [x] `docs/codemaps/frontend/components.md` — agent selector component, renamed status indicator (agentStatus).
+- [x] `docs/codemaps/frontend/hooks.md` — agentType in TypeScript types.
+- [x] `docs/codemaps/tui/views.md` — agent type in container form and project detail views.
 
 #### Docs site (public-facing)
 
-- [ ] `docs_site/.../index.mdx` — hero/intro: "Run Claude Code and OpenAI Codex in isolated containers."
-- [ ] `docs_site/.../guide/installation.md` — prereqs: mention Codex API key or ChatGPT subscription for Codex projects.
-- [ ] `docs_site/.../guide/getting-started.md` — show agent selector in the "create project" walkthrough. Brief Codex quick start alongside the existing Claude walkthrough.
-- [ ] `docs_site/.../features/projects.md` — explain agent type field, note that each project is locked to one agent type.
-- [ ] `docs_site/.../features/worktrees.md` — note that Codex worktrees are managed by Warden (git worktree add/remove), while Claude Code manages its own via --worktree flag. Functionally equivalent from the user's perspective.
-- [ ] `docs_site/.../features/cost-budget.md` — explain the two cost models: actual cost (Claude API users), subscription cost (Claude Pro/Max users, real cost but not billed), estimated cost (Codex API and ChatGPT subscription, computed from tokens). Explain pricing table and its limitations.
-- [ ] `docs_site/.../features/audit.md` — JSONL-sourced events are the primary audit data. Note that Codex notification/attention events are a known limitation — link upstream issues.
-- [ ] `docs_site/.../comparison.md` — update comparison table to reflect multi-agent support as a feature.
-- [ ] `docs_site/.../faq.md` — add: "What/Why is cost estimated?", "Can I use both agents in the same project?" (no — one agent per project).
-- [ ] `docs_site/.../contributing.md` — add section: "Adding a new agent" — create subpackage in agent/, implement SessionParser and StatusProvider, add install script, register in warden.go.
-- [ ] `docs_site/.../integration/architecture.md` — add JSONL parser layer to the architecture diagram. Show data flow: session file → fsnotify → parser → eventbus → SSE.
-- [ ] `docs_site/.../integration/paths.md` — highlight agent/codex and agent/claudecode as importable subpackages. Developers can use the JSONL parsers independently to build their own tooling on top of Claude Code or Codex session data without importing the full Warden engine.
-- [ ] `docs_site/.../integration/go-library.md` — show warden.New() with registry setup, note AgentType in Options if added.
-- [ ] `docs_site/.../integration/go-client.md` — show agentType field in create/list requests.
-- [ ] `docs_site/.../integration/http-api.mdx` — add agentType to endpoint schemas (auto-generated from OpenAPI, so update swagger.yaml).
-- [ ] `docs_site/.../reference/go/agent.md` — auto-generated by gomarkdoc, just verify it picks up new subpackages.
-- [ ] `docs_site/.../reference/go/engine.md` — auto-generated, verify renamed types appear.
-- [ ] `docs_site/.../reference/go/index.md` — manually add agent/codex to the package list.
-- [ ] `docs_site/generate-go-docs.sh` — add `agent/codex` to the `PACKAGES` array.
+- [x] `docs_site/.../index.mdx` — hero/intro: "Run Claude Code and OpenAI Codex in isolated containers."
+- [x] `docs_site/.../guide/installation.md` — prereqs: mention Codex API key or ChatGPT subscription for Codex projects.
+- [x] `docs_site/.../guide/getting-started.md` — show agent selector in the "create project" walkthrough. Brief Codex quick start alongside the existing Claude walkthrough.
+- [x] `docs_site/.../features/projects.md` — explain agent type field, note that each project is locked to one agent type.
+- [x] `docs_site/.../features/worktrees.md` — note that Codex worktrees are managed by Warden (git worktree add/remove), while Claude Code manages its own via --worktree flag. Functionally equivalent from the user's perspective.
+- [x] `docs_site/.../features/cost-budget.md` — explain the two cost models: actual cost (Claude API users), subscription cost (Claude Pro/Max users, real cost but not billed), estimated cost (Codex API and ChatGPT subscription, computed from tokens). Explain pricing table and its limitations.
+- [x] `docs_site/.../features/audit.md` — JSONL-sourced events are the primary audit data. Note that Codex notification/attention events are a known limitation — link upstream issues.
+- [x] `docs_site/.../comparison.md` — update comparison table to reflect multi-agent support as a feature.
+- [x] `docs_site/.../faq.md` — add: "What/Why is cost estimated?", "Can I use both agents in the same project?" (no — one agent per project).
+- [x] `docs_site/.../contributing.md` — add section: "Adding a new agent" — create subpackage in agent/, implement SessionParser and StatusProvider, add install script, register in warden.go.
+- [x] `docs_site/.../integration/architecture.md` — add JSONL parser layer to the architecture diagram. Show data flow: session file → fsnotify → parser → eventbus → SSE.
+- [x] `docs_site/.../integration/paths.md` — highlight agent/codex and agent/claudecode as importable subpackages. Developers can use the JSONL parsers independently to build their own tooling on top of Claude Code or Codex session data without importing the full Warden engine.
+- [x] `docs_site/.../integration/go-library.md` — show warden.New() with registry setup, note AgentType in Options if added.
+- [x] `docs_site/.../integration/go-client.md` — show agentType field in create/list requests.
+- [x] `docs_site/.../integration/http-api.mdx` — add agentType to endpoint schemas (auto-generated from OpenAPI, so update swagger.yaml).
+- [x] `docs_site/.../reference/go/agent.md` — auto-generated by gomarkdoc, just verify it picks up new subpackages.
+- [x] `docs_site/.../reference/go/engine.md` — auto-generated, verify renamed types appear.
+- [x] `docs_site/.../reference/go/index.md` — manually add agent/codex to the package list.
+- [x] `docs_site/generate-go-docs.sh` — add `agent/codex` to the `PACKAGES` array.
 
 ### Future (not in scope)
 

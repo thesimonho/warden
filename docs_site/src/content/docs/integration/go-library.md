@@ -36,8 +36,10 @@ app, err := warden.New(warden.Options{
 if err != nil {
     return err
 }
-defer app.Close() // Idempotent; shuts down all subsystems
+defer app.Close() // Idempotent; shuts down all subsystems (including session watchers)
 ```
+
+`warden.New()` initializes the engine, database, event bus, agent registry, and starts session watchers for active containers. `app.Close()` tears down all subsystems including any running session watchers.
 
 ## Project management
 
@@ -47,10 +49,11 @@ defer app.Close() // Idempotent; shuts down all subsystems
 // Minimal creation
 result, err := app.CreateProject(ctx, "project-name", "/workspace/path", nil)
 
-// With options
+// With options (including agent type)
 result, err := app.CreateProject(ctx, "project-name", "/workspace/path", &warden.CreateProjectOptions{
+    AgentType:       "codex",  // "claude-code" (default) or "codex"
     Image:           "ubuntu:24.04",
-    EnvVars:         map[string]string{"USER": "alice", "DEBUG": "1"},
+    EnvVars:         map[string]string{"USER": "alice", "OPENAI_API_KEY": os.Getenv("OPENAI_API_KEY")},
     Mounts:          []string{"/data:/data"},
     SkipPermissions: false,
     NetworkMode:     engine.NetworkModeFull,
@@ -312,7 +315,7 @@ func main() {
         log.Fatal(err)
     }
 
-    // 5. Connect terminal (start Claude)
+    // 5. Connect terminal (start agent)
     _, err = app.Service.ConnectTerminal(ctx, project, wtResult.WorktreeID)
     if err != nil {
         log.Fatal(err)

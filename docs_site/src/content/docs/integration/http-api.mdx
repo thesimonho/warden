@@ -57,12 +57,14 @@ The server exposes all endpoints under `/api/v1/`. See the [API Reference](../..
 
 ## Example: Create a project
 
+The request body accepts an optional `agentType` field (`"claude-code"` or `"codex"`). Defaults to `"claude-code"` if omitted. The agent type is locked at creation time and cannot be changed later.
+
 <Tabs>
   <TabItem label="curl">
     ```bash
     curl -X POST http://localhost:8090/api/v1/projects \
       -H "Content-Type: application/json" \
-      -d '{"name": "my-project", "projectPath": "/home/user/project"}'
+      -d '{"name": "my-project", "projectPath": "/home/user/project", "agentType": "codex"}'
     ```
   </TabItem>
   <TabItem label="TypeScript">
@@ -73,6 +75,7 @@ The server exposes all endpoints under `/api/v1/`. See the [API Reference](../..
       body: JSON.stringify({
         name: "my-project",
         projectPath: "/home/user/project",
+        agentType: "codex",
       }),
     });
     const result = await response.json();
@@ -87,6 +90,7 @@ The server exposes all endpoints under `/api/v1/`. See the [API Reference](../..
         json={
             "name": "my-project",
             "projectPath": "/home/user/project",
+            "agentType": "codex",
         },
     )
     result = response.json()
@@ -97,6 +101,7 @@ The server exposes all endpoints under `/api/v1/`. See the [API Reference](../..
     body, _ := json.Marshal(map[string]string{
         "name":        "my-project",
         "projectPath": "/home/user/project",
+        "agentType":   "codex",
     })
 
     resp, err := http.Post(
