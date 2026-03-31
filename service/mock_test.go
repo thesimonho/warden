@@ -19,6 +19,7 @@ type mockEngine struct {
 	deleteContainerErr error
 	inspectConfig      *engine.ContainerConfig
 	inspectErr         error
+	renameErr          error
 	recreateID         string
 	recreateErr        error
 	worktrees          []engine.Worktree
@@ -65,6 +66,10 @@ func (m *mockEngine) CleanupEventDir(_ string) {}
 
 func (m *mockEngine) InspectContainer(_ context.Context, _ string) (*engine.ContainerConfig, error) {
 	return m.inspectConfig, m.inspectErr
+}
+
+func (m *mockEngine) RenameContainer(_ context.Context, _ string, _ string) error {
+	return m.renameErr
 }
 
 func (m *mockEngine) RecreateContainer(_ context.Context, _ string, _ engine.CreateContainerRequest) (string, error) {

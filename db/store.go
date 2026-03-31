@@ -642,6 +642,29 @@ func (l *Store) UpdateProjectContainer(projectID, containerID, containerName str
 	return nil
 }
 
+// UpdateProjectSettings updates lightweight project settings that do not
+// require container recreation (name, skip_permissions, cost_budget,
+// container_name). All other fields remain unchanged.
+func (l *Store) UpdateProjectSettings(projectID string, name string, containerName string, skipPermissions bool, costBudget float64) error {
+	if l == nil {
+		return nil
+	}
+
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	_, err := l.db.Exec(
+		`UPDATE projects
+		 SET name = ?, container_name = ?, skip_permissions = ?, cost_budget = ?
+		 WHERE project_id = ?`,
+		name, containerName, skipPermissions, costBudget, projectID,
+	)
+	if err != nil {
+		return fmt.Errorf("updating settings for project %q: %w", projectID, err)
+	}
+	return nil
+}
+
 // --- Session cost persistence ---
 
 // UpsertSessionCost persists cost for a specific agent session. Cost for a

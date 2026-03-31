@@ -128,6 +128,199 @@ func TestUpdateContainer(t *testing.T) {
 	}
 }
 
+func TestUpdateContainer_LightUpdate(t *testing.T) {
+	t.Parallel()
+
+	database := testDB(t)
+	mock := &mockEngine{containerID: "container123"}
+	svc := New(mock, database, nil, nil)
+
+	// Create the project first so the DB row exists.
+	_, err := svc.CreateContainer(context.Background(), engine.CreateContainerRequest{
+		Name:        "my-project",
+		ProjectPath: "/home/user/project",
+		Image:       "ghcr.io/test:latest",
+	})
+	if err != nil {
+		t.Fatalf("setup: %v", err)
+	}
+
+	projectID, _ := engine.ProjectID("/home/user/project")
+	row, _ := database.GetProject(projectID)
+
+	// Update only lightweight fields (name, skipPermissions, costBudget).
+	result, err := svc.UpdateContainer(context.Background(), row, engine.CreateContainerRequest{
+		Name:            "renamed-project",
+		ProjectPath:     "/home/user/project",
+		Image:           "ghcr.io/test:latest",
+		SkipPermissions: true,
+		CostBudget:      25.0,
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Should reuse existing container ID (no recreation).
+	if result.ContainerID != "container123" {
+		t.Errorf("expected existing container ID 'container123', got %q", result.ContainerID)
+	}
+	if result.Name != "renamed-project" {
+		t.Errorf("expected name 'renamed-project', got %q", result.Name)
+	}
+
+	// Verify DB was updated.
+	updated, _ := database.GetProject(projectID)
+	if updated.Name != "renamed-project" {
+		t.Errorf("expected DB name 'renamed-project', got %q", updated.Name)
+	}
+	if !updated.SkipPermissions {
+		t.Error("expected DB skipPermissions=true")
+	}
+	if updated.CostBudget != 25.0 {
+		t.Errorf("expected DB costBudget=25.0, got %f", updated.CostBudget)
+	}
+}
+
+func TestUpdateContainer_LightUpdate_RenameError(t *testing.T) {
+	t.Parallel()
+
+	database := testDB(t)
+	mock := &mockEngine{
+		containerID: "container123",
+		renameErr:   errors.New("rename failed"),
+	}
+	svc := New(mock, database, nil, nil)
+
+	_, err := svc.CreateContainer(context.Background(), engine.CreateContainerRequest{
+		Name:        "my-project",
+		ProjectPath: "/home/user/project",
+		Image:       "ghcr.io/test:latest",
+	})
+	if err != nil {
+		t.Fatalf("setup: %v", err)
+	}
+
+	projectID, _ := engine.ProjectID("/home/user/project")
+	row, _ := database.GetProject(projectID)
+
+	// Rename should fail and propagate.
+	_, err = svc.UpdateContainer(context.Background(), row, engine.CreateContainerRequest{
+		Name:        "new-name",
+		ProjectPath: "/home/user/project",
+		Image:       "ghcr.io/test:latest",
+	})
+	if err == nil {
+		t.Fatal("expected error from rename failure")
+	}
+}
+
+func TestNeedsRecreation(t *testing.T) {
+	t.Parallel()
+
+	base := &db.ProjectRow{
+		HostPath:    "/home/user/project",
+		Image:       "ghcr.io/test:latest",
+		AgentType:   "claude-code",
+		NetworkMode: "full",
+	}
+
+	tests := []struct {
+		name   string
+		req    engine.CreateContainerRequest
+		expect bool
+	}{
+		{
+			name: "only name changed",
+			req: engine.CreateContainerRequest{
+				Name:        "new-name",
+				ProjectPath: "/home/user/project",
+				Image:       "ghcr.io/test:latest",
+			},
+			expect: false,
+		},
+		{
+			name: "only skipPermissions changed",
+			req: engine.CreateContainerRequest{
+				ProjectPath:     "/home/user/project",
+				Image:           "ghcr.io/test:latest",
+				SkipPermissions: true,
+			},
+			expect: false,
+		},
+		{
+			name: "only costBudget changed",
+			req: engine.CreateContainerRequest{
+				ProjectPath: "/home/user/project",
+				Image:       "ghcr.io/test:latest",
+				CostBudget:  50.0,
+			},
+			expect: false,
+		},
+		{
+			name: "image changed",
+			req: engine.CreateContainerRequest{
+				ProjectPath: "/home/user/project",
+				Image:       "ghcr.io/test:v2",
+			},
+			expect: true,
+		},
+		{
+			name: "project path changed",
+			req: engine.CreateContainerRequest{
+				ProjectPath: "/home/user/other",
+				Image:       "ghcr.io/test:latest",
+			},
+			expect: true,
+		},
+		{
+			name: "agent type changed",
+			req: engine.CreateContainerRequest{
+				ProjectPath: "/home/user/project",
+				Image:       "ghcr.io/test:latest",
+				AgentType:   "codex",
+			},
+			expect: true,
+		},
+		{
+			name: "network mode changed",
+			req: engine.CreateContainerRequest{
+				ProjectPath: "/home/user/project",
+				Image:       "ghcr.io/test:latest",
+				NetworkMode: engine.NetworkModeRestricted,
+			},
+			expect: true,
+		},
+		{
+			name: "env vars added",
+			req: engine.CreateContainerRequest{
+				ProjectPath: "/home/user/project",
+				Image:       "ghcr.io/test:latest",
+				EnvVars:     map[string]string{"FOO": "bar"},
+			},
+			expect: true,
+		},
+		{
+			name: "mounts added",
+			req: engine.CreateContainerRequest{
+				ProjectPath: "/home/user/project",
+				Image:       "ghcr.io/test:latest",
+				Mounts:      []engine.Mount{{HostPath: "/a", ContainerPath: "/b"}},
+			},
+			expect: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			got := needsRecreation(base, tt.req)
+			if got != tt.expect {
+				t.Errorf("needsRecreation() = %v, want %v", got, tt.expect)
+			}
+		})
+	}
+}
+
 func TestValidateContainer(t *testing.T) {
 	t.Parallel()
 

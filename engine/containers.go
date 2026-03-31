@@ -356,6 +356,11 @@ func (ec *EngineClient) InspectContainer(ctx context.Context, id string) (*Conta
 	return cfg, nil
 }
 
+// RenameContainer changes the name of an existing container without recreation.
+func (ec *EngineClient) RenameContainer(ctx context.Context, id string, newName string) error {
+	return ec.api.ContainerRename(ctx, id, newName)
+}
+
 // RecreateContainer replaces a stopped container with a new one using updated config.
 // The old container is renamed to a temporary name before creating the replacement,
 // so it can be restored if the create fails (atomic swap).

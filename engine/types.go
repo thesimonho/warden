@@ -254,6 +254,9 @@ type Client interface {
 	// InspectContainer returns the editable configuration of a container.
 	InspectContainer(ctx context.Context, id string) (*ContainerConfig, error)
 
+	// RenameContainer changes the name of an existing container without recreation.
+	RenameContainer(ctx context.Context, id string, newName string) error
+
 	// RecreateContainer replaces a stopped container with a new one using updated config.
 	// Returns the new container ID.
 	RecreateContainer(ctx context.Context, id string, req CreateContainerRequest) (string, error)

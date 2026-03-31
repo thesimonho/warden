@@ -73,6 +73,10 @@ func (m *mockEngineClient) InspectContainer(_ context.Context, _ string) (*engin
 	return m.inspectConfig, m.inspectErr
 }
 
+func (m *mockEngineClient) RenameContainer(_ context.Context, _ string, _ string) error {
+	return nil
+}
+
 func (m *mockEngineClient) RecreateContainer(_ context.Context, _ string, _ engine.CreateContainerRequest) (string, error) {
 	return m.recreateID, m.recreateErr
 }

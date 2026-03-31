@@ -120,9 +120,50 @@ func (s *Service) InspectContainer(ctx context.Context, project *db.ProjectRow) 
 	return cfg, nil
 }
 
-// UpdateContainer recreates a container with updated configuration
-// and updates the database row.
+// UpdateContainer updates a project's container configuration. If only
+// lightweight settings changed (name, skipPermissions, costBudget), the
+// container is updated in-place without recreation. Otherwise the container
+// is fully recreated with the new configuration.
 func (s *Service) UpdateContainer(ctx context.Context, project *db.ProjectRow, req engine.CreateContainerRequest) (*ContainerResult, error) {
+	if needsRecreation(project, req) {
+		return s.recreateContainer(ctx, project, req)
+	}
+	return s.updateContainerSettings(ctx, project, req)
+}
+
+// updateContainerSettings applies lightweight setting changes (name,
+// skipPermissions, costBudget) without recreating the container.
+func (s *Service) updateContainerSettings(ctx context.Context, project *db.ProjectRow, req engine.CreateContainerRequest) (*ContainerResult, error) {
+	containerName := effectiveContainerName(project)
+
+	// Rename the Docker container if the name changed.
+	if req.Name != "" && req.Name != containerName {
+		if err := s.docker.RenameContainer(ctx, project.ContainerID, req.Name); err != nil {
+			return nil, fmt.Errorf("renaming container: %w", err)
+		}
+		containerName = req.Name
+	}
+
+	if err := s.db.UpdateProjectSettings(
+		project.ProjectID,
+		req.Name,
+		containerName,
+		req.SkipPermissions,
+		req.CostBudget,
+	); err != nil {
+		return nil, fmt.Errorf("updating project settings: %w", err)
+	}
+
+	return &ContainerResult{
+		ContainerID: project.ContainerID,
+		Name:        containerName,
+		ProjectID:   project.ProjectID,
+	}, nil
+}
+
+// recreateContainer replaces the container with a new one using the full
+// updated configuration.
+func (s *Service) recreateContainer(ctx context.Context, project *db.ProjectRow, req engine.CreateContainerRequest) (*ContainerResult, error) {
 	row, err := projectRowFromRequest(req)
 	if err != nil {
 		return nil, err
@@ -153,6 +194,122 @@ func (s *Service) UpdateContainer(ctx context.Context, project *db.ProjectRow, r
 	}
 
 	return &ContainerResult{ContainerID: newID, Name: req.Name, ProjectID: row.ProjectID}, nil
+}
+
+// needsRecreation reports whether the requested configuration differs from
+// the current project in ways that require container recreation. Lightweight
+// fields (Name, SkipPermissions, CostBudget) can be updated in-place.
+func needsRecreation(project *db.ProjectRow, req engine.CreateContainerRequest) bool {
+	if req.Image != "" && req.Image != project.Image {
+		return true
+	}
+	if req.ProjectPath != project.HostPath {
+		return true
+	}
+
+	reqAgent := req.AgentType
+	if reqAgent == "" {
+		reqAgent = agent.DefaultAgentType
+	}
+	existingAgent := project.AgentType
+	if existingAgent == "" {
+		existingAgent = agent.DefaultAgentType
+	}
+	if reqAgent != existingAgent {
+		return true
+	}
+
+	reqNetwork := req.NetworkMode
+	if reqNetwork == "" {
+		reqNetwork = engine.NetworkModeFull
+	}
+	existingNetwork := engine.NetworkMode(project.NetworkMode)
+	if existingNetwork == "" {
+		existingNetwork = engine.NetworkModeFull
+	}
+	if reqNetwork != existingNetwork {
+		return true
+	}
+
+	if !stringSlicesEqual(req.AllowedDomains, splitCSV(project.AllowedDomains)) {
+		return true
+	}
+
+	if !stringSlicesEqual(req.EnabledAccessItems, splitCSV(project.EnabledAccessItems)) {
+		return true
+	}
+
+	if !envVarsEqual(req.EnvVars, project.EnvVars) {
+		return true
+	}
+
+	if !mountsEqual(req.Mounts, project.Mounts) {
+		return true
+	}
+
+	return false
+}
+
+// envVarsEqual compares requested env vars against the JSON-encoded DB value.
+func envVarsEqual(reqVars map[string]string, dbVars json.RawMessage) bool {
+	var existing map[string]string
+	if len(dbVars) > 0 {
+		if err := json.Unmarshal(dbVars, &existing); err != nil {
+			return false
+		}
+	}
+
+	if len(reqVars) == 0 && len(existing) == 0 {
+		return true
+	}
+	if len(reqVars) != len(existing) {
+		return false
+	}
+	for k, v := range reqVars {
+		if existing[k] != v {
+			return false
+		}
+	}
+	return true
+}
+
+// mountsEqual compares requested mounts against the JSON-encoded DB value.
+func mountsEqual(reqMounts []engine.Mount, dbMounts json.RawMessage) bool {
+	var existing []engine.Mount
+	if len(dbMounts) > 0 {
+		if err := json.Unmarshal(dbMounts, &existing); err != nil {
+			return false
+		}
+	}
+
+	if len(reqMounts) == 0 && len(existing) == 0 {
+		return true
+	}
+	if len(reqMounts) != len(existing) {
+		return false
+	}
+	for i := range reqMounts {
+		if reqMounts[i] != existing[i] {
+			return false
+		}
+	}
+	return true
+}
+
+// stringSlicesEqual compares two string slices for equality.
+func stringSlicesEqual(a, b []string) bool {
+	if len(a) == 0 && len(b) == 0 {
+		return true
+	}
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
 }
 
 // ValidateContainer checks whether a container has the required Warden

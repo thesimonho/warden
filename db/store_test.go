@@ -656,6 +656,63 @@ func TestInsertAndGetProject(t *testing.T) {
 	}
 }
 
+func TestUpdateProjectSettings(t *testing.T) {
+	t.Parallel()
+	store, err := New(t.TempDir())
+	if err != nil {
+		t.Fatalf("New() error: %v", err)
+	}
+	defer store.Close() //nolint:errcheck
+
+	// Insert a project first.
+	p := ProjectRow{
+		ProjectID:       "aabbccddee02",
+		Name:            "original-name",
+		HostPath:        "/home/user/code",
+		Image:           "warden:latest",
+		EnvVars:         json.RawMessage(`{"FOO":"bar"}`),
+		SkipPermissions: false,
+		CostBudget:      0,
+		ContainerID:     "abc123",
+		ContainerName:   "original-name",
+	}
+	if err := store.InsertProject(p); err != nil {
+		t.Fatalf("InsertProject() error: %v", err)
+	}
+
+	// Update only lightweight settings.
+	if err := store.UpdateProjectSettings("aabbccddee02", "new-name", "new-name", true, 42.5); err != nil {
+		t.Fatalf("UpdateProjectSettings() error: %v", err)
+	}
+
+	got, err := store.GetProject("aabbccddee02")
+	if err != nil {
+		t.Fatalf("GetProject() error: %v", err)
+	}
+	if got.Name != "new-name" {
+		t.Errorf("Name = %q, want %q", got.Name, "new-name")
+	}
+	if got.ContainerName != "new-name" {
+		t.Errorf("ContainerName = %q, want %q", got.ContainerName, "new-name")
+	}
+	if !got.SkipPermissions {
+		t.Error("SkipPermissions should be true")
+	}
+	if got.CostBudget != 42.5 {
+		t.Errorf("CostBudget = %f, want 42.5", got.CostBudget)
+	}
+	// Verify non-updated fields are preserved.
+	if got.Image != "warden:latest" {
+		t.Errorf("Image = %q, want %q (should be unchanged)", got.Image, "warden:latest")
+	}
+	if string(got.EnvVars) != `{"FOO":"bar"}` {
+		t.Errorf("EnvVars = %s, want %s (should be unchanged)", got.EnvVars, `{"FOO":"bar"}`)
+	}
+	if got.ContainerID != "abc123" {
+		t.Errorf("ContainerID = %q, want %q (should be unchanged)", got.ContainerID, "abc123")
+	}
+}
+
 func TestGetProject_NotFound(t *testing.T) {
 	t.Parallel()
 	store, err := New(t.TempDir())
