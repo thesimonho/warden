@@ -227,7 +227,7 @@ export default function ManageProjectDialog({
             variant="error"
             onClick={handleConfirm}
             disabled={!hasAnyAction || !isPurgeConfirmed || isSubmitting}
-            icon={Loader2}
+            icon={isSubmitting ? Loader2 : undefined}
             loading={isSubmitting}
           >
             {isSubmitting ? 'Processing…' : 'Confirm'}
