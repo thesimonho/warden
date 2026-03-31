@@ -14,4 +14,9 @@ type SessionParser interface {
 	// SessionDir returns the host-side directory to watch for session files.
 	// The directory path is constructed from the host home dir and project metadata.
 	SessionDir(homeDir string, project ProjectInfo) string
+
+	// FindSessionFiles returns the absolute paths of active JSONL session
+	// files belonging to the given project. Returns nil when no files are
+	// found or the directory does not exist.
+	FindSessionFiles(homeDir string, project ProjectInfo) []string
 }

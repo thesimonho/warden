@@ -19,7 +19,8 @@ func (s *stubParser) ParseLine(line []byte) []ParsedEvent {
 	}
 }
 
-func (s *stubParser) SessionDir(string, ProjectInfo) string { return "" }
+func (s *stubParser) SessionDir(string, ProjectInfo) string        { return "" }
+func (s *stubParser) FindSessionFiles(string, ProjectInfo) []string { return nil }
 
 func TestValidateJSONL_CountsEvents(t *testing.T) {
 	t.Parallel()

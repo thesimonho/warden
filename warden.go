@@ -180,7 +180,7 @@ func New(opts Options) (*App, error) {
 	store.SetStopCallback(svc.PersistSessionCost)
 	store.SetStaleCallback(svc.HandleContainerStale)
 
-	return &App{
+	app := &App{
 		Service:         svc,
 		Broker:          broker,
 		DB:              database,
@@ -190,7 +190,35 @@ func New(opts Options) (*App, error) {
 		agentRegistry:   agentRegistry,
 		eventHandler:    store.HandleEvent,
 		livenessCancel:  livenessCancel,
-	}, nil
+	}
+
+	// Start session watchers for already-running containers so JSONL
+	// event parsing resumes after a server restart.
+	app.resumeSessionWatchers(context.Background())
+
+	return app, nil
+}
+
+// resumeSessionWatchers starts session watchers for all projects that
+// have a running container. Called at startup so JSONL event parsing
+// resumes without requiring a container restart.
+func (a *App) resumeSessionWatchers(ctx context.Context) {
+	projects, err := a.Service.ListProjects(ctx)
+	if err != nil {
+		slog.Warn("failed to list projects for session watcher resume", "err", err)
+		return
+	}
+	for _, p := range projects {
+		if p.State != "running" {
+			continue
+		}
+		agentType := p.AgentType
+		if agentType == "" {
+			agentType = agent.DefaultAgentType
+		}
+		workspaceDir := engine.ContainerWorkspaceDir(p.Name)
+		a.StartSessionWatcher(p.ProjectID, p.Name, agentType, workspaceDir)
+	}
 }
 
 // --- Convenience methods ---
@@ -448,33 +476,40 @@ func (a *App) StartSessionWatcher(projectID, containerName, agentType string, wo
 		return
 	}
 
-	sessionDir := parser.SessionDir(homeDir, agent.ProjectInfo{
+	projectInfo := agent.ProjectInfo{
+		ProjectID:    projectID,
 		WorkspaceDir: workspaceDir,
 		ProjectName:  containerName,
-	})
+	}
 
 	// Create a callback that converts parsed events to container events
-	// and feeds them into the existing event pipeline.
-	sessionCtx := service.SessionContext{
-		ProjectID:     projectID,
-		ContainerName: containerName,
-		WorktreeID:    "main",
-	}
+	// and feeds them into the existing event pipeline. The worktree ID
+	// comes from the parsed event (derived from session CWD) when available,
+	// falling back to "main" for agents that don't report it.
 	callback := func(event agent.ParsedEvent) {
-		ce := service.SessionEventToContainerEvent(event, sessionCtx)
+		worktreeID := event.WorktreeID
+		if worktreeID == "" {
+			worktreeID = "main"
+		}
+		ctx := service.SessionContext{
+			ProjectID:     projectID,
+			ContainerName: containerName,
+			WorktreeID:    worktreeID,
+		}
+		ce := service.SessionEventToContainerEvent(event, ctx)
 		if ce != nil && a.eventHandler != nil {
 			a.eventHandler(*ce)
 		}
 	}
 
-	sw := agent.NewSessionWatcher(parser, sessionDir, callback)
+	sw := agent.NewSessionWatcher(parser, homeDir, projectInfo, callback)
 	if err := sw.Start(context.Background()); err != nil {
 		slog.Warn("failed to start session watcher", "project", projectID, "err", err)
 		return
 	}
 
 	a.sessionWatchers[projectID] = sw
-	slog.Info("started session watcher", "project", projectID, "dir", sessionDir)
+	slog.Info("started session watcher", "project", projectID)
 }
 
 // StopSessionWatcher stops and removes the session watcher for a project.

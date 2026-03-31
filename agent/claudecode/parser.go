@@ -2,18 +2,12 @@ package claudecode
 
 import (
 	"encoding/json"
+	"os"
 	"path/filepath"
 	"strings"
 
 	"github.com/thesimonho/warden/agent"
 )
-
-// maxToolInputLength is the maximum length of tool input included in events.
-const maxToolInputLength = 1000
-
-// maxPromptLength is the maximum length of user prompt text included in events.
-// Matches the truncation in warden-event.sh for consistency.
-const maxPromptLength = 500
 
 // Parser implements agent.SessionParser for Claude Code session JSONL files.
 // It is stateful — token counts accumulate across lines within a session.
@@ -57,6 +51,24 @@ func (p *Parser) ParseLine(line []byte) []agent.ParsedEvent {
 func (p *Parser) SessionDir(homeDir string, project agent.ProjectInfo) string {
 	encoded := encodeWorkspacePath(project.WorkspaceDir)
 	return filepath.Join(homeDir, ".claude", "projects", encoded)
+}
+
+// FindSessionFiles scans the per-project session directory for .jsonl files.
+// Claude Code stores each project's sessions in its own directory, so all
+// files found belong to this project.
+func (p *Parser) FindSessionFiles(homeDir string, project agent.ProjectInfo) []string {
+	dir := p.SessionDir(homeDir, project)
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return nil
+	}
+	var files []string
+	for _, e := range entries {
+		if !e.IsDir() && strings.HasSuffix(e.Name(), ".jsonl") {
+			files = append(files, filepath.Join(dir, e.Name()))
+		}
+	}
+	return files
 }
 
 // encodeWorkspacePath converts a container workspace path to Claude's
@@ -147,7 +159,7 @@ func (p *Parser) parseUser(entry SessionEntry) []agent.ParsedEvent {
 		Type:      agent.EventUserPrompt,
 		SessionID: entry.SessionID,
 		Timestamp: entry.Timestamp,
-		Prompt:    agent.TruncateString(promptText, maxPromptLength),
+		Prompt:    agent.TruncateString(promptText, agent.MaxPromptLength),
 		GitBranch: entry.GitBranch,
 	}}
 }
@@ -169,7 +181,7 @@ func (p *Parser) parseSystem(entry SessionEntry) []agent.ParsedEvent {
 }
 
 // truncateToolInput serializes tool input to a summary string, truncated
-// to maxToolInputLength characters.
+// to agent.MaxToolInputLength characters.
 func truncateToolInput(input map[string]any) string {
 	if len(input) == 0 {
 		return ""
@@ -178,6 +190,6 @@ func truncateToolInput(input map[string]any) string {
 	if err != nil {
 		return ""
 	}
-	return agent.TruncateString(string(data), maxToolInputLength)
+	return agent.TruncateString(string(data), agent.MaxToolInputLength)
 }
 

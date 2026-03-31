@@ -1,17 +1,15 @@
 package codex
 
 import (
+	"bytes"
 	"encoding/json"
+	"fmt"
+	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/thesimonho/warden/agent"
 )
-
-// maxToolInputLength is the maximum length of tool input included in events.
-const maxToolInputLength = 1000
-
-// maxPromptLength is the maximum length of user prompt text included in events.
-const maxPromptLength = 500
 
 // Parser implements agent.SessionParser for Codex CLI session JSONL files.
 // Token counts in Codex are cumulative (total_token_usage), so the parser
@@ -21,6 +19,8 @@ type Parser struct {
 	lastModel string
 	// sessionID is the session identifier from session_meta.
 	sessionID string
+	// worktreeID is derived from the session_meta CWD.
+	worktreeID string
 }
 
 // NewParser creates a new Codex JSONL parser.
@@ -56,6 +56,56 @@ func (p *Parser) SessionDir(homeDir string, _ agent.ProjectInfo) string {
 	return filepath.Join(homeDir, ".codex", "sessions")
 }
 
+// FindSessionFiles discovers active Codex session files for a project by
+// reading shell_snapshots. Codex creates a shell snapshot file per active
+// session at ~/.codex/shell_snapshots/<session_id>.<timestamp>.sh. Each
+// snapshot contains exported env vars including WARDEN_PROJECT_ID, which
+// we use to filter to the correct project. The session ID from the filename
+// is then used to glob for the matching JSONL file across date directories.
+func (p *Parser) FindSessionFiles(homeDir string, project agent.ProjectInfo) []string {
+	snapshotDir := filepath.Join(homeDir, ".codex", "shell_snapshots")
+	entries, err := os.ReadDir(snapshotDir)
+	if err != nil {
+		return nil
+	}
+
+	// Codex shell snapshots use `declare -x KEY="value"` format.
+	projectMarker := []byte(fmt.Sprintf("WARDEN_PROJECT_ID=%q", project.ProjectID))
+	sessionsDir := filepath.Join(homeDir, ".codex", "sessions")
+	var files []string
+
+	for _, e := range entries {
+		if e.IsDir() || !strings.HasSuffix(e.Name(), ".sh") {
+			continue
+		}
+
+		// Extract session ID from filename: <session_id>.<timestamp>.sh
+		sessionID, _, found := strings.Cut(e.Name(), ".")
+		if !found || sessionID == "" {
+			continue
+		}
+
+		// Check if this snapshot belongs to our project.
+		data, err := os.ReadFile(filepath.Join(snapshotDir, e.Name()))
+		if err != nil {
+			continue
+		}
+		if !bytes.Contains(data, projectMarker) {
+			continue
+		}
+
+		// Glob for the JSONL file by session ID across all date directories.
+		pattern := filepath.Join(sessionsDir, "*", "*", "*", "rollout-*-"+sessionID+".jsonl")
+		matches, err := filepath.Glob(pattern)
+		if err != nil || len(matches) == 0 {
+			continue
+		}
+		files = append(files, matches[0])
+	}
+
+	return files
+}
+
 // parseSessionMeta extracts session identity and git info.
 func (p *Parser) parseSessionMeta(item RolloutItem) []agent.ParsedEvent {
 	var meta SessionMeta
@@ -64,11 +114,13 @@ func (p *Parser) parseSessionMeta(item RolloutItem) []agent.ParsedEvent {
 	}
 
 	p.sessionID = meta.ID
+	p.worktreeID = agent.WorktreeIDFromCWD(meta.CWD, "")
 
 	event := agent.ParsedEvent{
-		Type:      agent.EventSessionStart,
-		SessionID: meta.ID,
-		Timestamp: item.Timestamp,
+		Type:       agent.EventSessionStart,
+		SessionID:  meta.ID,
+		WorktreeID: p.worktreeID,
+		Timestamp:  item.Timestamp,
 	}
 	if meta.Git != nil {
 		event.GitBranch = meta.Git.Branch
@@ -102,12 +154,13 @@ func (p *Parser) parseResponseItem(item RolloutItem) []agent.ParsedEvent {
 	switch resp.Type {
 	case "function_call":
 		return []agent.ParsedEvent{{
-			Type:      agent.EventToolUse,
-			SessionID: p.sessionID,
-			Timestamp: item.Timestamp,
-			Model:     p.lastModel,
-			ToolName:  resp.Name,
-			ToolInput: agent.TruncateString(resp.Arguments, maxToolInputLength),
+			Type:       agent.EventToolUse,
+			SessionID:  p.sessionID,
+			WorktreeID: p.worktreeID,
+			Timestamp:  item.Timestamp,
+			Model:      p.lastModel,
+			ToolName:   resp.Name,
+			ToolInput:  agent.TruncateString(resp.Arguments, agent.MaxToolInputLength),
 		}}
 	default:
 		// message, reasoning, function_call_output — no events.
@@ -128,10 +181,11 @@ func (p *Parser) parseEventMsg(item RolloutItem) []agent.ParsedEvent {
 			return nil
 		}
 		return []agent.ParsedEvent{{
-			Type:      agent.EventUserPrompt,
-			SessionID: p.sessionID,
-			Timestamp: item.Timestamp,
-			Prompt:    agent.TruncateString(msg.Message, maxPromptLength),
+			Type:       agent.EventUserPrompt,
+			SessionID:  p.sessionID,
+			WorktreeID: p.worktreeID,
+			Timestamp:  item.Timestamp,
+			Prompt:     agent.TruncateString(msg.Message, agent.MaxPromptLength),
 		}}
 
 	case "token_count":
@@ -148,6 +202,7 @@ func (p *Parser) parseEventMsg(item RolloutItem) []agent.ParsedEvent {
 		return []agent.ParsedEvent{{
 			Type:             agent.EventTokenUpdate,
 			SessionID:        p.sessionID,
+			WorktreeID:       p.worktreeID,
 			Timestamp:        item.Timestamp,
 			Model:            p.lastModel,
 			Tokens:           tokens,
@@ -156,10 +211,11 @@ func (p *Parser) parseEventMsg(item RolloutItem) []agent.ParsedEvent {
 
 	case "task_complete":
 		return []agent.ParsedEvent{{
-			Type:      agent.EventTurnComplete,
-			SessionID: p.sessionID,
-			Timestamp: item.Timestamp,
-			Model:     p.lastModel,
+			Type:       agent.EventTurnComplete,
+			SessionID:  p.sessionID,
+			WorktreeID: p.worktreeID,
+			Timestamp:  item.Timestamp,
+			Model:      p.lastModel,
 		}}
 
 	case "task_started":

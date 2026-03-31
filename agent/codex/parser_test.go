@@ -2,6 +2,7 @@ package codex
 
 import (
 	"bufio"
+	"fmt"
 	"os"
 	"testing"
 
@@ -191,6 +192,69 @@ func TestSessionDir(t *testing.T) {
 	want := "/home/user/.codex/sessions"
 	if dir != want {
 		t.Errorf("SessionDir = %q, want %q", dir, want)
+	}
+}
+
+func TestFindSessionFiles(t *testing.T) {
+	t.Parallel()
+
+	// Set up a fake ~/.codex structure with shell_snapshots and session files.
+	home := t.TempDir()
+	projectID := "abc123"
+
+	// Create a shell snapshot for our project.
+	snapshotDir := home + "/.codex/shell_snapshots"
+	if err := os.MkdirAll(snapshotDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	sessionID := "019d42bf-9d62-73a0-8512-bcfc69932d35"
+	snapshotContent := fmt.Sprintf("declare -x WARDEN_PROJECT_ID=%q\n", projectID)
+	if err := os.WriteFile(snapshotDir+"/"+sessionID+".12345.sh", []byte(snapshotContent), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Create a shell snapshot for a DIFFERENT project.
+	otherSessionID := "019d42dd-c765-7dd3-b372-4957b698e30e"
+	otherContent := fmt.Sprintf("declare -x WARDEN_PROJECT_ID=%q\n", "other999")
+	if err := os.WriteFile(snapshotDir+"/"+otherSessionID+".67890.sh", []byte(otherContent), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Create matching JSONL files in date subdirectories.
+	dateDir := home + "/.codex/sessions/2026/03/31"
+	if err := os.MkdirAll(dateDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	matchFile := dateDir + "/rollout-2026-03-31T07-15-47-" + sessionID + ".jsonl"
+	otherFile := dateDir + "/rollout-2026-03-31T07-48-44-" + otherSessionID + ".jsonl"
+	if err := os.WriteFile(matchFile, []byte(`{"type":"session_meta"}`+"\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(otherFile, []byte(`{"type":"session_meta"}`+"\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	parser := NewParser()
+	files := parser.FindSessionFiles(home, agent.ProjectInfo{
+		ProjectID:    projectID,
+		WorkspaceDir: "/home/dev/project",
+		ProjectName:  "project",
+	})
+
+	if len(files) != 1 {
+		t.Fatalf("FindSessionFiles returned %d files, want 1", len(files))
+	}
+	if files[0] != matchFile {
+		t.Errorf("FindSessionFiles returned %q, want %q", files[0], matchFile)
+	}
+}
+
+func TestFindSessionFiles_NoSnapshots(t *testing.T) {
+	t.Parallel()
+	parser := NewParser()
+	files := parser.FindSessionFiles(t.TempDir(), agent.ProjectInfo{ProjectID: "abc123"})
+	if len(files) != 0 {
+		t.Errorf("expected empty, got %v", files)
 	}
 }
 

@@ -106,6 +106,8 @@ type ParsedEvent struct {
 
 // ProjectInfo provides project metadata for session file discovery.
 type ProjectInfo struct {
+	// ProjectID is the deterministic 12-char hex project identifier.
+	ProjectID string
 	// WorkspaceDir is the container-side workspace directory.
 	WorkspaceDir string
 	// ProjectName is the user-chosen project name.

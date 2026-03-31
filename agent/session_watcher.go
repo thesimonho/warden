@@ -8,11 +8,8 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
-	"strings"
 	"sync"
 	"time"
-
-	"github.com/fsnotify/fsnotify"
 )
 
 // sessionPollInterval is how often the watcher checks for new lines
@@ -26,50 +23,52 @@ const sessionPollInterval = 2 * time.Second
 // Lifecycle: one watcher per project, created when a container starts,
 // stopped when the container stops.
 type SessionWatcher struct {
-	parser    SessionParser
-	sessionDir string
-	callback  func(ParsedEvent)
-	logger    *slog.Logger
+	parser   SessionParser
+	homeDir  string
+	project  ProjectInfo
+	callback func(ParsedEvent)
+	logger   *slog.Logger
 
 	cancel context.CancelFunc
 	wg     sync.WaitGroup
 
-	mu             sync.Mutex
-	currentFile    string             // path of the file currently being tailed
-	cancelTailFile context.CancelFunc // cancels the current tailFile goroutine
+	mu          sync.Mutex
+	tailedFiles map[string]context.CancelFunc // path → cancel for each tailed file
 }
 
 // NewSessionWatcher creates a watcher for JSONL session files.
 // The parser converts lines into ParsedEvents. The callback receives
-// each event (typically wired to the eventbus).
-func NewSessionWatcher(parser SessionParser, sessionDir string, callback func(ParsedEvent)) *SessionWatcher {
+// each event (typically wired to the eventbus). The homeDir and project
+// are passed to the parser's FindSessionFiles for file discovery.
+func NewSessionWatcher(parser SessionParser, homeDir string, project ProjectInfo, callback func(ParsedEvent)) *SessionWatcher {
 	return &SessionWatcher{
-		parser:     parser,
-		sessionDir: sessionDir,
-		callback:   callback,
-		logger:     slog.Default().With("component", "session_watcher", "dir", sessionDir),
+		parser:      parser,
+		homeDir:     homeDir,
+		project:     project,
+		callback:    callback,
+		tailedFiles: make(map[string]context.CancelFunc),
+		logger:      slog.Default().With("component", "session_watcher", "project", project.ProjectID),
 	}
 }
 
-// Start begins watching for session files. It finds the most recent
-// .jsonl file in the session directory (if any) and tails it. When new
-// .jsonl files appear, it switches to tailing the new file.
+// Start begins watching for session files. It discovers existing session
+// files via the parser's FindSessionFiles and tails them. Periodically
+// re-discovers to pick up new sessions.
 func (sw *SessionWatcher) Start(ctx context.Context) error {
 	ctx, sw.cancel = context.WithCancel(ctx)
 
-	// Ensure session directory exists before watching.
-	if err := os.MkdirAll(sw.sessionDir, 0o700); err != nil {
+	// Ensure session directory exists so the agent has somewhere to write.
+	sessionDir := sw.parser.SessionDir(sw.homeDir, sw.project)
+	if err := os.MkdirAll(sessionDir, 0o700); err != nil {
 		return err
 	}
 
-	// Start tailing the most recent session file, if one exists.
-	if latest := sw.findLatestJSONL(); latest != "" {
-		sw.switchToFile(ctx, latest)
-	}
+	// Discover and tail any existing session files.
+	sw.discoverAndTail(ctx)
 
-	// Watch for new .jsonl files (session rotation).
+	// Periodically re-discover new session files.
 	sw.wg.Add(1)
-	go sw.watchForNewFiles(ctx)
+	go sw.pollForNewFiles(ctx)
 
 	return nil
 }
@@ -80,121 +79,45 @@ func (sw *SessionWatcher) Stop() {
 		sw.cancel()
 	}
 	sw.wg.Wait()
+	sw.mu.Lock()
+	clear(sw.tailedFiles)
+	sw.mu.Unlock()
 }
 
-// findLatestJSONL returns the path of the most recently modified .jsonl
-// file in the session directory, or "" if none exist.
-func (sw *SessionWatcher) findLatestJSONL() string {
-	entries, err := os.ReadDir(sw.sessionDir)
-	if err != nil {
-		return ""
-	}
+// discoverAndTail calls FindSessionFiles and starts tailing any files
+// not already being tailed.
+func (sw *SessionWatcher) discoverAndTail(ctx context.Context) {
+	files := sw.parser.FindSessionFiles(sw.homeDir, sw.project)
 
-	var latestPath string
-	var latestTime time.Time
-
-	for _, entry := range entries {
-		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".jsonl") {
-			continue
-		}
-		info, err := entry.Info()
-		if err != nil {
-			continue
-		}
-		if info.ModTime().After(latestTime) {
-			latestTime = info.ModTime()
-			latestPath = filepath.Join(sw.sessionDir, entry.Name())
-		}
-	}
-	return latestPath
-}
-
-// watchForNewFiles uses fsnotify to detect new .jsonl files appearing
-// in the session directory. Falls back to polling when fsnotify doesn't
-// fire (Docker Desktop).
-func (sw *SessionWatcher) watchForNewFiles(ctx context.Context) {
-	defer sw.wg.Done()
-
-	fsw, err := fsnotify.NewWatcher()
-	if err != nil {
-		sw.logger.Warn("fsnotify unavailable, using polling only", "err", err)
-		sw.pollForNewFiles(ctx)
-		return
-	}
-	defer func() { _ = fsw.Close() }()
-
-	if err := fsw.Add(sw.sessionDir); err != nil {
-		sw.logger.Warn("failed to watch session dir, using polling only", "err", err)
-		sw.pollForNewFiles(ctx)
-		return
-	}
-
-	ticker := time.NewTicker(sessionPollInterval)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case event, ok := <-fsw.Events:
-			if !ok {
-				return
-			}
-			if event.Op&(fsnotify.Create|fsnotify.Write) != 0 && strings.HasSuffix(event.Name, ".jsonl") {
-				sw.switchToFile(ctx, event.Name)
-			}
-		case err, ok := <-fsw.Errors:
-			if !ok {
-				return
-			}
-			sw.logger.Warn("fsnotify error", "err", err)
-		case <-ticker.C:
-			// Polling fallback: check for newer files.
-			if latest := sw.findLatestJSONL(); latest != "" {
-				sw.switchToFile(ctx, latest)
-			}
-		}
-	}
-}
-
-// pollForNewFiles is the pure-polling fallback when fsnotify is unavailable.
-func (sw *SessionWatcher) pollForNewFiles(ctx context.Context) {
-	ticker := time.NewTicker(sessionPollInterval)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-ticker.C:
-			if latest := sw.findLatestJSONL(); latest != "" {
-				sw.switchToFile(ctx, latest)
-			}
-		}
-	}
-}
-
-// switchToFile starts tailing a new file if it differs from the current one.
-// Cancels the previous tailFile goroutine before starting the new one.
-func (sw *SessionWatcher) switchToFile(ctx context.Context, path string) {
 	sw.mu.Lock()
 	defer sw.mu.Unlock()
 
-	if path == sw.currentFile {
-		return
+	for _, path := range files {
+		if _, exists := sw.tailedFiles[path]; exists {
+			continue
+		}
+		sw.logger.Info("tailing session file", "path", filepath.Base(path))
+		tailCtx, tailCancel := context.WithCancel(ctx)
+		sw.tailedFiles[path] = tailCancel
+		sw.startTailing(tailCtx, path)
 	}
+}
 
-	// Cancel the previous tailer so it exits immediately.
-	if sw.cancelTailFile != nil {
-		sw.cancelTailFile()
+// pollForNewFiles periodically re-discovers session files.
+func (sw *SessionWatcher) pollForNewFiles(ctx context.Context) {
+	defer sw.wg.Done()
+
+	ticker := time.NewTicker(sessionPollInterval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			sw.discoverAndTail(ctx)
+		}
 	}
-
-	sw.logger.Info("switching to new session file", "path", filepath.Base(path))
-	sw.currentFile = path
-
-	tailCtx, tailCancel := context.WithCancel(ctx)
-	sw.cancelTailFile = tailCancel
-	sw.startTailing(tailCtx, path)
 }
 
 // startTailing opens a file and begins reading new lines from the end.
@@ -218,7 +141,6 @@ func (sw *SessionWatcher) tailFile(ctx context.Context, path string) {
 	defer func() { _ = f.Close() }()
 
 	// Seek to end — we only want new lines from this point forward.
-	// For existing files, we don't replay history.
 	if _, err := f.Seek(0, io.SeekEnd); err != nil {
 		sw.logger.Warn("failed to seek to end", "path", path, "err", err)
 		return
