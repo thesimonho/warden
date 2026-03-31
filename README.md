@@ -46,8 +46,8 @@ You can easily use it from Day 1 as its own agent orchestrator, running as a web
 ## ✅ What you get
 
 <div align="center">
-  <img width="400" alt="light" src="docs_site/public/hero-light.webp" />
-  <img width="400" alt="dark" src="docs_site/public/hero-dark.webp" />
+  <a href="docs_site/public/hero-light.webp" target="_blank"><img width="400" alt="light" src="docs_site/public/hero-light.webp" /></a>
+  <a href="docs_site/public/hero-dark.webp" target="_blank"><img width="400" alt="dark" src="docs_site/public/hero-dark.webp" /></a>
 </div>
 
 ### Security model
@@ -79,6 +79,11 @@ You can easily use it from Day 1 as its own agent orchestrator, running as a web
 - **Cost tracking and budget enforcement** — per-project cost tracking with configurable budget actions (warn, stop worktrees, stop container, prevent restart).
 - **Diff view** — see the changes made by each agent in real time.
 - **Audit system** — unified event logging with activity timeline visualization, summary dashboard, category filtering (sessions, tools, prompts, config, system), and compliance-ready export (CSV/JSON). Configurable logging modes (off/standard/detailed) to balance detail with volume.
+
+<div align="center">
+  <a href="docs_site/public/audit.webp" target="_blank"><img width="400" src="docs_site/public/audit.webp" /></a>
+  <a href="docs_site/public/access.webp" target="_blank"><img width="127" src="docs_site/public/access.webp" /></a>
+</div>
 
 ## 🚀 Quick Start
 
