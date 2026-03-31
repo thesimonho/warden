@@ -6,7 +6,7 @@ import "charm.land/lipgloss/v2"
 // TUI inherits the user's color scheme automatically. Exported so the
 // parent tui package can reference them without duplication.
 var (
-	ColorGray    = lipgloss.Black
+	ColorGray    = lipgloss.BrightBlack
 	ColorSubtle  = lipgloss.BrightWhite
 	ColorAccent  = lipgloss.Blue
 	ColorSuccess = lipgloss.Green
