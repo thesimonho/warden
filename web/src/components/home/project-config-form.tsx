@@ -112,7 +112,7 @@ export default function ProjectConfigForm({
   )
   const [name, setName] = useState(initialValues?.name ?? '')
   const [projectPath, setProjectPath] = useState(initialValues?.projectPath ?? '')
-  const [image, setImage] = useState(initialValues?.image ?? DEFAULT_IMAGE)
+  const [image, setImage] = useState(initialValues?.image || DEFAULT_IMAGE)
   const [mounts, setMounts] = useState<Mount[]>(initialValues?.mounts ?? [])
   const [skipPermissions, setSkipPermissions] = useState(initialValues?.skipPermissions ?? false)
   const [networkMode, setNetworkMode] = useState<NetworkMode>(
