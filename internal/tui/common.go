@@ -17,10 +17,10 @@ const (
 	TabProjects Tab = iota
 	// TabSettings is the settings view.
 	TabSettings
-	// TabAudit is the unified audit log viewer.
-	TabAudit
 	// TabAccess is the access management view.
 	TabAccess
+	// TabAudit is the unified audit log viewer.
+	TabAudit
 )
 
 // TabLabels maps each tab to its display label.

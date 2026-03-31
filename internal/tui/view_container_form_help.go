@@ -94,6 +94,12 @@ var inlineEditHelpKeyMap = staticKeyMap{
 	bindings: []key.Binding{bindingTab, bindingSave, bindingEsc},
 }
 
+// credEditHelpKeyMap is shown when editing a credential inline.
+// Includes cycle hint for source/injection type fields.
+var credEditHelpKeyMap = staticKeyMap{
+	bindings: []key.Binding{bindingTab, bindingCycle, bindingSave, bindingEsc},
+}
+
 // staticKeyMap is a help.KeyMap backed by a fixed slice of bindings.
 type staticKeyMap struct {
 	bindings []key.Binding

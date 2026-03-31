@@ -278,7 +278,12 @@ func (a App) View() tea.View {
 
 	// Content area — fills remaining vertical space.
 	// Vertical budget: header (3) + help bar (1) + app padding (2) = 6.
-	contentH := a.contentHeight()
+	// The "\n" joiners in body don't add extra rows — they transition
+	// from the last line of one section to the first of the next.
+	contentH := a.height - 6
+	if contentH < 5 {
+		contentH = 5
+	}
 	var content string
 	if activeView != nil {
 		content = activeView.Render(cw, contentH)
@@ -372,13 +377,6 @@ func (a App) contentWidth() int {
 	return w
 }
 
-func (a App) contentHeight() int {
-	h := a.height - 6
-	if h < 5 {
-		return 5
-	}
-	return h
-}
 
 // mergedKeyMap combines a view's keybindings with global keybindings.
 // ShortHelp shows only the view's bindings; FullHelp appends global

@@ -10,7 +10,6 @@ import (
 	"charm.land/bubbles/v2/textinput"
 	tea "charm.land/bubbletea/v2"
 
-	"github.com/thesimonho/warden/access"
 	"github.com/thesimonho/warden/agent"
 	"github.com/thesimonho/warden/api"
 	"github.com/thesimonho/warden/engine"
@@ -42,10 +41,9 @@ const (
 	fieldAdvanced
 	// --- Advanced fields (visible when advancedOpen) ---
 	fieldImage
-	fieldGitPassthrough // toggle for git config passthrough
-	fieldSSHPassthrough // toggle for SSH passthrough
-	fieldMounts         // section header with "add" action
-	fieldEnvVars        // section header with "add" action
+	fieldAccessItems // dynamic access item toggles (Git, SSH, user-defined)
+	fieldMounts      // section header with "add" action
+	fieldEnvVars     // section header with "add" action
 	fieldSubmit
 	fieldCount
 )
@@ -93,9 +91,10 @@ type ContainerFormView struct {
 	// Advanced section.
 	advancedOpen bool
 
-	// Access items (Git, SSH passthrough toggles).
+	// Access items (Git, SSH, user-defined toggles).
 	accessItems   []api.AccessItemResponse
 	accessToggles map[string]bool
+	accessCursor  int // sub-cursor within access items (-1 = header)
 
 	// Bind mounts.
 	mounts       []engine.Mount
@@ -254,7 +253,11 @@ func (v *ContainerFormView) Update(msg tea.Msg) (View, tea.Cmd) {
 		}
 
 		if v.editID == "" && len(v.mounts) == 0 && len(v.defaults.Mounts) > 0 {
+			selected := agentTypes[v.agentType]
 			for _, dm := range v.defaults.Mounts {
+				if !isMountForAgent(dm, selected) {
+					continue
+				}
 				v.mounts = append(v.mounts, engine.Mount{
 					HostPath:      dm.HostPath,
 					ContainerPath: dm.ContainerPath,
@@ -505,15 +508,16 @@ func (v *ContainerFormView) cycleSelection() (View, tea.Cmd) {
 	case fieldAgentType:
 		if v.editID == "" { // read-only in edit mode
 			v.agentType = (v.agentType + 1) % len(agentTypes)
+			v.refilterDefaultMounts()
 		}
 	case fieldNetwork:
 		v.network = (v.network + 1) % len(networkModes)
 	case fieldSkipPerms:
 		v.skipPerm = !v.skipPerm
-	case fieldGitPassthrough:
-		v.toggleAccessItem(access.BuiltInIDGit)
-	case fieldSSHPassthrough:
-		v.toggleAccessItem(access.BuiltInIDSSH)
+	case fieldAccessItems:
+		if v.accessCursor >= 0 && v.accessCursor < len(v.accessItems) {
+			v.toggleAccessItem(v.accessItems[v.accessCursor].ID)
+		}
 	}
 	return v, nil
 }
@@ -523,15 +527,30 @@ func (v *ContainerFormView) isFieldVisible(field int) bool {
 	switch field {
 	case fieldDomains:
 		return networkModes[v.network] == "restricted"
-	case fieldImage, fieldGitPassthrough, fieldSSHPassthrough, fieldMounts, fieldEnvVars:
+	case fieldImage, fieldAccessItems, fieldMounts, fieldEnvVars:
 		return v.advancedOpen
 	}
 	return true
 }
 
 // moveCursor moves the cursor by delta, skipping hidden fields.
-// For mount/env sections, navigates sub-items including the [Add] header at -1.
+// For access/mount/env sections, navigates sub-items.
 func (v *ContainerFormView) moveCursor(delta int) {
+	if v.cursor == fieldAccessItems {
+		next := v.accessCursor + delta
+		if next < 0 {
+			v.accessCursor = 0
+			v.moveCursorField(delta)
+			return
+		}
+		if next >= len(v.accessItems) {
+			v.moveCursorField(delta)
+			return
+		}
+		v.accessCursor = next
+		return
+	}
+
 	if v.cursor == fieldMounts {
 		next := v.mountCursor + delta
 		if next < -1 {
@@ -571,6 +590,13 @@ func (v *ContainerFormView) moveCursorField(delta int) {
 	for next >= 0 && next < fieldCount {
 		if v.isFieldVisible(next) {
 			v.cursor = next
+			if next == fieldAccessItems {
+				if delta > 0 {
+					v.accessCursor = 0
+				} else {
+					v.accessCursor = max(len(v.accessItems)-1, 0)
+				}
+			}
 			if next == fieldMounts {
 				if delta > 0 {
 					v.mountCursor = -1
@@ -615,6 +641,7 @@ func (v *ContainerFormView) activateField() (View, tea.Cmd) {
 	case fieldAgentType:
 		if v.editID == "" {
 			v.agentType = (v.agentType + 1) % len(agentTypes)
+			v.refilterDefaultMounts()
 		}
 	case fieldNetwork:
 		v.network = (v.network + 1) % len(networkModes)
@@ -622,10 +649,10 @@ func (v *ContainerFormView) activateField() (View, tea.Cmd) {
 		v.skipPerm = !v.skipPerm
 	case fieldAdvanced:
 		v.advancedOpen = !v.advancedOpen
-	case fieldGitPassthrough:
-		v.toggleAccessItem(access.BuiltInIDGit)
-	case fieldSSHPassthrough:
-		v.toggleAccessItem(access.BuiltInIDSSH)
+	case fieldAccessItems:
+		if v.accessCursor >= 0 && v.accessCursor < len(v.accessItems) {
+			v.toggleAccessItem(v.accessItems[v.accessCursor].ID)
+		}
 
 	case fieldMounts:
 		return v.activateMountField()
@@ -750,7 +777,7 @@ func (v *ContainerFormView) updateActiveField(msg tea.Msg) (View, tea.Cmd) {
 			v.mountInputs[1], cmd = v.mountInputs[1].Update(msg)
 		}
 	case v.editingEnv:
-		if v.envInputFocus == 0 {
+		if v.envInputs[0].Focused() {
 			v.envInputs[0], cmd = v.envInputs[0].Update(msg)
 		} else {
 			v.envInputs[1], cmd = v.envInputs[1].Update(msg)
@@ -860,5 +887,47 @@ func (v *ContainerFormView) isAccessItemAvailable(id string) bool {
 		}
 	}
 	return false
+}
+
+// refilterDefaultMounts replaces the mounts list with agent-type-filtered
+// defaults. Only applies in create mode when defaults are loaded.
+func (v *ContainerFormView) refilterDefaultMounts() {
+	if v.editID != "" || v.defaults == nil {
+		return
+	}
+	selected := agentTypes[v.agentType]
+	v.mounts = nil
+	for _, dm := range v.defaults.Mounts {
+		if !isMountForAgent(dm, selected) {
+			continue
+		}
+		v.mounts = append(v.mounts, engine.Mount{
+			HostPath:      dm.HostPath,
+			ContainerPath: dm.ContainerPath,
+			ReadOnly:      dm.ReadOnly,
+		})
+	}
+}
+
+// agentConfigSuffix maps agent types to their well-known config directory
+// suffixes inside the container.
+var agentConfigSuffix = map[string]string{
+	agent.ClaudeCode: "/.claude",
+	agent.Codex:      "/.codex",
+}
+
+// isMountForAgent returns true if a default mount belongs to the given agent type.
+// Checks the server-provided AgentType tag first, then falls back to matching
+// well-known config directory patterns in the container path.
+func isMountForAgent(dm api.DefaultMount, agentType string) bool {
+	if dm.AgentType != "" {
+		return dm.AgentType == agentType
+	}
+	for at, suffix := range agentConfigSuffix {
+		if strings.HasSuffix(dm.ContainerPath, suffix) {
+			return at == agentType
+		}
+	}
+	return true
 }
 
