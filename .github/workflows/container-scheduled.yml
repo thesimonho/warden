@@ -52,6 +52,10 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       passed: ${{ steps.result.outputs.passed }}
+      claude_failed: ${{ steps.result.outputs.claude_failed }}
+      codex_failed: ${{ steps.result.outputs.codex_failed }}
+      claude_version: ${{ steps.versions.outputs.claude }}
+      codex_version: ${{ steps.versions.outputs.codex }}
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-go@v6
@@ -64,6 +68,15 @@ jobs:
           path: ${{ runner.temp }}
       - name: Load image
         run: gunzip -c "$RUNNER_TEMP/warden-test.tar.gz" | docker load
+
+      # Capture CLI versions for issue reporting.
+      - name: Get CLI versions
+        id: versions
+        run: |
+          CLAUDE_VER=$(docker run --rm warden:test bash -lc "claude --version 2>/dev/null || echo unknown" | tail -1)
+          CODEX_VER=$(docker run --rm warden:test bash -lc "codex --version 2>/dev/null || echo unknown" | tail -1)
+          echo "claude=$CLAUDE_VER" >> "$GITHUB_OUTPUT"
+          echo "codex=$CODEX_VER" >> "$GITHUB_OUTPUT"
 
       # Claude Code CLI test
       - name: Run Claude Code CLI
@@ -80,7 +93,9 @@ jobs:
             bash -lc "claude --dangerously-skip-permissions -p '${{ env.TEST_PROMPT }}' && cp ~/.claude/projects/*/*.jsonl /output/ 2>/dev/null || true"
 
       - name: Validate Claude JSONL
+        id: validate-claude
         if: ${{ env.ANTHROPIC_API_KEY != '' }}
+        continue-on-error: true
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           VALIDATE_JSONL: ${{ runner.temp }}/claude-output
@@ -108,7 +123,9 @@ jobs:
             bash -lc "codex --full-auto --no-alt-screen -q '${{ env.TEST_PROMPT }}' && cp ~/.codex/sessions/*/*/*.jsonl /output/ 2>/dev/null || true"
 
       - name: Validate Codex JSONL
+        id: validate-codex
         if: ${{ env.OPENAI_API_KEY != '' }}
+        continue-on-error: true
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: |
@@ -122,8 +139,17 @@ jobs:
 
       - name: Set result
         id: result
-        if: success()
-        run: echo "passed=true" >> "$GITHUB_OUTPUT"
+        run: |
+          CLAUDE_OK="${{ steps.validate-claude.outcome != 'failure' }}"
+          CODEX_OK="${{ steps.validate-codex.outcome != 'failure' }}"
+          if [ "$CLAUDE_OK" = "true" ] && [ "$CODEX_OK" = "true" ]; then
+            echo "passed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "passed=false" >> "$GITHUB_OUTPUT"
+            echo "claude_failed=${{ steps.validate-claude.outcome == 'failure' }}" >> "$GITHUB_OUTPUT"
+            echo "codex_failed=${{ steps.validate-codex.outcome == 'failure' }}" >> "$GITHUB_OUTPUT"
+            exit 1
+          fi
 
   # ── Push image if validation passed ──────────────────────────────────
   push:
@@ -171,16 +197,34 @@ jobs:
       - name: Create issue
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CLAUDE_FAILED: ${{ needs.validate.outputs.claude_failed }}
+          CODEX_FAILED: ${{ needs.validate.outputs.codex_failed }}
+          CLAUDE_VERSION: ${{ needs.validate.outputs.claude_version }}
+          CODEX_VERSION: ${{ needs.validate.outputs.codex_version }}
         run: |
+          # Build label list and title based on which CLI(s) failed.
+          LABELS=""
+          FAILED_AGENTS=""
+          VERSION_LINES=""
+
+          if [ "$CLAUDE_FAILED" = "true" ]; then
+            LABELS="claude-code"
+            FAILED_AGENTS="Claude Code"
+            VERSION_LINES="- Claude Code: \`${CLAUDE_VERSION}\`"
+          fi
+          if [ "$CODEX_FAILED" = "true" ]; then
+            [ -n "$LABELS" ] && LABELS="${LABELS},"
+            LABELS="${LABELS}codex"
+            [ -n "$FAILED_AGENTS" ] && FAILED_AGENTS="${FAILED_AGENTS} + "
+            FAILED_AGENTS="${FAILED_AGENTS}Codex"
+            [ -n "$VERSION_LINES" ] && VERSION_LINES="${VERSION_LINES}\n"
+            VERSION_LINES="${VERSION_LINES}- Codex: \`${CODEX_VERSION}\`"
+          fi
+
           gh issue create \
-            --title "Scheduled CLI validation failed ($(date +%Y-%m-%d))" \
-            --body "$(cat <<'EOF'
-          The scheduled container image build failed JSONL parser validation.
-          The image was **not** pushed to GHCR.
-
-          **Workflow run:** ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-
-          Check the validate job logs for details on which CLI/parser failed.
-          EOF
-          )" \
-            --label "bug,container"
+            --title "${FAILED_AGENTS} JSONL validation failed ($(date +%Y-%m-%d))" \
+            --body "$(printf 'The scheduled container validation failed for **%s**.\nThe image was **not** pushed to GHCR.\n\n**CLI versions:**\n%b\n\n**Workflow run:** %s' \
+              "$FAILED_AGENTS" \
+              "$VERSION_LINES" \
+              "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}")" \
+            --label "$LABELS"
