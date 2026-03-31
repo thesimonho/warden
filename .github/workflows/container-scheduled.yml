@@ -120,7 +120,7 @@ jobs:
             -e WARDEN_AGENT_TYPE=codex \
             -v "$RUNNER_TEMP/codex-output:/output" \
             warden:test \
-            bash -lc "codex --full-auto --no-alt-screen -q '${{ env.TEST_PROMPT }}' && cp ~/.codex/sessions/*/*/*.jsonl /output/ 2>/dev/null || true"
+            bash -lc "codex --dangerously-bypass-approvals-and-sandbox --no-alt-screen -q '${{ env.TEST_PROMPT }}' && cp ~/.codex/sessions/*/*/*.jsonl /output/ 2>/dev/null || true"
 
       - name: Validate Codex JSONL
         id: validate-codex

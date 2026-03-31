@@ -46,7 +46,7 @@ This directory is ephemeral — stale entries are harmless and reset on containe
 - Name (required) — container name
 - Project directory (required) — host directory to mount as the workspace inside the container
 - Image (optional) — defaults to `ghcr.io/thesimonho/warden:latest`
-- Skip permissions (optional) — run agent with `--dangerously-skip-permissions` (Claude) or `--full-auto` (Codex)
+- Skip permissions (optional) — run agent with `--dangerously-skip-permissions` (Claude) or `--dangerously-bypass-approvals-and-sandbox` (Codex)
 - Network mode — full, restricted (with domain allowlist), or none
 - Cost budget (optional) — per-project spending limit
 - Environment variables (optional) — key-value pairs
@@ -183,7 +183,7 @@ A worktree is a unit of independent work. The user creates worktrees to have the
 1. Dialog opens with optional name field.
 2. On create: for Claude Code, `claude --worktree <id>` creates the checkout at `<workspace>/.claude/worktrees/{id}/`. For Codex, Warden runs `git worktree add` to create the checkout at `<workspace>/.warden/worktrees/{id}/`, then launches `codex --no-alt-screen` in the worktree directory.
 3. abduco session started, agent launched in the worktree.
-4. If skip permissions enabled, the agent runs with `--dangerously-skip-permissions` (Claude) or `--full-auto` (Codex).
+4. If skip permissions enabled, the agent runs with `--dangerously-skip-permissions` (Claude) or `--dangerously-bypass-approvals-and-sandbox` (Codex).
 5. Worktree appears in sidebar as "connected" with a green dot.
 6. Terminal loads and connects via WebSocket.
 

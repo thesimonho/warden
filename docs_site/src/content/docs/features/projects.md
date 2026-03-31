@@ -66,7 +66,7 @@ Select which [Access Items](/warden/features/access/) to enable for this project
 
 ### Skip Permissions
 
-When enabled, terminals start the agent in fully autonomous mode, bypassing tool approval prompts. Claude Code uses `--dangerously-skip-permissions`; Codex uses `--full-auto`. Useful for trusted automation workflows.
+When enabled, terminals start the agent in fully autonomous mode, bypassing tool approval prompts. Claude Code uses `--dangerously-skip-permissions`; Codex uses `--dangerously-bypass-approvals-and-sandbox`. Useful for trusted automation workflows.
 
 :::caution
 Skipping permissions gives the agent unrestricted access to the tools available in the container. Only enable this for projects where you trust the prompts being sent.
