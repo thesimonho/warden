@@ -43,7 +43,8 @@ apt-get install -y --no-install-recommends \
   gnupg \
   iptables \
   ipset \
-  dnsmasq-base
+  dnsmasq-base \
+  bubblewrap
 
 if [ "$NEED_BUILD_DEPS" = true ]; then
   apt-get install -y --no-install-recommends \

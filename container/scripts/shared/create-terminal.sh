@@ -62,8 +62,8 @@ case "$AGENT_TYPE" in
     if [ "$IS_GIT_REPO" = true ] && [ "$WORKTREE_ID" != "main" ]; then
       WORKTREE_PATH="${WORKSPACE_DIR}/.warden/worktrees/${WORKTREE_ID}"
       if [ ! -d "$WORKTREE_PATH" ]; then
-        git -C "$WORKSPACE_DIR" worktree add "$WORKTREE_PATH" -b "$WORKTREE_ID" 2>/dev/null \
-          || git -C "$WORKSPACE_DIR" worktree add "$WORKTREE_PATH" "$WORKTREE_ID" 2>/dev/null \
+        git -C "$WORKSPACE_DIR" worktree add "$WORKTREE_PATH" -b "$WORKTREE_ID" >/dev/null 2>&1 \
+          || git -C "$WORKSPACE_DIR" worktree add "$WORKTREE_PATH" "$WORKTREE_ID" >/dev/null 2>&1 \
           || true
       fi
       if [ -d "$WORKTREE_PATH" ]; then
@@ -74,9 +74,9 @@ case "$AGENT_TYPE" in
       fi
     fi
 
-    AGENT_CMD="codex --no-alt-screen"
+    AGENT_CMD="codex"
     if [ "$SKIP_PERMISSIONS" = "--skip-permissions" ]; then
-      AGENT_CMD="codex --no-alt-screen --dangerously-bypass-approvals-and-sandbox"
+      AGENT_CMD="codex --dangerously-bypass-approvals-and-sandbox"
     fi
     ;;
 
