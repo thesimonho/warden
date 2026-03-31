@@ -11,7 +11,8 @@ import {
   waitForProjectState,
   fetchRuntimes,
   fetchWorktrees,
-  disconnectTerminal,
+  killWorktreeProcess,
+  waitForWorktreeState,
   type ApiRuntime,
 } from './api'
 
@@ -129,14 +130,26 @@ export const test = base.extend<
   cleanupTerminals: [async ({ testProject }, use) => {
     await use()
 
-    /* After the test: disconnect every connected terminal in parallel. */
+    /* After the test: kill every active worktree process so the next test
+       starts from a clean "disconnected" state. Using kill instead of
+       disconnect ensures abduco is fully stopped — a background abduco
+       session would cause connectTerminal to skip create-terminal.sh,
+       which means no terminal_connected event fires. */
     try {
       const worktrees = await fetchWorktrees(testProject.id)
-      await Promise.all(
-        worktrees
-          .filter((wt) => wt.state === 'connected' || wt.state === 'shell')
-          .map((wt) => disconnectTerminal(testProject.id, wt.id).catch(() => {})),
+      const active = worktrees.filter((wt) =>
+        wt.state === 'connected' || wt.state === 'shell' || wt.state === 'background',
       )
+      if (active.length > 0) {
+        await Promise.all(
+          active.map((wt) => killWorktreeProcess(testProject.id, wt.id).catch(() => {})),
+        )
+        await Promise.all(
+          active.map((wt) =>
+            waitForWorktreeState(testProject.id, wt.id, 'disconnected', 10_000).catch(() => {}),
+          ),
+        )
+      }
     } catch {
       /* Best-effort cleanup — don't fail the test. */
     }

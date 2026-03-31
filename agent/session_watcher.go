@@ -121,7 +121,7 @@ func (sw *SessionWatcher) watchForNewFiles(ctx context.Context) {
 		sw.pollForNewFiles(ctx)
 		return
 	}
-	defer fsw.Close()
+	defer func() { _ = fsw.Close() }()
 
 	if err := fsw.Add(sw.sessionDir); err != nil {
 		sw.logger.Warn("failed to watch session dir, using polling only", "err", err)
@@ -215,7 +215,7 @@ func (sw *SessionWatcher) tailFile(ctx context.Context, path string) {
 		sw.logger.Warn("failed to open session file", "path", path, "err", err)
 		return
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	// Seek to end — we only want new lines from this point forward.
 	// For existing files, we don't replay history.

@@ -285,10 +285,8 @@ func (s *Service) getAccessItemsByIDs(ids []string) ([]access.Item, error) {
 	var items []access.Item
 	var dbIDs []string
 
-	for _, id := range ids {
-		// Always check DB — it may have an override for a built-in.
-		dbIDs = append(dbIDs, id)
-	}
+	// Always check DB — it may have overrides for built-in items.
+	dbIDs = append(dbIDs, ids...)
 
 	dbRows, err := s.db.GetAccessItemsByIDs(dbIDs)
 	if err != nil {
