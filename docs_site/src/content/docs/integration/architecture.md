@@ -84,10 +84,10 @@ Warden runs as a host process that manages project containers. Communication flo
 
 2. **File-based event delivery** — each container has a host directory bind-mounted at `/var/warden/events/`. Claude Code hook scripts (`warden-event-claude.sh`) write atomic JSON files (`.tmp` → rename to `.json`) containing attention state, session lifecycle, tool use, cost updates, and heartbeats. The backend watches all event directories using fsnotify (sub-millisecond on Linux) with a polling fallback every 2 seconds (reliable on all platforms including Docker Desktop). Filesystem permissions handle access control — no network listener or auth token is needed.
 
-3. **JSONL session parsing** — the primary data source for agent events. Each agent writes JSONL session files to its config directory (`~/.claude/` or `~/.codex/`), which is bind-mounted to the host. The backend watches these directories with `agent.SessionWatcher` (fsnotify-based), tails new lines, and feeds them through agent-specific parsers (`agent/claudecode/`, `agent/codex/`) that produce uniform `ParsedEvent` values. These events flow into the event bus for SSE broadcast and audit logging.
+3. **JSONL session parsing** — the primary data source for agent events. Each agent writes JSONL session files to its config directory (`~/.claude/` or `~/.codex/`), which is bind-mounted to the host. The backend watches these locations with `agent.SessionWatcher`, which discovers session files via agent-specific `FindSessionFiles()` methods and tails new lines (polling every 2 seconds). Session discovery is agent-aware: Claude Code scans a per-project directory; Codex reads shell snapshots to filter by project ID. The watcher feeds lines through agent-specific parsers (`agent/claudecode/`, `agent/codex/`) that produce uniform `ParsedEvent` values. These events flow into the event bus for SSE broadcast and audit logging.
 
     ```
-    Session file (.jsonl) → fsnotify → SessionParser.ParseLine() → ParsedEvent → eventbus → SSE
+    FindSessionFiles() → SessionWatcher (polling every 2s) → SessionParser.ParseLine() → ParsedEvent → eventbus → SSE
     ```
 
     JSONL parsing provides session lifecycle, tool use, cost, and prompt events for both agents. Hook-based events (attention/notification state) are supplementary and only available for Claude Code.

@@ -6,13 +6,14 @@ The JSONL session parser is Warden's primary data source for agent events. Both 
 
 ```
 Container writes JSONL session line
-  → Host-side SessionWatcher detects file change (fsnotify + 2s polling)
-  → SessionParser.ParseLine() converts to []ParsedEvent
+  → Host-side SessionWatcher polls every 2s
+    → SessionParser.FindSessionFiles() discovers active session files
+    → SessionParser.ParseLine() converts to []ParsedEvent
   → SessionEventToContainerEvent() bridges to eventbus.ContainerEvent
   → eventbus pipeline broadcasts SSE + writes audit
 ```
 
-Each project has one `SessionWatcher` (started when the container starts, stopped when it stops). The watcher monitors the host-mounted agent config directory for new JSONL lines.
+Each project has one `SessionWatcher` (started when the container starts, stopped when it stops). The watcher uses agent-specific discovery to find active JSONL session files, tails them for new lines, and polls for both new files and new content in existing files.
 
 ## SessionParser Interface
 
@@ -23,10 +24,14 @@ type SessionParser interface {
 
     // SessionDir returns the host-side directory to watch for session files.
     SessionDir(homeDir string, project ProjectInfo) string
+
+    // FindSessionFiles returns the absolute paths of active JSONL session
+    // files belonging to the given project.
+    FindSessionFiles(homeDir string, project ProjectInfo) []string
 }
 ```
 
-Parsers are **stateful** — they accumulate token counts across lines within a session. Create a new parser per session file.
+Parsers are **stateful** — they accumulate token counts across lines within a session. Create a new parser per session file. `FindSessionFiles()` is agent-specific: Claude Code scans a per-project directory; Codex reads shell snapshots to filter by project ID and globs for matching JSONL files.
 
 ## ParsedEvent Types
 
@@ -82,7 +87,7 @@ JSONL is the **primary** data source for all event types: session lifecycle, too
 ## Adding a New Agent
 
 1. Create `agent/<name>/` subpackage
-2. Implement `SessionParser` (parser.go) with `ParseLine()` and `SessionDir()`
+2. Implement `SessionParser` (parser.go) with `ParseLine()`, `SessionDir()`, and `FindSessionFiles()` (agent-specific discovery logic)
 3. Implement `StatusProvider` (provider.go) with `Name()`, `ProcessName()`, `ConfigFilePath()`, `ExtractStatus()`, `NewSessionParser()`
 4. Add pricing table if cost estimation is needed
 5. Add install script in `container/scripts/install-<name>.sh`

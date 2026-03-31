@@ -6,7 +6,7 @@ JSONL session file parser and watcher for multi-agent event collection.
 
 | File | Purpose |
 | --- | --- |
-| `agent/session_watcher.go` | `SessionWatcher` — monitors host-side JSONL session directory for the agent, tails new lines, handles file rotation. Uses fsnotify (fast path) + polling every 2s (reliable fallback for Docker Desktop). Feeds parsed `ParsedEvent`s to callback for bridge → eventbus → SSE/audit. Lifecycle: `Start(ctx)`, `Stop()`. One watcher per project, created when container starts, stopped when container stops. |
+| `agent/session_watcher.go` | `SessionWatcher` — discovers and tails multiple concurrent JSONL session files via agent-specific parsers. Discovers files using `SessionParser.FindSessionFiles()` (Claude Code: per-project directory scan; Codex: shell snapshot + glob discovery). Polls every 2 seconds for new files and new lines. Handles multiple concurrent session files via `tailedFiles` map. Feeds parsed `ParsedEvent`s to callback for bridge → eventbus → SSE/audit. Lifecycle: `Start(ctx)`, `Stop()`. One watcher per project, created when container starts, stopped when container stops. |
 | `service/session_bridge.go` | `SessionEventToContainerEvent(agent.ParsedEvent, ...) *eventbus.ContainerEvent` — translates parsed JSONL events to container events for pipeline (store → broker → SSE → frontend, audit log). Maps agent-agnostic event types to container event types; attaches event payloads (tool name, prompt text, cost data). |
 
 Data flow: Container writes JSONL session line → host-side watcher detects file change → parses line via `SessionParser` → generates `ParsedEvent` → bridge converts to `ContainerEvent` → eventbus pipeline broadcasts SSE + writes audit.
