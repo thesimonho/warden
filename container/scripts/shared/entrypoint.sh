@@ -54,6 +54,14 @@ if [ -n "$HOST_UID" ] && [ "$HOST_UID" != "0" ]; then
 fi
 
 # -------------------------------------------------------------------
+# Fix ownership of directories that Docker may auto-create as root
+# when setting up bind mounts (e.g. .ssh for known_hosts, config.host).
+# This runs unconditionally — even when UIDs match, Docker creates
+# intermediate directories as root.
+# -------------------------------------------------------------------
+chown -R "${WARDEN_USER}:${WARDEN_USER}" "/home/${WARDEN_USER}/.ssh" 2>/dev/null || true
+
+# -------------------------------------------------------------------
 # Network isolation — apply iptables rules for restricted/none modes.
 # Must run as root (requires NET_ADMIN capability).
 # -------------------------------------------------------------------

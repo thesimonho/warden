@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -632,4 +633,51 @@ func (ec *EngineClient) validateMountSources(ctx context.Context, id string, ori
 	}
 
 	return &StaleMountsError{StalePaths: stalePaths}
+}
+
+// containerLogTailLines is the number of log lines to capture from a
+// crash-looping container for diagnostic audit events.
+const containerLogTailLines = "30"
+
+// ContainerStartupHealth inspects a container to determine if it is
+// crash-looping and, if so, captures the last log lines for diagnostics.
+func (ec *EngineClient) ContainerStartupHealth(ctx context.Context, containerName string) (*ContainerHealth, error) {
+	info, err := ec.api.ContainerInspect(ctx, containerName)
+	if err != nil {
+		return nil, fmt.Errorf("inspecting container %q: %w", containerName, err)
+	}
+
+	health := &ContainerHealth{
+		Restarting:   info.State.Restarting,
+		RestartCount: info.RestartCount,
+		OOMKilled:    info.State.OOMKilled,
+		ExitCode:     info.State.ExitCode,
+	}
+
+	// Only capture logs when the container is clearly unhealthy.
+	if !health.Restarting && health.RestartCount == 0 && !health.OOMKilled {
+		return health, nil
+	}
+
+	logReader, logErr := ec.api.ContainerLogs(ctx, containerName, container.LogsOptions{
+		ShowStdout: true,
+		ShowStderr: true,
+		Tail:       containerLogTailLines,
+	})
+	if logErr != nil {
+		slog.Warn("failed to read container logs for health check", "container", containerName, "error", logErr)
+		return health, nil
+	}
+	defer logReader.Close()
+
+	// Docker multiplexes stdout/stderr with an 8-byte header per frame.
+	// StdCopy demuxes into a single buffer for clean log output.
+	var buf bytes.Buffer
+	if _, copyErr := stdcopy.StdCopy(&buf, &buf, logReader); copyErr != nil {
+		// Fallback: read raw (Podman doesn't always use the multiplexed format).
+		_, _ = io.Copy(&buf, logReader)
+	}
+	health.LogTail = buf.String()
+
+	return health, nil
 }

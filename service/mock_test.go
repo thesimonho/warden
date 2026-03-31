@@ -119,3 +119,7 @@ func (m *mockEngine) ReadAgentCostAndBillingType(_ context.Context, _, _ string)
 func (m *mockEngine) GetWorktreeDiff(_ context.Context, _, _ string) (*api.DiffResponse, error) {
 	return nil, nil
 }
+
+func (m *mockEngine) ContainerStartupHealth(_ context.Context, _ string) (*engine.ContainerHealth, error) {
+	return &engine.ContainerHealth{}, nil
+}

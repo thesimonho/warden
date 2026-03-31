@@ -129,7 +129,12 @@ interface ContainerResult {
 export async function createTestProject(
   name: string,
   projectPath: string,
-  options?: { skipPermissions?: boolean; image?: string; agentType?: string },
+  options?: {
+    skipPermissions?: boolean
+    image?: string
+    agentType?: string
+    enabledAccessItems?: string[]
+  },
 ): Promise<{ projectId: string; containerId: string; name: string }> {
   /* Step 1: Register the project directory. */
   const addResponse = await apiFetch('/api/v1/projects', {
@@ -151,6 +156,7 @@ export async function createTestProject(
         projectPath,
         agentType: options?.agentType,
         skipPermissions: options?.skipPermissions ?? true,
+        enabledAccessItems: options?.enabledAccessItems,
       }),
     },
   )

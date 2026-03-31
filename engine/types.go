@@ -212,6 +212,21 @@ type ContainerConfig struct {
 	EnabledAccessItems []string `json:"enabledAccessItems,omitempty"`
 }
 
+// ContainerHealth describes a container's startup health state.
+// Used by the liveness checker to diagnose crash-looping containers.
+type ContainerHealth struct {
+	// Restarting is true when the container is in a Docker restart loop.
+	Restarting bool
+	// RestartCount is the number of times Docker has restarted the container.
+	RestartCount int
+	// ExitCode is the last exit code from the container's entrypoint.
+	ExitCode int
+	// OOMKilled is true if the container was killed due to memory limits.
+	OOMKilled bool
+	// LogTail contains the last lines of container logs (only populated when unhealthy).
+	LogTail string
+}
+
 // Client defines the interface for interacting with Docker containers.
 // All methods accept a context for cancellation and timeout control.
 type Client interface {
@@ -296,4 +311,10 @@ type Client interface {
 	// ReadAgentCostAndBillingType reads the agent config once and returns
 	// both cost (filtered by workspace prefix) and billing type.
 	ReadAgentCostAndBillingType(ctx context.Context, containerID, workspacePrefix string) (*AgentCostResult, error)
+
+	// ContainerStartupHealth inspects a container's state to determine if it
+	// is crash-looping. When the container is restarting, reads the last lines
+	// of container logs to capture the error. Used by the liveness checker to
+	// enrich stale-heartbeat audit events with diagnostic details.
+	ContainerStartupHealth(ctx context.Context, containerName string) (*ContainerHealth, error)
 }

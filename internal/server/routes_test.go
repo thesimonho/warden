@@ -125,6 +125,10 @@ func (m *mockEngineClient) GetWorktreeDiff(_ context.Context, _, _ string) (*api
 	return nil, nil
 }
 
+func (m *mockEngineClient) ContainerStartupHealth(_ context.Context, _ string) (*engine.ContainerHealth, error) {
+	return &engine.ContainerHealth{}, nil
+}
+
 // testDB returns a fresh in-memory SQLite store for tests.
 func testDB(t *testing.T) *db.Store {
 	t.Helper()

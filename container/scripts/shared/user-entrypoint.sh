@@ -66,7 +66,14 @@ if [ -f "$SSHCONFIG_HOST" ]; then
   mkdir -p "$HOME/.ssh"
   # SSH has no include mechanism like git, so we copy and filter instead.
   # Case-insensitive match (/I) because OpenSSH keywords are case-insensitive.
-  (umask 077; sed '/^[[:space:]]*IdentitiesOnly/Id' "$SSHCONFIG_HOST" > "$HOME/.ssh/config")
+  # Write to a temp file first — the .ssh directory may be root-owned when
+  # Docker auto-creates it for bind-mounted files (known_hosts, config.host).
+  # If the write fails (permission denied), skip silently rather than crashing.
+  if (umask 077; sed '/^[[:space:]]*IdentitiesOnly/Id' "$SSHCONFIG_HOST" > "$HOME/.ssh/config") 2>/dev/null; then
+    : # success
+  else
+    echo "[warden] warning: could not write SSH config (permission denied), skipping"
+  fi
 fi
 
 # -------------------------------------------------------------------

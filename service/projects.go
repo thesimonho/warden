@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log/slog"
 	"strings"
+	"time"
 
 	"github.com/thesimonho/warden/api"
 	"github.com/thesimonho/warden/db"
@@ -262,6 +263,9 @@ func applyDBMetadata(p *engine.Project, row *db.ProjectRow, defaultBudget float6
 // HandleContainerStale writes an audit entry when a container's heartbeat
 // goes stale. Called by the event bus stale callback so the audit entry
 // includes full project context (project ID and container name).
+//
+// When the container is crash-looping, an additional container_startup_failed
+// event is written with the container's log tail for diagnostics.
 func (s *Service) HandleContainerStale(containerName string) {
 	var projectID string
 	if s.db != nil {
@@ -279,6 +283,36 @@ func (s *Service) HandleContainerStale(containerName string) {
 		Event:         "container_heartbeat_stale",
 		Message:       "container heartbeat stale, marking worktrees disconnected",
 	})
+
+	// Check if the container is crash-looping and capture diagnostics.
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	health, err := s.docker.ContainerStartupHealth(ctx, containerName)
+	if err != nil {
+		return
+	}
+	if !health.Restarting && health.RestartCount == 0 && !health.OOMKilled {
+		return
+	}
+
+	msg := fmt.Sprintf(
+		"container crash-looping (restarts: %d, exit code: %d, OOM: %v)",
+		health.RestartCount, health.ExitCode, health.OOMKilled,
+	)
+
+	entry := db.Entry{
+		Source:        db.SourceBackend,
+		Level:         db.LevelError,
+		ProjectID:     projectID,
+		ContainerName: containerName,
+		Event:         "container_startup_failed",
+		Message:       msg,
+	}
+	if health.LogTail != "" {
+		entry.Data = []byte(health.LogTail)
+	}
+	s.audit.Write(entry)
 }
 
 // effectiveContainerName returns the Docker container name for a project row.

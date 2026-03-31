@@ -57,12 +57,21 @@ COPY scripts/install-user.sh /tmp/
 RUN chmod +x /tmp/install-user.sh && /tmp/install-user.sh && rm /tmp/install-user.sh
 
 # Layer 3: Claude CLI (changes when Claude releases update)
+# CLAUDE_VERSION is a cache key — when the upstream version changes, Docker
+# rebuilds this layer. Query the latest version at build time:
+#   --build-arg CLAUDE_VERSION=$(curl -s https://storage.googleapis.com/claude-code-dist-86c565f3-f756-42ad-8dfa-d59b1c096819/claude-code-releases/latest)
+# When omitted, Docker caches indefinitely (safe for offline/CI builds).
+ARG CLAUDE_VERSION=unknown
 COPY scripts/install-claude.sh /tmp/
-RUN chmod +x /tmp/install-claude.sh && /tmp/install-claude.sh && rm /tmp/install-claude.sh
+RUN echo "claude-version=${CLAUDE_VERSION}" \
+  && chmod +x /tmp/install-claude.sh && /tmp/install-claude.sh && rm /tmp/install-claude.sh
 
 # Layer 4: Codex CLI (changes when Codex releases update)
+# Same pattern — query via: --build-arg CODEX_VERSION=$(npm view @openai/codex version)
+ARG CODEX_VERSION=unknown
 COPY scripts/install-codex.sh /tmp/
-RUN chmod +x /tmp/install-codex.sh && /tmp/install-codex.sh && rm /tmp/install-codex.sh
+RUN echo "codex-version=${CODEX_VERSION}" \
+  && chmod +x /tmp/install-codex.sh && /tmp/install-codex.sh && rm /tmp/install-codex.sh
 
 # Layer 5: Warden scripts (changes every release — last for best caching)
 # Only copy the runtime scripts and installer, not the install-*.sh files
