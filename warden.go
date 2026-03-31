@@ -157,7 +157,10 @@ func New(opts Options) (*App, error) {
 	// Event bus pipeline: broker → store → file watcher.
 	// Container events are delivered via bind-mounted directories instead
 	// of TCP, so no network listener or auth token is needed.
-	eventBaseDir := filepath.Join(os.TempDir(), "warden")
+	// Event dirs live under the config directory (not /tmp) so the current
+	// user always owns them — avoids permission failures when switching
+	// between Docker and rootless Podman.
+	eventBaseDir := filepath.Join(dbDir, "events")
 	broker := eventbus.NewBroker()
 	store := eventbus.NewStore(broker, auditWriter)
 	watcher := eventbus.NewWatcher(eventBaseDir, store.HandleEvent, 2*time.Second)

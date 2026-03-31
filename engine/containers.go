@@ -170,14 +170,13 @@ func (ec *EngineClient) CreateContainer(ctx context.Context, req CreateContainer
 		}
 		// Explicit chmod because MkdirAll is affected by umask.
 		if chmodErr := os.Chmod(eventHostDir, 0o777); chmodErr != nil {
-			// Directory may be owned by a different user (e.g. rootless Podman
-			// creates dirs as nobody/65534). Try to remove and recreate from
-			// the base dir level, since the entire tree may have wrong ownership.
-			if rmErr := os.RemoveAll(ec.eventBaseDir); rmErr != nil {
+			// Directory may be owned by a different user (e.g. leftover from a
+			// different runtime). Remove the container-level dir and recreate.
+			containerDir := filepath.Join(ec.eventBaseDir, req.Name)
+			if rmErr := os.RemoveAll(containerDir); rmErr != nil {
 				return "", fmt.Errorf(
-					"event directory %q has wrong ownership (likely from a previous Podman session) "+
-						"and could not be cleaned up automatically: run 'sudo rm -rf %s' to fix",
-					eventHostDir, ec.eventBaseDir,
+					"event directory %q has wrong ownership and could not be cleaned up: %w",
+					containerDir, rmErr,
 				)
 			}
 			if mkErr := os.MkdirAll(eventHostDir, 0o777); mkErr != nil {
