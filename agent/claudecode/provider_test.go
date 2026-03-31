@@ -232,7 +232,7 @@ func TestProviderInterface(t *testing.T) {
 	if p.Name() != "claude-code" {
 		t.Errorf("Name() = %q, want %q", p.Name(), "claude-code")
 	}
-	if p.ConfigFilePath() != "/home/dev/.claude.json" {
-		t.Errorf("ConfigFilePath() = %q, want /home/dev/.claude.json", p.ConfigFilePath())
+	if p.ConfigFilePath() != "/home/warden/.claude.json" {
+		t.Errorf("ConfigFilePath() = %q, want /home/warden/.claude.json", p.ConfigFilePath())
 	}
 }

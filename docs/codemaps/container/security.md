@@ -9,7 +9,7 @@ All default Linux capabilities are dropped (`CapDrop: ALL`), then only the minim
 | Capability | Why needed | When |
 | --- | --- | --- |
 | CHOWN | Entrypoint chown of bind mounts | Always |
-| DAC_OVERRIDE | Root reading/writing files owned by dev user | Always |
+| DAC_OVERRIDE | Root reading/writing files owned by warden user | Always |
 | FOWNER | Entrypoint file ownership operations | Always |
 | FSETID | Preserve setuid/setgid bits during chown | Always |
 | KILL | Shutdown handler: kill -TERM -1 | Always |
@@ -33,7 +33,7 @@ A denylist-based seccomp profile (`SCMP_ACT_ALLOW` default) blocks dangerous sys
 
 ## 3. No New Privileges
 
-The `no-new-privileges` flag prevents privilege escalation via setuid/setgid binaries inside the container. The entrypoint starts as root for privileged setup (UID remapping, iptables), then permanently drops to the `dev` user via `exec gosu`. PID 1 runs as `dev` — no root process remains after startup.
+The `no-new-privileges` flag prevents privilege escalation via setuid/setgid binaries inside the container. The entrypoint starts as root for privileged setup (UID remapping, iptables), then permanently drops to the `warden` user via `exec gosu`. PID 1 runs as `warden` — no root process remains after startup.
 
 ## Podman Compatibility
 

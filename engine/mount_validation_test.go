@@ -13,7 +13,7 @@ func TestDetectStaleMounts_NoChanges(t *testing.T) {
 	dir := t.TempDir()
 	writeFile(t, filepath.Join(dir, "settings.json"), `{"hooks":{}}`)
 
-	original := []Mount{{HostPath: dir, ContainerPath: "/home/dev/.claude"}}
+	original := []Mount{{HostPath: dir, ContainerPath: "/home/warden/.claude"}}
 
 	// Resolve once (simulates container creation).
 	current, err := resolveSymlinksForMounts(original)
@@ -47,7 +47,7 @@ func TestDetectStaleMounts_SymlinkTargetChanged(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	original := []Mount{{HostPath: mountDir, ContainerPath: "/home/dev/.claude"}}
+	original := []Mount{{HostPath: mountDir, ContainerPath: "/home/warden/.claude"}}
 
 	// Resolve at "creation time" — points to oldTarget.
 	creationResolved, err := resolveSymlinksForMounts(original)
@@ -88,7 +88,7 @@ func TestDetectStaleMounts_SymlinkTargetDeleted(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	original := []Mount{{HostPath: mountDir, ContainerPath: "/home/dev/.claude"}}
+	original := []Mount{{HostPath: mountDir, ContainerPath: "/home/warden/.claude"}}
 	creationResolved, err := resolveSymlinksForMounts(original)
 	if err != nil {
 		t.Fatal(err)
@@ -113,7 +113,7 @@ func TestDetectStaleMounts_NewSymlinkAppeared(t *testing.T) {
 	mountDir := t.TempDir()
 	writeFile(t, filepath.Join(mountDir, "settings.json"), `{"local":true}`)
 
-	original := []Mount{{HostPath: mountDir, ContainerPath: "/home/dev/.claude"}}
+	original := []Mount{{HostPath: mountDir, ContainerPath: "/home/warden/.claude"}}
 	creationResolved, err := resolveSymlinksForMounts(original)
 	if err != nil {
 		t.Fatal(err)
@@ -162,8 +162,8 @@ func TestDetectStaleMounts_MultipleMountsPartialStale(t *testing.T) {
 	writeFile(t, filepath.Join(sshDir, "config"), "Host *")
 
 	original := []Mount{
-		{HostPath: claudeDir, ContainerPath: "/home/dev/.claude"},
-		{HostPath: sshDir, ContainerPath: "/home/dev/.ssh", ReadOnly: true},
+		{HostPath: claudeDir, ContainerPath: "/home/warden/.claude"},
+		{HostPath: sshDir, ContainerPath: "/home/warden/.ssh", ReadOnly: true},
 	}
 	creationResolved, err := resolveSymlinksForMounts(original)
 	if err != nil {
@@ -182,8 +182,8 @@ func TestDetectStaleMounts_MultipleMountsPartialStale(t *testing.T) {
 	if len(stale) != 1 {
 		t.Fatalf("expected 1 stale mount, got %d: %v", len(stale), stale)
 	}
-	if stale[0] != "/home/dev/.claude/a.json" {
-		t.Errorf("expected stale mount for /home/dev/.claude/a.json, got %s", stale[0])
+	if stale[0] != "/home/warden/.claude/a.json" {
+		t.Errorf("expected stale mount for /home/warden/.claude/a.json, got %s", stale[0])
 	}
 }
 
@@ -214,7 +214,7 @@ func TestDetectStaleMounts_DoubleSymlinkChain(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	original := []Mount{{HostPath: mountDir, ContainerPath: "/home/dev/.claude"}}
+	original := []Mount{{HostPath: mountDir, ContainerPath: "/home/warden/.claude"}}
 	creationResolved, err := resolveSymlinksForMounts(original)
 	if err != nil {
 		t.Fatal(err)
@@ -265,7 +265,7 @@ func TestDetectStaleMounts_DoubleSymlinkChain(t *testing.T) {
 // --- StaleMountsError ---
 
 func TestStaleMountsError_ImplementsError(t *testing.T) {
-	err := &StaleMountsError{StalePaths: []string{"/home/dev/.claude/settings.json"}}
+	err := &StaleMountsError{StalePaths: []string{"/home/warden/.claude/settings.json"}}
 	if err.Error() == "" {
 		t.Error("expected non-empty error message")
 	}

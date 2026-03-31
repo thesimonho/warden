@@ -185,7 +185,7 @@ func TestSessionDir(t *testing.T) {
 	t.Parallel()
 	parser := NewParser()
 	dir := parser.SessionDir("/home/user", agent.ProjectInfo{
-		WorkspaceDir: "/home/dev/project",
+		WorkspaceDir: "/home/warden/project",
 		ProjectName:  "project",
 	})
 
@@ -237,7 +237,7 @@ func TestFindSessionFiles(t *testing.T) {
 	parser := NewParser()
 	files := parser.FindSessionFiles(home, agent.ProjectInfo{
 		ProjectID:    projectID,
-		WorkspaceDir: "/home/dev/project",
+		WorkspaceDir: "/home/warden/project",
 		ProjectName:  "project",
 	})
 

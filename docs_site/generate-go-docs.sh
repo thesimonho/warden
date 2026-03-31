@@ -17,6 +17,7 @@ PACKAGES=(
   "agent/claudecode"
   "agent/codex"
   "api"
+  "constants"
   "client"
   "db"
   "engine"

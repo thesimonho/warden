@@ -16,7 +16,7 @@ type StatusProvider interface {
 	ProcessName() string
 
 	// ConfigFilePath returns the absolute path to the agent's config file
-	// inside the container (e.g. "/home/dev/.claude.json").
+	// inside the container (e.g. "/home/warden/.claude.json").
 	ConfigFilePath() string
 
 	// ExtractStatus parses the config file contents and returns status data

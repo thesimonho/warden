@@ -148,9 +148,9 @@ func TestGetDefaults(t *testing.T) {
 
 	defaults := service.DefaultsResponse{
 		HomeDir:          "/home/user",
-		ContainerHomeDir: "/home/dev",
+		ContainerHomeDir: "/home/warden",
 		Mounts: []service.DefaultMount{
-			{HostPath: "/home/user/.claude", ContainerPath: "/home/dev/.claude"},
+			{HostPath: "/home/user/.claude", ContainerPath: "/home/warden/.claude"},
 		},
 	}
 	c := newTestServer(t, "GET", "/api/v1/defaults", http.StatusOK, defaults)

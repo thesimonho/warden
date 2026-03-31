@@ -19,8 +19,8 @@ set -euo pipefail
 # Idempotent: skips CLI install if claude is already available.
 # -------------------------------------------------------------------
 
-if ! su - dev -c "which claude" >/dev/null 2>&1; then
-  su - dev -c "curl -fsSL https://claude.ai/install.sh | bash"
+if ! su - warden -c "which claude" >/dev/null 2>&1; then
+  su - warden -c "curl -fsSL https://claude.ai/install.sh | bash"
 fi
 
 # -------------------------------------------------------------------

@@ -31,7 +31,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     nodejs \
     npm \
     && rm -rf /var/lib/apt/lists/*
-USER dev
+USER warden
 ```
 
 Build and use it:
@@ -43,7 +43,7 @@ docker build -t my-warden-image .
 Then select `my-warden-image` as the image when creating a project in Warden.
 
 :::note
-Always switch back to `USER dev` at the end of your Dockerfile. Warden's terminal infrastructure runs as the `dev` user.
+Always switch back to `USER warden` at the end of your Dockerfile. Warden's terminal infrastructure runs as the `warden` user.
 :::
 
 ## Option B: Devcontainer feature
@@ -87,7 +87,7 @@ Then select `my-project:latest` as the image when creating a project in Warden.
 - **Terminal lifecycle scripts** — entrypoint, session creation, disconnect handling, process cleanup
 - **Attention tracking hooks** — Claude Code hooks for real-time status monitoring
 - **Network isolation tools** — iptables-based network policy enforcement
-- **`dev` user** — non-root user for running terminals
+- **`warden` user** — non-root user for running terminals
 
 All tools are installed idempotently — running the feature on an image that already has some of these tools is safe.
 
@@ -96,7 +96,7 @@ All tools are installed idempotently — running the feature on an image that al
 If you need a completely different base image (Alpine, Fedora, a corporate base, etc.), you have two choices:
 
 1. **Use the devcontainer feature** (Option B) — it works on any Debian/Ubuntu-based image.
-2. **Manually install Warden's infrastructure** — copy the patterns from `container/scripts/install-tools.sh` in the Warden repo. The key requirements are: gosu, abduco, Claude Code CLI, the entrypoint and terminal lifecycle scripts, and a `dev` non-root user. See the required binaries below.
+2. **Manually install Warden's infrastructure** — copy the patterns from `container/scripts/install-tools.sh` in the Warden repo. The key requirements are: gosu, abduco, Claude Code CLI, the entrypoint and terminal lifecycle scripts, and a `warden` non-root user. See the required binaries below.
 
 ## Required Binaries
 

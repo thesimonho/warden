@@ -24,14 +24,11 @@ import (
 // Gives Claude time to finish writing files and save state.
 const stopTimeout = 30 * time.Second
 
-// defaultContainerHome is the home directory of the non-root user inside containers.
-const defaultContainerHome = "/home/dev"
-
 // ContainerWorkspaceDir computes the container-side workspace path for a project.
-// New containers mount at /home/dev/<name> to give each project a unique path
-// in Claude Code's .claude.json (which keys cost data by workspace path).
+// New containers mount at /home/warden/<name> to give each project a unique path
+// in the agent's config file (which keys cost data by workspace path).
 func ContainerWorkspaceDir(projectName string) string {
-	return defaultContainerHome + "/" + projectName
+	return ContainerHomeDir + "/" + projectName
 }
 
 // EngineClient wraps the Docker/Podman Engine SDK client for container operations.
@@ -258,7 +255,7 @@ func (ec *EngineClient) resolveWorkspaceDir(ctx context.Context, containerID str
 	}
 
 	// Fallback for discovered/legacy containers: find the workspace bind mount.
-	// Check for /home/dev/<name> pattern first, then /project.
+	// Check for /home/warden/<name> pattern first, then /project.
 	// Checks both HostConfig.Binds (Docker) and Mounts (Podman) since
 	// Podman may populate only the Mounts field.
 	name := strings.TrimPrefix(info.Name, "/")
@@ -377,7 +374,7 @@ func containerToProject(c container.Summary) Project {
 
 // projectMountPaths returns the host path (source) and container path (destination)
 // of the workspace bind mount. Checks for WARDEN_WORKSPACE_DIR-style mounts under
-// /home/dev/ first, then falls back to the legacy /project mount.
+// /home/warden/ first, then falls back to the legacy /project mount.
 func projectMountPaths(name string, mounts []container.MountPoint) (source, destination string) {
 	expected := ContainerWorkspaceDir(name)
 	for _, m := range mounts {

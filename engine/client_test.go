@@ -144,10 +144,10 @@ func TestProjectMountPaths(t *testing.T) {
 		{
 			name: "modern workspace mount",
 			mounts: []container.MountPoint{
-				{Source: "/home/user/project", Destination: "/home/dev/test-project"},
+				{Source: "/home/user/project", Destination: "/home/warden/test-project"},
 			},
 			wantSource: "/home/user/project",
-			wantDest:   "/home/dev/test-project",
+			wantDest:   "/home/warden/test-project",
 		},
 		{
 			name: "legacy /project mount",
@@ -347,7 +347,7 @@ func TestConnectTerminal_FreshSession(t *testing.T) {
 	if len(createCall.Cmd) < 2 || createCall.Cmd[1] != "feature-x" {
 		t.Errorf("expected create-terminal.sh feature-x, got %v", createCall.Cmd)
 	}
-	// Without User: "dev", Docker exec defaults to root which doesn't have
+	// Without User: "warden", Docker exec defaults to root which doesn't have
 	// ~/.local/bin in PATH (where Claude Code is installed).
 	if createCall.User != ContainerUser {
 		t.Errorf("expected exec User %q, got %q", ContainerUser, createCall.User)

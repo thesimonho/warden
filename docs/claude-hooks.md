@@ -48,12 +48,12 @@ Claude Code's attention states must be detected through different hooks:
 When Claude exits a `--worktree` session, it removes the worktree directory before `SessionEnd` fires. The `cwd` falls back to `/project`, so the worktree ID resolves to `"main"`. To identify the original worktree:
 
 ```
-transcript_path: "/home/dev/.claude/projects/-project--claude-worktrees-hooktest3/..."
+transcript_path: "/home/warden/.claude/projects/-project--claude-worktrees-hooktest3/..."
                                                                   ^^^^^^^^^^
                                                            extract from here
 ```
 
-Pattern: `/home/dev/.claude/projects/-project--claude-worktrees-{WORKTREE_ID}/`
+Pattern: `/home/warden/.claude/projects/-project--claude-worktrees-{WORKTREE_ID}/`
 
 ## Event Frequency
 

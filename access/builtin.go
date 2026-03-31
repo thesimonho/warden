@@ -1,14 +1,13 @@
 package access
 
+import "github.com/thesimonho/warden/constants"
+
 // Built-in access item IDs. These are stable identifiers stored in the
 // database and referenced by frontends.
 const (
 	BuiltInIDGit = "git"
 	BuiltInIDSSH = "ssh"
 )
-
-// containerHomeDir is the home directory for the container user.
-const containerHomeDir = "/home/dev"
 
 // containerSSHAgentPath is the fixed path where the host's SSH agent
 // socket is mounted inside the container.
@@ -35,7 +34,7 @@ func BuiltInGit() Item {
 				Injections: []Injection{
 					{
 						Type:     InjectionMountFile,
-						Key:      containerHomeDir + "/.gitconfig.host",
+						Key:      constants.ContainerHomeDir + "/.gitconfig.host",
 						ReadOnly: true,
 					},
 				},
@@ -67,7 +66,7 @@ func BuiltInSSH() Item {
 				Injections: []Injection{
 					{
 						Type:     InjectionMountFile,
-						Key:      containerHomeDir + "/.ssh/config.host",
+						Key:      constants.ContainerHomeDir + "/.ssh/config.host",
 						ReadOnly: true,
 					},
 				},
@@ -80,7 +79,7 @@ func BuiltInSSH() Item {
 				Injections: []Injection{
 					{
 						Type: InjectionMountFile,
-						Key:  containerHomeDir + "/.ssh/known_hosts",
+						Key:  constants.ContainerHomeDir + "/.ssh/known_hosts",
 					},
 				},
 			},

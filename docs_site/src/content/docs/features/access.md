@@ -47,7 +47,7 @@ Sources are tried in order — the first one detected wins. If none are detected
 | Injection        | Example                                         | Use case                 |
 | ---------------- | ----------------------------------------------- | ------------------------ |
 | **Env var**      | `GH_TOKEN=ghp_xxx`                              | Tools that read env vars |
-| **File mount**   | Mount `~/.aws/config` → `/home/dev/.aws/config` | Config files             |
+| **File mount**   | Mount `~/.aws/config` → `/home/warden/.aws/config` | Config files             |
 | **Socket mount** | Mount SSH agent socket                          | SSH agent forwarding     |
 
 ### Detection vs Resolution
@@ -67,7 +67,7 @@ Mounts your host `.gitconfig` (read-only) so git commands inside the container u
 **What it does:**
 
 - Looks for `~/.gitconfig` or `~/.config/git/config` (first found wins)
-- Mounts it read-only at `/home/dev/.gitconfig.host`
+- Mounts it read-only at `/home/warden/.gitconfig.host`
 - The container entrypoint includes it via `git config --global include.path`
 
 **When to enable:** Always, unless you want the container to use a different git identity.
@@ -137,7 +137,7 @@ AWS CLI needs multiple pieces: access key, secret key, and optionally a config f
 5. **Add credential 3:**
    - **Label:** "AWS Config"
    - **Source:** File — `~/.aws/config`
-   - **Injection:** Mount file — `/home/dev/.aws/config` (read-only)
+   - **Injection:** Mount file — `/home/warden/.aws/config` (read-only)
 6. Click **Save**
 
 **Partial resolution:** If you have the env vars set but no `~/.aws/config` file, Warden injects the env vars and silently skips the file mount. Each credential resolves independently.

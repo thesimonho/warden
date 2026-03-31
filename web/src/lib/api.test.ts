@@ -29,15 +29,15 @@ function mockFetchError(status: number, statusText: string) {
 
 describe('worktreeHostPath', () => {
   it('maps workspace root to host dir', () => {
-    const result = worktreeHostPath('/home/simon/myapp', '/home/dev/myapp', '/home/dev/myapp')
+    const result = worktreeHostPath('/home/simon/myapp', '/home/warden/myapp', '/home/warden/myapp')
     expect(result).toBe('/home/simon/myapp')
   })
 
   it('maps worktree subpath to host dir', () => {
     const result = worktreeHostPath(
       '/home/simon/myapp',
-      '/home/dev/myapp/.claude/worktrees/feature-x',
-      '/home/dev/myapp',
+      '/home/warden/myapp/.claude/worktrees/feature-x',
+      '/home/warden/myapp',
     )
     expect(result).toBe('/home/simon/myapp/.claude/worktrees/feature-x')
   })
@@ -59,14 +59,14 @@ describe('worktreeHostPath', () => {
   it('maps warden worktree subpath to host dir', () => {
     const result = worktreeHostPath(
       '/home/simon/myapp',
-      '/home/dev/myapp/.warden/worktrees/feature-x',
-      '/home/dev/myapp',
+      '/home/warden/myapp/.warden/worktrees/feature-x',
+      '/home/warden/myapp',
     )
     expect(result).toBe('/home/simon/myapp/.warden/worktrees/feature-x')
   })
 
   it('falls back to raw path when no prefix matches', () => {
-    const result = worktreeHostPath('/home/simon/myapp', '/some/other/path', '/home/dev/myapp')
+    const result = worktreeHostPath('/home/simon/myapp', '/some/other/path', '/home/warden/myapp')
     expect(result).toBe('/home/simon/myapp/some/other/path')
   })
 })

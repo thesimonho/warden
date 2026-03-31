@@ -13,12 +13,12 @@ import (
 	"strings"
 
 	"github.com/thesimonho/warden/api"
-	"github.com/thesimonho/warden/engine"
+	"github.com/thesimonho/warden/constants"
 	"github.com/thesimonho/warden/runtime"
 )
 
-// containerHomeDir is a convenience alias for engine.ContainerHomeDir.
-var containerHomeDir = engine.ContainerHomeDir
+// containerHomeDir is the home directory of the non-root user inside containers.
+var containerHomeDir = constants.ContainerHomeDir
 
 // preferredMount defines a well-known host path that is useful inside
 // the container. Each mount is only included if the host path exists.

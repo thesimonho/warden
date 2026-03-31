@@ -73,7 +73,7 @@ func (p *Parser) FindSessionFiles(homeDir string, project agent.ProjectInfo) []s
 
 // encodeWorkspacePath converts a container workspace path to Claude's
 // directory encoding: replace "/" with "-".
-// Example: "/home/dev/warden" → "-home-dev-warden"
+// Example: "/home/warden/my-project" → "-home-warden-my-project"
 func encodeWorkspacePath(workspaceDir string) string {
 	return strings.ReplaceAll(workspaceDir, "/", "-")
 }
@@ -192,4 +192,3 @@ func truncateToolInput(input map[string]any) string {
 	}
 	return agent.TruncateString(string(data), agent.MaxToolInputLength)
 }
-

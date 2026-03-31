@@ -28,7 +28,7 @@ Warden tracks minimal per-worktree terminal state:
 └── exit_code   # Claude's exit code (written when Claude exits)
 ```
 
-Where `<workspace>` is the container-side workspace directory (e.g. `/home/dev/<project-name>`, or `/project` for legacy containers).
+Where `<workspace>` is the container-side workspace directory (e.g. `/home/warden/<project-name>`, or `/project` for legacy containers).
 
 This directory is ephemeral — stale entries are harmless and reset on container startup. WebSocket connections are managed by the Go backend and do not require port tracking.
 

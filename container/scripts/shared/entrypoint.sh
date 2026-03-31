@@ -3,7 +3,7 @@ set -euo pipefail
 
 # -------------------------------------------------------------------
 # Root-phase entrypoint — performs privileged setup, then permanently
-# drops to the dev user via gosu (exec replaces this process).
+# drops to the warden user via gosu (exec replaces this process).
 #
 # This follows the standard container pattern used by official
 # postgres, redis, and mongo images: start as root, do the minimum
@@ -11,12 +11,12 @@ set -euo pipefail
 # without root.
 #
 # Responsibilities (root only):
-#   - Match dev user UID/GID to bind mount owner
+#   - Match warden user UID/GID to bind mount owner
 #   - Set up network isolation (iptables)
 #   - exec gosu to drop privileges permanently
 # -------------------------------------------------------------------
 
-DEV_USER="dev"
+WARDEN_USER="warden"
 
 # -------------------------------------------------------------------
 # Podman with --userns=keep-id runs the entrypoint as the mapped host
@@ -28,7 +28,7 @@ if [ "$(id -u)" != "0" ]; then
 fi
 
 # -------------------------------------------------------------------
-# Match dev user's UID/GID to the host user that owns the project
+# Match warden user's UID/GID to the host user that owns the project
 # directory. The Go server passes these as env vars from os.Stat()
 # at container creation time.
 #
@@ -38,18 +38,18 @@ HOST_UID="${WARDEN_HOST_UID:-}"
 HOST_GID="${WARDEN_HOST_GID:-}"
 
 if [ -n "$HOST_UID" ] && [ "$HOST_UID" != "0" ]; then
-  DEV_UID=$(id -u "${DEV_USER}")
-  if [ "$HOST_UID" != "$DEV_UID" ]; then
-    usermod -u "$HOST_UID" "${DEV_USER}"
+  CURRENT_UID=$(id -u "${WARDEN_USER}")
+  if [ "$HOST_UID" != "$CURRENT_UID" ]; then
+    usermod -u "$HOST_UID" "${WARDEN_USER}"
     if [ -n "$HOST_GID" ] && [ "$HOST_GID" != "0" ]; then
-      groupmod -g "$HOST_GID" "${DEV_USER}" 2>/dev/null || true
+      groupmod -g "$HOST_GID" "${WARDEN_USER}" 2>/dev/null || true
     fi
     # Only chown the home directory itself and known runtime subdirs.
     # Image-layer dirs (.npm, .cache) already have the correct UID from
     # the build; a recursive chown of the entire tree is expensive when
     # state has accumulated across container restarts.
-    chown "${DEV_USER}:${DEV_USER}" "/home/${DEV_USER}" 2>/dev/null || true
-    chown -R "${DEV_USER}:${DEV_USER}" "/home/${DEV_USER}/.local" "/home/${DEV_USER}/.claude" 2>/dev/null || true
+    chown "${WARDEN_USER}:${WARDEN_USER}" "/home/${WARDEN_USER}" 2>/dev/null || true
+    chown -R "${WARDEN_USER}:${WARDEN_USER}" "/home/${WARDEN_USER}/.local" "/home/${WARDEN_USER}/.claude" 2>/dev/null || true
   fi
 fi
 
@@ -65,7 +65,7 @@ fi
 
 # -------------------------------------------------------------------
 # Drop privileges permanently. gosu replaces this process (exec) so
-# PID 1 becomes user-entrypoint.sh running as dev. No root process
+# PID 1 becomes user-entrypoint.sh running as warden. No root process
 # remains in the container after this point.
 # -------------------------------------------------------------------
-exec gosu "${DEV_USER}:${DEV_USER}" /usr/local/bin/user-entrypoint.sh
+exec gosu "${WARDEN_USER}:${WARDEN_USER}" /usr/local/bin/user-entrypoint.sh

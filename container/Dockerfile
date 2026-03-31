@@ -52,7 +52,7 @@ COPY --from=builder /usr/local/bin/gosu /usr/local/bin/gosu
 COPY scripts/install-system-deps.sh /tmp/
 RUN chmod +x /tmp/install-system-deps.sh && /tmp/install-system-deps.sh && rm /tmp/install-system-deps.sh
 
-# Layer 2: dev user (changes rarely)
+# Layer 2: warden user (changes rarely)
 COPY scripts/install-user.sh /tmp/
 RUN chmod +x /tmp/install-user.sh && /tmp/install-user.sh && rm /tmp/install-user.sh
 

@@ -10,7 +10,7 @@ container/
 ├── scripts/
 │   ├── install-tools.sh                # Wrapper for devcontainer feature (calls sub-scripts in order)
 │   ├── install-system-deps.sh          # System packages, GitHub CLI, Node.js, abduco/gosu (devcontainer)
-│   ├── install-user.sh                 # dev user, workspace dirs, .profile env forwarding
+│   ├── install-user.sh                 # warden user, workspace dirs, .profile env forwarding
 │   ├── install-claude.sh               # Claude Code CLI + managed-settings.json hooks
 │   ├── install-codex.sh                # Codex CLI (npm install -g @openai/codex)
 │   ├── install-warden.sh               # Copy scripts to /usr/local/bin/, create /project
@@ -33,7 +33,7 @@ The install pipeline is split into composable sub-scripts. The Dockerfile calls 
 builder stage:  compile abduco + fetch gosu
 runtime stage:
   Layer 1: install-system-deps.sh  (system packages — rarely changes)
-  Layer 2: install-user.sh         (dev user — rarely changes)
+  Layer 2: install-user.sh         (warden user — rarely changes)
   Layer 3: install-claude.sh       (Claude CLI — changes on upstream releases)
   Layer 4: install-codex.sh        (Codex CLI — changes on upstream releases)
   Layer 5: install-warden.sh       (Warden scripts — changes every release)
@@ -44,7 +44,7 @@ Most Warden releases only invalidate Layer 5. CLI updates only invalidate from t
 ### Sub-Script Responsibilities
 
 - **install-system-deps.sh** — apt packages (git, curl, jq, iptables, etc.), GitHub CLI, Node.js LTS. Compiles abduco and fetches gosu when pre-built binaries aren't available (devcontainer path). Cleans up apt lists.
-- **install-user.sh** — creates `dev` user (prefers UID 1000), sets up `~/.local/bin`, creates workspace and agent config directories (`~/.claude`, `~/.codex`), configures `.profile` env forwarding.
+- **install-user.sh** — creates `warden` user (prefers UID 1000), sets up `~/.local/bin`, creates workspace and agent config directories (`~/.claude`, `~/.codex`), configures `.profile` env forwarding.
 - **install-claude.sh** — installs Claude Code CLI via official installer, writes managed-settings.json with attention state hooks (Notification, PreToolUse, UserPromptSubmit).
 - **install-codex.sh** — installs Codex CLI via `npm install -g @openai/codex`, creates `~/.codex` config directory.
 - **install-warden.sh** — copies runtime scripts from `shared/`, `claude/`, `codex/` to `/usr/local/bin/`. Detects directory layout (subdirectories for Dockerfile, flat for devcontainer). Creates `/project` workspace.

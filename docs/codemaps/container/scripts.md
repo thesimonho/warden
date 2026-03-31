@@ -6,7 +6,7 @@ Scripts are organized into subdirectories under `container/scripts/` and copied 
 container/scripts/
   install-tools.sh              # Wrapper for devcontainer path (calls sub-scripts)
   install-system-deps.sh        # System packages, GitHub CLI, Node.js, abduco/gosu, bubblewrap (devcontainer)
-  install-user.sh               # dev user, workspace dirs, .profile env forwarding
+  install-user.sh               # warden user, workspace dirs, .profile env forwarding
   install-claude.sh             # Claude Code CLI + managed-settings.json hooks
   install-codex.sh              # Codex CLI (npm install -g @openai/codex)
   install-warden.sh             # Copy scripts to /usr/local/bin/, create /project

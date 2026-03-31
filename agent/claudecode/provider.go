@@ -7,12 +7,13 @@ import (
 	"encoding/json"
 
 	"github.com/thesimonho/warden/agent"
+	"github.com/thesimonho/warden/constants"
 )
 
 // configFilePath is the location of Claude Code's global config inside the container.
 // Claude Code writes its config to ~/.claude.json (home directory root), NOT to
 // ~/.claude/.claude.json (which is the bind-mounted host config).
-const configFilePath = "/home/dev/.claude.json"
+const configFilePath = constants.ContainerHomeDir + "/.claude.json"
 
 // Provider extracts status data from Claude Code's .claude.json config file.
 type Provider struct{}

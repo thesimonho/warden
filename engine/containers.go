@@ -135,7 +135,7 @@ func (ec *EngineClient) CreateContainer(ctx context.Context, req CreateContainer
 	envList = append(envList, fmt.Sprintf("WARDEN_AGENT_TYPE=%s", req.AgentType))
 
 	// Set the workspace directory inside the container. Each project gets
-	// a unique path (/home/dev/<name>) so the agent's config file keys
+	// a unique path (/home/warden/<name>) so the agent's config file keys
 	// don't collide across containers (they share the file via bind mount).
 	containerWSDir := ContainerWorkspaceDir(req.Name)
 	envList = append(envList, fmt.Sprintf("WARDEN_WORKSPACE_DIR=%s", containerWSDir))
@@ -199,7 +199,7 @@ func (ec *EngineClient) CreateContainer(ctx context.Context, req CreateContainer
 	}
 
 	// Rootless Podman maps the host UID to root inside the container,
-	// breaking bind mount ownership for the dev user. --userns=keep-id
+	// breaking bind mount ownership for the warden user. --userns=keep-id
 	// preserves the host UID mapping so bind mounts work the same as Docker.
 	if ec.runtimeName == "podman" {
 		hostConfig.UsernsMode = "keep-id"
@@ -389,7 +389,7 @@ func (ec *EngineClient) RecreateContainer(ctx context.Context, id string, req Cr
 }
 
 // baseCapabilities are the Linux capabilities granted to every Warden container.
-// These are the minimum set required for the entrypoint (root → dev user switch
+// These are the minimum set required for the entrypoint (root → warden user switch
 // via gosu, chown, kill) and standard dev tooling (bind to low ports, ping).
 //
 // Dropped from Docker's defaults: SETPCAP, MKNOD, SETFCAP, AUDIT_WRITE — these
@@ -399,7 +399,7 @@ func (ec *EngineClient) RecreateContainer(ctx context.Context, id string, req Cr
 // now uses gosu which calls setuid/setgid directly.
 var baseCapabilities = []string{
 	"CHOWN",            // entrypoint chown of bind mounts
-	"DAC_OVERRIDE",     // root reading/writing files owned by dev user
+	"DAC_OVERRIDE",     // root reading/writing files owned by warden user
 	"FOWNER",           // entrypoint file ownership operations
 	"FSETID",           // preserve setuid/setgid bits during chown
 	"KILL",             // shutdown handler: kill -TERM -1
@@ -440,4 +440,3 @@ func buildSecurityConfig(networkMode NetworkMode, seccompValue string) (capDrop,
 
 	return capDrop, capAdd, securityOpts
 }
-

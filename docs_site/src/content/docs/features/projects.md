@@ -10,7 +10,7 @@ A **Project** is a host directory paired with a container that runs an AI coding
 Add a project by providing:
 
 - **Agent Type** — the CLI agent to run: **Claude Code** (Anthropic) or **Codex** (OpenAI). This is selected first and cannot be changed after creation.
-- **Name** — a display name (also determines the workspace path inside the container: `/home/dev/<name>`)
+- **Name** — a display name (also determines the workspace path inside the container: `/home/warden/<name>`)
 - **Host Path** — the absolute path to the directory on your machine
 
 If you add the same path again, Warden returns the existing project instead of creating a duplicate.
@@ -123,7 +123,7 @@ result, _ := c.AddProject(ctx, "my-project", "/home/user/code/my-project")
 result, _ := c.CreateContainer(ctx, projectID, engine.CreateContainerRequest{
     Image:    "ghcr.io/thesimonho/warden:latest",
     EnvVars:  map[string]string{"ANTHROPIC_API_KEY": os.Getenv("ANTHROPIC_API_KEY")},
-    Mounts:   []engine.Mount{{HostPath: "/home/user/.claude", ContainerPath: "/home/dev/.claude"}},
+    Mounts:   []engine.Mount{{HostPath: "/home/user/.claude", ContainerPath: "/home/warden/.claude"}},
     NetworkMode: "restricted",
     AllowedDomains: []string{"github.com", "npmjs.org"},
 })

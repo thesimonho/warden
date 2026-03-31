@@ -232,11 +232,11 @@ func TestSessionDir(t *testing.T) {
 
 	parser := NewParser()
 	dir := parser.SessionDir("/home/user", agent.ProjectInfo{
-		WorkspaceDir: "/home/dev/warden",
-		ProjectName:  "warden",
+		WorkspaceDir: "/home/warden/my-project",
+		ProjectName:  "my-project",
 	})
 
-	want := "/home/user/.claude/projects/-home-dev-warden"
+	want := "/home/user/.claude/projects/-home-warden-my-project"
 	if dir != want {
 		t.Errorf("SessionDir = %q, want %q", dir, want)
 	}

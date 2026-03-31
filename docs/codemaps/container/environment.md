@@ -2,7 +2,7 @@
 
 ## Process Architecture
 
-The container entrypoint starts as root for privileged setup (UID remapping, iptables), then permanently drops to the `dev` user via `exec gosu`. PID 1 runs as `dev` — no root process remains after startup.
+The container entrypoint starts as root for privileged setup (UID remapping, iptables), then permanently drops to the `warden` user via `exec gosu`. PID 1 runs as `warden` — no root process remains after startup.
 
 Each worktree has one process layer in the container:
 
@@ -22,7 +22,7 @@ The browser connects via `GET /api/v1/projects/{projectID}/ws/{wid}` (WebSocket)
 
 The `gosu` exec creates a clean environment, stripping container env vars. The user-phase entrypoint works around this by:
 
-1. Writing all env vars to `/home/dev/.docker_env` at startup (excluding `HOME`, `USER`, `SHELL`, etc.)
+1. Writing all env vars to `/home/warden/.docker_env` at startup (excluding `HOME`, `USER`, `SHELL`, etc.)
 2. `.bashrc` sources this file on every new shell
 
 This ensures all vars passed via `docker run -e` or `podman run -e` are available in terminal sessions.
@@ -30,7 +30,7 @@ This ensures all vars passed via `docker run -e` or `podman run -e` are availabl
 **Key environment variables set by Warden:**
 
 - `WARDEN_HOST_UID` / `WARDEN_HOST_GID` — host user's UID/GID for UID remapping via `usermod`/`groupmod`
-- `WARDEN_WORKSPACE_DIR` — container-side workspace path (e.g. `/home/dev/my-project`). Shell scripts use `${WARDEN_WORKSPACE_DIR:-/project}` for backward compatibility.
+- `WARDEN_WORKSPACE_DIR` — container-side workspace path (e.g. `/home/warden/my-project`). Shell scripts use `${WARDEN_WORKSPACE_DIR:-/project}` for backward compatibility.
 - `WARDEN_PROJECT_ID` — deterministic 12-char hex identifier (SHA-256 of resolved absolute host path). Used by event-posting scripts to tag events with project identity.
 - `WARDEN_EVENT_DIR` — bind-mounted event directory path (`/var/warden/events`)
 - `WARDEN_AGENT_TYPE` — agent type (`claude-code` or `codex`). Controls which CLI launches in `create-terminal.sh` and which parser/provider the engine uses.

@@ -63,13 +63,13 @@ func TestWorktreeIDFromPath(t *testing.T) {
 		wsDir    string
 		expected string
 	}{
-		{name: "project root", path: "/home/dev/my-app", wsDir: "/home/dev/my-app", expected: "main"},
-		{name: "claude worktree path", path: "/home/dev/my-app/.claude/worktrees/griod", wsDir: "/home/dev/my-app", expected: "griod"},
-		{name: "claude worktree with hyphens", path: "/home/dev/my-app/.claude/worktrees/my-feature", wsDir: "/home/dev/my-app", expected: "my-feature"},
-		{name: "claude worktree with dots", path: "/home/dev/my-app/.claude/worktrees/fix.bug", wsDir: "/home/dev/my-app", expected: "fix.bug"},
-		{name: "warden worktree path", path: "/home/dev/my-app/.warden/worktrees/feature-x", wsDir: "/home/dev/my-app", expected: "feature-x"},
-		{name: "warden worktree with dots", path: "/home/dev/my-app/.warden/worktrees/fix.bug", wsDir: "/home/dev/my-app", expected: "fix.bug"},
-		{name: "unrecognized path", path: "/some/other/path", wsDir: "/home/dev/my-app", expected: "main"},
+		{name: "project root", path: "/home/warden/my-app", wsDir: "/home/warden/my-app", expected: "main"},
+		{name: "claude worktree path", path: "/home/warden/my-app/.claude/worktrees/griod", wsDir: "/home/warden/my-app", expected: "griod"},
+		{name: "claude worktree with hyphens", path: "/home/warden/my-app/.claude/worktrees/my-feature", wsDir: "/home/warden/my-app", expected: "my-feature"},
+		{name: "claude worktree with dots", path: "/home/warden/my-app/.claude/worktrees/fix.bug", wsDir: "/home/warden/my-app", expected: "fix.bug"},
+		{name: "warden worktree path", path: "/home/warden/my-app/.warden/worktrees/feature-x", wsDir: "/home/warden/my-app", expected: "feature-x"},
+		{name: "warden worktree with dots", path: "/home/warden/my-app/.warden/worktrees/fix.bug", wsDir: "/home/warden/my-app", expected: "fix.bug"},
+		{name: "unrecognized path", path: "/some/other/path", wsDir: "/home/warden/my-app", expected: "main"},
 		{name: "/project path", path: "/project", wsDir: "/project", expected: "main"},
 		{name: "/project claude worktree", path: "/project/.claude/worktrees/feat", wsDir: "/project", expected: "feat"},
 		{name: "/project warden worktree", path: "/project/.warden/worktrees/feat", wsDir: "/project", expected: "feat"},

@@ -11,16 +11,14 @@ import (
 
 	"github.com/docker/docker/api/types/container"
 	"github.com/thesimonho/warden/api"
+	"github.com/thesimonho/warden/constants"
 )
 
-// ContainerUser is the non-root user inside project containers. All terminal
-// processes (abduco, claude, bash) run as this user so that PATH includes
-// ~/.local/bin (where Claude Code is installed) and abduco sockets are in
-// a consistent location. Works identically on Docker and Podman.
-const ContainerUser = "dev"
+// ContainerUser is the non-root user inside project containers.
+const ContainerUser = constants.ContainerUser
 
 // ContainerHomeDir is the home directory for [ContainerUser] inside containers.
-const ContainerHomeDir = "/home/" + ContainerUser
+const ContainerHomeDir = constants.ContainerHomeDir
 
 // createTerminalScript is the path to the terminal creator inside the container.
 const createTerminalScript = "/usr/local/bin/create-terminal.sh"
