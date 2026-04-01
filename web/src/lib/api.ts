@@ -47,6 +47,7 @@ import type {
   AccessItemResponse,
   AccessCredential,
   ResolvedItem,
+  ClipboardUploadResponse,
 } from '@/lib/types'
 
 /** Base URL for API requests. Empty string since Vite proxies /api to the backend. */
@@ -725,11 +726,6 @@ export async function resolveAccessItems(items: AccessItem[]): Promise<ResolvedI
 }
 
 // --- Clipboard ---
-
-/** Response from the clipboard upload endpoint. */
-interface ClipboardUploadResponse {
-  path: string
-}
 
 /**
  * Uploads an image to the container's clipboard staging directory for the

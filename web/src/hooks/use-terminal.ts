@@ -485,12 +485,7 @@ export function useTerminal({
           !event.metaKey
         ) {
           clipboard.pasteImageFromClipboard().then((handled) => {
-            if (!handled) {
-              const ws = wsRef.current
-              if (ws?.readyState === WebSocket.OPEN) {
-                ws.send(textEncoder.encode('\x16'))
-              }
-            }
+            if (!handled) clipboard.sendToPty('\x16')
           })
           event.preventDefault()
           return false

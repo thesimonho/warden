@@ -597,3 +597,10 @@ export interface AuditSummary {
   topTools: ToolCount[]
   timeRange: TimeRange
 }
+
+// --- Clipboard ---
+
+/** Response from the clipboard upload endpoint. */
+export interface ClipboardUploadResponse {
+  path: string
+}

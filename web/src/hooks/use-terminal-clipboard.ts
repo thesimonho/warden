@@ -236,9 +236,10 @@ export function useTerminalClipboard({ terminalRef, wsRef, projectId }: Terminal
   return {
     copySelection,
     pasteText,
-    pasteImage,
     pasteImageFromClipboard,
     selectAll,
     registerOsc52Handler,
+    /** Sends raw bytes to the PTY. Exposed for key handlers that need PTY fallback. */
+    sendToPty,
   }
 }
