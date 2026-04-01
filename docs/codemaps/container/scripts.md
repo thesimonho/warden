@@ -20,6 +20,7 @@ container/scripts/
     warden-push-event.sh        # Terminal lifecycle event helper
     warden-heartbeat.sh         # Background heartbeat (every 10s)
     setup-network-isolation.sh  # iptables OUTPUT rules for network modes
+    install-clipboard-shim.sh   # Install xclip wrapper for web terminal image paste
   claude/
     warden-event-claude.sh      # Claude attention state dispatcher (notification, pre_tool_use, user_prompt)
   codex/
@@ -88,6 +89,22 @@ All other events (session lifecycle, tool use, cost, etc.) are parsed from the J
 ### codex/warden-event-codex.sh
 
 Placeholder. Codex does not currently support hooks (upstream gap). When hook support is added, this script will handle attention state events.
+
+## Clipboard Integration
+
+### install-clipboard-shim.sh
+
+Installs an xclip wrapper shim at `~/.local/bin/xclip` that intercepts clipboard operations for web terminal image paste support. When the web frontend uploads an image:
+
+1. Browser uploads image via `POST /api/v1/projects/{projectId}/clipboard`
+2. Service stages the file in `/tmp/warden-clipboard/`
+3. User sends Ctrl+V to the terminal
+4. Agent calls `xclip` to read the clipboard
+5. Shim detects the staged image and returns it (via TARGETS or image read calls)
+6. Agent receives the image for processing
+7. Shim cleans up stale files older than 5 minutes
+
+The shim is agent-agnostic — any tool that reads the clipboard via xclip will pick up staged content. Falls back to the real xclip binary for all other operations.
 
 ## Attention Tracking
 

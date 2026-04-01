@@ -238,6 +238,40 @@ Subscribe to `GET /api/v1/events` for real-time updates:
 
 Events include `worktree_state` (attention/terminal state changes per worktree), `project_state` (aggregated cost + attention state per project), `worktree_list_changed`, `budget_exceeded` (when a project exceeds its cost budget), and `budget_container_stopped` (after budget enforcement stops a container — includes `containerId` for matching against project views).
 
+## Clipboard operations
+
+### Image paste
+
+Upload an image to the container's clipboard staging directory for agent use:
+
+```
+POST /api/v1/projects/{projectId}/clipboard
+Content-Type: multipart/form-data
+
+file: <image file>
+```
+
+Returns:
+
+```json
+{
+  "path": "/tmp/warden-clipboard/paste-1234567890.png"
+}
+```
+
+The web terminal uses this for image paste (Ctrl+V) — it uploads the image, stages it in the container, then sends Ctrl+V to the terminal so the agent's clipboard read picks it up via the xclip shim. Maximum upload size is 10 MB.
+
+**Note**: The xclip shim is transparently injected into containers for clipboard integration. When the agent reads the clipboard via `xclip`, the shim returns staged images. For non-image clipboard operations, the shim passes through to the real xclip binary.
+
+### OSC 52 clipboard
+
+The terminal supports OSC 52 for bidirectional text clipboard access between the agent and the browser. When the agent sends OSC 52 escape sequences:
+
+- **Write** — the browser writes to its clipboard
+- **Read** — the browser reads from its clipboard and sends it back
+
+This is transparent to agents — Claude Code's fullscreen mode automatically uses OSC 52 for copy operations.
+
 ## Terminal lifecycle
 
 Terminal interaction requires two steps:

@@ -53,4 +53,5 @@
 | GET | `/api/v1/filesystem/directories` | `handleListDirectories` | List subdirectories at a path (filesystem browser) |
 | POST | `/api/v1/filesystem/reveal` | `handleRevealInFileManager` | Open a host directory in the system file manager |
 | GET | `/api/v1/defaults` | `handleDefaults` | Server-resolved defaults for create container form |
+| POST | `/api/v1/projects/{projectId}/clipboard` | `handleUploadClipboard` | Upload clipboard image to staging directory for xclip shim (10 MB limit) |
 | GET | `/api/v1/events` | `handleSSE` | SSE stream: worktree_state, project_state, budget_exceeded, budget_container_stopped, heartbeat |

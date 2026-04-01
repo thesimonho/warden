@@ -20,7 +20,8 @@
 | `hooks/use-event-source.ts` | SSE subscription helper — wraps `EventSource`, manages connect/reconnect, dispatches typed events to callers. Used by `project-page.tsx` for `budget_container_stopped` redirect. |
 | `hooks/use-diff.ts` | On-demand diff fetch for the Changes tab. Fetches when `enabled` is true, returns `{ diff, isLoading, error, refetch }`. No polling/SSE. |
 | `hooks/use-worktrees.ts` | Polls `/api/projects/{id}/worktrees` for worktree state; applies push-based terminal state from SSE `WorktreeStateEvent` |
-| `hooks/use-terminal.ts` | xterm.js lifecycle: create/attach xterm instance, WebSocket connection to `/api/projects/{id}/ws/{wid}`, resize events, reconnect logic, cleanup on unmount. Buffers incoming WebSocket messages and flushes to xterm.js once per `requestAnimationFrame` to prevent rapid output bursts from blocking the main thread. |
+| `hooks/use-terminal.ts` | xterm.js lifecycle: create/attach xterm instance, WebSocket connection to `/api/projects/{id}/ws/{wid}`, resize events, reconnect logic, cleanup on unmount. Buffers incoming WebSocket messages and flushes to xterm.js once per `requestAnimationFrame` to prevent rapid output bursts from blocking the main thread. Delegates clipboard to `use-terminal-clipboard.ts`. |
+| `hooks/use-terminal-clipboard.ts` | Terminal clipboard operations: text copy (xterm.js selection or OSC 52 for agent fullscreen mode), text paste with trailing newline stripping, image paste via `POST /api/v1/projects/{projectId}/clipboard` + xclip shim, select all + copy, and bidirectional OSC 52 handler registration. Each instance gets its own explicit-copy tracker for multi-terminal isolation. |
 | `hooks/use-notifications.ts` | Browser notifications for worktree events (needs input, all worktrees complete) |
 | `hooks/use-theme.ts` | Theme persistence to localStorage (`warden-theme`) |
 | `hooks/use-recent-workspaces.ts` | Tracks recently visited workspace projects |

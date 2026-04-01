@@ -47,7 +47,7 @@ Most Warden releases only invalidate Layer 5. CLI updates only invalidate from t
 - **install-user.sh** — creates `warden` user (prefers UID 1000), sets up `~/.local/bin`, creates workspace and agent config directories (`~/.claude`, `~/.codex`), configures `.profile` env forwarding.
 - **install-claude.sh** — installs Claude Code CLI via official installer, writes managed-settings.json with attention state hooks (Notification, PreToolUse, UserPromptSubmit).
 - **install-codex.sh** — installs Codex CLI via `npm install -g @openai/codex`, creates `~/.codex` config directory.
-- **install-warden.sh** — copies runtime scripts from `shared/`, `claude/`, `codex/` to `/usr/local/bin/`. Detects directory layout (subdirectories for Dockerfile, flat for devcontainer). Creates `/project` workspace.
+- **install-warden.sh** — copies runtime scripts from `shared/`, `claude/`, `codex/` to `/usr/local/bin/`, calls `install-clipboard-shim.sh` to set up the xclip wrapper. Detects directory layout (subdirectories for Dockerfile, flat for devcontainer). Creates `/project` workspace.
 
 All steps are idempotent. Environment variables: `ABDUCO_VERSION` (default: `0.6`), `GOSU_VERSION` (default: `1.17`).
 
