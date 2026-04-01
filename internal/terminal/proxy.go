@@ -80,7 +80,7 @@ func (p *Proxy) ServeWS(w http.ResponseWriter, r *http.Request, containerID, wor
 	ctx := r.Context()
 
 	// Create a docker exec with TTY that attaches to the abduco session.
-	// abduco -a is the viewer — killing it won't affect the session owner (abduco -A).
+	// abduco -a is the viewer — killing it won't affect the session owner (abduco -n).
 	sessionName := fmt.Sprintf("warden-%s", worktreeID)
 	execResp, err := p.api.ContainerExecCreate(ctx, containerID, container.ExecOptions{
 		Cmd:          []string{"abduco", "-a", sessionName},

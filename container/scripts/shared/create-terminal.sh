@@ -105,13 +105,19 @@ INNER_CMD="cd '${WORK_DIR}' && ${AGENT_CMD}; \
   exec bash"
 
 # -------------------------------------------------------------------
-# Start abduco detached via nohup.
+# Start abduco as a detached daemon (-n: create session, don't attach).
 #
 # abduco holds the PTY alive across viewer disconnections. The Go
-# backend attaches to this session via docker exec with TTY mode.
+# backend attaches to this session via docker exec with TTY mode
+# using "abduco -a" (separate attach command with a real TTY).
+#
+# IMPORTANT: Do NOT use -A (create+attach). With -A, abduco enters
+# client_mainloop reading from stdin. Since nohup redirects stdin to
+# /dev/null, pselect() returns immediately every iteration (dev/null
+# is always readable, read returns 0), causing a 100% CPU busy-wait.
 # Uses bash -l so the login environment (PATH, .docker_env) is loaded.
 # -------------------------------------------------------------------
-nohup bash -lc "exec abduco -A 'warden-${WORKTREE_ID}' bash -c '${INNER_CMD}'" \
+nohup bash -lc "exec abduco -n 'warden-${WORKTREE_ID}' bash -c '${INNER_CMD}'" \
   > /dev/null 2>&1 &
 
 # Give abduco a moment to start the session
