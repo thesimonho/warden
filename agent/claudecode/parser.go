@@ -17,11 +17,15 @@ type Parser struct {
 	cumulativeTokens agent.TokenUsage
 	// lastModel tracks the most recently seen model name.
 	lastModel string
+	// toolNames maps tool_use IDs to tool names for correlating tool_result errors.
+	toolNames map[string]string
 }
 
 // NewParser creates a new Claude Code JSONL parser.
 func NewParser() *Parser {
-	return &Parser{}
+	return &Parser{
+		toolNames: make(map[string]string),
+	}
 }
 
 // ParseLine parses a single JSONL line into zero or more ParsedEvents.
@@ -110,9 +114,12 @@ func (p *Parser) parseAssistant(entry SessionEntry) []agent.ParsedEvent {
 		})
 	}
 
-	// Extract tool use events from content blocks.
+	// Extract tool use events from content blocks and track IDs for error correlation.
 	for _, block := range msg.Content.Blocks {
 		if block.Type == "tool_use" && block.Name != "" {
+			if block.ID != "" {
+				p.toolNames[block.ID] = block.Name
+			}
 			events = append(events, agent.ParsedEvent{
 				Type:      agent.EventToolUse,
 				SessionID: entry.SessionID,
@@ -138,15 +145,15 @@ func (p *Parser) parseAssistant(entry SessionEntry) []agent.ParsedEvent {
 }
 
 // parseUser handles user-type JSONL entries. Produces UserPrompt events
-// for direct user messages (not tool results).
+// for direct user messages, and ToolUseFailure events for error tool results.
 func (p *Parser) parseUser(entry SessionEntry) []agent.ParsedEvent {
 	if entry.Message == nil {
 		return nil
 	}
 
-	// Tool results (content is an array with tool_result blocks) are not user prompts.
+	// Content with blocks: check for tool_result errors.
 	if len(entry.Message.Content.Blocks) > 0 {
-		return nil
+		return p.parseToolResults(entry)
 	}
 
 	// Plain text user messages.
@@ -164,8 +171,30 @@ func (p *Parser) parseUser(entry SessionEntry) []agent.ParsedEvent {
 	}}
 }
 
+// parseToolResults extracts ToolUseFailure events from tool_result blocks
+// that have is_error set. The tool name is resolved from the preceding
+// tool_use block via the tool_use_id → tool name mapping.
+func (p *Parser) parseToolResults(entry SessionEntry) []agent.ParsedEvent {
+	var events []agent.ParsedEvent
+	for _, block := range entry.Message.Content.Blocks {
+		if block.Type != "tool_result" || !block.IsError {
+			continue
+		}
+		toolName := p.toolNames[block.ToolUseID]
+		delete(p.toolNames, block.ToolUseID)
+		events = append(events, agent.ParsedEvent{
+			Type:         agent.EventToolUseFailure,
+			SessionID:    entry.SessionID,
+			Timestamp:    entry.Timestamp,
+			ToolName:     toolName,
+			ErrorContent: agent.TruncateString(block.ErrorContent(), agent.MaxToolInputLength),
+		})
+	}
+	return events
+}
+
 // parseSystem handles system-type JSONL entries. Produces TurnDuration events
-// for "turn_duration" subtypes.
+// for "turn_duration" subtypes and StopFailure events for "api_error" subtypes.
 func (p *Parser) parseSystem(entry SessionEntry) []agent.ParsedEvent {
 	switch entry.Subtype {
 	case "turn_duration":
@@ -174,6 +203,13 @@ func (p *Parser) parseSystem(entry SessionEntry) []agent.ParsedEvent {
 			SessionID:  entry.SessionID,
 			Timestamp:  entry.Timestamp,
 			DurationMs: entry.DurationMs,
+		}}
+	case "api_error":
+		return []agent.ParsedEvent{{
+			Type:         agent.EventStopFailure,
+			SessionID:    entry.SessionID,
+			Timestamp:    entry.Timestamp,
+			ErrorContent: agent.TruncateString(entry.Content, agent.MaxToolInputLength),
 		}}
 	default:
 		return nil

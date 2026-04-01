@@ -67,6 +67,14 @@ const (
 	EventTurnDuration ParsedEventType = "turn_duration"
 	// EventTokenUpdate carries cumulative token usage for the session.
 	EventTokenUpdate ParsedEventType = "token_update"
+	// EventToolUseFailure records a tool invocation that returned an error.
+	EventToolUseFailure ParsedEventType = "tool_use_failure"
+	// EventStopFailure records an API or model error that interrupted a turn.
+	EventStopFailure ParsedEventType = "stop_failure"
+	// EventPermissionRequest records a request for user approval before acting.
+	EventPermissionRequest ParsedEventType = "permission_request"
+	// EventElicitation records an MCP server requesting user input.
+	EventElicitation ParsedEventType = "elicitation"
 )
 
 // ParsedEvent is an agent-agnostic event produced by parsing a session JSONL line.
@@ -89,6 +97,10 @@ type ParsedEvent struct {
 	ToolInput string
 	// Prompt is the user's message text (populated on UserPrompt events).
 	Prompt string
+	// ErrorContent is the error message (populated on ToolUseFailure and StopFailure events).
+	ErrorContent string
+	// ServerName is the MCP server name (populated on Elicitation events).
+	ServerName string
 
 	// DurationMs is the turn duration in milliseconds (populated on TurnDuration events).
 	DurationMs int64

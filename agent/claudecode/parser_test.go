@@ -55,20 +55,26 @@ func TestParseFixture_EventCounts(t *testing.T) {
 	}
 
 	// Exact counts for this fixture.
-	if got := result.Counts[agent.EventToolUse]; got != 3 {
-		t.Errorf("ToolUse events = %d, want 3", got)
+	if got := result.Counts[agent.EventToolUse]; got != 4 {
+		t.Errorf("ToolUse events = %d, want 4", got)
 	}
 	if got := result.Counts[agent.EventUserPrompt]; got != 1 {
 		t.Errorf("UserPrompt events = %d, want 1", got)
 	}
-	if got := result.Counts[agent.EventTokenUpdate]; got != 4 {
-		t.Errorf("TokenUpdate events = %d, want 4", got)
+	if got := result.Counts[agent.EventTokenUpdate]; got != 5 {
+		t.Errorf("TokenUpdate events = %d, want 5", got)
 	}
 	if got := result.Counts[agent.EventTurnComplete]; got != 1 {
 		t.Errorf("TurnComplete events = %d, want 1", got)
 	}
 	if got := result.Counts[agent.EventTurnDuration]; got != 1 {
 		t.Errorf("TurnDuration events = %d, want 1", got)
+	}
+	if got := result.Counts[agent.EventToolUseFailure]; got != 1 {
+		t.Errorf("ToolUseFailure events = %d, want 1", got)
+	}
+	if got := result.Counts[agent.EventStopFailure]; got != 1 {
+		t.Errorf("StopFailure events = %d, want 1", got)
 	}
 }
 
@@ -83,7 +89,7 @@ func TestParseFixture_ToolNames(t *testing.T) {
 		}
 	}
 
-	want := []string{"Read", "Write", "Bash"}
+	want := []string{"Read", "Write", "Bash", "Read"}
 	if len(toolNames) != len(want) {
 		t.Fatalf("tool names = %v, want %v", toolNames, want)
 	}
@@ -105,21 +111,21 @@ func TestParseFixture_TokensAccumulate(t *testing.T) {
 		}
 	}
 
-	// Cumulative tokens across all 4 assistant messages:
-	// input: 1500+100+80+60 = 1740
-	if lastTokenEvent.Tokens.InputTokens != 1740 {
-		t.Errorf("cumulative input tokens = %d, want 1740", lastTokenEvent.Tokens.InputTokens)
+	// Cumulative tokens across all 5 assistant messages:
+	// input: 1500+100+80+60+40 = 1780
+	if lastTokenEvent.Tokens.InputTokens != 1780 {
+		t.Errorf("cumulative input tokens = %d, want 1780", lastTokenEvent.Tokens.InputTokens)
 	}
-	// output: 200+150+120+80 = 550
-	if lastTokenEvent.Tokens.OutputTokens != 550 {
-		t.Errorf("cumulative output tokens = %d, want 550", lastTokenEvent.Tokens.OutputTokens)
+	// output: 200+150+120+80+30 = 580
+	if lastTokenEvent.Tokens.OutputTokens != 580 {
+		t.Errorf("cumulative output tokens = %d, want 580", lastTokenEvent.Tokens.OutputTokens)
 	}
 	if lastTokenEvent.Tokens.CacheWriteTokens != 5000 {
 		t.Errorf("cumulative cache write tokens = %d, want 5000", lastTokenEvent.Tokens.CacheWriteTokens)
 	}
-	// cache read: 0+4800+5000+5100 = 14900
-	if lastTokenEvent.Tokens.CacheReadTokens != 14900 {
-		t.Errorf("cumulative cache read tokens = %d, want 14900", lastTokenEvent.Tokens.CacheReadTokens)
+	// cache read: 0+4800+5000+5100+5200 = 20100
+	if lastTokenEvent.Tokens.CacheReadTokens != 20100 {
+		t.Errorf("cumulative cache read tokens = %d, want 20100", lastTokenEvent.Tokens.CacheReadTokens)
 	}
 }
 
@@ -195,6 +201,42 @@ func TestParseFixture_SessionID(t *testing.T) {
 			t.Errorf("event %s has sessionID = %q, want %q", e.Type, e.SessionID, "test-session-001")
 		}
 	}
+}
+
+func TestParseFixture_ToolUseFailure(t *testing.T) {
+	t.Parallel()
+	events := parseFixtureEvents(t)
+
+	for _, e := range events {
+		if e.Type == agent.EventToolUseFailure {
+			if e.ToolName != "Read" {
+				t.Errorf("ToolUseFailure tool = %q, want %q", e.ToolName, "Read")
+			}
+			if e.ErrorContent == "" {
+				t.Error("ToolUseFailure has empty error content")
+			}
+			return
+		}
+	}
+	t.Error("no ToolUseFailure event found")
+}
+
+func TestParseFixture_StopFailure(t *testing.T) {
+	t.Parallel()
+	events := parseFixtureEvents(t)
+
+	for _, e := range events {
+		if e.Type == agent.EventStopFailure {
+			if e.ErrorContent == "" {
+				t.Error("StopFailure has empty error content")
+			}
+			if e.SessionID != "test-session-001" {
+				t.Errorf("StopFailure sessionID = %q, want %q", e.SessionID, "test-session-001")
+			}
+			return
+		}
+	}
+	t.Error("no StopFailure event found")
 }
 
 func TestParseLine_UnknownType(t *testing.T) {

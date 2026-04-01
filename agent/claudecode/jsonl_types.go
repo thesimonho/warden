@@ -1,5 +1,7 @@
 package claudecode
 
+import "encoding/json"
+
 // JSONL session file types for Claude Code. These structs match the JSONL
 // format written by Claude Code at ~/.claude/projects/<path>/<session>.jsonl.
 //
@@ -58,10 +60,38 @@ type ContentBlock struct {
 	Text string `json:"text,omitempty"`
 	// Name is the tool name for "tool_use" type blocks.
 	Name string `json:"name,omitempty"`
+	// ID is the tool use identifier for "tool_use" type blocks.
+	ID string `json:"id,omitempty"`
 	// Input is the tool input for "tool_use" type blocks.
 	Input map[string]any `json:"input,omitempty"`
 	// ToolUseID is the tool use identifier for "tool_result" type blocks.
 	ToolUseID string `json:"tool_use_id,omitempty"`
+	// IsError is true when a tool_result block represents an error.
+	IsError bool `json:"is_error,omitempty"`
+	// Content is the text content for "tool_result" type blocks.
+	// Can be a string or an array of blocks — we only use the string form.
+	Content json.RawMessage `json:"content,omitempty"`
+}
+
+// ErrorContent returns the text content of a tool_result error block.
+// Handles both plain string content and array-of-blocks content.
+func (b *ContentBlock) ErrorContent() string {
+	if len(b.Content) == 0 {
+		return ""
+	}
+	// Try plain string first.
+	var s string
+	if err := json.Unmarshal(b.Content, &s); err == nil {
+		return s
+	}
+	// Try array of text blocks.
+	var blocks []struct {
+		Text string `json:"text"`
+	}
+	if err := json.Unmarshal(b.Content, &blocks); err == nil && len(blocks) > 0 {
+		return blocks[0].Text
+	}
+	return string(b.Content)
 }
 
 // UsageInfo holds token consumption data from an assistant message.

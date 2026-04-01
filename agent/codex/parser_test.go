@@ -59,8 +59,8 @@ func TestParseFixture_EventCounts(t *testing.T) {
 	if got := result.Counts[agent.EventSessionStart]; got != 1 {
 		t.Errorf("SessionStart events = %d, want 1", got)
 	}
-	if got := result.Counts[agent.EventToolUse]; got != 3 {
-		t.Errorf("ToolUse events = %d, want 3", got)
+	if got := result.Counts[agent.EventToolUse]; got != 7 {
+		t.Errorf("ToolUse events = %d, want 7", got)
 	}
 	if got := result.Counts[agent.EventUserPrompt]; got != 1 {
 		t.Errorf("UserPrompt events = %d, want 1", got)
@@ -70,6 +70,18 @@ func TestParseFixture_EventCounts(t *testing.T) {
 	}
 	if got := result.Counts[agent.EventTurnComplete]; got != 1 {
 		t.Errorf("TurnComplete events = %d, want 1", got)
+	}
+	if got := result.Counts[agent.EventToolUseFailure]; got != 3 {
+		t.Errorf("ToolUseFailure events = %d, want 3", got)
+	}
+	if got := result.Counts[agent.EventStopFailure]; got != 1 {
+		t.Errorf("StopFailure events = %d, want 1", got)
+	}
+	if got := result.Counts[agent.EventPermissionRequest]; got != 1 {
+		t.Errorf("PermissionRequest events = %d, want 1", got)
+	}
+	if got := result.Counts[agent.EventElicitation]; got != 1 {
+		t.Errorf("Elicitation events = %d, want 1", got)
 	}
 }
 
@@ -84,9 +96,13 @@ func TestParseFixture_ToolNames(t *testing.T) {
 		}
 	}
 
+	want := []string{"exec_command", "exec_command", "exec_command", "exec_command", "exec_command", "search_issues", "patch_apply"}
+	if len(toolNames) != len(want) {
+		t.Fatalf("tool names = %v, want %v", toolNames, want)
+	}
 	for i, name := range toolNames {
-		if name != "exec_command" {
-			t.Errorf("tool[%d] = %q, want %q", i, name, "exec_command")
+		if name != want[i] {
+			t.Errorf("tool[%d] = %q, want %q", i, name, want[i])
 		}
 	}
 }
@@ -160,6 +176,97 @@ func TestParseFixture_EstimatedCost(t *testing.T) {
 
 	if lastCost <= 0 {
 		t.Errorf("estimated cost = %f, want > 0", lastCost)
+	}
+}
+
+func TestParseFixture_ToolUseFailure(t *testing.T) {
+	t.Parallel()
+	events := parseFixtureEvents(t)
+
+	for _, e := range events {
+		if e.Type == agent.EventToolUseFailure {
+			if e.ToolName != "exec_command" {
+				t.Errorf("ToolUseFailure tool = %q, want %q", e.ToolName, "exec_command")
+			}
+			if e.ErrorContent == "" {
+				t.Error("ToolUseFailure has empty error content")
+			}
+			return
+		}
+	}
+	t.Error("no ToolUseFailure event found")
+}
+
+func TestParseFixture_StopFailure(t *testing.T) {
+	t.Parallel()
+	events := parseFixtureEvents(t)
+
+	for _, e := range events {
+		if e.Type == agent.EventStopFailure {
+			if e.ErrorContent == "" {
+				t.Error("StopFailure has empty error content")
+			}
+			return
+		}
+	}
+	t.Error("no StopFailure event found")
+}
+
+func TestParseFixture_PermissionRequest(t *testing.T) {
+	t.Parallel()
+	events := parseFixtureEvents(t)
+
+	for _, e := range events {
+		if e.Type == agent.EventPermissionRequest {
+			if e.ToolName != "rm -rf /important" {
+				t.Errorf("PermissionRequest command = %q, want %q", e.ToolName, "rm -rf /important")
+			}
+			return
+		}
+	}
+	t.Error("no PermissionRequest event found")
+}
+
+func TestParseFixture_Elicitation(t *testing.T) {
+	t.Parallel()
+	events := parseFixtureEvents(t)
+
+	for _, e := range events {
+		if e.Type == agent.EventElicitation {
+			if e.ServerName != "github-mcp" {
+				t.Errorf("Elicitation server = %q, want %q", e.ServerName, "github-mcp")
+			}
+			return
+		}
+	}
+	t.Error("no Elicitation event found")
+}
+
+func TestIsLikelyError(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		input string
+		want  bool
+	}{
+		{"error: No such file", true},
+		{"Error: connection refused", true},
+		{"exit code 1", true},
+		{"Exit Code 127", true},
+		{"command failed: timeout", true},
+		{"permission denied", true},
+		{"not found", true},
+		{"", false},
+		{"success", false},
+		{"# Test Project\nA test project.", false},
+		{"file created successfully", false},
+	}
+
+	for _, tc := range tests {
+		got := isLikelyError(tc.input)
+		if got != tc.want {
+			t.Errorf("isLikelyError(%q) = %v, want %v", tc.input, got, tc.want)
+		}
 	}
 }
 

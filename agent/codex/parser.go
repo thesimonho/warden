@@ -11,6 +11,30 @@ import (
 	"github.com/thesimonho/warden/agent"
 )
 
+// likelyErrorPrefixes are lowercase prefixes that indicate a function_call_output
+// is an error. Codex doesn't have a dedicated is_error field on outputs.
+// False positives (e.g. "not found any issues") produce spurious ToolUseFailure
+// audit events — acceptable since the audit log is informational, not authoritative.
+var likelyErrorPrefixes = []string{"error:", "exit code ", "command failed", "permission denied", "not found"}
+
+// isLikelyError checks if a function_call_output looks like an error
+// by matching the start of the output against common error prefixes.
+func isLikelyError(output string) bool {
+	if len(output) == 0 {
+		return false
+	}
+	// Only lowercase the prefix window to avoid allocating for the full output.
+	const maxPrefixLen = 20
+	end := min(len(output), maxPrefixLen)
+	lower := strings.ToLower(output[:end])
+	for _, p := range likelyErrorPrefixes {
+		if strings.HasPrefix(lower, p) {
+			return true
+		}
+	}
+	return false
+}
+
 // Parser implements agent.SessionParser for Codex CLI session JSONL files.
 // Token counts in Codex are cumulative (total_token_usage), so the parser
 // forwards them directly without accumulating.
@@ -21,11 +45,15 @@ type Parser struct {
 	sessionID string
 	// worktreeID is derived from the session_meta CWD.
 	worktreeID string
+	// toolNames maps call IDs to tool names for correlating errors.
+	toolNames map[string]string
 }
 
 // NewParser creates a new Codex JSONL parser.
 func NewParser() *Parser {
-	return &Parser{}
+	return &Parser{
+		toolNames: make(map[string]string),
+	}
 }
 
 // ParseLine parses a single JSONL line into zero or more ParsedEvents.
@@ -144,6 +172,31 @@ func (p *Parser) parseTurnContext(item RolloutItem) []agent.ParsedEvent {
 	return nil
 }
 
+// toolUseEvent builds a tool_use ParsedEvent with common fields pre-filled.
+func (p *Parser) toolUseEvent(ts, toolName, toolInput string) agent.ParsedEvent {
+	return agent.ParsedEvent{
+		Type:       agent.EventToolUse,
+		SessionID:  p.sessionID,
+		WorktreeID: p.worktreeID,
+		Timestamp:  ts,
+		Model:      p.lastModel,
+		ToolName:   toolName,
+		ToolInput:  toolInput,
+	}
+}
+
+// toolFailureEvent builds a tool_use_failure ParsedEvent with common fields pre-filled.
+func (p *Parser) toolFailureEvent(ts, toolName, errorContent string) agent.ParsedEvent {
+	return agent.ParsedEvent{
+		Type:         agent.EventToolUseFailure,
+		SessionID:    p.sessionID,
+		WorktreeID:   p.worktreeID,
+		Timestamp:    ts,
+		ToolName:     toolName,
+		ErrorContent: errorContent,
+	}
+}
+
 // parseResponseItem handles function calls (tool use) and messages.
 func (p *Parser) parseResponseItem(item RolloutItem) []agent.ParsedEvent {
 	var resp ResponseItem
@@ -153,17 +206,24 @@ func (p *Parser) parseResponseItem(item RolloutItem) []agent.ParsedEvent {
 
 	switch resp.Type {
 	case "function_call":
-		return []agent.ParsedEvent{{
-			Type:       agent.EventToolUse,
-			SessionID:  p.sessionID,
-			WorktreeID: p.worktreeID,
-			Timestamp:  item.Timestamp,
-			Model:      p.lastModel,
-			ToolName:   resp.Name,
-			ToolInput:  agent.TruncateString(resp.Arguments, agent.MaxToolInputLength),
-		}}
+		if resp.CallID != "" && resp.Name != "" {
+			p.toolNames[resp.CallID] = resp.Name
+		}
+		return []agent.ParsedEvent{p.toolUseEvent(item.Timestamp, resp.Name, agent.TruncateString(resp.Arguments, agent.MaxToolInputLength))}
+	case "function_call_output":
+		if resp.Status == "incomplete" || resp.Output == "" {
+			return nil
+		}
+		// Heuristic: outputs starting with error indicators are failures.
+		// Codex doesn't have is_error — check for common error patterns.
+		if !isLikelyError(resp.Output) {
+			return nil
+		}
+		toolName := p.toolNames[resp.CallID]
+		delete(p.toolNames, resp.CallID)
+		return []agent.ParsedEvent{p.toolFailureEvent(item.Timestamp, toolName, agent.TruncateString(resp.Output, agent.MaxToolInputLength))}
 	default:
-		// message, reasoning, function_call_output — no events.
+		// message, reasoning — no events.
 		return nil
 	}
 }
@@ -220,6 +280,60 @@ func (p *Parser) parseEventMsg(item RolloutItem) []agent.ParsedEvent {
 
 	case "task_started":
 		// Informational — no event.
+		return nil
+
+	case "error", "stream_error":
+		return []agent.ParsedEvent{{
+			Type:         agent.EventStopFailure,
+			SessionID:    p.sessionID,
+			WorktreeID:   p.worktreeID,
+			Timestamp:    item.Timestamp,
+			ErrorContent: agent.TruncateString(msg.Message, agent.MaxToolInputLength),
+		}}
+
+	case "exec_approval_request", "request_permissions":
+		return []agent.ParsedEvent{{
+			Type:       agent.EventPermissionRequest,
+			SessionID:  p.sessionID,
+			WorktreeID: p.worktreeID,
+			Timestamp:  item.Timestamp,
+			ToolName:   msg.Command,
+		}}
+
+	case "elicitation_request":
+		return []agent.ParsedEvent{{
+			Type:       agent.EventElicitation,
+			SessionID:  p.sessionID,
+			WorktreeID: p.worktreeID,
+			Timestamp:  item.Timestamp,
+			ServerName: msg.ServerName,
+		}}
+
+	case "exec_command_begin":
+		return []agent.ParsedEvent{p.toolUseEvent(item.Timestamp, "exec_command", agent.TruncateString(msg.Command, agent.MaxToolInputLength))}
+
+	case "exec_command_end":
+		if msg.ExitCode != nil && *msg.ExitCode != 0 {
+			return []agent.ParsedEvent{p.toolFailureEvent(item.Timestamp, "exec_command", fmt.Sprintf("exit code %d", *msg.ExitCode))}
+		}
+		return nil
+
+	case "mcp_tool_call_begin":
+		return []agent.ParsedEvent{p.toolUseEvent(item.Timestamp, msg.ToolName, msg.McpServerName)}
+
+	case "mcp_tool_call_end":
+		if msg.Status == "error" {
+			return []agent.ParsedEvent{p.toolFailureEvent(item.Timestamp, msg.ToolName, msg.Message)}
+		}
+		return nil
+
+	case "patch_apply_begin":
+		return []agent.ParsedEvent{p.toolUseEvent(item.Timestamp, "patch_apply", msg.FilePath)}
+
+	case "patch_apply_end":
+		if msg.Status == "error" {
+			return []agent.ParsedEvent{p.toolFailureEvent(item.Timestamp, "patch_apply", msg.Message)}
+		}
 		return nil
 
 	default:

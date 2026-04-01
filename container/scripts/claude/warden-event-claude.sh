@@ -3,14 +3,17 @@
 # Claude Code attention state dispatcher — writes real-time attention
 # events to the bind-mounted event directory for the host-side watcher.
 #
-# With the JSONL session parser as the primary data source, this script
-# only handles events that are NOT available in the JSONL session file:
-#   - notification → attention state (permission prompts, idle, etc.)
-#   - pre_tool_use → AskUserQuestion detection (needs_answer state)
-#   - user_prompt_submit → attention_clear + user_prompt audit event
+# The JSONL session parser handles most audit events (tool use, cost,
+# prompts, errors). This script handles two categories:
 #
-# All other events (session lifecycle, tool use, cost, etc.) are parsed
-# from the JSONL session file by the Go backend.
+# 1. Real-time attention state (not in JSONL):
+#    - notification → attention state (permission prompts, idle, etc.)
+#    - pre_tool_use → AskUserQuestion detection (needs_answer state)
+#    - user_prompt_submit → attention_clear
+#
+# 2. Audit events not available in JSONL:
+#    - session_start, session_end, permission_request, config_change,
+#      instructions_loaded, task_completed, elicitation, elicitation_result
 #
 # Called by Claude Code hooks via managed settings at
 # /etc/claude-code/managed-settings.json. Reads hook JSON from stdin.
@@ -64,17 +67,78 @@ case "$EVENT_TYPE" in
     ;;
 
   user_prompt_submit)
-    warden_write_event "$(warden_build_event_json "attention_clear" "{}")"
+    # Only emit attention_clear — the user_prompt audit event is parsed
+    # from the JSONL session file by the Go backend to avoid duplication.
+    EVENT_TYPE="attention_clear"
+    ;;
 
-    # Filter out system-injected messages to avoid polluting the audit log.
-    PROMPT=$(echo "$INPUT" | jq -r '.prompt // empty' 2>/dev/null)
-    TRIMMED=$(echo "$PROMPT" | sed 's/^[[:space:]]*//')
-    if echo "$TRIMMED" | grep -qE '^<(task-notification|user-prompt-submit-hook)>'; then
-      exit 0
+  # -----------------------------------------------------------------
+  # Audit-only events (not available in JSONL).
+  # Cost capture (send_cost_event) is no longer needed here — cost is
+  # parsed from JSONL token_update events by the Go backend.
+  # -----------------------------------------------------------------
+  session_start)
+    DATA=$(printf '%s' "$INPUT" | jq -c '{
+      sessionId: (.session_id // ""),
+      model: (.model // ""),
+      source: (.source // "")
+    }')
+    ;;
+
+  session_end)
+    REASON=$(warden_extract_field "$INPUT" "reason")
+    if [ -n "$REASON" ]; then
+      DATA="{\"reason\":\"${REASON}\"}"
     fi
+    ;;
 
-    EVENT_TYPE="user_prompt"
-    DATA=$(jq -cn --arg prompt "$(printf '%.500s' "$PROMPT")" '{"prompt": $prompt}')
+  permission_request)
+    TOOL_NAME=$(warden_extract_field "$INPUT" "tool_name")
+    if [ -n "$TOOL_NAME" ]; then
+      DATA="{\"toolName\":\"${TOOL_NAME}\"}"
+    fi
+    ;;
+
+  config_change)
+    DATA=$(printf '%s' "$INPUT" | jq -c '{
+      source: (.source // ""),
+      filePath: (.file_path // "")
+    }')
+    ;;
+
+  instructions_loaded)
+    DATA=$(printf '%s' "$INPUT" | jq -c '{
+      filePath: (.file_path // ""),
+      loadReason: (.load_reason // "")
+    }')
+    ;;
+
+  task_completed)
+    DATA=$(printf '%s' "$INPUT" | jq -c '{
+      taskId: (.task_id // ""),
+      taskSubject: (.task_subject // "")
+    }')
+    ;;
+
+  elicitation)
+    MCP_SERVER=$(warden_extract_field "$INPUT" "mcp_server_name")
+    if [ -n "$MCP_SERVER" ]; then
+      DATA="{\"mcpServerName\":\"${MCP_SERVER}\"}"
+    fi
+    ;;
+
+  elicitation_result)
+    DATA=$(printf '%s' "$INPUT" | jq -c '{
+      mcpServerName: (.mcp_server_name // ""),
+      action: (.action // "")
+    }')
+    ;;
+
+  subagent_start|subagent_stop)
+    DATA=$(printf '%s' "$INPUT" | jq -c '{
+      agentId: (.agent_id // ""),
+      agentType: (.agent_type // "")
+    }')
     ;;
 
   *)

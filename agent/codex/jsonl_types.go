@@ -52,6 +52,7 @@ type ResponseItem struct {
 	CallID    string          `json:"call_id,omitempty"`
 	Arguments string          `json:"arguments,omitempty"`
 	Output    string          `json:"output,omitempty"`
+	Status    string          `json:"status,omitempty"`
 	Content   json.RawMessage `json:"content,omitempty"`
 }
 
@@ -66,6 +67,24 @@ type EventMsg struct {
 	// Token count fields (type == "token_count").
 	Info       *TokenCountInfo `json:"info,omitempty"`
 	RateLimits *RateLimits     `json:"rate_limits,omitempty"`
+
+	// Permission/approval fields (type == "exec_approval_request" or "request_permissions").
+	Command string `json:"command,omitempty"`
+
+	// Elicitation fields (type == "elicitation_request").
+	ServerName string `json:"server_name,omitempty"`
+
+	// Exec command fields (type == "exec_command_begin" or "exec_command_end").
+	CallID   string `json:"call_id,omitempty"`
+	ExitCode *int   `json:"exit_code,omitempty"`
+	Status   string `json:"status,omitempty"`
+
+	// MCP tool call fields (type == "mcp_tool_call_begin" or "mcp_tool_call_end").
+	ToolName       string `json:"tool_name,omitempty"`
+	McpServerName  string `json:"mcp_server_name,omitempty"`
+
+	// Patch apply fields (type == "patch_apply_begin" or "patch_apply_end").
+	FilePath string `json:"file_path,omitempty"`
 }
 
 // TokenCountInfo holds cumulative and per-turn token usage.

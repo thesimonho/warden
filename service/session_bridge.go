@@ -49,6 +49,23 @@ func SessionEventToContainerEvent(event agent.ParsedEvent, ctx SessionContext) *
 			IsEstimated: true,
 			SessionID:   event.SessionID,
 		})
+	case agent.EventToolUseFailure:
+		ce.Data = marshalData(eventbus.ToolUseFailureData{
+			ToolName: event.ToolName,
+			Error:    event.ErrorContent,
+		})
+	case agent.EventStopFailure:
+		ce.Data = marshalData(eventbus.StopFailureData{
+			Error: event.ErrorContent,
+		})
+	case agent.EventPermissionRequest:
+		ce.Data = marshalData(eventbus.PermissionRequestData{
+			ToolName: event.ToolName,
+		})
+	case agent.EventElicitation:
+		ce.Data = marshalData(eventbus.ElicitationData{
+			MCPServerName: event.ServerName,
+		})
 	}
 
 	return ce
@@ -70,8 +87,16 @@ func mapEventType(parsed agent.ParsedEventType) eventbus.ContainerEventType {
 		// Token updates carry cost data and are mapped to stop events so
 		// they flow through the existing cost persistence pipeline.
 		return eventbus.EventStop
+	case agent.EventToolUseFailure:
+		return eventbus.EventToolUseFailure
+	case agent.EventStopFailure:
+		return eventbus.EventStopFailure
+	case agent.EventPermissionRequest:
+		return eventbus.EventPermissionRequest
+	case agent.EventElicitation:
+		return eventbus.EventElicitation
 	default:
-		// TurnDuration — informational, not forwarded to the event pipeline.
+		// TurnDuration, TurnComplete — informational, not forwarded to the event pipeline.
 		return ""
 	}
 }
