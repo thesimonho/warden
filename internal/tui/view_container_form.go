@@ -16,9 +16,10 @@ import (
 	"github.com/thesimonho/warden/internal/tui/components"
 )
 
-// defaultAllowedDomains is the minimum useful set for Claude Code in
+// defaultAllowedDomains is the minimum useful set for AI coding agents in
 // restricted network mode. Matches web/src/lib/domain-groups.ts.
 const defaultAllowedDomains = `*.anthropic.com
+*.openai.com
 *.github.com
 *.githubusercontent.com
 pypi.org
