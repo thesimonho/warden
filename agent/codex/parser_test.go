@@ -1,7 +1,6 @@
 package codex
 
 import (
-	"bufio"
 	"fmt"
 	"os"
 	"testing"
@@ -19,19 +18,11 @@ func parseFixtureEvents(t *testing.T) []agent.ParsedEvent {
 	}
 	defer func() { _ = f.Close() }()
 
-	parser := NewParser()
-	var allEvents []agent.ParsedEvent
-
-	scanner := bufio.NewScanner(f)
-	for scanner.Scan() {
-		events := parser.ParseLine(scanner.Bytes())
-		allEvents = append(allEvents, events...)
+	events, err := agent.ParseAllEvents(NewParser(), f)
+	if err != nil {
+		t.Fatalf("parsing fixture: %v", err)
 	}
-	if err := scanner.Err(); err != nil {
-		t.Fatalf("scanning fixture: %v", err)
-	}
-
-	return allEvents
+	return events
 }
 
 func TestParseFixture_EventCounts(t *testing.T) {
@@ -59,8 +50,8 @@ func TestParseFixture_EventCounts(t *testing.T) {
 	if got := result.Counts[agent.EventSessionStart]; got != 1 {
 		t.Errorf("SessionStart events = %d, want 1", got)
 	}
-	if got := result.Counts[agent.EventToolUse]; got != 7 {
-		t.Errorf("ToolUse events = %d, want 7", got)
+	if got := result.Counts[agent.EventToolUse]; got != 9 {
+		t.Errorf("ToolUse events = %d, want 9", got)
 	}
 	if got := result.Counts[agent.EventUserPrompt]; got != 1 {
 		t.Errorf("UserPrompt events = %d, want 1", got)
@@ -74,14 +65,11 @@ func TestParseFixture_EventCounts(t *testing.T) {
 	if got := result.Counts[agent.EventToolUseFailure]; got != 3 {
 		t.Errorf("ToolUseFailure events = %d, want 3", got)
 	}
-	if got := result.Counts[agent.EventStopFailure]; got != 1 {
-		t.Errorf("StopFailure events = %d, want 1", got)
+	if got := result.Counts[agent.EventStopFailure]; got != 2 {
+		t.Errorf("StopFailure events = %d, want 2", got)
 	}
-	if got := result.Counts[agent.EventPermissionRequest]; got != 1 {
-		t.Errorf("PermissionRequest events = %d, want 1", got)
-	}
-	if got := result.Counts[agent.EventElicitation]; got != 1 {
-		t.Errorf("Elicitation events = %d, want 1", got)
+	if got := result.Counts[agent.EventContextCompact]; got != 3 {
+		t.Errorf("ContextCompact events = %d, want 3", got)
 	}
 }
 
@@ -96,7 +84,10 @@ func TestParseFixture_ToolNames(t *testing.T) {
 		}
 	}
 
-	want := []string{"exec_command", "exec_command", "exec_command", "exec_command", "exec_command", "search_issues", "patch_apply"}
+	want := []string{
+		"exec_command", "exec_command", "exec_command", "exec_command",
+		"shell", "web_search", "lint_file", "image_generation", "tool_search",
+	}
 	if len(toolNames) != len(want) {
 		t.Fatalf("tool names = %v, want %v", toolNames, want)
 	}
@@ -183,18 +174,16 @@ func TestParseFixture_ToolUseFailure(t *testing.T) {
 	t.Parallel()
 	events := parseFixtureEvents(t)
 
+	var failures []string
 	for _, e := range events {
 		if e.Type == agent.EventToolUseFailure {
-			if e.ToolName != "exec_command" {
-				t.Errorf("ToolUseFailure tool = %q, want %q", e.ToolName, "exec_command")
-			}
-			if e.ErrorContent == "" {
-				t.Error("ToolUseFailure has empty error content")
-			}
-			return
+			failures = append(failures, e.ErrorContent)
 		}
 	}
-	t.Error("no ToolUseFailure event found")
+	// function_call_output heuristic + exec_command_end exit code 1 + mcp_tool_call_end error
+	if len(failures) != 3 {
+		t.Fatalf("ToolUseFailure events = %d (%v), want 3", len(failures), failures)
+	}
 }
 
 func TestParseFixture_StopFailure(t *testing.T) {
@@ -212,34 +201,62 @@ func TestParseFixture_StopFailure(t *testing.T) {
 	t.Error("no StopFailure event found")
 }
 
-func TestParseFixture_PermissionRequest(t *testing.T) {
+func TestParseFixture_ContextCompact(t *testing.T) {
 	t.Parallel()
 	events := parseFixtureEvents(t)
 
+	var triggers []string
 	for _, e := range events {
-		if e.Type == agent.EventPermissionRequest {
-			if e.ToolName != "rm -rf /important" {
-				t.Errorf("PermissionRequest command = %q, want %q", e.ToolName, "rm -rf /important")
-			}
-			return
+		if e.Type == agent.EventContextCompact {
+			triggers = append(triggers, e.CompactTrigger)
 		}
 	}
-	t.Error("no PermissionRequest event found")
+	// Three sources: context_compacted, thread_rolled_back ("rollback"), compacted ("compacted").
+	if len(triggers) != 3 {
+		t.Fatalf("ContextCompact events = %d (%v), want 3", len(triggers), triggers)
+	}
 }
 
-func TestParseFixture_Elicitation(t *testing.T) {
+func TestParseFixture_TurnAborted(t *testing.T) {
 	t.Parallel()
 	events := parseFixtureEvents(t)
 
 	for _, e := range events {
-		if e.Type == agent.EventElicitation {
-			if e.ServerName != "github-mcp" {
-				t.Errorf("Elicitation server = %q, want %q", e.ServerName, "github-mcp")
+		if e.Type == agent.EventStopFailure && e.ErrorContent == "turn aborted: interrupted" {
+			return
+		}
+	}
+	t.Error("no StopFailure event for turn_aborted found")
+}
+
+func TestParseFixture_LocalShellCall(t *testing.T) {
+	t.Parallel()
+	events := parseFixtureEvents(t)
+
+	for _, e := range events {
+		if e.Type == agent.EventToolUse && e.ToolName == "shell" {
+			if e.ToolInput != "ls -la /tmp" {
+				t.Errorf("shell ToolInput = %q, want %q", e.ToolInput, "ls -la /tmp")
 			}
 			return
 		}
 	}
-	t.Error("no Elicitation event found")
+	t.Error("no ToolUse event for local_shell_call found")
+}
+
+func TestParseFixture_CustomToolCall(t *testing.T) {
+	t.Parallel()
+	events := parseFixtureEvents(t)
+
+	for _, e := range events {
+		if e.Type == agent.EventToolUse && e.ToolName == "lint_file" {
+			if e.ToolInput != "src/main.rs" {
+				t.Errorf("custom tool ToolInput = %q, want %q", e.ToolInput, "src/main.rs")
+			}
+			return
+		}
+	}
+	t.Error("no ToolUse event for custom_tool_call found")
 }
 
 func TestIsLikelyError(t *testing.T) {

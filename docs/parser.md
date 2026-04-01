@@ -35,54 +35,70 @@ Parsers are **stateful** — they accumulate token counts across lines within a 
 
 ## ParsedEvent Types
 
-| Type | Meaning | Key Fields |
-|------|---------|------------|
-| `session_start` | Agent session began | SessionID, Model, GitBranch, WorktreeID |
-| `session_end` | Agent session ended | SessionID |
-| `tool_use` | Agent invoked a tool | ToolName, ToolInput (truncated) |
-| `user_prompt` | User sent a message | Prompt |
-| `turn_complete` | Agent finished a turn | SessionID |
-| `turn_duration` | Turn timing data | DurationMs |
-| `token_update` | Cumulative token usage | Tokens, EstimatedCostUSD |
+| Type                 | Meaning                  | Key Fields                              |
+| -------------------- | ------------------------ | --------------------------------------- |
+| `session_start`      | Agent session began      | SessionID, Model, GitBranch, WorktreeID |
+| `session_end`        | Agent session ended      | SessionID                               |
+| `tool_use`           | Agent invoked a tool     | ToolName, ToolInput (truncated)         |
+| `tool_use_failure`   | Tool execution failed    | ToolName, ErrorContent                  |
+| `user_prompt`        | User sent a message      | Prompt                                  |
+| `turn_complete`      | Agent finished a turn    | SessionID                               |
+| `turn_duration`      | Turn timing data         | DurationMs                              |
+| `token_update`       | Cumulative token usage   | Tokens, EstimatedCostUSD                |
+| `stop_failure`       | Turn ended due to error  | ErrorContent                            |
+| `permission_request` | Agent needs approval     | ToolName                                |
+| `elicitation`        | MCP server needs input   | ServerName                              |
+| `subagent_stop`      | Subagent(s) terminated   | Content                                 |
+| `api_metrics`        | API performance data     | TTFTMs, OutputTokensPerSec              |
+| `permission_grant`   | Permission granted       | Commands                                |
+| `context_compact`    | Context window compacted | CompactTrigger, PreCompactTokens        |
+| `system_info`        | Informational system msg | Subtype, Content                        |
 
 ## Agent Implementations
 
 ### Claude Code (`agent/claudecode/`)
 
 - **Session dir:** `~/.claude/projects/<sanitized-path>/`
-- **JSONL format:** `SessionEntry` with `type` field (init, summary, user, assistant, result)
+- **JSONL format:** `SessionEntry` with `type` field (assistant, user, system, file-history-snapshot, etc.)
 - **Token source:** `cacheCreationInputTokens`, `cacheReadInputTokens`, `inputTokens`, `outputTokens` in `usage` blocks
 - **Cost:** Estimated from token counts via per-model pricing table (`pricing.go`)
 - **Tool extraction:** From `tool_use` content blocks in assistant messages
+- **System subtypes:** All 14 parsed — turn_duration, api_error, agents_killed, api_metrics, permission_retry, compact_boundary, microcompact_boundary, and 7 informational subtypes mapped to `system_info`
 
 ### Codex (`agent/codex/`)
 
-- **Session dir:** `~/.codex/sessions/<session-id>/`
-- **JSONL format:** `RolloutItem` with `type` field (session_meta, response_item.created, event_msg)
-- **Token source:** `total_tokens`, `input_tokens`, `output_tokens` in `token_count_info` and rate limit headers
+- **Session dir:** `~/.codex/sessions/YYYY/MM/DD/`
+- **Discovery:** Shell snapshots at `~/.codex/shell_snapshots/` filtered by `WARDEN_PROJECT_ID`
+- **JSONL format:** `RolloutItem` with `type` field (session_meta, response_item, event_msg, turn_context, compacted)
+- **Token source:** Cumulative `total_token_usage` in `token_count` events
 - **Cost:** Estimated from token counts via OpenAI model pricing table (`pricing.go`)
-- **Tool extraction:** From `function_call` response items
+- **Tool extraction:** From `response_item` entries — `function_call`, `local_shell_call`, `web_search_call`, `custom_tool_call`, `image_generation_call`, `tool_search_call`
+- **Persistence policy:** Codex filters which events land in JSONL. Limited mode (CLI default) persists core events; extended mode (app-server only) adds errors and tool end events. See `docs/events_codex.md` for details.
 
 ## Hooks vs JSONL
 
 JSONL is the **primary** data source for all event types: session lifecycle, tool use, cost, prompts, and turn completion. Claude Code hooks are a **supplementary** channel used only for attention/notification state (permission prompts, idle state, elicitation dialogs). Codex does not support hooks — attention tracking for Codex is a known upstream gap.
 
-| Data | Source |
-|------|--------|
-| Session lifecycle | JSONL |
-| Tool use | JSONL |
-| Cost / tokens | JSONL |
-| User prompts | JSONL |
-| Turn completion | JSONL |
-| Attention state (Claude) | Hooks (supplementary) |
-| Attention state (Codex) | Not available (upstream gap) |
+| Data                            | Source                                   |
+| ------------------------------- | ---------------------------------------- |
+| Session lifecycle               | JSONL                                    |
+| Tool use / failures             | JSONL                                    |
+| Cost / tokens                   | JSONL                                    |
+| User prompts                    | JSONL                                    |
+| Turn completion / duration      | JSONL                                    |
+| Context compaction              | JSONL                                    |
+| API metrics, system info        | JSONL (Claude only)                      |
+| Permission grant                | JSONL (Claude only)                      |
+| Permission request, elicitation | Hooks (Claude) / app-server only (Codex) |
+| Attention state (Claude)        | Hooks (supplementary)                    |
+| Attention state (Codex)         | Not available (upstream gap)             |
 
 ## Validation
 
-`agent.ValidateJSONL(parser, reader)` validates JSONL lines and returns event counts. Used by:
+`agent.ValidateJSONL(parser, reader)` validates JSONL lines and returns event counts. `agent.ParseAllEvents(parser, reader)` returns all parsed events (shared test helper). Used by:
 
 - Parser unit tests (`agent/claudecode/parser_test.go`, `agent/codex/parser_test.go`)
-- CI scheduled validation (`TestValidateLive`, env-gated via `VALIDATE_JSONL`)
+- CI scheduled validation (`TestValidateLive`, env-gated via `VALIDATE_JSONL`) — runs biweekly in `.github/workflows/container-scheduled.yml`, builds the container image, runs both CLIs with a test prompt, validates JSONL output, and opens an issue on failure
 
 ## Adding a New Agent
 

@@ -10,20 +10,20 @@ Each audit event has a source: JSONL parser (Go backend tails session files), ho
 
 | Event                | Claude source                                       | Codex source                                                                               | Audit category |
 | -------------------- | --------------------------------------------------- | ------------------------------------------------------------------------------------------ | -------------- |
-| `tool_use`           | `assistant` → tool_use blocks                       | `response_item/function_call` + `event_msg/{exec_command,mcp_tool_call,patch_apply}_begin` | agent          |
-| `tool_use_failure`   | `user` → tool_result with is_error                  | `response_item/function_call_output` (heuristic) + `event_msg/*_end` with error            | agent          |
+| `tool_use`           | `assistant` → tool_use blocks                       | `response_item/{function_call,local_shell_call,web_search_call,tool_search_call}`          | agent          |
+| `tool_use_failure`   | `user` → tool_result with is_error                  | `response_item/function_call_output` (heuristic) + `event_msg/*_end` with error (extended) | agent          |
 | `stop` (cost)        | `assistant` → usage                                 | `event_msg/token_count`                                                                    | session        |
 | `user_prompt`        | `user` → text content                               | `event_msg/user_message`                                                                   | prompt         |
-| `stop_failure`       | `system/api_error`                                  | `event_msg/error` + `event_msg/stream_error`                                               | session        |
+| `stop_failure`       | `system/api_error`                                  | `event_msg/error` (extended) + `event_msg/turn_aborted`                                    | session        |
 | `turn_complete`      | `assistant` → stop_reason=end_turn                  | `event_msg/task_complete`                                                                  | session        |
 | `turn_duration`      | `system/turn_duration`                              | —                                                                                          | session        |
 | `session_start`      | —                                                   | `session_meta`                                                                             | session        |
-| `permission_request` | —                                                   | `event_msg/exec_approval_request` + `event_msg/request_permissions`                        | agent          |
-| `elicitation`        | —                                                   | `event_msg/elicitation_request`                                                            | agent          |
+| `permission_request` | —                                                   | — (app-server only)                                                                        | agent          |
+| `elicitation`        | —                                                   | — (app-server only)                                                                        | agent          |
 | `subagent_stop`      | `system/agents_killed`                              | —                                                                                          | agent          |
 | `api_metrics`        | `system/api_metrics` (TTFT, OPS)                    | —                                                                                          | system         |
 | `permission_grant`   | `system/permission_retry` (commands list)           | —                                                                                          | agent          |
-| `context_compact`    | `system/compact_boundary` + `microcompact_boundary` | —                                                                                          | session        |
+| `context_compact`    | `system/compact_boundary` + `microcompact_boundary` | `event_msg/context_compacted` + `event_msg/thread_rolled_back` + `compacted`               | session        |
 | `system_info`        | `system/{informational,memory_saved,...}`           | —                                                                                          | session        |
 
 ### Claude system subtypes parsed as `system_info`

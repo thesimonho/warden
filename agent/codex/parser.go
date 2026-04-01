@@ -38,6 +38,15 @@ func isLikelyError(output string) bool {
 // Parser implements agent.SessionParser for Codex CLI session JSONL files.
 // Token counts in Codex are cumulative (total_token_usage), so the parser
 // forwards them directly without accumulating.
+//
+// Codex's rollout persistence policy filters which events land in JSONL.
+// In limited mode (CLI default), begin events (exec_command_begin,
+// mcp_tool_call_begin, patch_apply_begin), approval/permission requests,
+// elicitation requests, and stream errors are never persisted. Tool use is
+// captured via response_item entries (always persisted). Error details from
+// end events (exec_command_end, etc.) require extended persistence mode,
+// only available via `codex app-server` (ThreadStartParams.persist_extended_history).
+// See docs/events_codex.md for the full persistence policy.
 type Parser struct {
 	// lastModel tracks the most recently seen model from turn_context entries.
 	lastModel string
@@ -72,6 +81,8 @@ func (p *Parser) ParseLine(line []byte) []agent.ParsedEvent {
 		return p.parseResponseItem(item)
 	case "event_msg":
 		return p.parseEventMsg(item)
+	case "compacted":
+		return p.parseCompacted(item)
 	default:
 		return nil
 	}
@@ -198,6 +209,7 @@ func (p *Parser) toolFailureEvent(ts, toolName, errorContent string) agent.Parse
 }
 
 // parseResponseItem handles function calls (tool use) and messages.
+// All response_item types are always persisted to JSONL (except "other").
 func (p *Parser) parseResponseItem(item RolloutItem) []agent.ParsedEvent {
 	var resp ResponseItem
 	if err := json.Unmarshal(item.Payload, &resp); err != nil {
@@ -222,13 +234,39 @@ func (p *Parser) parseResponseItem(item RolloutItem) []agent.ParsedEvent {
 		toolName := p.toolNames[resp.CallID]
 		delete(p.toolNames, resp.CallID)
 		return []agent.ParsedEvent{p.toolFailureEvent(item.Timestamp, toolName, agent.TruncateString(resp.Output, agent.MaxToolInputLength))}
+	case "local_shell_call":
+		toolInput := ""
+		if resp.Action != nil && len(resp.Action.Command) > 0 {
+			toolInput = strings.Join(resp.Action.Command, " ")
+		}
+		if resp.CallID != "" {
+			p.toolNames[resp.CallID] = "shell"
+		}
+		return []agent.ParsedEvent{p.toolUseEvent(item.Timestamp, "shell", agent.TruncateString(toolInput, agent.MaxToolInputLength))}
+	case "web_search_call":
+		return []agent.ParsedEvent{p.toolUseEvent(item.Timestamp, "web_search", "")}
+	case "custom_tool_call":
+		if resp.CallID != "" && resp.Name != "" {
+			p.toolNames[resp.CallID] = resp.Name
+		}
+		return []agent.ParsedEvent{p.toolUseEvent(item.Timestamp, resp.Name, agent.TruncateString(resp.Input, agent.MaxToolInputLength))}
+	case "image_generation_call":
+		return []agent.ParsedEvent{p.toolUseEvent(item.Timestamp, "image_generation", "")}
+	case "tool_search_call":
+		return []agent.ParsedEvent{p.toolUseEvent(item.Timestamp, "tool_search", "")}
 	default:
-		// message, reasoning — no events.
+		// message, reasoning, compaction, etc. — no events.
 		return nil
 	}
 }
 
 // parseEventMsg handles token counts, user messages, and task lifecycle.
+//
+// Persistence note: many event_msg types are never written to JSONL in limited
+// mode (CLI default). The cases below only handle events that are persisted in
+// limited or extended mode. Events only available via codex app-server (never
+// persisted): exec_approval_request, request_permissions, elicitation_request,
+// exec_command_begin, mcp_tool_call_begin, patch_apply_begin, stream_error.
 func (p *Parser) parseEventMsg(item RolloutItem) []agent.ParsedEvent {
 	var msg EventMsg
 	if err := json.Unmarshal(item.Payload, &msg); err != nil {
@@ -255,7 +293,7 @@ func (p *Parser) parseEventMsg(item RolloutItem) []agent.ParsedEvent {
 		total := msg.Info.TotalTokenUsage
 		tokens := agent.TokenUsage{
 			InputTokens:      total.InputTokens,
-			OutputTokens:      total.OutputTokens + total.ReasoningOutputTokens,
+			OutputTokens:     total.OutputTokens + total.ReasoningOutputTokens,
 			CacheReadTokens:  total.CachedInputTokens,
 			CacheWriteTokens: 0, // Codex doesn't report cache writes separately.
 		}
@@ -269,7 +307,9 @@ func (p *Parser) parseEventMsg(item RolloutItem) []agent.ParsedEvent {
 			EstimatedCostUSD: EstimateCost(p.lastModel, tokens),
 		}}
 
-	case "task_complete":
+	case "task_complete", "turn_complete":
+		// Clear stale call ID → tool name mappings from the completed turn.
+		clear(p.toolNames)
 		return []agent.ParsedEvent{{
 			Type:       agent.EventTurnComplete,
 			SessionID:  p.sessionID,
@@ -278,11 +318,12 @@ func (p *Parser) parseEventMsg(item RolloutItem) []agent.ParsedEvent {
 			Model:      p.lastModel,
 		}}
 
-	case "task_started":
-		// Informational — no event.
+	case "task_started", "turn_started":
+		// Informational — no event emitted.
 		return nil
 
-	case "error", "stream_error":
+	// Extended mode only — requires persist_extended_history (app-server).
+	case "error":
 		return []agent.ParsedEvent{{
 			Type:         agent.EventStopFailure,
 			SessionID:    p.sessionID,
@@ -291,44 +332,48 @@ func (p *Parser) parseEventMsg(item RolloutItem) []agent.ParsedEvent {
 			ErrorContent: agent.TruncateString(msg.Message, agent.MaxToolInputLength),
 		}}
 
-	case "exec_approval_request", "request_permissions":
+	// Limited mode — always persisted.
+	case "turn_aborted":
 		return []agent.ParsedEvent{{
-			Type:       agent.EventPermissionRequest,
-			SessionID:  p.sessionID,
-			WorktreeID: p.worktreeID,
-			Timestamp:  item.Timestamp,
-			ToolName:   msg.Command,
+			Type:         agent.EventStopFailure,
+			SessionID:    p.sessionID,
+			WorktreeID:   p.worktreeID,
+			Timestamp:    item.Timestamp,
+			ErrorContent: fmt.Sprintf("turn aborted: %s", msg.Reason),
 		}}
 
-	case "elicitation_request":
+	case "context_compacted":
 		return []agent.ParsedEvent{{
-			Type:       agent.EventElicitation,
-			SessionID:  p.sessionID,
-			WorktreeID: p.worktreeID,
-			Timestamp:  item.Timestamp,
-			ServerName: msg.ServerName,
+			Type:           agent.EventContextCompact,
+			SessionID:      p.sessionID,
+			WorktreeID:     p.worktreeID,
+			Timestamp:      item.Timestamp,
+			CompactTrigger: "context_compacted",
 		}}
 
-	case "exec_command_begin":
-		return []agent.ParsedEvent{p.toolUseEvent(item.Timestamp, "exec_command", agent.TruncateString(msg.Command, agent.MaxToolInputLength))}
+	case "thread_rolled_back":
+		return []agent.ParsedEvent{{
+			Type:           agent.EventContextCompact,
+			SessionID:      p.sessionID,
+			WorktreeID:     p.worktreeID,
+			Timestamp:      item.Timestamp,
+			CompactTrigger: "rollback",
+			Content:        fmt.Sprintf("rolled back %d turns", msg.NumTurns),
+		}}
 
+	// Extended mode only — exit code errors from command execution.
+	// No call_id on exec_command_end events, so we use the canonical tool name directly.
 	case "exec_command_end":
 		if msg.ExitCode != nil && *msg.ExitCode != 0 {
 			return []agent.ParsedEvent{p.toolFailureEvent(item.Timestamp, "exec_command", fmt.Sprintf("exit code %d", *msg.ExitCode))}
 		}
 		return nil
 
-	case "mcp_tool_call_begin":
-		return []agent.ParsedEvent{p.toolUseEvent(item.Timestamp, msg.ToolName, msg.McpServerName)}
-
 	case "mcp_tool_call_end":
 		if msg.Status == "error" {
 			return []agent.ParsedEvent{p.toolFailureEvent(item.Timestamp, msg.ToolName, msg.Message)}
 		}
 		return nil
-
-	case "patch_apply_begin":
-		return []agent.ParsedEvent{p.toolUseEvent(item.Timestamp, "patch_apply", msg.FilePath)}
 
 	case "patch_apply_end":
 		if msg.Status == "error" {
@@ -341,3 +386,18 @@ func (p *Parser) parseEventMsg(item RolloutItem) []agent.ParsedEvent {
 	}
 }
 
+// parseCompacted handles top-level "compacted" entries (conversation compaction markers).
+func (p *Parser) parseCompacted(item RolloutItem) []agent.ParsedEvent {
+	var compacted CompactedItem
+	if err := json.Unmarshal(item.Payload, &compacted); err != nil {
+		return nil
+	}
+	return []agent.ParsedEvent{{
+		Type:           agent.EventContextCompact,
+		SessionID:      p.sessionID,
+		WorktreeID:     p.worktreeID,
+		Timestamp:      item.Timestamp,
+		CompactTrigger: "compacted",
+		Content:        compacted.Message,
+	}}
+}

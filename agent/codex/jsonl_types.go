@@ -19,11 +19,11 @@ type RolloutItem struct {
 // SessionMeta is the payload for "session_meta" entries.
 // Contains session identity, working directory, and git info.
 type SessionMeta struct {
-	ID            string  `json:"id"`
-	Timestamp     string  `json:"timestamp"`
-	CWD           string  `json:"cwd"`
-	CLIVersion    string  `json:"cli_version"`
-	ModelProvider string  `json:"model_provider"`
+	ID            string   `json:"id"`
+	Timestamp     string   `json:"timestamp"`
+	CWD           string   `json:"cwd"`
+	CLIVersion    string   `json:"cli_version"`
+	ModelProvider string   `json:"model_provider"`
 	Git           *GitInfo `json:"git,omitempty"`
 }
 
@@ -54,6 +54,22 @@ type ResponseItem struct {
 	Output    string          `json:"output,omitempty"`
 	Status    string          `json:"status,omitempty"`
 	Content   json.RawMessage `json:"content,omitempty"`
+
+	// LocalShellCall fields (type == "local_shell_call").
+	Action *ShellAction `json:"action,omitempty"`
+
+	// CustomToolCall fields (type == "custom_tool_call").
+	Input string `json:"input,omitempty"`
+}
+
+// ShellAction is the nested action payload for local_shell_call items.
+type ShellAction struct {
+	Command []string `json:"command,omitempty"`
+}
+
+// CompactedItem is the payload for top-level "compacted" entries.
+type CompactedItem struct {
+	Message string `json:"message,omitempty"`
 }
 
 // EventMsg is the payload for "event_msg" entries.
@@ -68,23 +84,24 @@ type EventMsg struct {
 	Info       *TokenCountInfo `json:"info,omitempty"`
 	RateLimits *RateLimits     `json:"rate_limits,omitempty"`
 
-	// Permission/approval fields (type == "exec_approval_request" or "request_permissions").
-	Command string `json:"command,omitempty"`
-
-	// Elicitation fields (type == "elicitation_request").
+	// Command approval fields (app-server only — never persisted in limited mode).
+	Command    string `json:"command,omitempty"`
 	ServerName string `json:"server_name,omitempty"`
 
-	// Exec command fields (type == "exec_command_begin" or "exec_command_end").
+	// Exec command fields (type == "exec_command_end", extended mode only).
 	CallID   string `json:"call_id,omitempty"`
 	ExitCode *int   `json:"exit_code,omitempty"`
 	Status   string `json:"status,omitempty"`
 
-	// MCP tool call fields (type == "mcp_tool_call_begin" or "mcp_tool_call_end").
-	ToolName       string `json:"tool_name,omitempty"`
-	McpServerName  string `json:"mcp_server_name,omitempty"`
+	// MCP tool call fields (type == "mcp_tool_call_end", extended mode only).
+	ToolName      string `json:"tool_name,omitempty"`
+	McpServerName string `json:"mcp_server_name,omitempty"`
 
-	// Patch apply fields (type == "patch_apply_begin" or "patch_apply_end").
+	// Patch apply fields (type == "patch_apply_end", extended mode only).
 	FilePath string `json:"file_path,omitempty"`
+
+	// ThreadRolledBack fields (type == "thread_rolled_back").
+	NumTurns int `json:"num_turns,omitempty"`
 }
 
 // TokenCountInfo holds cumulative and per-turn token usage.
@@ -115,4 +132,3 @@ type Credits struct {
 	Unlimited  bool    `json:"unlimited"`
 	Balance    float64 `json:"balance"`
 }
-

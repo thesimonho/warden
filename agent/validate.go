@@ -39,6 +39,21 @@ func (v *ValidationResult) Check() error {
 	return nil
 }
 
+// ParseAllEvents reads a JSONL stream line-by-line and returns all parsed events.
+// Used by test helpers to collect events for detailed assertions.
+func ParseAllEvents(parser SessionParser, r io.Reader) ([]ParsedEvent, error) {
+	var events []ParsedEvent
+	scanner := bufio.NewScanner(r)
+	scanner.Buffer(make([]byte, 0, 1024*1024), 1024*1024)
+	for scanner.Scan() {
+		events = append(events, parser.ParseLine(scanner.Bytes())...)
+	}
+	if err := scanner.Err(); err != nil {
+		return nil, fmt.Errorf("scanning JSONL: %w", err)
+	}
+	return events, nil
+}
+
 // ValidateJSONL reads a JSONL session file line-by-line, parses each line with
 // the given parser, and returns a [ValidationResult] with event counts.
 // This is the shared validation logic used by both unit tests (against test

@@ -31,7 +31,7 @@ Push-based event system for container-to-host communication via file-based watch
 
 | File | Purpose |
 | --- | --- |
-| `types.go` | Event types: `ContainerEvent` (from container hooks + lifecycle, carries `ProjectID`, `ContainerName`, and `SessionID`), `SSEEvent` (to frontend), `AttentionData`, `CostData`, `ToolUseData`, `ToolUseFailureData`, `StopFailureData`, `PermissionRequestData`, `SubagentData`, `ConfigChangeData`, `InstructionsLoadedData`, `TaskCompletedData`, `ElicitationData`, `TerminalConnectedData`, `SessionExitData`; all `Event*` constants for each hook type; `SSEBudgetExceeded` and `SSEBudgetContainerStopped` event types; `BudgetEventPayload` and `BudgetContainerStoppedPayload`. Payloads include `projectId` for frontend routing. |
+| `types.go` | Event types: `ContainerEvent` (from container hooks + lifecycle, carries `ProjectID`, `ContainerName`, and `SessionID`), `SSEEvent` (to frontend), `AttentionData`, `CostData`, `ToolUseData`, `ToolUseFailureData`, `StopFailureData`, `PermissionRequestData`, `SubagentData`, `ConfigChangeData`, `InstructionsLoadedData`, `TaskCompletedData`, `ElicitationData`, `TurnDurationData`, `ApiMetricsData`, `PermissionGrantData`, `ContextCompactData`, `SystemInfoData`, `TerminalConnectedData`, `SessionExitData`; all `Event*` constants for each hook type (including `EventTurnComplete`, `EventTurnDuration`, `EventApiMetrics`, `EventPermissionGrant`, `EventContextCompact`, `EventSystemInfo`); `SSEBudgetExceeded` and `SSEBudgetContainerStopped` event types; `BudgetEventPayload` and `BudgetContainerStoppedPayload`. Payloads include `projectId` for frontend routing. |
 
 ### Watcher
 

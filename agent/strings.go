@@ -33,6 +33,10 @@ func WorktreeIDFromCWD(cwd, workspaceDir string) string {
 // TruncateString caps a string at maxLen runes, appending "…" if truncated.
 // Uses rune count to avoid splitting multi-byte UTF-8 characters.
 func TruncateString(s string, maxLen int) string {
+	// Fast path: if byte length fits, rune count fits too (each rune is ≥1 byte).
+	if len(s) <= maxLen {
+		return s
+	}
 	runes := []rune(s)
 	if len(runes) <= maxLen {
 		return s

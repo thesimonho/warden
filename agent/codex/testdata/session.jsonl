@@ -18,13 +18,16 @@
 {"timestamp":"2026-03-30T10:00:07.000Z","type":"event_msg","payload":{"type":"token_count","info":{"total_token_usage":{"input_tokens":25000,"cached_input_tokens":18000,"output_tokens":800,"reasoning_output_tokens":200,"total_tokens":25800},"last_token_usage":{"input_tokens":13000,"cached_input_tokens":13000,"output_tokens":350,"reasoning_output_tokens":80,"total_tokens":13350},"model_context_window":258400},"rate_limits":{"limit_id":"codex","credits":null,"plan_type":"free"}}}
 {"timestamp":"2026-03-30T10:00:08.000Z","type":"response_item","payload":{"type":"function_call","name":"exec_command","arguments":"{\"cmd\":\"cat /nonexistent\",\"workdir\":\"/home/warden/project\"}","call_id":"call_test004"}}
 {"timestamp":"2026-03-30T10:00:08.100Z","type":"response_item","payload":{"type":"function_call_output","call_id":"call_test004","output":"error: No such file or directory","status":"completed"}}
-{"timestamp":"2026-03-30T10:00:09.000Z","type":"event_msg","payload":{"type":"error","message":"API connection timeout"}}
-{"timestamp":"2026-03-30T10:00:10.000Z","type":"event_msg","payload":{"type":"exec_approval_request","command":"rm -rf /important","turn_id":"turn-001"}}
-{"timestamp":"2026-03-30T10:00:11.000Z","type":"event_msg","payload":{"type":"elicitation_request","server_name":"github-mcp","turn_id":"turn-001"}}
-{"timestamp":"2026-03-30T10:00:12.000Z","type":"event_msg","payload":{"type":"exec_command_begin","call_id":"call_test005","command":"cat /secret","turn_id":"turn-001"}}
-{"timestamp":"2026-03-30T10:00:12.100Z","type":"event_msg","payload":{"type":"exec_command_end","call_id":"call_test005","exit_code":1,"status":"completed"}}
-{"timestamp":"2026-03-30T10:00:13.000Z","type":"event_msg","payload":{"type":"mcp_tool_call_begin","tool_name":"search_issues","mcp_server_name":"github-mcp","turn_id":"turn-001"}}
-{"timestamp":"2026-03-30T10:00:13.500Z","type":"event_msg","payload":{"type":"mcp_tool_call_end","tool_name":"search_issues","status":"error","message":"MCP server timeout"}}
-{"timestamp":"2026-03-30T10:00:14.000Z","type":"event_msg","payload":{"type":"patch_apply_begin","file_path":"src/main.rs","turn_id":"turn-001"}}
-{"timestamp":"2026-03-30T10:00:14.500Z","type":"event_msg","payload":{"type":"patch_apply_end","file_path":"src/main.rs","status":"completed"}}
+{"timestamp":"2026-03-30T10:00:09.000Z","type":"response_item","payload":{"type":"local_shell_call","call_id":"call_test005","status":"completed","action":{"type":"exec","command":["ls","-la","/tmp"]}}}
+{"timestamp":"2026-03-30T10:00:09.500Z","type":"response_item","payload":{"type":"web_search_call","status":"completed"}}
+{"timestamp":"2026-03-30T10:00:10.000Z","type":"response_item","payload":{"type":"custom_tool_call","call_id":"call_test006","name":"lint_file","input":"src/main.rs","status":"completed"}}
+{"timestamp":"2026-03-30T10:00:10.500Z","type":"response_item","payload":{"type":"image_generation_call","id":"img_001","status":"completed","result":"base64data"}}
+{"timestamp":"2026-03-30T10:00:11.000Z","type":"response_item","payload":{"type":"tool_search_call","call_id":"call_test007","status":"completed"}}
+{"timestamp":"2026-03-30T10:00:11.500Z","type":"event_msg","payload":{"type":"error","message":"API connection timeout"}}
+{"timestamp":"2026-03-30T10:00:12.000Z","type":"event_msg","payload":{"type":"exec_command_end","call_id":"call_test005","exit_code":1,"status":"completed"}}
+{"timestamp":"2026-03-30T10:00:12.500Z","type":"event_msg","payload":{"type":"mcp_tool_call_end","tool_name":"search_issues","status":"error","message":"MCP server timeout"}}
+{"timestamp":"2026-03-30T10:00:13.000Z","type":"event_msg","payload":{"type":"context_compacted"}}
+{"timestamp":"2026-03-30T10:00:13.500Z","type":"event_msg","payload":{"type":"thread_rolled_back","num_turns":3}}
+{"timestamp":"2026-03-30T10:00:14.000Z","type":"event_msg","payload":{"type":"turn_aborted","turn_id":"turn-001","reason":"interrupted"}}
+{"timestamp":"2026-03-30T10:00:14.500Z","type":"compacted","payload":{"message":"Conversation compacted"}}
 {"timestamp":"2026-03-30T10:00:15.000Z","type":"event_msg","payload":{"type":"task_complete","turn_id":"turn-001","last_agent_message":"Done! I read the README, created the test file, and deleted it."}}

@@ -1,7 +1,6 @@
 package claudecode
 
 import (
-	"bufio"
 	"os"
 	"testing"
 
@@ -18,19 +17,11 @@ func parseFixtureEvents(t *testing.T) []agent.ParsedEvent {
 	}
 	defer func() { _ = f.Close() }()
 
-	parser := NewParser()
-	var allEvents []agent.ParsedEvent
-
-	scanner := bufio.NewScanner(f)
-	for scanner.Scan() {
-		events := parser.ParseLine(scanner.Bytes())
-		allEvents = append(allEvents, events...)
+	events, err := agent.ParseAllEvents(NewParser(), f)
+	if err != nil {
+		t.Fatalf("parsing fixture: %v", err)
 	}
-	if err := scanner.Err(); err != nil {
-		t.Fatalf("scanning fixture: %v", err)
-	}
-
-	return allEvents
+	return events
 }
 
 func TestParseFixture_EventCounts(t *testing.T) {
