@@ -193,8 +193,8 @@ func (p *Parser) parseToolResults(entry SessionEntry) []agent.ParsedEvent {
 	return events
 }
 
-// parseSystem handles system-type JSONL entries. Produces TurnDuration events
-// for "turn_duration" subtypes and StopFailure events for "api_error" subtypes.
+// parseSystem handles system-type JSONL entries. Each subtype maps to a
+// specific ParsedEventType — see docs/events_claude.md for the full catalog.
 func (p *Parser) parseSystem(entry SessionEntry) []agent.ParsedEvent {
 	switch entry.Subtype {
 	case "turn_duration":
@@ -210,6 +210,51 @@ func (p *Parser) parseSystem(entry SessionEntry) []agent.ParsedEvent {
 			SessionID:    entry.SessionID,
 			Timestamp:    entry.Timestamp,
 			ErrorContent: agent.TruncateString(entry.Content, agent.MaxToolInputLength),
+		}}
+	case "agents_killed":
+		return []agent.ParsedEvent{{
+			Type:      agent.EventSubagentStop,
+			SessionID: entry.SessionID,
+			Timestamp: entry.Timestamp,
+			Content:   entry.Content,
+		}}
+	case "api_metrics":
+		return []agent.ParsedEvent{{
+			Type:               agent.EventApiMetrics,
+			SessionID:          entry.SessionID,
+			Timestamp:          entry.Timestamp,
+			TTFTMs:             entry.TTFTMs,
+			OutputTokensPerSec: entry.OutputTokensPerSec,
+		}}
+	case "permission_retry":
+		return []agent.ParsedEvent{{
+			Type:      agent.EventPermissionGrant,
+			SessionID: entry.SessionID,
+			Timestamp: entry.Timestamp,
+			Commands:  entry.Commands,
+			Content:   entry.Content,
+		}}
+	case "compact_boundary", "microcompact_boundary":
+		event := agent.ParsedEvent{
+			Type:      agent.EventContextCompact,
+			SessionID: entry.SessionID,
+			Timestamp: entry.Timestamp,
+			Content:   entry.Content,
+		}
+		if entry.CompactMetadata != nil {
+			event.CompactTrigger = entry.CompactMetadata.Trigger
+			event.PreCompactTokens = entry.CompactMetadata.PreTokens
+		}
+		return []agent.ParsedEvent{event}
+	case "stop_hook_summary", "away_summary", "memory_saved",
+		"bridge_status", "local_command", "informational",
+		"scheduled_task_fire":
+		return []agent.ParsedEvent{{
+			Type:      agent.EventSystemInfo,
+			SessionID: entry.SessionID,
+			Timestamp: entry.Timestamp,
+			Subtype:   entry.Subtype,
+			Content:   entry.Content,
 		}}
 	default:
 		return nil

@@ -31,6 +31,22 @@ type SessionEntry struct {
 	Content string `json:"content,omitempty"`
 	// Level is the severity for system entries (e.g. "warning").
 	Level string `json:"level,omitempty"`
+
+	// TTFTMs is time to first token in ms (system/api_metrics).
+	TTFTMs float64 `json:"ttftMs,omitempty"`
+	// OutputTokensPerSec is output tokens per second (system/api_metrics).
+	OutputTokensPerSec float64 `json:"otps,omitempty"`
+	// Commands is a list of allowed commands (system/permission_retry).
+	Commands []string `json:"commands,omitempty"`
+	// CompactMetadata holds context compaction details (system/compact_boundary).
+	CompactMetadata *CompactMetadata `json:"compactMetadata,omitempty"`
+}
+
+// CompactMetadata holds details about a context compaction event.
+type CompactMetadata struct {
+	Trigger            string `json:"trigger"`
+	PreTokens          int64  `json:"preTokens"`
+	MessagesSummarized int    `json:"messagesSummarized,omitempty"`
 }
 
 // MessageBody holds the message payload for assistant and user entries.
@@ -96,8 +112,8 @@ func (b *ContentBlock) ErrorContent() string {
 
 // UsageInfo holds token consumption data from an assistant message.
 type UsageInfo struct {
-	InputTokens                int64 `json:"input_tokens"`
-	OutputTokens               int64 `json:"output_tokens"`
-	CacheCreationInputTokens   int64 `json:"cache_creation_input_tokens"`
-	CacheReadInputTokens       int64 `json:"cache_read_input_tokens"`
+	InputTokens              int64 `json:"input_tokens"`
+	OutputTokens             int64 `json:"output_tokens"`
+	CacheCreationInputTokens int64 `json:"cache_creation_input_tokens"`
+	CacheReadInputTokens     int64 `json:"cache_read_input_tokens"`
 }

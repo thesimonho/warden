@@ -61,6 +61,18 @@ const (
 	EventElicitation ContainerEventType = "elicitation"
 	// EventElicitationResult is logged after a user responds to an MCP elicitation.
 	EventElicitationResult ContainerEventType = "elicitation_result"
+	// EventTurnComplete is logged when an agent turn ends (stop_reason: end_turn).
+	EventTurnComplete ContainerEventType = "turn_complete"
+	// EventTurnDuration is logged with the wall-clock duration of an agent turn.
+	EventTurnDuration ContainerEventType = "turn_duration"
+	// EventApiMetrics records API performance metrics (TTFT, output tokens/sec).
+	EventApiMetrics ContainerEventType = "api_metrics"
+	// EventPermissionGrant is logged when a permission request is granted.
+	EventPermissionGrant ContainerEventType = "permission_grant"
+	// EventContextCompact is logged when context window compaction occurs.
+	EventContextCompact ContainerEventType = "context_compact"
+	// EventSystemInfo is logged for informational system messages from the agent.
+	EventSystemInfo ContainerEventType = "system_info"
 )
 
 // ContainerEvent is the JSON payload written by container hook scripts
@@ -153,6 +165,34 @@ type TaskCompletedData struct {
 type ElicitationData struct {
 	MCPServerName string `json:"mcpServerName,omitempty"`
 	Action        string `json:"action,omitempty"`
+}
+
+// TurnDurationData carries the wall-clock duration of an agent turn.
+type TurnDurationData struct {
+	DurationMs int64 `json:"durationMs"`
+}
+
+// ApiMetricsData carries API performance metrics from the agent.
+type ApiMetricsData struct {
+	TTFTMs             float64 `json:"ttftMs"`
+	OutputTokensPerSec float64 `json:"outputTokensPerSec"`
+}
+
+// PermissionGrantData carries details about a granted permission.
+type PermissionGrantData struct {
+	Commands []string `json:"commands,omitempty"`
+}
+
+// ContextCompactData carries details about context window compaction.
+type ContextCompactData struct {
+	Trigger   string `json:"trigger,omitempty"`
+	PreTokens int64  `json:"preTokens,omitempty"`
+}
+
+// SystemInfoData carries details for informational system messages.
+type SystemInfoData struct {
+	Subtype string `json:"subtype"`
+	Content string `json:"content,omitempty"`
 }
 
 // SSEEventType identifies the kind of event sent to frontend clients.

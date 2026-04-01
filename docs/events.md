@@ -8,21 +8,39 @@ Each audit event has a source: JSONL parser (Go backend tails session files), ho
 
 ## Events from JSONL parser
 
-| Event                | Claude source                      | Codex source                                                                               |
-| -------------------- | ---------------------------------- | ------------------------------------------------------------------------------------------ |
-| `tool_use`           | `assistant` → tool_use blocks      | `response_item/function_call` + `event_msg/{exec_command,mcp_tool_call,patch_apply}_begin` |
-| `tool_use_failure`   | `user` → tool_result with is_error | `response_item/function_call_output` (heuristic) + `event_msg/*_end` with error            |
-| `stop` (cost)        | `assistant` → usage                | `event_msg/token_count`                                                                    |
-| `user_prompt`        | `user` → text content              | `event_msg/user_message`                                                                   |
-| `stop_failure`       | `system/api_error`                 | `event_msg/error` + `event_msg/stream_error`                                               |
-| `turn_complete`      | `assistant` → stop_reason=end_turn | `event_msg/task_complete`                                                                  |
-| `session_start`      | —                                  | `session_meta`                                                                             |
-| `permission_request` | —                                  | `event_msg/exec_approval_request` + `event_msg/request_permissions`                        |
-| `elicitation`        | —                                  | `event_msg/elicitation_request`                                                            |
+| Event                | Claude source                                       | Codex source                                                                               | Audit category |
+| -------------------- | --------------------------------------------------- | ------------------------------------------------------------------------------------------ | -------------- |
+| `tool_use`           | `assistant` → tool_use blocks                       | `response_item/function_call` + `event_msg/{exec_command,mcp_tool_call,patch_apply}_begin` | agent          |
+| `tool_use_failure`   | `user` → tool_result with is_error                  | `response_item/function_call_output` (heuristic) + `event_msg/*_end` with error            | agent          |
+| `stop` (cost)        | `assistant` → usage                                 | `event_msg/token_count`                                                                    | session        |
+| `user_prompt`        | `user` → text content                               | `event_msg/user_message`                                                                   | prompt         |
+| `stop_failure`       | `system/api_error`                                  | `event_msg/error` + `event_msg/stream_error`                                               | session        |
+| `turn_complete`      | `assistant` → stop_reason=end_turn                  | `event_msg/task_complete`                                                                  | session        |
+| `turn_duration`      | `system/turn_duration`                              | —                                                                                          | session        |
+| `session_start`      | —                                                   | `session_meta`                                                                             | session        |
+| `permission_request` | —                                                   | `event_msg/exec_approval_request` + `event_msg/request_permissions`                        | agent          |
+| `elicitation`        | —                                                   | `event_msg/elicitation_request`                                                            | agent          |
+| `subagent_stop`      | `system/agents_killed`                              | —                                                                                          | agent          |
+| `api_metrics`        | `system/api_metrics` (TTFT, OPS)                    | —                                                                                          | system         |
+| `permission_grant`   | `system/permission_retry` (commands list)           | —                                                                                          | agent          |
+| `context_compact`    | `system/compact_boundary` + `microcompact_boundary` | —                                                                                          | session        |
+| `system_info`        | `system/{informational,memory_saved,...}`           | —                                                                                          | session        |
+
+### Claude system subtypes parsed as `system_info`
+
+These are informational system messages from Claude's JSONL. All parsed as `system_info` events in the session audit category.
+
+- `informational` — General informational message
+- `memory_saved` — Memory file write notification
+- `away_summary` — Summary of activity while user was away
+- `stop_hook_summary` — Hook execution summary
+- `bridge_status` — Remote control bridge connection
+- `local_command` — Slash command execution
+- `scheduled_task_fire` — Scheduled task notification
 
 ## Events from hooks (Claude Code only)
 
-These events are not in Claude's JSONL format. Codex either has them in JSONL (above) or doesn't support the concept.
+These events are not in Claude's JSONL format yet. Codex either has them in JSONL (above) or doesn't support the concept.
 
 ### Attention state (real-time, not written to audit)
 
@@ -34,18 +52,18 @@ These events are not in Claude's JSONL format. Codex either has them in JSONL (a
 
 ### Audit events
 
-| Event                 | Hook               | Re-evaluate when...                     |
-| --------------------- | ------------------ | --------------------------------------- |
-| `session_start`       | SessionStart       | Claude adds session lifecycle to JSONL  |
-| `session_end`         | SessionEnd         | Claude adds session lifecycle to JSONL  |
-| `permission_request`  | PermissionRequest  | Claude adds permission events to JSONL  |
-| `config_change`       | ConfigChange       | Claude adds config events to JSONL      |
-| `instructions_loaded` | InstructionsLoaded | Claude adds instruction events to JSONL |
-| `task_completed`      | TaskCompleted      | Claude adds task events to JSONL        |
-| `elicitation`         | Elicitation        | Claude adds MCP events to JSONL         |
-| `elicitation_result`  | ElicitationResult  | Claude adds MCP events to JSONL         |
-| `subagent_start`      | SubagentStart      | Claude adds subagent lifecycle to JSONL |
-| `subagent_stop`       | SubagentStop       | Claude adds subagent lifecycle to JSONL |
+| Event                 | Hook               | Re-evaluate when...                                             |
+| --------------------- | ------------------ | --------------------------------------------------------------- |
+| `session_start`       | SessionStart       | Claude adds session lifecycle to JSONL                          |
+| `session_end`         | SessionEnd         | Claude adds session lifecycle to JSONL                          |
+| `permission_request`  | PermissionRequest  | Claude adds permission events to JSONL (grant is via JSONL now) |
+| `config_change`       | ConfigChange       | Claude adds config events to JSONL                              |
+| `instructions_loaded` | InstructionsLoaded | Claude adds instruction events to JSONL                         |
+| `task_completed`      | TaskCompleted      | Claude adds task events to JSONL                                |
+| `elicitation`         | Elicitation        | Claude adds MCP events to JSONL                                 |
+| `elicitation_result`  | ElicitationResult  | Claude adds MCP events to JSONL                                 |
+| `subagent_start`      | SubagentStart      | Claude adds subagent lifecycle to JSONL (stop is via JSONL now) |
+| `subagent_stop`       | SubagentStop       | Claude adds subagent lifecycle to JSONL (stop is via JSONL now) |
 
 ## Events from backend / container scripts
 

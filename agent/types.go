@@ -75,6 +75,16 @@ const (
 	EventPermissionRequest ParsedEventType = "permission_request"
 	// EventElicitation records an MCP server requesting user input.
 	EventElicitation ParsedEventType = "elicitation"
+	// EventSubagentStop records subagent termination (e.g. agents_killed in Claude).
+	EventSubagentStop ParsedEventType = "subagent_stop"
+	// EventApiMetrics records API performance metrics (TTFT, output tokens/sec).
+	EventApiMetrics ParsedEventType = "api_metrics"
+	// EventPermissionGrant records a permission grant (commands allowed).
+	EventPermissionGrant ParsedEventType = "permission_grant"
+	// EventContextCompact records context window compaction.
+	EventContextCompact ParsedEventType = "context_compact"
+	// EventSystemInfo records informational system messages not covered by other types.
+	EventSystemInfo ParsedEventType = "system_info"
 )
 
 // ParsedEvent is an agent-agnostic event produced by parsing a session JSONL line.
@@ -114,6 +124,21 @@ type ParsedEvent struct {
 	GitBranch string
 	// WorktreeID is the worktree identifier (populated on SessionStart if available).
 	WorktreeID string
+
+	// Subtype is the system message subtype (populated on SystemInfo events).
+	Subtype string
+	// Content is the message text (populated on SystemInfo, SubagentStop, PermissionGrant, ContextCompact events).
+	Content string
+	// Commands holds allowed commands (populated on PermissionGrant events).
+	Commands []string
+	// TTFTMs is time to first token in milliseconds (populated on ApiMetrics events).
+	TTFTMs float64
+	// OutputTokensPerSec is output tokens per second (populated on ApiMetrics events).
+	OutputTokensPerSec float64
+	// CompactTrigger is what triggered context compaction (populated on ContextCompact events).
+	CompactTrigger string
+	// PreCompactTokens is the token count before compaction (populated on ContextCompact events).
+	PreCompactTokens int64
 }
 
 // ProjectInfo provides project metadata for session file discovery.

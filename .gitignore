@@ -23,6 +23,8 @@ internal/server/ui/*
 
 # Plans
 docs/plans/
+docs/events_claude.md
+docs/events_codex.md
 
 # Environment
 .env

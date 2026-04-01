@@ -66,6 +66,31 @@ func SessionEventToContainerEvent(event agent.ParsedEvent, ctx SessionContext) *
 		ce.Data = marshalData(eventbus.ElicitationData{
 			MCPServerName: event.ServerName,
 		})
+	case agent.EventTurnDuration:
+		ce.Data = marshalData(eventbus.TurnDurationData{
+			DurationMs: event.DurationMs,
+		})
+	case agent.EventSubagentStop:
+		ce.Data = marshalData(eventbus.SubagentData{})
+	case agent.EventApiMetrics:
+		ce.Data = marshalData(eventbus.ApiMetricsData{
+			TTFTMs:             event.TTFTMs,
+			OutputTokensPerSec: event.OutputTokensPerSec,
+		})
+	case agent.EventPermissionGrant:
+		ce.Data = marshalData(eventbus.PermissionGrantData{
+			Commands: event.Commands,
+		})
+	case agent.EventContextCompact:
+		ce.Data = marshalData(eventbus.ContextCompactData{
+			Trigger:   event.CompactTrigger,
+			PreTokens: event.PreCompactTokens,
+		})
+	case agent.EventSystemInfo:
+		ce.Data = marshalData(eventbus.SystemInfoData{
+			Subtype: event.Subtype,
+			Content: event.Content,
+		})
 	}
 
 	return ce
@@ -95,8 +120,21 @@ func mapEventType(parsed agent.ParsedEventType) eventbus.ContainerEventType {
 		return eventbus.EventPermissionRequest
 	case agent.EventElicitation:
 		return eventbus.EventElicitation
+	case agent.EventSubagentStop:
+		return eventbus.EventSubagentStop
+	case agent.EventApiMetrics:
+		return eventbus.EventApiMetrics
+	case agent.EventPermissionGrant:
+		return eventbus.EventPermissionGrant
+	case agent.EventContextCompact:
+		return eventbus.EventContextCompact
+	case agent.EventSystemInfo:
+		return eventbus.EventSystemInfo
+	case agent.EventTurnComplete:
+		return eventbus.EventTurnComplete
+	case agent.EventTurnDuration:
+		return eventbus.EventTurnDuration
 	default:
-		// TurnDuration, TurnComplete — informational, not forwarded to the event pipeline.
 		return ""
 	}
 }

@@ -76,6 +76,21 @@ func TestParseFixture_EventCounts(t *testing.T) {
 	if got := result.Counts[agent.EventStopFailure]; got != 1 {
 		t.Errorf("StopFailure events = %d, want 1", got)
 	}
+	if got := result.Counts[agent.EventSubagentStop]; got != 1 {
+		t.Errorf("SubagentStop events = %d, want 1", got)
+	}
+	if got := result.Counts[agent.EventApiMetrics]; got != 1 {
+		t.Errorf("ApiMetrics events = %d, want 1", got)
+	}
+	if got := result.Counts[agent.EventPermissionGrant]; got != 1 {
+		t.Errorf("PermissionGrant events = %d, want 1", got)
+	}
+	if got := result.Counts[agent.EventContextCompact]; got != 1 {
+		t.Errorf("ContextCompact events = %d, want 1", got)
+	}
+	if got := result.Counts[agent.EventSystemInfo]; got != 2 {
+		t.Errorf("SystemInfo events = %d, want 2", got)
+	}
 }
 
 func TestParseFixture_ToolNames(t *testing.T) {
@@ -237,6 +252,93 @@ func TestParseFixture_StopFailure(t *testing.T) {
 		}
 	}
 	t.Error("no StopFailure event found")
+}
+
+func TestParseFixture_SubagentStop(t *testing.T) {
+	t.Parallel()
+	events := parseFixtureEvents(t)
+
+	for _, e := range events {
+		if e.Type == agent.EventSubagentStop {
+			if e.Content != "Killed 2 subagents" {
+				t.Errorf("SubagentStop content = %q, want %q", e.Content, "Killed 2 subagents")
+			}
+			return
+		}
+	}
+	t.Error("no SubagentStop event found")
+}
+
+func TestParseFixture_ApiMetrics(t *testing.T) {
+	t.Parallel()
+	events := parseFixtureEvents(t)
+
+	for _, e := range events {
+		if e.Type == agent.EventApiMetrics {
+			if e.TTFTMs != 1234.5 {
+				t.Errorf("TTFTMs = %f, want 1234.5", e.TTFTMs)
+			}
+			if e.OutputTokensPerSec != 56.7 {
+				t.Errorf("OutputTokensPerSec = %f, want 56.7", e.OutputTokensPerSec)
+			}
+			return
+		}
+	}
+	t.Error("no ApiMetrics event found")
+}
+
+func TestParseFixture_PermissionGrant(t *testing.T) {
+	t.Parallel()
+	events := parseFixtureEvents(t)
+
+	for _, e := range events {
+		if e.Type == agent.EventPermissionGrant {
+			if len(e.Commands) != 2 {
+				t.Fatalf("PermissionGrant commands = %v, want 2 items", e.Commands)
+			}
+			if e.Commands[0] != "git push" {
+				t.Errorf("PermissionGrant commands[0] = %q, want %q", e.Commands[0], "git push")
+			}
+			return
+		}
+	}
+	t.Error("no PermissionGrant event found")
+}
+
+func TestParseFixture_ContextCompact(t *testing.T) {
+	t.Parallel()
+	events := parseFixtureEvents(t)
+
+	for _, e := range events {
+		if e.Type == agent.EventContextCompact {
+			if e.CompactTrigger != "auto" {
+				t.Errorf("CompactTrigger = %q, want %q", e.CompactTrigger, "auto")
+			}
+			if e.PreCompactTokens != 150000 {
+				t.Errorf("PreCompactTokens = %d, want 150000", e.PreCompactTokens)
+			}
+			return
+		}
+	}
+	t.Error("no ContextCompact event found")
+}
+
+func TestParseFixture_SystemInfo(t *testing.T) {
+	t.Parallel()
+	events := parseFixtureEvents(t)
+
+	var subtypes []string
+	for _, e := range events {
+		if e.Type == agent.EventSystemInfo {
+			subtypes = append(subtypes, e.Subtype)
+			if e.Content == "" {
+				t.Errorf("SystemInfo %q has empty content", e.Subtype)
+			}
+		}
+	}
+	if len(subtypes) != 2 {
+		t.Fatalf("SystemInfo subtypes = %v, want [informational memory_saved]", subtypes)
+	}
 }
 
 func TestParseLine_UnknownType(t *testing.T) {
