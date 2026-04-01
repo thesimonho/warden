@@ -103,6 +103,10 @@ type Entry struct {
 	// Category is the audit category (session, agent, prompt, config, system).
 	// Computed at query time from the event name — not stored in the DB.
 	Category string `json:"category,omitempty"`
+	// SourceID is a content hash for deduplication of JSONL-sourced events.
+	// When set, the DB uses INSERT OR IGNORE to silently drop duplicates.
+	// Empty for hook and backend events (no dedup needed).
+	SourceID string `json:"-"`
 }
 
 // DisplayProject returns the best available project label for human display.

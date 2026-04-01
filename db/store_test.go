@@ -1139,3 +1139,163 @@ func TestNilStore_ProjectsAndSettings(t *testing.T) {
 		t.Errorf("nil SetSetting() should not error, got %v", err)
 	}
 }
+
+// ---------------------------------------------------------------------------
+// SourceID dedup (INSERT OR IGNORE on compound unique index)
+// ---------------------------------------------------------------------------
+
+func TestWrite_DuplicateSourceID_SameProject_OnlyOneRow(t *testing.T) {
+	t.Parallel()
+	store, err := New(t.TempDir())
+	if err != nil {
+		t.Fatalf("New() error: %v", err)
+	}
+	defer store.Close() //nolint:errcheck
+
+	entry := Entry{
+		Source:    SourceAgent,
+		Level:     LevelInfo,
+		ProjectID: "aabbccddee01",
+		Event:     "tool_use",
+		Message:   "first write",
+		SourceID:  "deadbeef12345678",
+	}
+
+	if err := store.Write(entry); err != nil {
+		t.Fatalf("first Write() error: %v", err)
+	}
+
+	// Second write with the same SourceID and ProjectID should be silently ignored.
+	entry.Message = "second write"
+	if err := store.Write(entry); err != nil {
+		t.Fatalf("second Write() error: %v", err)
+	}
+
+	result, err := store.Query(QueryFilters{ProjectID: "aabbccddee01"})
+	if err != nil {
+		t.Fatalf("Query() error: %v", err)
+	}
+	if len(result) != 1 {
+		t.Fatalf("expected 1 entry (dedup), got %d", len(result))
+	}
+	if result[0].Message != "first write" {
+		t.Errorf("expected first write to win, got %q", result[0].Message)
+	}
+}
+
+func TestWrite_EmptySourceID_BothInserted(t *testing.T) {
+	t.Parallel()
+	store, err := New(t.TempDir())
+	if err != nil {
+		t.Fatalf("New() error: %v", err)
+	}
+	defer store.Close() //nolint:errcheck
+
+	entry := Entry{
+		Source:    SourceAgent,
+		Level:     LevelInfo,
+		ProjectID: "aabbccddee01",
+		Event:     "tool_use",
+		Message:   "no source id",
+		// SourceID is empty — becomes NULL in SQLite.
+	}
+
+	if err := store.Write(entry); err != nil {
+		t.Fatalf("first Write() error: %v", err)
+	}
+	if err := store.Write(entry); err != nil {
+		t.Fatalf("second Write() error: %v", err)
+	}
+
+	result, err := store.Query(QueryFilters{ProjectID: "aabbccddee01"})
+	if err != nil {
+		t.Fatalf("Query() error: %v", err)
+	}
+	if len(result) != 2 {
+		t.Fatalf("expected 2 entries (NULL source_ids don't trigger uniqueness), got %d", len(result))
+	}
+}
+
+func TestWrite_DifferentSourceIDs_BothInserted(t *testing.T) {
+	t.Parallel()
+	store, err := New(t.TempDir())
+	if err != nil {
+		t.Fatalf("New() error: %v", err)
+	}
+	defer store.Close() //nolint:errcheck
+
+	base := Entry{
+		Source:    SourceAgent,
+		Level:     LevelInfo,
+		ProjectID: "aabbccddee01",
+		Event:     "tool_use",
+	}
+
+	first := base
+	first.SourceID = "aaaa000011112222"
+	first.Message = "first"
+
+	second := base
+	second.SourceID = "bbbb333344445555"
+	second.Message = "second"
+
+	if err := store.Write(first); err != nil {
+		t.Fatalf("first Write() error: %v", err)
+	}
+	if err := store.Write(second); err != nil {
+		t.Fatalf("second Write() error: %v", err)
+	}
+
+	result, err := store.Query(QueryFilters{ProjectID: "aabbccddee01"})
+	if err != nil {
+		t.Fatalf("Query() error: %v", err)
+	}
+	if len(result) != 2 {
+		t.Fatalf("expected 2 entries (different SourceIDs), got %d", len(result))
+	}
+}
+
+func TestWrite_SameSourceID_DifferentProjects_BothInserted(t *testing.T) {
+	t.Parallel()
+	store, err := New(t.TempDir())
+	if err != nil {
+		t.Fatalf("New() error: %v", err)
+	}
+	defer store.Close() //nolint:errcheck
+
+	sourceID := "deadbeef12345678"
+
+	first := Entry{
+		Source:    SourceAgent,
+		Level:     LevelInfo,
+		ProjectID: "aabbccddee01",
+		Event:     "tool_use",
+		Message:   "project A",
+		SourceID:  sourceID,
+	}
+
+	second := Entry{
+		Source:    SourceAgent,
+		Level:     LevelInfo,
+		ProjectID: "112233445566",
+		Event:     "tool_use",
+		Message:   "project B",
+		SourceID:  sourceID,
+	}
+
+	if err := store.Write(first); err != nil {
+		t.Fatalf("first Write() error: %v", err)
+	}
+	if err := store.Write(second); err != nil {
+		t.Fatalf("second Write() error: %v", err)
+	}
+
+	// Both should exist because the compound key is (project_id, source_id).
+	all, err := store.Read()
+	if err != nil {
+		t.Fatalf("Read() error: %v", err)
+	}
+	if len(all) != 2 {
+		t.Fatalf("expected 2 entries (same SourceID, different projects), got %d", len(all))
+	}
+}

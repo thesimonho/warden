@@ -332,6 +332,119 @@ func TestParseFixture_SystemInfo(t *testing.T) {
 	}
 }
 
+func TestParseFixture_WorktreeIDFromMainCWD(t *testing.T) {
+	t.Parallel()
+	events := parseFixtureEvents(t)
+
+	// All fixture entries have cwd="/home/warden/project" (main workspace).
+	// WorktreeIDFromCWD returns "main" for non-worktree paths.
+	for _, e := range events {
+		if e.WorktreeID != "main" {
+			t.Errorf("event %s has WorktreeID = %q, want %q", e.Type, e.WorktreeID, "main")
+		}
+	}
+}
+
+func TestParseLine_WorktreeIDFromClaude(t *testing.T) {
+	t.Parallel()
+
+	parser := NewParser()
+
+	// User prompt from a Claude Code worktree.
+	events := parser.ParseLine([]byte(`{"type":"user","cwd":"/home/warden/project/.claude/worktrees/fix-auth","sessionId":"s1","timestamp":"2026-01-01T00:00:00Z","message":{"content":"hello","role":"user"}}`))
+	if len(events) != 1 {
+		t.Fatalf("expected 1 event, got %d", len(events))
+	}
+	if events[0].WorktreeID != "fix-auth" {
+		t.Errorf("WorktreeID = %q, want %q", events[0].WorktreeID, "fix-auth")
+	}
+}
+
+func TestParseLine_WorktreeIDWithUnderscore(t *testing.T) {
+	t.Parallel()
+
+	parser := NewParser()
+
+	// Worktree name with underscores — should be preserved exactly.
+	events := parser.ParseLine([]byte(`{"type":"user","cwd":"/home/warden/project/.claude/worktrees/tools_again","sessionId":"s1","timestamp":"2026-01-01T00:00:00Z","message":{"content":"hello","role":"user"}}`))
+	if len(events) != 1 {
+		t.Fatalf("expected 1 event, got %d", len(events))
+	}
+	if events[0].WorktreeID != "tools_again" {
+		t.Errorf("WorktreeID = %q, want %q", events[0].WorktreeID, "tools_again")
+	}
+}
+
+func TestParseLine_WorktreeIDFromSubdirectory(t *testing.T) {
+	t.Parallel()
+
+	parser := NewParser()
+
+	// CWD is a subdirectory inside the worktree — should still extract the worktree ID.
+	events := parser.ParseLine([]byte(`{"type":"user","cwd":"/home/warden/project/.claude/worktrees/my-branch/src/lib","sessionId":"s1","timestamp":"2026-01-01T00:00:00Z","message":{"content":"hello","role":"user"}}`))
+	if len(events) != 1 {
+		t.Fatalf("expected 1 event, got %d", len(events))
+	}
+	if events[0].WorktreeID != "my-branch" {
+		t.Errorf("WorktreeID = %q, want %q", events[0].WorktreeID, "my-branch")
+	}
+}
+
+func TestParseLine_WorktreeIDNoCWD(t *testing.T) {
+	t.Parallel()
+
+	parser := NewParser()
+
+	// No CWD field — WorktreeID should remain empty (callback defaults to "main").
+	events := parser.ParseLine([]byte(`{"type":"system","subtype":"turn_duration","durationMs":5000,"sessionId":"s1","timestamp":"2026-01-01T00:00:00Z"}`))
+	if len(events) != 1 {
+		t.Fatalf("expected 1 event, got %d", len(events))
+	}
+	if events[0].WorktreeID != "" {
+		t.Errorf("WorktreeID = %q, want empty (no CWD)", events[0].WorktreeID)
+	}
+}
+
+func TestParseLine_WorktreeIDOnAllEventTypes(t *testing.T) {
+	t.Parallel()
+
+	parser := NewParser()
+	worktreeCWD := "/home/warden/project/.claude/worktrees/feature-x"
+
+	// Assistant entry — should set WorktreeID on token_update and tool_use events.
+	assistantLine := []byte(`{"type":"assistant","cwd":"` + worktreeCWD + `","sessionId":"s1","timestamp":"2026-01-01T00:00:00Z","message":{"model":"claude-sonnet-4-6","role":"assistant","stop_reason":"end_turn","content":[{"type":"text","text":"done"}],"usage":{"input_tokens":100,"output_tokens":50}}}`)
+	events := parser.ParseLine(assistantLine)
+	for _, e := range events {
+		if e.WorktreeID != "feature-x" {
+			t.Errorf("assistant event %s has WorktreeID = %q, want %q", e.Type, e.WorktreeID, "feature-x")
+		}
+	}
+
+	// System entry — should set WorktreeID on system events.
+	systemLine := []byte(`{"type":"system","subtype":"api_error","content":"rate limited","cwd":"` + worktreeCWD + `","sessionId":"s1","timestamp":"2026-01-01T00:00:00Z"}`)
+	events = parser.ParseLine(systemLine)
+	for _, e := range events {
+		if e.WorktreeID != "feature-x" {
+			t.Errorf("system event %s has WorktreeID = %q, want %q", e.Type, e.WorktreeID, "feature-x")
+		}
+	}
+}
+
+func TestParseLine_WorktreeIDFromWardenManaged(t *testing.T) {
+	t.Parallel()
+
+	parser := NewParser()
+
+	// Warden-managed worktrees use .warden/worktrees/ prefix (Codex pattern).
+	events := parser.ParseLine([]byte(`{"type":"user","cwd":"/home/warden/project/.warden/worktrees/my-fix","sessionId":"s1","timestamp":"2026-01-01T00:00:00Z","message":{"content":"hello","role":"user"}}`))
+	if len(events) != 1 {
+		t.Fatalf("expected 1 event, got %d", len(events))
+	}
+	if events[0].WorktreeID != "my-fix" {
+		t.Errorf("WorktreeID = %q, want %q", events[0].WorktreeID, "my-fix")
+	}
+}
+
 func TestParseLine_UnknownType(t *testing.T) {
 	t.Parallel()
 

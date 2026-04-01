@@ -164,7 +164,7 @@ func (ec *EngineClient) CreateContainer(ctx context.Context, req CreateContainer
 
 	// Create and bind-mount the event directory for file-based IPC.
 	if ec.eventBaseDir != "" {
-		eventHostDir := filepath.Join(ec.eventBaseDir, req.Name, "events")
+		eventHostDir := filepath.Join(ec.eventBaseDir, req.Name)
 		if mkErr := os.MkdirAll(eventHostDir, 0o777); mkErr != nil {
 			return "", fmt.Errorf("creating event directory: %w", mkErr)
 		}

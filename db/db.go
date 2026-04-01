@@ -46,7 +46,8 @@ CREATE TABLE IF NOT EXISTS events (
     worktree       TEXT    NOT NULL DEFAULT '',
     msg            TEXT    NOT NULL DEFAULT '',
     data           TEXT,
-    attrs          TEXT
+    attrs          TEXT,
+    source_id      TEXT
 );
 
 CREATE INDEX IF NOT EXISTS idx_events_ts ON events(ts);
@@ -54,6 +55,8 @@ CREATE INDEX IF NOT EXISTS idx_events_source ON events(source);
 CREATE INDEX IF NOT EXISTS idx_events_level ON events(level);
 CREATE INDEX IF NOT EXISTS idx_events_project_id ON events(project_id);
 CREATE INDEX IF NOT EXISTS idx_events_event ON events(event);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_events_dedup ON events(project_id, source_id) WHERE source_id IS NOT NULL;
 
 CREATE TABLE IF NOT EXISTS session_costs (
     project_id   TEXT NOT NULL,

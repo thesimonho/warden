@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"bytes"
 	"context"
-	"io"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -130,8 +129,9 @@ func (sw *SessionWatcher) startTailing(ctx context.Context, path string) {
 	}()
 }
 
-// tailFile reads a JSONL file from the current end, then polls for new
-// lines. It processes each complete line through the parser.
+// tailFile reads a JSONL file from the start, processing all existing
+// lines, then polls for new appended lines. Duplicate events are handled
+// by the audit DB's source_id dedup (INSERT OR IGNORE on content hash).
 func (sw *SessionWatcher) tailFile(ctx context.Context, path string) {
 	f, err := os.Open(path)
 	if err != nil {
@@ -140,15 +140,9 @@ func (sw *SessionWatcher) tailFile(ctx context.Context, path string) {
 	}
 	defer func() { _ = f.Close() }()
 
-	// Seek to end — we only want new lines from this point forward.
-	if _, err := f.Seek(0, io.SeekEnd); err != nil {
-		sw.logger.Warn("failed to seek to end", "path", path, "err", err)
-		return
-	}
-
 	reader := bufio.NewReader(f)
 
-	// Read any lines already present to minimize initial latency.
+	// Process all existing lines from the start of the file.
 	sw.readNewLines(reader)
 
 	ticker := time.NewTicker(sessionPollInterval)
@@ -181,8 +175,10 @@ func (sw *SessionWatcher) readNewLines(reader *bufio.Reader) {
 		}
 
 		events := sw.parser.ParseLine(line)
-		for _, event := range events {
-			sw.callback(event)
+		for i := range events {
+			events[i].SourceLine = line
+			events[i].SourceIndex = i
+			sw.callback(events[i])
 		}
 	}
 }

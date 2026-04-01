@@ -36,17 +36,32 @@ func (p *Parser) ParseLine(line []byte) []agent.ParsedEvent {
 		return nil
 	}
 
+	var events []agent.ParsedEvent
 	switch entry.Type {
 	case "assistant":
-		return p.parseAssistant(entry)
+		events = p.parseAssistant(entry)
 	case "user":
-		return p.parseUser(entry)
+		events = p.parseUser(entry)
 	case "system":
-		return p.parseSystem(entry)
+		events = p.parseSystem(entry)
 	default:
 		// file-history-snapshot, queue-operation, last-prompt — no events.
 		return nil
 	}
+
+	// Inject worktree ID from the entry's CWD. Each JSONL entry carries
+	// the container-side working directory, which includes the worktree
+	// path for non-main worktrees.
+	if entry.CWD != "" {
+		worktreeID := agent.WorktreeIDFromCWD(entry.CWD)
+		for i := range events {
+			if events[i].WorktreeID == "" {
+				events[i].WorktreeID = worktreeID
+			}
+		}
+	}
+
+	return events
 }
 
 // SessionDir returns the host-side directory containing Claude Code session
@@ -57,11 +72,32 @@ func (p *Parser) SessionDir(homeDir string, project agent.ProjectInfo) string {
 	return filepath.Join(homeDir, ".claude", "projects", encoded)
 }
 
-// FindSessionFiles scans the per-project session directory for .jsonl files.
-// Claude Code stores each project's sessions in its own directory, so all
-// files found belong to this project.
+// FindSessionFiles scans the per-project session directory and any
+// worktree session directories for .jsonl files. Claude Code creates
+// separate session directories for worktrees at paths like:
+//
+//	~/.claude/projects/-home-warden-myproject--claude-worktrees-branchname/
+//
+// These are siblings of the project directory and share the same prefix.
 func (p *Parser) FindSessionFiles(homeDir string, project agent.ProjectInfo) []string {
-	dir := p.SessionDir(homeDir, project)
+	projectDir := p.SessionDir(homeDir, project)
+	var files []string
+
+	// Scan the main project session directory.
+	files = append(files, scanJSONLFiles(projectDir)...)
+
+	// Scan worktree session directories (siblings with matching prefix).
+	worktreePattern := projectDir + "--claude-worktrees-*"
+	worktreeDirs, _ := filepath.Glob(worktreePattern)
+	for _, wtDir := range worktreeDirs {
+		files = append(files, scanJSONLFiles(wtDir)...)
+	}
+
+	return files
+}
+
+// scanJSONLFiles returns absolute paths of .jsonl files in a directory.
+func scanJSONLFiles(dir string) []string {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		return nil

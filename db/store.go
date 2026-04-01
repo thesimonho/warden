@@ -65,9 +65,7 @@ func (l *Store) Write(entry Entry) error {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
-	_, err := l.db.Exec(
-		`INSERT INTO events (ts, source, level, event, project_id, container_name, worktree, msg, data, attrs)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+	args := []any{
 		entry.Timestamp.Format(time.RFC3339Nano),
 		string(entry.Source),
 		string(entry.Level),
@@ -78,7 +76,22 @@ func (l *Store) Write(entry Entry) error {
 		entry.Message,
 		dataStr,
 		attrsStr,
-	)
+	}
+
+	// JSONL-sourced events use INSERT OR IGNORE for dedup via the
+	// (project_id, source_id) unique index. Hook/backend events use
+	// plain INSERT so real constraint errors aren't silently swallowed.
+	var query string
+	if entry.SourceID != "" {
+		query = `INSERT OR IGNORE INTO events (ts, source, level, event, project_id, container_name, worktree, msg, data, attrs, source_id)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+		args = append(args, entry.SourceID)
+	} else {
+		query = `INSERT INTO events (ts, source, level, event, project_id, container_name, worktree, msg, data, attrs)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+	}
+
+	_, err := l.db.Exec(query, args...)
 	if err != nil {
 		return fmt.Errorf("inserting audit log entry: %w", err)
 	}

@@ -153,7 +153,7 @@ func (p *Parser) parseSessionMeta(item RolloutItem) []agent.ParsedEvent {
 	}
 
 	p.sessionID = meta.ID
-	p.worktreeID = agent.WorktreeIDFromCWD(meta.CWD, "")
+	p.worktreeID = agent.WorktreeIDFromCWD(meta.CWD)
 
 	event := agent.ParsedEvent{
 		Type:       agent.EventSessionStart,
