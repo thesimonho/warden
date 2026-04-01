@@ -20,6 +20,7 @@ import (
 // restricted network mode. Matches web/src/lib/domain-groups.ts.
 const defaultAllowedDomains = `*.anthropic.com
 *.openai.com
+*.chatgpt.com
 *.github.com
 *.githubusercontent.com
 pypi.org

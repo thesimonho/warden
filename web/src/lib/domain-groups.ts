@@ -8,6 +8,7 @@
 export const restrictedDomains: readonly string[] = [
   '*.anthropic.com',
   '*.openai.com',
+  '*.chatgpt.com',
   '*.github.com',
   '*.githubusercontent.com',
   'pypi.org',
