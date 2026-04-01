@@ -55,16 +55,18 @@ type ResponseItem struct {
 	Status    string          `json:"status,omitempty"`
 	Content   json.RawMessage `json:"content,omitempty"`
 
-	// LocalShellCall fields (type == "local_shell_call").
-	Action *ShellAction `json:"action,omitempty"`
+	// Action holds nested data for local_shell_call and web_search_call items.
+	Action *ActionPayload `json:"action,omitempty"`
 
 	// CustomToolCall fields (type == "custom_tool_call").
 	Input string `json:"input,omitempty"`
 }
 
-// ShellAction is the nested action payload for local_shell_call items.
-type ShellAction struct {
-	Command []string `json:"command,omitempty"`
+// ActionPayload is the nested action payload for local_shell_call and
+// web_search_call items. Both use the "action" JSON key with different fields.
+type ActionPayload struct {
+	Command []string `json:"command,omitempty"` // local_shell_call
+	Query   string   `json:"query,omitempty"`   // web_search_call
 }
 
 // CompactedItem is the payload for top-level "compacted" entries.

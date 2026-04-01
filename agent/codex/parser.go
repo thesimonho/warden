@@ -244,7 +244,11 @@ func (p *Parser) parseResponseItem(item RolloutItem) []agent.ParsedEvent {
 		}
 		return []agent.ParsedEvent{p.toolUseEvent(item.Timestamp, "shell", agent.TruncateString(toolInput, agent.MaxToolInputLength))}
 	case "web_search_call":
-		return []agent.ParsedEvent{p.toolUseEvent(item.Timestamp, "web_search", "")}
+		query := ""
+		if resp.Action != nil {
+			query = resp.Action.Query
+		}
+		return []agent.ParsedEvent{p.toolUseEvent(item.Timestamp, "web_search", agent.TruncateString(query, agent.MaxToolInputLength))}
 	case "custom_tool_call":
 		if resp.CallID != "" && resp.Name != "" {
 			p.toolNames[resp.CallID] = resp.Name
