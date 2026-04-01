@@ -1,6 +1,5 @@
 import { useNavigate } from 'react-router-dom'
 import {
-  ExternalLink,
   Square,
   Check,
   Loader2,
@@ -22,6 +21,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { abbreviateHomePath, cn } from '@/lib/utils'
 import StatusBadge from '@/components/home/status-badge'
 import AgentStatusIndicator from '@/components/home/agent-status-indicator'
+import { AgentIcon } from '@/components/ui/agent-icons'
 
 /** Props for the ProjectCard component. */
 interface ProjectCardProps {
@@ -83,7 +83,10 @@ export default function ProjectCard({
     return (
       <Card data-testid={`project-card-${project.name}`} className="opacity-75">
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-xl font-semibold">{project.name}</CardTitle>
+          <CardTitle className="flex items-center gap-2 text-xl font-semibold">
+            <AgentIcon type={project.agentType} className="h-4 w-4 shrink-0" />
+            {project.name}
+          </CardTitle>
           <StatusBadge state="no container" />
         </CardHeader>
         <CardContent className="space-y-1.5">
@@ -129,7 +132,10 @@ export default function ProjectCard({
       onClick={isSelectable ? handleCardClick : undefined}
     >
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-xl font-semibold">{project.name || project.projectId}</CardTitle>
+        <CardTitle className="flex items-center gap-2 text-xl font-semibold">
+          <AgentIcon type={project.agentType} className="h-4 w-4 shrink-0" />
+          {project.name || project.projectId}
+        </CardTitle>
         <div className="flex items-center gap-2">
           {isRunning ? (
             <div className="flex gap-0">
