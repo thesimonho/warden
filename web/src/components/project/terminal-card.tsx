@@ -1,6 +1,23 @@
 import { forwardRef, useImperativeHandle, useState, type ReactNode } from 'react'
-import { GitBranch, Unplug, Terminal, GitCompareArrows } from 'lucide-react'
+import {
+  GitBranch,
+  Unplug,
+  Terminal,
+  GitCompareArrows,
+  Copy,
+  Clipboard,
+  BoxSelect,
+  Image,
+} from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator,
+  ContextMenuShortcut,
+  ContextMenuTrigger,
+} from '@/components/ui/context-menu'
 import { cn } from '@/lib/utils'
 import { useTerminal } from '@/hooks/use-terminal'
 import { ChangesView } from '@/components/project/changes-view'
@@ -93,12 +110,13 @@ const TerminalCard = forwardRef<TerminalCardHandle, TerminalCardProps>(function 
 ) {
   const [activeTab, setActiveTab] = useState<TerminalTab>('terminal')
 
-  const { containerRef, detach, focus, fit } = useTerminal({
-    projectId,
-    worktreeId,
-    isActive,
-    isFocused: isFocused && activeTab === 'terminal',
-  })
+  const { containerRef, detach, focus, fit, copySelection, pasteClipboard, pasteImage, selectAll } =
+    useTerminal({
+      projectId,
+      worktreeId,
+      isActive,
+      isFocused: isFocused && activeTab === 'terminal',
+    })
 
   useImperativeHandle(ref, () => ({
     detach,
@@ -208,20 +226,62 @@ const TerminalCard = forwardRef<TerminalCardHandle, TerminalCardProps>(function 
 
       {/* Terminal content — kept mounted but hidden when Changes tab is active */}
       {isActive ? (
-        <div
-          className={cn(
-            'min-h-0 flex-1',
-            terminalInert && 'pointer-events-none',
-            activeTab !== 'terminal' && 'hidden',
-          )}
-        >
-          <div
-            ref={containerRef}
-            data-testid="terminal-container"
-            className="h-full w-full overflow-hidden border-0"
-            style={{ backgroundColor: 'var(--terminal-background)' }}
-          />
-        </div>
+        <ContextMenu>
+          <ContextMenuTrigger asChild>
+            <div
+              className={cn(
+                'min-h-0 flex-1',
+                terminalInert && 'pointer-events-none',
+                activeTab !== 'terminal' && 'hidden',
+              )}
+            >
+              <div
+                ref={containerRef}
+                data-testid="terminal-container"
+                className="h-full w-full overflow-hidden border-0"
+                style={{ backgroundColor: 'var(--terminal-background)' }}
+              />
+            </div>
+          </ContextMenuTrigger>
+          <ContextMenuContent className="w-64">
+            <ContextMenuItem onClick={copySelection}>
+              <Copy className="size-4" />
+              Copy
+              <ContextMenuShortcut>Ctrl+Shift+C</ContextMenuShortcut>
+            </ContextMenuItem>
+            <ContextMenuItem onClick={pasteClipboard}>
+              <Clipboard className="size-4" />
+              Paste
+              <ContextMenuShortcut>Ctrl+Shift+V</ContextMenuShortcut>
+            </ContextMenuItem>
+            <ContextMenuItem
+              onClick={() => {
+                navigator.clipboard
+                  .read()
+                  .then((items) => {
+                    for (const item of items) {
+                      const imageType = item.types.find((t) => t.startsWith('image/'))
+                      if (imageType) {
+                        item.getType(imageType).then((blob) => pasteImage(blob))
+                        return
+                      }
+                    }
+                  })
+                  .catch(() => {})
+              }}
+            >
+              <Image className="size-4" />
+              Paste Image
+              <ContextMenuShortcut>Ctrl+V</ContextMenuShortcut>
+            </ContextMenuItem>
+            <ContextMenuSeparator />
+            <ContextMenuItem onClick={selectAll}>
+              <BoxSelect className="size-4" />
+              Select All
+              <ContextMenuShortcut>Ctrl+Shift+A</ContextMenuShortcut>
+            </ContextMenuItem>
+          </ContextMenuContent>
+        </ContextMenu>
       ) : (
         activeTab === 'terminal' && (
           <div

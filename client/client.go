@@ -47,6 +47,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"mime/multipart"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -696,6 +697,38 @@ type TerminalConnection interface {
 
 	// Resize changes the terminal dimensions of the remote PTY.
 	Resize(cols, rows uint) error
+}
+
+// --- Clipboard ---
+
+// UploadClipboard stages an image file in the container's clipboard directory
+// for the xclip shim. Returns the path where the file was written.
+func (c *Client) UploadClipboard(ctx context.Context, projectID string, content []byte, mimeType string) (*api.ClipboardUploadResponse, error) {
+	var buf bytes.Buffer
+	writer := multipart.NewWriter(&buf)
+
+	part, err := writer.CreateFormFile("file", "paste.png")
+	if err != nil {
+		return nil, fmt.Errorf("creating form file: %w", err)
+	}
+	if _, err := part.Write(content); err != nil {
+		return nil, fmt.Errorf("writing content: %w", err)
+	}
+	if err := writer.Close(); err != nil {
+		return nil, fmt.Errorf("closing multipart writer: %w", err)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.baseURL+"/api/v1/projects/"+projectID+"/clipboard", &buf)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+
+	var resp api.ClipboardUploadResponse
+	if err := c.do(req, &resp); err != nil {
+		return nil, err
+	}
+	return &resp, nil
 }
 
 // --- HTTP helpers ---

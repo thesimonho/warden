@@ -4,6 +4,7 @@ package engine
 
 import (
 	"context"
+	"io"
 
 	"github.com/thesimonho/warden/agent"
 	"github.com/thesimonho/warden/api"
@@ -320,4 +321,9 @@ type Client interface {
 	// of container logs to capture the error. Used by the liveness checker to
 	// enrich stale-heartbeat audit events with diagnostic details.
 	ContainerStartupHealth(ctx context.Context, containerName string) (*ContainerHealth, error)
+
+	// CopyFileToContainer writes a single file into a running container.
+	// The file is packaged as a tar archive and extracted at destDir.
+	// Used by the clipboard upload feature to stage images for the xclip shim.
+	CopyFileToContainer(ctx context.Context, containerID, destDir, filename string, content io.Reader, size int64) error
 }

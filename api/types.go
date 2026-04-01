@@ -255,3 +255,12 @@ type TimeRange struct {
 	Earliest string `json:"earliest,omitempty"`
 	Latest   string `json:"latest,omitempty"`
 }
+
+// --- Clipboard ---
+
+// ClipboardUploadResponse is the result of uploading a file to a container's
+// clipboard staging directory for the xclip shim to serve.
+type ClipboardUploadResponse struct {
+	// Path is the absolute path of the staged file inside the container.
+	Path string `json:"path"`
+}

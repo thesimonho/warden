@@ -172,6 +172,10 @@ type Client interface {
 	// API: POST /api/v1/access/resolve
 	ResolveAccessItems(ctx context.Context, req api.ResolveAccessItemsRequest) (*api.ResolveAccessItemsResponse, error)
 
+	// UploadClipboard stages an image in the container's clipboard directory.
+	// API: POST /api/v1/projects/{projectId}/clipboard
+	UploadClipboard(ctx context.Context, projectID string, content []byte, mimeType string) (*api.ClipboardUploadResponse, error)
+
 	// SubscribeEvents returns a channel of real-time SSE events and an
 	// unsubscribe function. The channel is closed when the context is
 	// cancelled or the connection drops.

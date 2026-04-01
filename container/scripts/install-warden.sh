@@ -26,6 +26,11 @@ if [ -d "${SCRIPTS_DIR}/shared" ]; then
       done
     fi
   done
+
+  # Install clipboard shim for web terminal image paste support.
+  if [ -x "/usr/local/bin/install-clipboard-shim.sh" ]; then
+    /usr/local/bin/install-clipboard-shim.sh
+  fi
 else
   # Devcontainer feature layout: all scripts flat alongside this file.
   # Use glob to avoid a hardcoded list going stale when scripts are
@@ -38,4 +43,9 @@ else
     cp "$script" "/usr/local/bin/$(basename "$script")"
     chmod +x "/usr/local/bin/$(basename "$script")"
   done
+
+  # Install clipboard shim (devcontainer path).
+  if [ -x "/usr/local/bin/install-clipboard-shim.sh" ]; then
+    /usr/local/bin/install-clipboard-shim.sh
+  fi
 fi

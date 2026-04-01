@@ -36,6 +36,7 @@ import { FitAddon } from '@xterm/addon-fit'
 import { Unicode11Addon } from '@xterm/addon-unicode11'
 import { WebLinksAddon } from '@xterm/addon-web-links'
 import { toast } from 'sonner'
+import { uploadClipboardImage } from '@/lib/api'
 import { getTerminalTheme } from '@/lib/terminal-themes'
 import '@fontsource/jetbrains-mono/400.css'
 import '@fontsource/jetbrains-mono/600.css'
@@ -83,6 +84,102 @@ const UNFOCUSED_FLUSH_MS = 200
 const RECONNECT_BASE_MS = 1000
 const RECONNECT_MAX_MS = 16000
 const MAX_RECONNECT_ATTEMPTS = 5
+
+/**
+ * Tracks whether the next OSC 52 clipboard write was triggered by an
+ * explicit Ctrl+Shift+C (so we can show a toast only for that case,
+ * not for copy-on-select). Set by the key handler, cleared by the
+ * OSC 52 handler or a short timeout.
+ */
+let pendingExplicitCopy = false
+let pendingExplicitCopyTimer: ReturnType<typeof setTimeout> | null = null
+
+/**
+ * Marks the next OSC 52 write as an explicit copy (from Ctrl+Shift+C).
+ * Automatically clears after 500ms if no OSC 52 write arrives.
+ */
+function markExplicitCopy(): void {
+  pendingExplicitCopy = true
+  if (pendingExplicitCopyTimer) clearTimeout(pendingExplicitCopyTimer)
+  pendingExplicitCopyTimer = setTimeout(() => {
+    pendingExplicitCopy = false
+    pendingExplicitCopyTimer = null
+  }, 500)
+}
+
+/**
+ * Consumes the explicit copy flag, returning whether it was set.
+ */
+function consumeExplicitCopy(): boolean {
+  const was = pendingExplicitCopy
+  pendingExplicitCopy = false
+  if (pendingExplicitCopyTimer) {
+    clearTimeout(pendingExplicitCopyTimer)
+    pendingExplicitCopyTimer = null
+  }
+  return was
+}
+
+/**
+ * Registers an OSC 52 handler for bidirectional clipboard access between
+ * the container and the browser. OSC 52 format: `ESC ] 52 ; <sel> ; <base64> ST`.
+ *
+ * - **Write** (base64 payload): decodes and writes to browser clipboard.
+ *   Used by Claude Code's fullscreen mode for copy operations.
+ * - **Read** (`?` payload): reads browser clipboard, base64-encodes it,
+ *   and sends an OSC 52 response back through the PTY. Useful for pasting
+ *   context (e.g. OAuth links) into the agent's chat.
+ *
+ * @param wsRef - WebSocket ref for sending read responses back to the PTY.
+ */
+function registerOsc52ClipboardHandler(
+  terminal: Terminal,
+  wsRef: React.RefObject<WebSocket | null>,
+): void {
+  terminal.parser.registerOscHandler(52, (data) => {
+    // data = "<selection>;<base64>" (xterm.js strips the "52;" prefix and ST terminator)
+    const semicolonIdx = data.indexOf(';')
+    if (semicolonIdx === -1) return false
+
+    const selection = data.slice(0, semicolonIdx)
+    const payload = data.slice(semicolonIdx + 1)
+
+    // Read request: send clipboard contents back as an OSC 52 response.
+    if (payload === '?') {
+      navigator.clipboard
+        .readText()
+        .then((text) => {
+          const ws = wsRef.current
+          if (!ws || ws.readyState !== WebSocket.OPEN) return
+          const encoded = btoa(text)
+          ws.send(textEncoder.encode(`\x1b]52;${selection};${encoded}\x1b\\`))
+        })
+        .catch(() => {})
+      return true
+    }
+
+    // Empty payload clears the clipboard.
+    if (payload === '') {
+      navigator.clipboard.writeText('').catch(() => {})
+      return true
+    }
+
+    // Write request: decode base64 and write to browser clipboard.
+    const isExplicit = consumeExplicitCopy()
+    try {
+      const text = atob(payload)
+      navigator.clipboard
+        .writeText(text)
+        .then(() => {
+          if (isExplicit) toast.success('Copied to clipboard')
+        })
+        .catch(() => {})
+    } catch {
+      // Invalid base64 — ignore.
+    }
+    return true
+  })
+}
 
 /**
  * Builds the WebSocket URL for a terminal connection.
@@ -354,6 +451,86 @@ export function useTerminal({
     }
   }, [isFocused, isActive, flushWriteBuffer])
 
+  /** Gives keyboard focus to the xterm.js instance. */
+  const focus = useCallback(() => {
+    terminalRef.current?.focus()
+  }, [])
+
+  /**
+   * Copies the current selection to clipboard. If xterm.js has a selection,
+   * copies it directly. Otherwise sends Ctrl+Shift+C to the PTY so the
+   * agent (e.g. Claude Code fullscreen mode) can handle it via OSC 52.
+   */
+  const copySelection = useCallback(() => {
+    const terminal = terminalRef.current
+    if (!terminal) return
+    const selection = terminal.getSelection()
+    if (selection) {
+      navigator.clipboard.writeText(selection).then(() => {
+        toast.success('Copied to clipboard')
+      })
+    } else {
+      const ws = wsRef.current
+      if (ws?.readyState === WebSocket.OPEN) {
+        ws.send(textEncoder.encode('\x1b[99;6u'))
+      }
+      markExplicitCopy()
+    }
+  }, [])
+
+  /** Pastes text from the browser clipboard into the terminal. */
+  const pasteClipboard = useCallback(() => {
+    navigator.clipboard
+      .readText()
+      .then((text) => {
+        // Strip trailing newlines to prevent auto-submitting the prompt.
+        const trimmed = text?.replace(/[\r\n]+$/, '')
+        if (trimmed) terminalRef.current?.paste(trimmed)
+      })
+      .catch(() => {})
+  }, [])
+
+  /** Selects all text in the xterm.js scrollback buffer and copies it. */
+  const selectAll = useCallback(() => {
+    const terminal = terminalRef.current
+    if (!terminal) return
+    terminal.selectAll()
+    const selection = terminal.getSelection()
+    if (selection) {
+      // xterm.js pads each line with trailing spaces to fill the terminal
+      // width. Strip them so the copied text is clean.
+      const trimmed = selection
+        .split('\n')
+        .map((line) => line.trimEnd())
+        .join('\n')
+        .trimEnd()
+      navigator.clipboard.writeText(trimmed).then(() => {
+        terminal.clearSelection()
+        toast.success('Copied all to clipboard')
+      })
+    }
+  }, [])
+
+  /**
+   * Uploads a clipboard image to the container's xclip staging directory,
+   * then sends Ctrl+V to the PTY so the agent reads it via the xclip shim.
+   */
+  const pasteImage = useCallback(
+    async (blob: Blob) => {
+      try {
+        await uploadClipboardImage(projectId, blob)
+        // Image staged — now send Ctrl+V so the agent checks xclip.
+        const ws = wsRef.current
+        if (ws?.readyState === WebSocket.OPEN) {
+          ws.send(textEncoder.encode('\x16'))
+        }
+      } catch {
+        toast.error('Failed to upload image')
+      }
+    },
+    [projectId],
+  )
+
   // Main lifecycle effect: create terminal, connect WS, observe resizes.
   useEffect(() => {
     if (!isActive || !containerRef.current) return
@@ -420,6 +597,12 @@ export function useTerminal({
       // See: https://github.com/xtermjs/xterm.js/issues/5194
       // See: https://github.com/anthropics/claude-code/issues/23581
 
+      // OSC 52 clipboard support: applications inside the container can
+      // write to the browser clipboard via the OSC 52 escape sequence.
+      // Claude Code uses this in fullscreen mode (CLAUDE_CODE_NO_FLICKER=1)
+      // for copy operations. Format: ESC ] 52 ; <sel> ; <base64> ST
+      registerOsc52ClipboardHandler(terminal, wsRef)
+
       // Clipboard keybindings: Ctrl+Shift+C copies selected text,
       // Ctrl+Shift+V pastes from clipboard. Plain Ctrl+C still sends ^C
       // (SIGINT) to the PTY as expected.
@@ -449,23 +632,51 @@ export function useTerminal({
         const isCtrlShift = event.ctrlKey && event.shiftKey && !event.altKey && !event.metaKey
 
         if (isCtrlShift && event.key === 'C') {
-          const selection = terminal.getSelection()
-          if (selection) {
-            navigator.clipboard.writeText(selection).then(() => {
-              toast.success('Copied to clipboard')
-            })
-          }
+          copySelection()
           event.preventDefault()
           return false
         }
 
         if (isCtrlShift && event.key === 'V') {
+          pasteClipboard()
+          event.preventDefault()
+          return false
+        }
+
+        // Plain Ctrl+V: check for image data on clipboard. If found,
+        // upload to the container's xclip staging dir, then send Ctrl+V
+        // so the agent reads it via the shim. For text-only clipboard,
+        // let the keystroke through to the PTY normally.
+        if (
+          event.key === 'v' &&
+          event.ctrlKey &&
+          !event.shiftKey &&
+          !event.altKey &&
+          !event.metaKey
+        ) {
           navigator.clipboard
-            .readText()
-            .then((text) => {
-              if (text) terminal.paste(text)
+            .read()
+            .then((items) => {
+              for (const item of items) {
+                const imageType = item.types.find((t) => t.startsWith('image/'))
+                if (imageType) {
+                  item.getType(imageType).then((blob) => pasteImage(blob))
+                  return
+                }
+              }
+              // No image — send the raw Ctrl+V byte so the agent handles it.
+              const ws = wsRef.current
+              if (ws?.readyState === WebSocket.OPEN) {
+                ws.send(textEncoder.encode('\x16'))
+              }
             })
-            .catch(() => {})
+            .catch(() => {
+              // Clipboard read denied — fall through with raw byte.
+              const ws = wsRef.current
+              if (ws?.readyState === WebSocket.OPEN) {
+                ws.send(textEncoder.encode('\x16'))
+              }
+            })
           event.preventDefault()
           return false
         }
@@ -519,10 +730,15 @@ export function useTerminal({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isActive, projectId, worktreeId])
 
-  /** Gives keyboard focus to the xterm.js instance. */
-  const focus = useCallback(() => {
-    terminalRef.current?.focus()
-  }, [])
-
-  return { containerRef, status, detach, focus, fit }
+  return {
+    containerRef,
+    status,
+    detach,
+    focus,
+    fit,
+    copySelection,
+    pasteClipboard,
+    pasteImage,
+    selectAll,
+  }
 }

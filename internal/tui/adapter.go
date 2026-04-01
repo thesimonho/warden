@@ -263,6 +263,13 @@ func (a *ServiceAdapter) ResolveAccessItems(_ context.Context, req api.ResolveAc
 	return a.w.Service.ResolveAccessItems(req.Items)
 }
 
+// --- Clipboard ---
+
+// UploadClipboard delegates to Service.UploadClipboard.
+func (a *ServiceAdapter) UploadClipboard(ctx context.Context, projectID string, content []byte, mimeType string) (*api.ClipboardUploadResponse, error) {
+	return a.w.Service.UploadClipboard(ctx, projectID, content, mimeType)
+}
+
 // --- Real-time Events ---
 
 // SubscribeEvents subscribes to the event broker directly (no SSE).

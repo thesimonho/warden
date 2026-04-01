@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"net/http"
 	"path/filepath"
@@ -92,6 +93,7 @@ func registerAPIRoutes(mux *http.ServeMux, svc *service.Service, broker *eventbu
 	mux.HandleFunc("POST /api/v1/access/resolve", rt.handleResolveAccessItems)
 	mux.HandleFunc("GET /api/v1/defaults", rt.handleDefaults)
 	mux.HandleFunc("GET /api/v1/events", rt.handleSSE)
+	mux.HandleFunc("POST /api/v1/projects/{projectId}/clipboard", rt.handleUploadClipboard)
 	mux.HandleFunc("GET /api/v1/projects/{projectId}/ws/{wid}", rt.handleTerminalWS)
 }
 
@@ -1426,6 +1428,69 @@ func (rt *routes) handleSSE(w http.ResponseWriter, r *http.Request) {
 			flusher.Flush()
 		}
 	}
+}
+
+// clipboardMaxSize is the maximum upload size for clipboard images (10 MB).
+const clipboardMaxSize = 10 << 20
+
+// handleUploadClipboard stages an image in the container's clipboard directory
+// for the xclip shim to serve. The web frontend calls this before sending Ctrl+V
+// to the terminal so the agent's clipboard read picks up the image.
+//
+//	@Summary		Upload clipboard image
+//	@Description	Stages an image file in the container's clipboard directory. The xclip
+//	@Description	shim serves it when the agent reads the clipboard. Used by the web
+//	@Description	frontend for image paste support.
+//	@Tags			clipboard
+//	@Accept			multipart/form-data
+//	@Produce		json
+//	@Param			projectId	path		string							true	"Project ID"
+//	@Param			file		formData	file							true	"Image file"
+//	@Success		200			{object}	api.ClipboardUploadResponse
+//	@Failure		400			{object}	apiError
+//	@Failure		404			{object}	apiError
+//	@Failure		413			{object}	apiError
+//	@Failure		500			{object}	apiError
+//	@Router			/api/v1/projects/{projectId}/clipboard [post]
+func (rt *routes) handleUploadClipboard(w http.ResponseWriter, r *http.Request) {
+	projectID := r.PathValue("projectId")
+
+	r.Body = http.MaxBytesReader(w, r.Body, clipboardMaxSize)
+
+	if err := r.ParseMultipartForm(clipboardMaxSize); err != nil {
+		writeError(w, ErrCodeInvalidBody, "file too large or invalid multipart form", http.StatusBadRequest)
+		return
+	}
+
+	file, header, err := r.FormFile("file")
+	if err != nil {
+		writeError(w, ErrCodeRequiredField, "file field is required", http.StatusBadRequest)
+		return
+	}
+	defer file.Close()
+
+	content, err := io.ReadAll(file)
+	if err != nil {
+		writeError(w, ErrCodeInternal, "failed to read file", http.StatusInternalServerError)
+		return
+	}
+
+	mimeType := header.Header.Get("Content-Type")
+	if mimeType == "" {
+		mimeType = "image/png"
+	}
+
+	resp, err := rt.svc.UploadClipboard(r.Context(), projectID, content, mimeType)
+	if err != nil {
+		if writeServiceError(w, err) {
+			return
+		}
+		writeError(w, ErrCodeInternal, err.Error(), http.StatusInternalServerError)
+		slog.Error("upload clipboard", "projectId", projectID, "err", err)
+		return
+	}
+
+	writeJSON(w, resp)
 }
 
 // handleTerminalWS upgrades to a WebSocket and bridges it to an abduco session

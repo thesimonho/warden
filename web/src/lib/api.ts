@@ -723,3 +723,30 @@ export async function resolveAccessItems(items: AccessItem[]): Promise<ResolvedI
   const body = (await response.json()) as ResolveAccessItemsResponse
   return body.items
 }
+
+// --- Clipboard ---
+
+/** Response from the clipboard upload endpoint. */
+interface ClipboardUploadResponse {
+  path: string
+}
+
+/**
+ * Uploads an image to the container's clipboard staging directory for the
+ * xclip shim. Used by the terminal's image paste handler — call this before
+ * sending Ctrl+V to the PTY so the agent's clipboard read picks up the image.
+ *
+ * @param projectId - The project whose container receives the image.
+ * @param file - The image blob from the browser clipboard.
+ * @returns The path where the image was staged inside the container.
+ */
+export async function uploadClipboardImage(projectId: string, file: Blob): Promise<string> {
+  const form = new FormData()
+  form.append('file', file, 'paste.png')
+  const response = await apiFetch(`/api/v1/projects/${projectId}/clipboard`, {
+    method: 'POST',
+    body: form,
+  })
+  const body = (await response.json()) as ClipboardUploadResponse
+  return body.path
+}

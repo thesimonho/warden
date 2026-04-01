@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"archive/tar"
 	"bytes"
 	"context"
 	"fmt"
@@ -481,6 +482,31 @@ func (ec *EngineClient) execAndCaptureStrict(ctx context.Context, containerID st
 	}
 
 	return stdout.String(), nil
+}
+
+// CopyFileToContainer writes a single file into a running container by creating
+// a tar archive and extracting it at destDir. Both Docker and Podman support
+// the container archive API used here.
+func (ec *EngineClient) CopyFileToContainer(ctx context.Context, containerID, destDir, filename string, content io.Reader, size int64) error {
+	var buf bytes.Buffer
+	tw := tar.NewWriter(&buf)
+
+	header := &tar.Header{
+		Name: filename,
+		Mode: 0644,
+		Size: size,
+	}
+	if err := tw.WriteHeader(header); err != nil {
+		return fmt.Errorf("writing tar header: %w", err)
+	}
+	if _, err := io.Copy(tw, content); err != nil {
+		return fmt.Errorf("writing tar content: %w", err)
+	}
+	if err := tw.Close(); err != nil {
+		return fmt.Errorf("closing tar writer: %w", err)
+	}
+
+	return ec.api.CopyToContainer(ctx, containerID, destDir, &buf, container.CopyToContainerOptions{})
 }
 
 // requiredBinaries lists the executables that must be present inside a container
