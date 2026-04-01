@@ -86,38 +86,38 @@ const RECONNECT_MAX_MS = 16000
 const MAX_RECONNECT_ATTEMPTS = 5
 
 /**
- * Tracks whether the next OSC 52 clipboard write was triggered by an
- * explicit Ctrl+Shift+C (so we can show a toast only for that case,
- * not for copy-on-select). Set by the key handler, cleared by the
- * OSC 52 handler or a short timeout.
+ * Helpers for tracking whether the next OSC 52 write was triggered by an
+ * explicit Ctrl+Shift+C. Uses refs so each terminal instance has its own
+ * state (module-level variables would be shared across terminals).
  */
-let pendingExplicitCopy = false
-let pendingExplicitCopyTimer: ReturnType<typeof setTimeout> | null = null
-
-/**
- * Marks the next OSC 52 write as an explicit copy (from Ctrl+Shift+C).
- * Automatically clears after 500ms if no OSC 52 write arrives.
- */
-function markExplicitCopy(): void {
-  pendingExplicitCopy = true
-  if (pendingExplicitCopyTimer) clearTimeout(pendingExplicitCopyTimer)
-  pendingExplicitCopyTimer = setTimeout(() => {
-    pendingExplicitCopy = false
-    pendingExplicitCopyTimer = null
-  }, 500)
+interface ExplicitCopyTracker {
+  mark: () => void
+  consume: () => boolean
 }
 
-/**
- * Consumes the explicit copy flag, returning whether it was set.
- */
-function consumeExplicitCopy(): boolean {
-  const was = pendingExplicitCopy
-  pendingExplicitCopy = false
-  if (pendingExplicitCopyTimer) {
-    clearTimeout(pendingExplicitCopyTimer)
-    pendingExplicitCopyTimer = null
+function createExplicitCopyTracker(): ExplicitCopyTracker {
+  let pending = false
+  let timer: ReturnType<typeof setTimeout> | null = null
+
+  return {
+    mark() {
+      pending = true
+      if (timer) clearTimeout(timer)
+      timer = setTimeout(() => {
+        pending = false
+        timer = null
+      }, 500)
+    },
+    consume() {
+      const was = pending
+      pending = false
+      if (timer) {
+        clearTimeout(timer)
+        timer = null
+      }
+      return was
+    },
   }
-  return was
 }
 
 /**
@@ -135,6 +135,7 @@ function consumeExplicitCopy(): boolean {
 function registerOsc52ClipboardHandler(
   terminal: Terminal,
   wsRef: React.RefObject<WebSocket | null>,
+  copyTracker: ExplicitCopyTracker,
 ): void {
   terminal.parser.registerOscHandler(52, (data) => {
     // data = "<selection>;<base64>" (xterm.js strips the "52;" prefix and ST terminator)
@@ -165,7 +166,7 @@ function registerOsc52ClipboardHandler(
     }
 
     // Write request: decode base64 and write to browser clipboard.
-    const isExplicit = consumeExplicitCopy()
+    const isExplicit = copyTracker.consume()
     try {
       const text = atob(payload)
       navigator.clipboard
@@ -213,6 +214,7 @@ export function useTerminal({
   const terminalRef = useRef<Terminal | null>(null)
   const fitAddonRef = useRef<FitAddon | null>(null)
   const wsRef = useRef<WebSocket | null>(null)
+  const copyTrackerRef = useRef(createExplicitCopyTracker())
   const reconnectAttemptRef = useRef(0)
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const resizeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -474,7 +476,7 @@ export function useTerminal({
       if (ws?.readyState === WebSocket.OPEN) {
         ws.send(textEncoder.encode('\x1b[99;6u'))
       }
-      markExplicitCopy()
+      copyTrackerRef.current.mark()
     }
   }, [])
 
@@ -530,6 +532,28 @@ export function useTerminal({
     },
     [projectId],
   )
+
+  /**
+   * Reads image data from the browser clipboard and uploads it to the
+   * container. Used by both the Ctrl+V key handler and context menu.
+   * Returns true if an image was found and uploaded.
+   */
+  const pasteImageFromClipboard = useCallback(async (): Promise<boolean> => {
+    try {
+      const items = await navigator.clipboard.read()
+      for (const item of items) {
+        const imageType = item.types.find((t) => t.startsWith('image/'))
+        if (imageType) {
+          const blob = await item.getType(imageType)
+          await pasteImage(blob)
+          return true
+        }
+      }
+    } catch {
+      // Clipboard read denied or failed.
+    }
+    return false
+  }, [pasteImage])
 
   // Main lifecycle effect: create terminal, connect WS, observe resizes.
   useEffect(() => {
@@ -601,7 +625,7 @@ export function useTerminal({
       // write to the browser clipboard via the OSC 52 escape sequence.
       // Claude Code uses this in fullscreen mode (CLAUDE_CODE_NO_FLICKER=1)
       // for copy operations. Format: ESC ] 52 ; <sel> ; <base64> ST
-      registerOsc52ClipboardHandler(terminal, wsRef)
+      registerOsc52ClipboardHandler(terminal, wsRef, copyTrackerRef.current)
 
       // Clipboard keybindings: Ctrl+Shift+C copies selected text,
       // Ctrl+Shift+V pastes from clipboard. Plain Ctrl+C still sends ^C
@@ -646,7 +670,7 @@ export function useTerminal({
         // Plain Ctrl+V: check for image data on clipboard. If found,
         // upload to the container's xclip staging dir, then send Ctrl+V
         // so the agent reads it via the shim. For text-only clipboard,
-        // let the keystroke through to the PTY normally.
+        // send the raw Ctrl+V byte so the agent handles it.
         if (
           event.key === 'v' &&
           event.ctrlKey &&
@@ -654,29 +678,14 @@ export function useTerminal({
           !event.altKey &&
           !event.metaKey
         ) {
-          navigator.clipboard
-            .read()
-            .then((items) => {
-              for (const item of items) {
-                const imageType = item.types.find((t) => t.startsWith('image/'))
-                if (imageType) {
-                  item.getType(imageType).then((blob) => pasteImage(blob))
-                  return
-                }
-              }
-              // No image — send the raw Ctrl+V byte so the agent handles it.
+          pasteImageFromClipboard().then((handled) => {
+            if (!handled) {
               const ws = wsRef.current
               if (ws?.readyState === WebSocket.OPEN) {
                 ws.send(textEncoder.encode('\x16'))
               }
-            })
-            .catch(() => {
-              // Clipboard read denied — fall through with raw byte.
-              const ws = wsRef.current
-              if (ws?.readyState === WebSocket.OPEN) {
-                ws.send(textEncoder.encode('\x16'))
-              }
-            })
+            }
+          })
           event.preventDefault()
           return false
         }
@@ -738,7 +747,7 @@ export function useTerminal({
     fit,
     copySelection,
     pasteClipboard,
-    pasteImage,
+    pasteImageFromClipboard,
     selectAll,
   }
 }

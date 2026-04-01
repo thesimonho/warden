@@ -44,12 +44,22 @@ cat > "$SHIM_PATH" << 'SHIM'
 CLIPBOARD_DIR="/tmp/warden-clipboard"
 ARGS="$*"
 
+# Clean up stale staged files older than 5 minutes (prevents unbounded growth
+# if pastes are never consumed by the agent).
+find "$CLIPBOARD_DIR" -maxdepth 1 -type f -mmin +5 -delete 2>/dev/null || true
+
+# Find the newest staged image file (shared by TARGETS and image read).
+find_staged_image() {
+  find "$CLIPBOARD_DIR" -maxdepth 1 -type f \
+    \( -name '*.png' -o -name '*.jpg' -o -name '*.jpeg' \
+       -o -name '*.gif' -o -name '*.webp' -o -name '*.bmp' \) \
+    2>/dev/null | sort -r | head -1
+}
+
 # --- TARGETS check: report available MIME types ---
-# Claude Code calls: xclip -selection clipboard -t TARGETS -o
 if [[ "$ARGS" == *"-selection clipboard"*"-t TARGETS"*"-o"* ]] || \
    [[ "$ARGS" == *"-selection clipboard"*"-o"*"-t TARGETS"* ]]; then
-  # Check for staged image file (newest first).
-  staged=$(find "$CLIPBOARD_DIR" -maxdepth 1 -type f -name '*.png' -o -name '*.jpg' -o -name '*.jpeg' -o -name '*.gif' -o -name '*.webp' -o -name '*.bmp' 2>/dev/null | sort -r | head -1)
+  staged=$(find_staged_image)
   if [ -n "$staged" ]; then
     ext="${staged##*.}"
     case "$ext" in
@@ -58,22 +68,17 @@ if [[ "$ARGS" == *"-selection clipboard"*"-t TARGETS"*"-o"* ]] || \
     echo "image/${ext}"
     exit 0
   fi
-  # No staged image — fall through to real xclip.
-  :
 fi
 
 # --- Image read: return staged image data ---
-# Claude Code calls: xclip -selection clipboard -t image/<fmt> -o
 if [[ "$ARGS" == *"-selection clipboard"*"-t image/"*"-o"* ]] || \
    [[ "$ARGS" == *"-selection clipboard"*"-o"*"-t image/"* ]]; then
-  staged=$(find "$CLIPBOARD_DIR" -maxdepth 1 -type f -name '*.png' -o -name '*.jpg' -o -name '*.jpeg' -o -name '*.gif' -o -name '*.webp' -o -name '*.bmp' 2>/dev/null | sort -r | head -1)
+  staged=$(find_staged_image)
   if [ -n "$staged" ]; then
     cat "$staged"
     rm -f "$staged"
     exit 0
   fi
-  # No staged image — fall through to real xclip.
-  :
 fi
 
 # --- Pass through to real xclip for all other calls ---

@@ -10,7 +10,8 @@ import (
 )
 
 // clipboardDir is the staging directory inside the container where the
-// xclip shim reads clipboard images from.
+// xclip shim reads clipboard images from. Keep in sync with
+// container/scripts/shared/install-clipboard-shim.sh.
 const clipboardDir = "/tmp/warden-clipboard"
 
 // UploadClipboard stages a file in the container's clipboard directory

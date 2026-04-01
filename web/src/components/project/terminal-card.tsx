@@ -110,13 +110,21 @@ const TerminalCard = forwardRef<TerminalCardHandle, TerminalCardProps>(function 
 ) {
   const [activeTab, setActiveTab] = useState<TerminalTab>('terminal')
 
-  const { containerRef, detach, focus, fit, copySelection, pasteClipboard, pasteImage, selectAll } =
-    useTerminal({
-      projectId,
-      worktreeId,
-      isActive,
-      isFocused: isFocused && activeTab === 'terminal',
-    })
+  const {
+    containerRef,
+    detach,
+    focus,
+    fit,
+    copySelection,
+    pasteClipboard,
+    pasteImageFromClipboard,
+    selectAll,
+  } = useTerminal({
+    projectId,
+    worktreeId,
+    isActive,
+    isFocused: isFocused && activeTab === 'terminal',
+  })
 
   useImperativeHandle(ref, () => ({
     detach,
@@ -254,22 +262,7 @@ const TerminalCard = forwardRef<TerminalCardHandle, TerminalCardProps>(function 
               Paste
               <ContextMenuShortcut>Ctrl+Shift+V</ContextMenuShortcut>
             </ContextMenuItem>
-            <ContextMenuItem
-              onClick={() => {
-                navigator.clipboard
-                  .read()
-                  .then((items) => {
-                    for (const item of items) {
-                      const imageType = item.types.find((t) => t.startsWith('image/'))
-                      if (imageType) {
-                        item.getType(imageType).then((blob) => pasteImage(blob))
-                        return
-                      }
-                    }
-                  })
-                  .catch(() => {})
-              }}
-            >
+            <ContextMenuItem onClick={() => pasteImageFromClipboard()}>
               <Image className="size-4" />
               Paste Image
               <ContextMenuShortcut>Ctrl+V</ContextMenuShortcut>
