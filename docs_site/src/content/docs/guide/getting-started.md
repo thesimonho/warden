@@ -56,10 +56,12 @@ Fill in the project name and host path, configure environment variables and othe
 
 ## Agent config directories
 
-Share your host's agent config directory into containers by setting bind mounts when creating a project. Different projects can use different config directories.
+Warden automatically mounts your host's agent config directory into every container. This mount is required and cannot be removed — the agent needs it for authentication, session tracking, and configuration.
 
-- **Claude Code:** `~/.claude` (skills, MCP plugins, settings)
-- **Codex:** `~/.codex` (agent configuration)
+- **Claude Code:** `~/.claude` (auth, skills, MCP plugins, settings)
+- **Codex:** `~/.codex` (auth tokens, agent configuration)
+
+The host path is editable if you want to point to a non-standard location.
 
 ## Environment variables
 

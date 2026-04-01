@@ -38,11 +38,13 @@ Environment variables persist across container restarts and are available in eve
 
 ### Bind Mounts
 
-Additional host directories or files to mount into the container. Each mount specifies:
+Host directories or files to mount into the container. Each mount specifies:
 
 - **Host path** — absolute path on your machine
 - **Container path** — where it appears inside the container
 - **Read-only** — whether the container can write to it (default: read-write)
+
+The agent config directory (`~/.claude` or `~/.codex`) is always mounted and cannot be removed — the agent needs it for authentication and session tracking. You can change the host path if your config lives in a non-standard location. Additional mounts are optional.
 
 Warden validates that host paths exist and resolves symlinks before creating the container. If a mount source is moved or deleted after creation, Warden detects the stale mount and blocks restarts until you fix it.
 

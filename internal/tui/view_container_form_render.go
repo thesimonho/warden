@@ -312,14 +312,19 @@ func (v *ContainerFormView) appendListSection(
 
 // renderMountItems renders mount sub-items.
 func (v *ContainerFormView) renderMountItems(isActive bool) []string {
+	rcp := v.requiredContainerPath()
 	var lines []string
 	for i, m := range v.mounts {
 		isSelected := isActive && v.mountCursor == i
 		prefix := subItemPrefix(isSelected)
+		reqLabel := ""
+		if rcp != "" && m.ContainerPath == rcp {
+			reqLabel = " (required)"
+		}
 		if v.editingMount && isSelected {
-			lines = append(lines, prefix+v.mountInputs[0].View()+" → "+v.mountInputs[1].View()+roLabel(m.ReadOnly))
+			lines = append(lines, prefix+v.mountInputs[0].View()+" → "+v.mountInputs[1].View()+roLabel(m.ReadOnly)+reqLabel)
 		} else {
-			lines = append(lines, prefix+orEmpty(m.HostPath)+" → "+orEmpty(m.ContainerPath)+roLabel(m.ReadOnly))
+			lines = append(lines, prefix+orEmpty(m.HostPath)+" → "+orEmpty(m.ContainerPath)+roLabel(m.ReadOnly)+reqLabel)
 		}
 	}
 	return lines

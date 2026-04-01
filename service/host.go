@@ -27,14 +27,15 @@ type preferredMount struct {
 	containerPath string
 	readOnly      bool
 	agentType     string // restricts mount to a specific agent type (empty = all)
+	required      bool   // mandatory for the agent to function (UI prevents removal)
 }
 
 // userMounts are always-present mounts that aren't part of any access item.
 // Each config directory is tagged to its agent type so the form only shows
 // the mount relevant to the selected agent.
 var userMounts = []preferredMount{
-	{hostRelPath: ".claude", containerPath: containerHomeDir + "/.claude", readOnly: false, agentType: "claude-code"},
-	{hostRelPath: ".codex", containerPath: containerHomeDir + "/.codex", readOnly: false, agentType: "codex"},
+	{hostRelPath: ".claude", containerPath: containerHomeDir + "/.claude", readOnly: false, agentType: "claude-code", required: true},
+	{hostRelPath: ".codex", containerPath: containerHomeDir + "/.codex", readOnly: false, agentType: "codex", required: true},
 }
 
 // GetDefaults returns server-resolved default values for the create
@@ -63,6 +64,7 @@ func (s *Service) GetDefaults() DefaultsResponse {
 				ContainerPath: um.containerPath,
 				ReadOnly:      um.readOnly,
 				AgentType:     um.agentType,
+				Required:      um.required,
 			})
 		}
 	}

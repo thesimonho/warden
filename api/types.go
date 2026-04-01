@@ -107,6 +107,9 @@ type DefaultMount struct {
 	// AgentType restricts this mount to a specific agent type.
 	// Empty means the mount applies to all agent types.
 	AgentType string `json:"agentType,omitempty"`
+	// Required marks this mount as mandatory for the agent to function.
+	// Clients must not allow users to remove or change the container path of required mounts.
+	Required bool `json:"required,omitempty"`
 }
 
 // DefaultEnvVar represents an auto-detected environment variable for the

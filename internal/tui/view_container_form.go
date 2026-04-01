@@ -325,6 +325,9 @@ func (v *ContainerFormView) Update(msg tea.Msg) (View, tea.Cmd) {
 		if len(msg.Config.Mounts) > 0 {
 			v.mounts = msg.Config.Mounts
 		}
+		// Ensure the required agent config mount is present (covers
+		// projects created before this mount became mandatory).
+		v.ensureRequiredMount()
 		if len(msg.Config.EnvVars) > 0 {
 			for k, val := range msg.Config.EnvVars {
 				v.envVars = append(v.envVars, envVarEntry{key: k, value: val})
@@ -375,6 +378,10 @@ func (v *ContainerFormView) handleKey(msg tea.KeyPressMsg) (View, tea.Cmd) {
 		return v.handleBrowsingKey(msg)
 	}
 	if v.editingMount {
+		// Required mounts only allow editing the host path — skip tab to container path.
+		if msg.String() == "tab" && v.isRequiredMount(v.mountCursor) {
+			return v, nil
+		}
 		return v.handleInlineEditKey(msg, &v.mountInputs, v.cancelMountEdit, v.saveMountInputs)
 	}
 	if v.editingEnv {
@@ -684,6 +691,11 @@ func (v *ContainerFormView) startMountEdit() (View, tea.Cmd) {
 	v.mountInputs[0].SetValue(m.HostPath)
 	v.mountInputs[1].SetValue(m.ContainerPath)
 	v.editingMount = true
+	// Container path must stay at the agent's expected location;
+	// only let the user remap which host directory backs it.
+	if v.isRequiredMount(v.mountCursor) {
+		v.mountInputs[1].Blur()
+	}
 	return v, v.mountInputs[0].Focus()
 }
 
@@ -713,6 +725,9 @@ func (v *ContainerFormView) startEnvEdit() (View, tea.Cmd) {
 // removeCurrentItem removes the selected mount or env var.
 func (v *ContainerFormView) removeCurrentItem() (View, tea.Cmd) {
 	if v.cursor == fieldMounts && v.mountCursor >= 0 && v.mountCursor < len(v.mounts) {
+		if v.isRequiredMount(v.mountCursor) {
+			return v, nil // agent won't function without its config directory
+		}
 		v.mounts = append(v.mounts[:v.mountCursor], v.mounts[v.mountCursor+1:]...)
 		if v.mountCursor >= len(v.mounts) {
 			v.mountCursor = len(v.mounts) - 1
@@ -910,25 +925,62 @@ func (v *ContainerFormView) refilterDefaultMounts() {
 	}
 }
 
-// agentConfigSuffix maps agent types to their well-known config directory
-// suffixes inside the container.
-var agentConfigSuffix = map[string]string{
-	agent.ClaudeCode: "/.claude",
-	agent.Codex:      "/.codex",
-}
-
 // isMountForAgent returns true if a default mount belongs to the given agent type.
-// Checks the server-provided AgentType tag first, then falls back to matching
-// well-known config directory patterns in the container path.
 func isMountForAgent(dm api.DefaultMount, agentType string) bool {
 	if dm.AgentType != "" {
 		return dm.AgentType == agentType
 	}
-	for at, suffix := range agentConfigSuffix {
-		if strings.HasSuffix(dm.ContainerPath, suffix) {
-			return at == agentType
+	return true // non-agent mount, always include
+}
+
+// requiredContainerPath returns the container path of the required mount for
+// the current agent type, or empty string if none.
+func (v *ContainerFormView) requiredContainerPath() string {
+	if v.defaults == nil {
+		return ""
+	}
+	selected := agentTypes[v.agentType]
+	for _, dm := range v.defaults.Mounts {
+		if dm.Required && isMountForAgent(dm, selected) {
+			return dm.ContainerPath
 		}
 	}
-	return true
+	return ""
+}
+
+// isRequiredMount returns true if the mount at the given index is the
+// required agent config mount that cannot be removed.
+func (v *ContainerFormView) isRequiredMount(index int) bool {
+	if index < 0 || index >= len(v.mounts) {
+		return false
+	}
+	rcp := v.requiredContainerPath()
+	return rcp != "" && v.mounts[index].ContainerPath == rcp
+}
+
+// ensureRequiredMount checks that the required agent config mount is present
+// in v.mounts, prepending it from defaults if missing.
+func (v *ContainerFormView) ensureRequiredMount() {
+	rcp := v.requiredContainerPath()
+	if rcp == "" {
+		return
+	}
+	for _, m := range v.mounts {
+		if m.ContainerPath == rcp {
+			return
+		}
+	}
+	// Find the full default mount to copy host path and read-only flag.
+	selected := agentTypes[v.agentType]
+	for _, dm := range v.defaults.Mounts {
+		if dm.Required && isMountForAgent(dm, selected) {
+			v.mounts = append([]engine.Mount{{
+				HostPath:      dm.HostPath,
+				ContainerPath: dm.ContainerPath,
+				ReadOnly:      dm.ReadOnly,
+			}}, v.mounts...)
+			return
+		}
+	}
 }
 

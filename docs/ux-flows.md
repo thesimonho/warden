@@ -50,7 +50,7 @@ This directory is ephemeral — stale entries are harmless and reset on containe
 - Network mode — full, restricted (with domain allowlist), or none
 - Cost budget (optional) — per-project spending limit
 - Environment variables (optional) — key-value pairs
-- Bind mounts (optional) — additional host directories to mount
+- Bind mounts — agent config directory (required, auto-added), plus optional additional host directories
 - Access items (optional) — credentials to pass through (Git, SSH, custom)
 
 **Expected behavior:**

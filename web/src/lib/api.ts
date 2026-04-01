@@ -490,6 +490,8 @@ export interface DefaultMount {
   readOnly: boolean
   /** Restricts this mount to a specific agent type. Empty means all. */
   agentType?: string
+  /** Marks this mount as mandatory for the agent to function. */
+  required?: boolean
 }
 
 /** A default environment variable resolved by the server. */
