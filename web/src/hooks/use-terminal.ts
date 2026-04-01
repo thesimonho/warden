@@ -35,9 +35,8 @@ import { Terminal } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
 import { Unicode11Addon } from '@xterm/addon-unicode11'
 import { WebLinksAddon } from '@xterm/addon-web-links'
-import { toast } from 'sonner'
-import { uploadClipboardImage } from '@/lib/api'
 import { getTerminalTheme } from '@/lib/terminal-themes'
+import { useTerminalClipboard } from '@/hooks/use-terminal-clipboard'
 import '@fontsource/jetbrains-mono/400.css'
 import '@fontsource/jetbrains-mono/600.css'
 
@@ -86,103 +85,6 @@ const RECONNECT_MAX_MS = 16000
 const MAX_RECONNECT_ATTEMPTS = 5
 
 /**
- * Helpers for tracking whether the next OSC 52 write was triggered by an
- * explicit Ctrl+Shift+C. Uses refs so each terminal instance has its own
- * state (module-level variables would be shared across terminals).
- */
-interface ExplicitCopyTracker {
-  mark: () => void
-  consume: () => boolean
-}
-
-function createExplicitCopyTracker(): ExplicitCopyTracker {
-  let pending = false
-  let timer: ReturnType<typeof setTimeout> | null = null
-
-  return {
-    mark() {
-      pending = true
-      if (timer) clearTimeout(timer)
-      timer = setTimeout(() => {
-        pending = false
-        timer = null
-      }, 500)
-    },
-    consume() {
-      const was = pending
-      pending = false
-      if (timer) {
-        clearTimeout(timer)
-        timer = null
-      }
-      return was
-    },
-  }
-}
-
-/**
- * Registers an OSC 52 handler for bidirectional clipboard access between
- * the container and the browser. OSC 52 format: `ESC ] 52 ; <sel> ; <base64> ST`.
- *
- * - **Write** (base64 payload): decodes and writes to browser clipboard.
- *   Used by Claude Code's fullscreen mode for copy operations.
- * - **Read** (`?` payload): reads browser clipboard, base64-encodes it,
- *   and sends an OSC 52 response back through the PTY. Useful for pasting
- *   context (e.g. OAuth links) into the agent's chat.
- *
- * @param wsRef - WebSocket ref for sending read responses back to the PTY.
- */
-function registerOsc52ClipboardHandler(
-  terminal: Terminal,
-  wsRef: React.RefObject<WebSocket | null>,
-  copyTracker: ExplicitCopyTracker,
-): void {
-  terminal.parser.registerOscHandler(52, (data) => {
-    // data = "<selection>;<base64>" (xterm.js strips the "52;" prefix and ST terminator)
-    const semicolonIdx = data.indexOf(';')
-    if (semicolonIdx === -1) return false
-
-    const selection = data.slice(0, semicolonIdx)
-    const payload = data.slice(semicolonIdx + 1)
-
-    // Read request: send clipboard contents back as an OSC 52 response.
-    if (payload === '?') {
-      navigator.clipboard
-        .readText()
-        .then((text) => {
-          const ws = wsRef.current
-          if (!ws || ws.readyState !== WebSocket.OPEN) return
-          const encoded = btoa(text)
-          ws.send(textEncoder.encode(`\x1b]52;${selection};${encoded}\x1b\\`))
-        })
-        .catch(() => {})
-      return true
-    }
-
-    // Empty payload clears the clipboard.
-    if (payload === '') {
-      navigator.clipboard.writeText('').catch(() => {})
-      return true
-    }
-
-    // Write request: decode base64 and write to browser clipboard.
-    const isExplicit = copyTracker.consume()
-    try {
-      const text = atob(payload)
-      navigator.clipboard
-        .writeText(text)
-        .then(() => {
-          if (isExplicit) toast.success('Copied to clipboard')
-        })
-        .catch(() => {})
-    } catch {
-      // Invalid base64 — ignore.
-    }
-    return true
-  })
-}
-
-/**
  * Builds the WebSocket URL for a terminal connection.
  *
  * In development, Vite proxies /api/* (including WS upgrades) to the Go
@@ -214,7 +116,6 @@ export function useTerminal({
   const terminalRef = useRef<Terminal | null>(null)
   const fitAddonRef = useRef<FitAddon | null>(null)
   const wsRef = useRef<WebSocket | null>(null)
-  const copyTrackerRef = useRef(createExplicitCopyTracker())
   const reconnectAttemptRef = useRef(0)
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const resizeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -226,6 +127,8 @@ export function useTerminal({
   const throttleTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const isFocusedRef = useRef(isFocused)
   const [status, setStatus] = useState<TerminalStatus>('disconnected')
+
+  const clipboard = useTerminalClipboard({ terminalRef, wsRef, projectId })
 
   // Keep focus ref in sync so the message handler (closure) sees changes.
   isFocusedRef.current = isFocused
@@ -458,103 +361,6 @@ export function useTerminal({
     terminalRef.current?.focus()
   }, [])
 
-  /**
-   * Copies the current selection to clipboard. If xterm.js has a selection,
-   * copies it directly. Otherwise sends Ctrl+Shift+C to the PTY so the
-   * agent (e.g. Claude Code fullscreen mode) can handle it via OSC 52.
-   */
-  const copySelection = useCallback(() => {
-    const terminal = terminalRef.current
-    if (!terminal) return
-    const selection = terminal.getSelection()
-    if (selection) {
-      navigator.clipboard.writeText(selection).then(() => {
-        toast.success('Copied to clipboard')
-      })
-    } else {
-      const ws = wsRef.current
-      if (ws?.readyState === WebSocket.OPEN) {
-        ws.send(textEncoder.encode('\x1b[99;6u'))
-      }
-      copyTrackerRef.current.mark()
-    }
-  }, [])
-
-  /** Pastes text from the browser clipboard into the terminal. */
-  const pasteClipboard = useCallback(() => {
-    navigator.clipboard
-      .readText()
-      .then((text) => {
-        // Strip trailing newlines to prevent auto-submitting the prompt.
-        const trimmed = text?.replace(/[\r\n]+$/, '')
-        if (trimmed) terminalRef.current?.paste(trimmed)
-      })
-      .catch(() => {})
-  }, [])
-
-  /** Selects all text in the xterm.js scrollback buffer and copies it. */
-  const selectAll = useCallback(() => {
-    const terminal = terminalRef.current
-    if (!terminal) return
-    terminal.selectAll()
-    const selection = terminal.getSelection()
-    if (selection) {
-      // xterm.js pads each line with trailing spaces to fill the terminal
-      // width. Strip them so the copied text is clean.
-      const trimmed = selection
-        .split('\n')
-        .map((line) => line.trimEnd())
-        .join('\n')
-        .trimEnd()
-      navigator.clipboard.writeText(trimmed).then(() => {
-        terminal.clearSelection()
-        toast.success('Copied all to clipboard')
-      })
-    }
-  }, [])
-
-  /**
-   * Uploads a clipboard image to the container's xclip staging directory,
-   * then sends Ctrl+V to the PTY so the agent reads it via the xclip shim.
-   */
-  const pasteImage = useCallback(
-    async (blob: Blob) => {
-      try {
-        await uploadClipboardImage(projectId, blob)
-        // Image staged — now send Ctrl+V so the agent checks xclip.
-        const ws = wsRef.current
-        if (ws?.readyState === WebSocket.OPEN) {
-          ws.send(textEncoder.encode('\x16'))
-        }
-      } catch {
-        toast.error('Failed to upload image')
-      }
-    },
-    [projectId],
-  )
-
-  /**
-   * Reads image data from the browser clipboard and uploads it to the
-   * container. Used by both the Ctrl+V key handler and context menu.
-   * Returns true if an image was found and uploaded.
-   */
-  const pasteImageFromClipboard = useCallback(async (): Promise<boolean> => {
-    try {
-      const items = await navigator.clipboard.read()
-      for (const item of items) {
-        const imageType = item.types.find((t) => t.startsWith('image/'))
-        if (imageType) {
-          const blob = await item.getType(imageType)
-          await pasteImage(blob)
-          return true
-        }
-      }
-    } catch {
-      // Clipboard read denied or failed.
-    }
-    return false
-  }, [pasteImage])
-
   // Main lifecycle effect: create terminal, connect WS, observe resizes.
   useEffect(() => {
     if (!isActive || !containerRef.current) return
@@ -625,7 +431,7 @@ export function useTerminal({
       // write to the browser clipboard via the OSC 52 escape sequence.
       // Claude Code uses this in fullscreen mode (CLAUDE_CODE_NO_FLICKER=1)
       // for copy operations. Format: ESC ] 52 ; <sel> ; <base64> ST
-      registerOsc52ClipboardHandler(terminal, wsRef, copyTrackerRef.current)
+      clipboard.registerOsc52Handler(terminal)
 
       // Clipboard keybindings: Ctrl+Shift+C copies selected text,
       // Ctrl+Shift+V pastes from clipboard. Plain Ctrl+C still sends ^C
@@ -656,13 +462,13 @@ export function useTerminal({
         const isCtrlShift = event.ctrlKey && event.shiftKey && !event.altKey && !event.metaKey
 
         if (isCtrlShift && event.key === 'C') {
-          copySelection()
+          clipboard.copySelection()
           event.preventDefault()
           return false
         }
 
         if (isCtrlShift && event.key === 'V') {
-          pasteClipboard()
+          clipboard.pasteText()
           event.preventDefault()
           return false
         }
@@ -678,7 +484,7 @@ export function useTerminal({
           !event.altKey &&
           !event.metaKey
         ) {
-          pasteImageFromClipboard().then((handled) => {
+          clipboard.pasteImageFromClipboard().then((handled) => {
             if (!handled) {
               const ws = wsRef.current
               if (ws?.readyState === WebSocket.OPEN) {
@@ -745,9 +551,6 @@ export function useTerminal({
     detach,
     focus,
     fit,
-    copySelection,
-    pasteClipboard,
-    pasteImageFromClipboard,
-    selectAll,
+    clipboard,
   }
 }

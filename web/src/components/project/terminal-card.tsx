@@ -110,16 +110,7 @@ const TerminalCard = forwardRef<TerminalCardHandle, TerminalCardProps>(function 
 ) {
   const [activeTab, setActiveTab] = useState<TerminalTab>('terminal')
 
-  const {
-    containerRef,
-    detach,
-    focus,
-    fit,
-    copySelection,
-    pasteClipboard,
-    pasteImageFromClipboard,
-    selectAll,
-  } = useTerminal({
+  const { containerRef, detach, focus, fit, clipboard } = useTerminal({
     projectId,
     worktreeId,
     isActive,
@@ -252,23 +243,23 @@ const TerminalCard = forwardRef<TerminalCardHandle, TerminalCardProps>(function 
             </div>
           </ContextMenuTrigger>
           <ContextMenuContent className="w-64">
-            <ContextMenuItem onClick={copySelection}>
+            <ContextMenuItem onClick={clipboard.copySelection}>
               <Copy className="size-4" />
               Copy
               <ContextMenuShortcut>Ctrl+Shift+C</ContextMenuShortcut>
             </ContextMenuItem>
-            <ContextMenuItem onClick={pasteClipboard}>
+            <ContextMenuItem onClick={clipboard.pasteText}>
               <Clipboard className="size-4" />
               Paste
               <ContextMenuShortcut>Ctrl+Shift+V</ContextMenuShortcut>
             </ContextMenuItem>
-            <ContextMenuItem onClick={() => pasteImageFromClipboard()}>
+            <ContextMenuItem onClick={() => clipboard.pasteImageFromClipboard()}>
               <Image className="size-4" />
               Paste Image
               <ContextMenuShortcut>Ctrl+V</ContextMenuShortcut>
             </ContextMenuItem>
             <ContextMenuSeparator />
-            <ContextMenuItem onClick={selectAll}>
+            <ContextMenuItem onClick={clipboard.selectAll}>
               <BoxSelect className="size-4" />
               Select All
               <ContextMenuShortcut>Ctrl+Shift+A</ContextMenuShortcut>
