@@ -10,7 +10,7 @@ import (
 func TestGetSettings(t *testing.T) {
 	t.Parallel()
 
-	svc := New(&mockEngine{}, testDB(t), nil, nil)
+	svc := New(ServiceDeps{Engine: &mockEngine{}, DB: testDB(t)})
 
 	settings := svc.GetSettings()
 	if settings.AuditLogMode != api.AuditLogOff {
@@ -25,7 +25,7 @@ func TestUpdateSettings_Runtime(t *testing.T) {
 	t.Parallel()
 
 	database := testDB(t)
-	svc := New(&mockEngine{}, database, nil, nil)
+	svc := New(ServiceDeps{Engine: &mockEngine{}, DB: database})
 
 	result, err := svc.UpdateSettings(context.Background(), UpdateSettingsRequest{
 		Runtime: strPtr("podman"),
@@ -46,7 +46,7 @@ func TestUpdateSettings_AuditLogMode(t *testing.T) {
 	t.Parallel()
 
 	database := testDB(t)
-	svc := New(&mockEngine{}, database, nil, nil)
+	svc := New(ServiceDeps{Engine: &mockEngine{}, DB: database})
 
 	mode := api.AuditLogStandard
 	result, err := svc.UpdateSettings(context.Background(), UpdateSettingsRequest{

@@ -24,7 +24,7 @@ func enforceBudgetTestSetup(t *testing.T) (*Service, *mockEngine) {
 			{ID: "wt-2"},
 		},
 	}
-	svc := New(mock, store, nil, nil)
+	svc := New(ServiceDeps{Engine: mock, DB: store})
 
 	// Set a $10 per-project budget.
 	_ = store.InsertProject(testProjectRow("test-project", 10.00))
@@ -125,7 +125,7 @@ func TestPersistSessionCost_NoBudget(t *testing.T) {
 	t.Parallel()
 	store := testDB(t)
 	mock := &mockEngine{}
-	svc := New(mock, store, nil, nil)
+	svc := New(ServiceDeps{Engine: mock, DB: store})
 
 	// No budget set — should be a no-op even with all actions enabled.
 	setBudgetAction(svc, settingBudgetActionStopWorktrees, "true")
@@ -176,7 +176,7 @@ func TestPersistSessionCost_ZeroCostStillEnforces(t *testing.T) {
 func TestIsOverBudget_PreventStartEnabled(t *testing.T) {
 	t.Parallel()
 	store := testDB(t)
-	svc := New(&mockEngine{}, store, nil, nil)
+	svc := New(ServiceDeps{Engine: &mockEngine{}, DB: store})
 
 	_ = store.InsertProject(testProjectRow("proj", 10.00))
 	_ = store.UpsertSessionCost("proj", "session-1", 15.00, false)
@@ -191,7 +191,7 @@ func TestIsOverBudget_PreventStartEnabled(t *testing.T) {
 func TestIsOverBudget_PreventStartDisabled(t *testing.T) {
 	t.Parallel()
 	store := testDB(t)
-	svc := New(&mockEngine{}, store, nil, nil)
+	svc := New(ServiceDeps{Engine: &mockEngine{}, DB: store})
 
 	_ = store.InsertProject(testProjectRow("proj", 10.00))
 	_ = store.UpsertSessionCost("proj", "session-1", 15.00, false)
@@ -205,7 +205,7 @@ func TestIsOverBudget_PreventStartDisabled(t *testing.T) {
 func TestIsOverBudget_WithinBudget(t *testing.T) {
 	t.Parallel()
 	store := testDB(t)
-	svc := New(&mockEngine{}, store, nil, nil)
+	svc := New(ServiceDeps{Engine: &mockEngine{}, DB: store})
 
 	_ = store.InsertProject(testProjectRow("proj", 10.00))
 	_ = store.UpsertSessionCost("proj", "session-1", 5.00, false)
@@ -226,14 +226,14 @@ func TestRestartProject_BlockedByBudget(t *testing.T) {
 		},
 		inspectConfig: &engine.ContainerConfig{Name: "proj"},
 	}
-	svc := New(mock, store, nil, nil)
+	svc := New(ServiceDeps{Engine: mock, DB: store})
 
 	_ = store.InsertProject(testProjectRow("proj", 10.00))
 	_ = store.UpsertSessionCost("proj", "session-1", 15.00, false)
 	setBudgetAction(svc, settingBudgetActionPreventStart, "true")
 
 	row := &db.ProjectRow{ProjectID: "proj", ContainerID: "ctr123", ContainerName: "proj", Name: "proj"}
-	_, err := svc.RestartProject(context.Background(), row)
+	_, err := svc.RestartProject(context.Background(), row.ProjectID)
 	if !errors.Is(err, ErrBudgetExceeded) {
 		t.Errorf("expected ErrBudgetExceeded, got %v", err)
 	}
@@ -275,7 +275,7 @@ func TestPersistSessionCost_WritesAuditEntries(t *testing.T) {
 	}
 
 	audit := db.NewAuditWriter(store, db.AuditDetailed, nil)
-	svc := New(mock, store, nil, audit)
+	svc := New(ServiceDeps{Engine: mock, DB: store, Audit: audit})
 
 	_ = store.InsertProject(testProjectRow("test-project", 10.00))
 
@@ -308,7 +308,7 @@ func TestPersistSessionCost_WorksWhenAuditOff(t *testing.T) {
 	}
 
 	audit := db.NewAuditWriter(store, db.AuditOff, nil)
-	svc := New(mock, store, nil, audit)
+	svc := New(ServiceDeps{Engine: mock, DB: store, Audit: audit})
 
 	_ = store.InsertProject(testProjectRow("test-project", 10.00))
 	setBudgetAction(svc, settingBudgetActionStopWorktrees, "true")
@@ -339,14 +339,14 @@ func TestRestartProject_AllowedWhenPreventStartOff(t *testing.T) {
 		},
 		inspectConfig: &engine.ContainerConfig{Name: "proj"},
 	}
-	svc := New(mock, store, nil, nil)
+	svc := New(ServiceDeps{Engine: mock, DB: store})
 
 	_ = store.InsertProject(testProjectRow("proj", 10.00))
 	_ = store.UpsertSessionCost("proj", "session-1", 15.00, false)
 	// preventStart is off by default — restart should proceed.
 
 	row := &db.ProjectRow{ProjectID: "proj", ContainerID: "ctr123", ContainerName: "proj", Name: "proj"}
-	_, err := svc.RestartProject(context.Background(), row)
+	_, err := svc.RestartProject(context.Background(), row.ProjectID)
 	// Restart itself may fail (no real container), but it should NOT
 	// be ErrBudgetExceeded.
 	if errors.Is(err, ErrBudgetExceeded) {

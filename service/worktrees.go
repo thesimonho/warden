@@ -13,7 +13,11 @@ import (
 // ListWorktrees returns all worktrees for the given project with
 // their terminal state, enriched with real-time data from the event
 // store when available.
-func (s *Service) ListWorktrees(ctx context.Context, project *db.ProjectRow) ([]engine.Worktree, error) {
+func (s *Service) ListWorktrees(ctx context.Context, projectID string) ([]engine.Worktree, error) {
+	project, err := s.resolveProject(projectID)
+	if err != nil {
+		return nil, err
+	}
 	containerName := effectiveContainerName(project)
 
 	// Skip the expensive batch docker exec when the event bus store
@@ -33,7 +37,11 @@ func (s *Service) ListWorktrees(ctx context.Context, project *db.ProjectRow) ([]
 }
 
 // CreateWorktree creates a new git worktree and connects a terminal.
-func (s *Service) CreateWorktree(ctx context.Context, project *db.ProjectRow, name string) (*WorktreeResult, error) {
+func (s *Service) CreateWorktree(ctx context.Context, projectID, name string) (*WorktreeResult, error) {
+	project, err := s.resolveProject(projectID)
+	if err != nil {
+		return nil, err
+	}
 	containerName := effectiveContainerName(project)
 
 	worktreeID, err := s.docker.CreateWorktree(ctx, project.ContainerID, name, project.SkipPermissions)
@@ -70,7 +78,11 @@ func (s *Service) CreateWorktree(ctx context.Context, project *db.ProjectRow, na
 // container. For background reconnects (abduco alive, no script
 // needed), pushes a synthetic terminal_connected event so the store
 // transitions from background to connected.
-func (s *Service) ConnectTerminal(ctx context.Context, project *db.ProjectRow, worktreeID string) (*WorktreeResult, error) {
+func (s *Service) ConnectTerminal(ctx context.Context, projectID, worktreeID string) (*WorktreeResult, error) {
+	project, err := s.resolveProject(projectID)
+	if err != nil {
+		return nil, err
+	}
 	containerName := effectiveContainerName(project)
 
 	resultID, err := s.docker.ConnectTerminal(ctx, project.ContainerID, worktreeID, project.SkipPermissions)
@@ -105,7 +117,11 @@ func (s *Service) ConnectTerminal(ctx context.Context, project *db.ProjectRow, w
 // synthetic terminal_disconnected event so the store transitions
 // from connected to background without relying on the container
 // script's async curl delivery.
-func (s *Service) DisconnectTerminal(ctx context.Context, project *db.ProjectRow, worktreeID string) (*WorktreeResult, error) {
+func (s *Service) DisconnectTerminal(ctx context.Context, projectID, worktreeID string) (*WorktreeResult, error) {
+	project, err := s.resolveProject(projectID)
+	if err != nil {
+		return nil, err
+	}
 	containerName := effectiveContainerName(project)
 
 	if err := s.docker.DisconnectTerminal(ctx, project.ContainerID, worktreeID); err != nil {
@@ -136,7 +152,11 @@ func (s *Service) DisconnectTerminal(ctx context.Context, project *db.ProjectRow
 
 // KillWorktreeProcess kills abduco and all child processes for a
 // worktree, destroying the terminal entirely.
-func (s *Service) KillWorktreeProcess(ctx context.Context, project *db.ProjectRow, worktreeID string) (*WorktreeResult, error) {
+func (s *Service) KillWorktreeProcess(ctx context.Context, projectID, worktreeID string) (*WorktreeResult, error) {
+	project, err := s.resolveProject(projectID)
+	if err != nil {
+		return nil, err
+	}
 	containerName := effectiveContainerName(project)
 
 	if err := s.docker.KillWorktreeProcess(ctx, project.ContainerID, worktreeID); err != nil {
@@ -161,7 +181,11 @@ func (s *Service) KillWorktreeProcess(ctx context.Context, project *db.ProjectRo
 
 // RemoveWorktree fully removes a worktree: kills processes, runs
 // `git worktree remove`, and cleans up tracking state.
-func (s *Service) RemoveWorktree(ctx context.Context, project *db.ProjectRow, worktreeID string) (*WorktreeResult, error) {
+func (s *Service) RemoveWorktree(ctx context.Context, projectID, worktreeID string) (*WorktreeResult, error) {
+	project, err := s.resolveProject(projectID)
+	if err != nil {
+		return nil, err
+	}
 	containerName := effectiveContainerName(project)
 
 	if err := s.docker.RemoveWorktree(ctx, project.ContainerID, worktreeID); err != nil {
@@ -199,7 +223,11 @@ func (s *Service) RemoveWorktree(ctx context.Context, project *db.ProjectRow, wo
 
 // CleanupWorktrees removes orphaned worktree directories and stale
 // terminal tracking directories. Returns the list of removed IDs.
-func (s *Service) CleanupWorktrees(ctx context.Context, project *db.ProjectRow) ([]string, error) {
+func (s *Service) CleanupWorktrees(ctx context.Context, projectID string) ([]string, error) {
+	project, err := s.resolveProject(projectID)
+	if err != nil {
+		return nil, err
+	}
 	containerName := effectiveContainerName(project)
 
 	removed, err := s.docker.CleanupOrphanedWorktrees(ctx, project.ContainerID)
@@ -240,7 +268,11 @@ func (s *Service) CleanupWorktrees(ctx context.Context, project *db.ProjectRow) 
 }
 
 // GetWorktreeDiff returns uncommitted changes for a worktree.
-func (s *Service) GetWorktreeDiff(ctx context.Context, project *db.ProjectRow, worktreeID string) (*api.DiffResponse, error) {
+func (s *Service) GetWorktreeDiff(ctx context.Context, projectID, worktreeID string) (*api.DiffResponse, error) {
+	project, err := s.resolveProject(projectID)
+	if err != nil {
+		return nil, err
+	}
 	return s.docker.GetWorktreeDiff(ctx, project.ContainerID, worktreeID)
 }
 

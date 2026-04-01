@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/thesimonho/warden/db"
 	"github.com/thesimonho/warden/engine"
 )
 
@@ -1159,4 +1160,283 @@ func TestStore_ProjectAttentionIncludesCost(t *testing.T) {
 		}
 	}
 	t.Error("expected project_state broadcast")
+}
+
+// ---------------------------------------------------------------------------
+// AliveCallback
+// ---------------------------------------------------------------------------
+
+func TestStore_AliveCallback_HeartbeatForUnknownContainer(t *testing.T) {
+	var mu sync.Mutex
+	var calledProjectID, calledContainer string
+
+	store := NewStore(nil, nil)
+	store.SetAliveCallback(func(projectID, containerName string) {
+		mu.Lock()
+		defer mu.Unlock()
+		calledProjectID = projectID
+		calledContainer = containerName
+	})
+
+	store.HandleEvent(ContainerEvent{
+		Type:          EventHeartbeat,
+		ContainerName: "proj-1",
+		ProjectID:     "pid-1",
+		WorktreeID:    "main",
+		Timestamp:     time.Now(),
+	})
+
+	mu.Lock()
+	defer mu.Unlock()
+	if calledProjectID != "pid-1" {
+		t.Errorf("expected projectID pid-1, got %q", calledProjectID)
+	}
+	if calledContainer != "proj-1" {
+		t.Errorf("expected containerName proj-1, got %q", calledContainer)
+	}
+}
+
+func TestStore_AliveCallback_SessionStartForUnknownContainer(t *testing.T) {
+	var called bool
+
+	store := NewStore(nil, nil)
+	store.SetAliveCallback(func(projectID, containerName string) {
+		called = true
+	})
+
+	store.HandleEvent(ContainerEvent{
+		Type:          EventSessionStart,
+		ContainerName: "proj-1",
+		ProjectID:     "pid-1",
+		WorktreeID:    "main",
+		Timestamp:     time.Now(),
+	})
+
+	if !called {
+		t.Error("expected AliveCallback to fire on session_start for unknown container")
+	}
+}
+
+func TestStore_AliveCallback_SecondHeartbeatDoesNotFire(t *testing.T) {
+	var callCount int
+
+	store := NewStore(nil, nil)
+	store.SetAliveCallback(func(projectID, containerName string) {
+		callCount++
+	})
+
+	// First heartbeat — should fire.
+	store.HandleEvent(ContainerEvent{
+		Type:          EventHeartbeat,
+		ContainerName: "proj-1",
+		ProjectID:     "pid-1",
+		WorktreeID:    "main",
+		Timestamp:     time.Now(),
+	})
+
+	// Second heartbeat — should NOT fire.
+	store.HandleEvent(ContainerEvent{
+		Type:          EventHeartbeat,
+		ContainerName: "proj-1",
+		ProjectID:     "pid-1",
+		WorktreeID:    "main",
+		Timestamp:     time.Now(),
+	})
+
+	if callCount != 1 {
+		t.Errorf("expected AliveCallback to fire once, got %d", callCount)
+	}
+}
+
+func TestStore_AliveCallback_FiresAgainAfterStale(t *testing.T) {
+	var callCount int
+
+	store := NewStore(nil, nil)
+	store.SetAliveCallback(func(projectID, containerName string) {
+		callCount++
+	})
+
+	// First heartbeat — fires.
+	store.HandleEvent(ContainerEvent{
+		Type:          EventHeartbeat,
+		ContainerName: "proj-1",
+		ProjectID:     "pid-1",
+		WorktreeID:    "main",
+		Timestamp:     time.Now(),
+	})
+
+	// Mark stale — removes from lastEvents.
+	store.MarkContainerStale("proj-1")
+
+	// Heartbeat again — should fire because container was removed from lastEvents.
+	store.HandleEvent(ContainerEvent{
+		Type:          EventHeartbeat,
+		ContainerName: "proj-1",
+		ProjectID:     "pid-1",
+		WorktreeID:    "main",
+		Timestamp:     time.Now(),
+	})
+
+	if callCount != 2 {
+		t.Errorf("expected AliveCallback to fire twice (before and after stale), got %d", callCount)
+	}
+}
+
+func TestStore_AliveCallback_NonLifecycleEventDoesNotFire(t *testing.T) {
+	var called bool
+
+	store := NewStore(nil, nil)
+	store.SetAliveCallback(func(projectID, containerName string) {
+		called = true
+	})
+
+	// An attention event for an unknown container should NOT trigger alive.
+	store.HandleEvent(ContainerEvent{
+		Type:          EventAttention,
+		ContainerName: "proj-1",
+		ProjectID:     "pid-1",
+		WorktreeID:    "main",
+		Data:          mustMarshal(t, AttentionData{NotificationType: engine.NotificationIdlePrompt}),
+		Timestamp:     time.Now(),
+	})
+
+	if called {
+		t.Error("AliveCallback should not fire for non-lifecycle events")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// writeToAuditLog: SourceID hash computation for JSONL dedup
+// ---------------------------------------------------------------------------
+
+func TestStore_WriteToAuditLog_SourceLineProducesSourceID(t *testing.T) {
+	dbStore, err := db.New(t.TempDir())
+	if err != nil {
+		t.Fatalf("db.New() error: %v", err)
+	}
+	defer dbStore.Close() //nolint:errcheck
+
+	// Use detailed mode so all events are written.
+	allEvents := map[string]bool{"tool_use": true}
+	writer := db.NewAuditWriter(dbStore, db.AuditDetailed, allEvents)
+	store := NewStore(nil, writer)
+
+	store.HandleEvent(ContainerEvent{
+		Type:          EventToolUse,
+		ContainerName: "proj-1",
+		ProjectID:     "aabbccddee01",
+		WorktreeID:    "main",
+		Data:          mustMarshal(t, ToolUseData{ToolName: "bash"}),
+		Timestamp:     time.Now(),
+		SourceLine:    []byte(`{"type":"tool_use","tool":"bash"}`),
+		SourceIndex:   0,
+	})
+
+	result, err := dbStore.Query(db.QueryFilters{ProjectID: "aabbccddee01"})
+	if err != nil {
+		t.Fatalf("Query() error: %v", err)
+	}
+	if len(result) != 1 {
+		t.Fatalf("expected 1 entry, got %d", len(result))
+	}
+
+	// SourceID is not returned by Query (it's json:"-"), so verify dedup
+	// by writing the same event again — it should be silently dropped.
+	store.HandleEvent(ContainerEvent{
+		Type:          EventToolUse,
+		ContainerName: "proj-1",
+		ProjectID:     "aabbccddee01",
+		WorktreeID:    "main",
+		Data:          mustMarshal(t, ToolUseData{ToolName: "bash"}),
+		Timestamp:     time.Now(),
+		SourceLine:    []byte(`{"type":"tool_use","tool":"bash"}`),
+		SourceIndex:   0,
+	})
+
+	result, err = dbStore.Query(db.QueryFilters{ProjectID: "aabbccddee01"})
+	if err != nil {
+		t.Fatalf("Query() error: %v", err)
+	}
+	if len(result) != 1 {
+		t.Fatalf("expected 1 entry after duplicate (dedup), got %d", len(result))
+	}
+}
+
+func TestStore_WriteToAuditLog_NoSourceLineProducesEmptySourceID(t *testing.T) {
+	dbStore, err := db.New(t.TempDir())
+	if err != nil {
+		t.Fatalf("db.New() error: %v", err)
+	}
+	defer dbStore.Close() //nolint:errcheck
+
+	allEvents := map[string]bool{"tool_use": true}
+	writer := db.NewAuditWriter(dbStore, db.AuditDetailed, allEvents)
+	store := NewStore(nil, writer)
+
+	// Two identical events without SourceLine — both should be inserted
+	// because empty SourceID becomes NULL (no uniqueness constraint on NULLs).
+	for range 2 {
+		store.HandleEvent(ContainerEvent{
+			Type:          EventToolUse,
+			ContainerName: "proj-1",
+			ProjectID:     "aabbccddee01",
+			WorktreeID:    "main",
+			Data:          mustMarshal(t, ToolUseData{ToolName: "bash"}),
+			Timestamp:     time.Now(),
+			// No SourceLine set — hook-sourced event.
+		})
+	}
+
+	result, err := dbStore.Query(db.QueryFilters{ProjectID: "aabbccddee01"})
+	if err != nil {
+		t.Fatalf("Query() error: %v", err)
+	}
+	if len(result) != 2 {
+		t.Fatalf("expected 2 entries (no SourceID = no dedup), got %d", len(result))
+	}
+}
+
+func TestStore_WriteToAuditLog_SameLineDifferentIndex_DifferentSourceIDs(t *testing.T) {
+	dbStore, err := db.New(t.TempDir())
+	if err != nil {
+		t.Fatalf("db.New() error: %v", err)
+	}
+	defer dbStore.Close() //nolint:errcheck
+
+	allEvents := map[string]bool{"tool_use": true}
+	writer := db.NewAuditWriter(dbStore, db.AuditDetailed, allEvents)
+	store := NewStore(nil, writer)
+
+	sourceLine := []byte(`{"type":"tool_use","tool":"bash"}`)
+
+	// Same SourceLine but different SourceIndex values produce different hashes.
+	store.HandleEvent(ContainerEvent{
+		Type:          EventToolUse,
+		ContainerName: "proj-1",
+		ProjectID:     "aabbccddee01",
+		WorktreeID:    "main",
+		Data:          mustMarshal(t, ToolUseData{ToolName: "bash"}),
+		Timestamp:     time.Now(),
+		SourceLine:    sourceLine,
+		SourceIndex:   0,
+	})
+
+	store.HandleEvent(ContainerEvent{
+		Type:          EventToolUse,
+		ContainerName: "proj-1",
+		ProjectID:     "aabbccddee01",
+		WorktreeID:    "main",
+		Data:          mustMarshal(t, ToolUseData{ToolName: "bash"}),
+		Timestamp:     time.Now(),
+		SourceLine:    sourceLine,
+		SourceIndex:   1,
+	})
+
+	result, err := dbStore.Query(db.QueryFilters{ProjectID: "aabbccddee01"})
+	if err != nil {
+		t.Fatalf("Query() error: %v", err)
+	}
+	if len(result) != 2 {
+		t.Fatalf("expected 2 entries (same line, different index = different hash), got %d", len(result))
+	}
 }

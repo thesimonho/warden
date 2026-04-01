@@ -90,6 +90,11 @@ type ContainerEvent struct {
 	Data json.RawMessage `json:"data,omitempty"`
 	// Timestamp is when the event was created (set by the container hook script).
 	Timestamp time.Time `json:"timestamp"`
+	// SourceLine is the raw JSONL line bytes for dedup hashing.
+	// Only set for events sourced from JSONL session files.
+	SourceLine []byte `json:"-"`
+	// SourceIndex disambiguates multiple events parsed from the same JSONL line.
+	SourceIndex int `json:"-"`
 }
 
 // AttentionData carries notification details for attention events.

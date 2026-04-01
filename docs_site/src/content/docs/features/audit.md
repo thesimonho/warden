@@ -133,17 +133,17 @@ c.DeleteAuditEvents(ctx, api.AuditFilters{
 ### Go Library
 
 ```go
-app, _ := warden.New(warden.Options{})
+w, _ := warden.New(warden.Options{})
 
 // Query events
-events, _ := app.Service.GetAuditLog(api.AuditFilters{
+events, _ := w.Service.GetAuditLog(api.AuditFilters{
     Category: "session",
     Limit:    100,
 })
 
 // Export as CSV
 var buf bytes.Buffer
-app.Service.WriteAuditCSV(&buf, api.AuditFilters{})
+w.Service.WriteAuditCSV(&buf, api.AuditFilters{})
 ```
 
 See the [Go Packages](/warden/reference/go/) reference for full API documentation.

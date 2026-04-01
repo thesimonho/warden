@@ -186,13 +186,19 @@ func (s *Service) GetProject(projectID string) (*db.ProjectRow, error) {
 // StopProject stops the container for the given project. Before stopping,
 // it captures cost from the agent's config file via docker exec and
 // persists it to the DB so cost data survives the container stop.
-func (s *Service) StopProject(ctx context.Context, project *db.ProjectRow) (*ProjectResult, error) {
+func (s *Service) StopProject(ctx context.Context, projectID string) (*ProjectResult, error) {
+	project, err := s.resolveProject(projectID)
+	if err != nil {
+		return nil, err
+	}
 	containerName := effectiveContainerName(project)
 	s.readAndPersistAgentCost(ctx, project.ProjectID, project.ContainerID, containerName)
 
 	if err := s.docker.StopProject(ctx, project.ContainerID); err != nil {
 		return nil, err
 	}
+
+	s.StopSessionWatcher(project.ProjectID)
 
 	return &ProjectResult{
 		ContainerID: project.ContainerID,
@@ -206,7 +212,11 @@ func (s *Service) StopProject(ctx context.Context, project *db.ProjectRow) (*Pro
 // the restart is blocked and a StaleMountsError is returned so the UI
 // can warn the user. Returns ErrBudgetExceeded if the project is over
 // budget and the preventStart enforcement action is enabled.
-func (s *Service) RestartProject(ctx context.Context, project *db.ProjectRow) (*ProjectResult, error) {
+func (s *Service) RestartProject(ctx context.Context, projectID string) (*ProjectResult, error) {
+	project, err := s.resolveProject(projectID)
+	if err != nil {
+		return nil, err
+	}
 	containerName := effectiveContainerName(project)
 
 	if s.IsOverBudget(project.ProjectID) {
@@ -236,6 +246,9 @@ func (s *Service) RestartProject(ctx context.Context, project *db.ProjectRow) (*
 		}
 		return nil, err
 	}
+	s.StopSessionWatcher(project.ProjectID)
+	s.startProjectWatcher(project.ProjectID, containerName, project.AgentType)
+
 	return &ProjectResult{ProjectID: project.ProjectID, Name: containerName, ContainerID: project.ContainerID}, nil
 }
 
@@ -273,6 +286,12 @@ func (s *Service) HandleContainerStale(containerName string) {
 			projectID = row.ProjectID
 			containerName = effectiveContainerName(row)
 		}
+	}
+
+	// Stop session watcher — the container is no longer sending events.
+	// HandleContainerAlive will restart it when the container comes back.
+	if projectID != "" {
+		s.StopSessionWatcher(projectID)
 	}
 
 	s.audit.Write(db.Entry{

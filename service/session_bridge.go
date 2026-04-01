@@ -31,6 +31,8 @@ func SessionEventToContainerEvent(event agent.ParsedEvent, ctx SessionContext) *
 		ProjectID:     ctx.ProjectID,
 		WorktreeID:    ctx.WorktreeID,
 		Timestamp:     parseTimestamp(event.Timestamp),
+		SourceLine:    event.SourceLine,
+		SourceIndex:   event.SourceIndex,
 	}
 
 	// Attach event-specific data payloads.

@@ -27,7 +27,7 @@ func TestGetEffectiveBudget_PerProjectBudget(t *testing.T) {
 	t.Parallel()
 
 	db := testDB(t)
-	svc := New(&mockEngine{}, db, nil, nil)
+	svc := New(ServiceDeps{Engine: &mockEngine{}, DB: db})
 
 	// Insert a project with a per-project budget.
 	_ = db.InsertProject(testProjectRow("budgeted", 25.00))
@@ -42,7 +42,7 @@ func TestGetEffectiveBudget_FallsBackToGlobalDefault(t *testing.T) {
 	t.Parallel()
 
 	db := testDB(t)
-	svc := New(&mockEngine{}, db, nil, nil)
+	svc := New(ServiceDeps{Engine: &mockEngine{}, DB: db})
 
 	// Set global default budget.
 	_ = db.SetSetting("defaultProjectBudget", "10")
@@ -60,7 +60,7 @@ func TestGetEffectiveBudget_Unlimited(t *testing.T) {
 	t.Parallel()
 
 	db := testDB(t)
-	svc := New(&mockEngine{}, db, nil, nil)
+	svc := New(ServiceDeps{Engine: &mockEngine{}, DB: db})
 
 	// No project in DB, no global default.
 	budget := svc.GetEffectiveBudget("unknown")
@@ -72,7 +72,7 @@ func TestGetEffectiveBudget_Unlimited(t *testing.T) {
 func TestGetEffectiveBudget_NilDB(t *testing.T) {
 	t.Parallel()
 
-	svc := New(&mockEngine{}, nil, nil, nil)
+	svc := New(ServiceDeps{Engine: &mockEngine{}})
 
 	budget := svc.GetEffectiveBudget("anything")
 	if budget != 0 {

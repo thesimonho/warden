@@ -75,9 +75,9 @@ result, _ := c.CreateContainer(ctx, projectID, engine.CreateContainerRequest{
 ### Go Library
 
 ```go
-app, _ := warden.New(warden.Options{})
+w, _ := warden.New(warden.Options{})
 
-result, _ := app.Service.CreateContainer(ctx, project, engine.CreateContainerRequest{
+result, _ := w.Service.CreateContainer(ctx, engine.CreateContainerRequest{
     NetworkMode:    "restricted",
     AllowedDomains: []string{"github.com", "npmjs.org"},
 })

@@ -1,8 +1,11 @@
 package eventbus
 
 import (
+	"encoding/hex"
 	"encoding/json"
+	"hash/fnv"
 	"log/slog"
+	"strconv"
 	"sync"
 	"time"
 
@@ -103,6 +106,13 @@ type StopCallbackFunc func(projectID, containerName, sessionID string, cost floa
 // [Store.SetStaleCallback].
 type StaleCallbackFunc func(containerName string)
 
+// AliveCallbackFunc is called when a container transitions from
+// unknown/stale to alive. Fires on the first lifecycle event
+// (heartbeat or session_start) for a container not in lastEvents.
+// The service layer uses this to reactively start session watchers.
+// Set via [Store.SetAliveCallback].
+type AliveCallbackFunc func(projectID, containerName string)
+
 // Store holds in-memory state derived from container events.
 //
 // Thread-safe for concurrent reads from API handlers and writes
@@ -118,6 +128,7 @@ type Store struct {
 	auditWriter        *db.AuditWriter
 	onStop             StopCallbackFunc
 	onStale            StaleCallbackFunc
+	onAlive            AliveCallbackFunc
 }
 
 // NewStore creates an empty event store. If broker is non-nil,
@@ -155,6 +166,16 @@ func (s *Store) SetStaleCallback(fn StaleCallbackFunc) {
 	s.onStale = fn
 }
 
+// SetAliveCallback registers a function called when a container
+// transitions from unknown/stale to alive. Only fires on lifecycle
+// events (heartbeat or session_start), not on arbitrary events that
+// might arrive for a container before it is fully running.
+func (s *Store) SetAliveCallback(fn AliveCallbackFunc) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.onAlive = fn
+}
+
 // HandleEvent processes a container event, updates state, and
 // broadcasts changes to SSE clients. This is the callback passed
 // to the Watcher.
@@ -165,6 +186,9 @@ func (s *Store) HandleEvent(event ContainerEvent) {
 		containerName: event.ContainerName,
 		worktreeID:    event.WorktreeID,
 	}
+
+	_, wasKnown := s.lastEvents[event.ContainerName]
+	isLifecycleEvent := event.Type == EventHeartbeat || event.Type == EventSessionStart
 	s.lastEvents[event.ContainerName] = event.Timestamp
 
 	var broadcasts []pendingBroadcast
@@ -201,6 +225,16 @@ func (s *Store) HandleEvent(event ContainerEvent) {
 		// No state change — task completion is logged for audit.
 	case EventElicitation, EventElicitationResult:
 		// No state change — MCP elicitation events are logged for audit.
+	case EventTurnComplete, EventTurnDuration:
+		// No state change — turn lifecycle is logged for audit.
+	case EventApiMetrics:
+		// No state change — API performance metrics are logged for audit.
+	case EventPermissionGrant:
+		// No state change — permission grants are logged for audit.
+	case EventContextCompact:
+		// No state change — context compaction is logged for audit.
+	case EventSystemInfo:
+		// No state change — informational system messages are logged for audit.
 	case EventTerminalConnected:
 		broadcasts = s.handleTerminalConnected(key, event)
 	case EventTerminalDisconnected:
@@ -215,6 +249,7 @@ func (s *Store) HandleEvent(event ContainerEvent) {
 
 	writer := s.auditWriter
 	onStop := s.onStop
+	onAlive := s.onAlive
 	s.mu.Unlock()
 
 	// Broadcast first so SSE notifications reach frontends before the
@@ -229,6 +264,13 @@ func (s *Store) HandleEvent(event ContainerEvent) {
 	// Runs outside the lock because enforcement may call back into docker.
 	if event.Type == EventStop && onStop != nil {
 		onStop(event.ProjectID, event.ContainerName, stopCost.SessionID, stopCost.TotalCost, stopCost.IsEstimated)
+	}
+
+	// Fire alive callback when a container appears for the first time
+	// (or reappears after being marked stale). Only lifecycle events
+	// trigger this to avoid spurious watcher starts from stray events.
+	if !wasKnown && isLifecycleEvent && onAlive != nil {
+		onAlive(event.ProjectID, event.ContainerName)
 	}
 }
 
@@ -850,6 +892,14 @@ func (s *Store) writeToAuditLog(writer *db.AuditWriter, event ContainerEvent) {
 		Event:         eventName,
 		Message:       message,
 		Data:          event.Data,
+	}
+
+	// Compute content hash for JSONL-sourced event dedup.
+	if len(event.SourceLine) > 0 {
+		h := fnv.New64a()
+		h.Write(event.SourceLine)
+		h.Write([]byte(strconv.Itoa(event.SourceIndex)))
+		entry.SourceID = hex.EncodeToString(h.Sum(nil))
 	}
 
 	writer.Write(entry)

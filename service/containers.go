@@ -49,11 +49,21 @@ func (s *Service) CreateContainer(ctx context.Context, req engine.CreateContaine
 		slog.Warn("container created but failed to save to db", "name", req.Name, "err", insertErr)
 	}
 
+	// Start lifecycle watchers for the new container.
+	if s.eventWatcher != nil {
+		s.eventWatcher.WatchContainerDir(req.Name)
+	}
+	s.startProjectWatcher(row.ProjectID, req.Name, req.AgentType)
+
 	return &ContainerResult{ContainerID: containerID, Name: req.Name, ProjectID: row.ProjectID}, nil
 }
 
 // DeleteContainer stops and removes a container.
-func (s *Service) DeleteContainer(ctx context.Context, project *db.ProjectRow) (*ContainerResult, error) {
+func (s *Service) DeleteContainer(ctx context.Context, projectID string) (*ContainerResult, error) {
+	project, err := s.resolveProject(projectID)
+	if err != nil {
+		return nil, err
+	}
 	containerName := effectiveContainerName(project)
 
 	if err := s.docker.DeleteContainer(ctx, project.ContainerID); err != nil {
@@ -62,6 +72,12 @@ func (s *Service) DeleteContainer(ctx context.Context, project *db.ProjectRow) (
 
 	// Clean up the event directory for this container.
 	s.docker.CleanupEventDir(containerName)
+
+	// Stop lifecycle watchers for the deleted container.
+	s.StopSessionWatcher(project.ProjectID)
+	if s.eventWatcher != nil {
+		s.eventWatcher.CleanupContainerDir(containerName)
+	}
 
 	s.audit.Write(db.Entry{
 		Source:        db.SourceBackend,
@@ -78,7 +94,12 @@ func (s *Service) DeleteContainer(ctx context.Context, project *db.ProjectRow) (
 // InspectContainer returns the editable configuration of a container.
 // Docker-derived fields come from the engine; DB metadata is overlaid
 // directly from the project row.
-func (s *Service) InspectContainer(ctx context.Context, project *db.ProjectRow) (*engine.ContainerConfig, error) {
+func (s *Service) InspectContainer(ctx context.Context, projectID string) (*engine.ContainerConfig, error) {
+	project, err := s.resolveProject(projectID)
+	if err != nil {
+		return nil, err
+	}
+
 	cfg, err := s.docker.InspectContainer(ctx, project.ContainerID)
 	if err != nil {
 		return nil, err
@@ -124,7 +145,12 @@ func (s *Service) InspectContainer(ctx context.Context, project *db.ProjectRow) 
 // lightweight settings changed (name, skipPermissions, costBudget), the
 // container is updated in-place without recreation. Otherwise the container
 // is fully recreated with the new configuration.
-func (s *Service) UpdateContainer(ctx context.Context, project *db.ProjectRow, req engine.CreateContainerRequest) (*ContainerResult, error) {
+func (s *Service) UpdateContainer(ctx context.Context, projectID string, req engine.CreateContainerRequest) (*ContainerResult, error) {
+	project, err := s.resolveProject(projectID)
+	if err != nil {
+		return nil, err
+	}
+
 	if needsRecreation(project, req) {
 		return s.recreateContainer(ctx, project, req)
 	}
@@ -137,11 +163,20 @@ func (s *Service) updateContainerSettings(ctx context.Context, project *db.Proje
 	containerName := effectiveContainerName(project)
 
 	// Rename the Docker container if the name changed.
+	oldContainerName := containerName
 	if req.Name != "" && req.Name != containerName {
 		if err := s.docker.RenameContainer(ctx, project.ContainerID, req.Name); err != nil {
 			return nil, fmt.Errorf("renaming container: %w", err)
 		}
 		containerName = req.Name
+
+		// Restart lifecycle watchers with the new container name.
+		s.StopSessionWatcher(project.ProjectID)
+		if s.eventWatcher != nil {
+			s.eventWatcher.CleanupContainerDir(oldContainerName)
+			s.eventWatcher.WatchContainerDir(containerName)
+		}
+		s.startProjectWatcher(project.ProjectID, containerName, project.AgentType)
 	}
 
 	if err := s.db.UpdateProjectSettings(
@@ -181,6 +216,13 @@ func (s *Service) recreateContainer(ctx context.Context, project *db.ProjectRow,
 		}
 	}
 
+	// Stop lifecycle watchers for the old container before recreation.
+	oldContainerName := effectiveContainerName(project)
+	s.StopSessionWatcher(project.ProjectID)
+	if s.eventWatcher != nil {
+		s.eventWatcher.CleanupContainerDir(oldContainerName)
+	}
+
 	newID, err := s.docker.RecreateContainer(ctx, project.ContainerID, req)
 	if err != nil {
 		return nil, err
@@ -192,6 +234,12 @@ func (s *Service) recreateContainer(ctx context.Context, project *db.ProjectRow,
 	if insertErr := s.db.InsertProject(row); insertErr != nil {
 		slog.Warn("container recreated but failed to update db", "name", req.Name, "err", insertErr)
 	}
+
+	// Start lifecycle watchers for the new container.
+	if s.eventWatcher != nil {
+		s.eventWatcher.WatchContainerDir(req.Name)
+	}
+	s.startProjectWatcher(row.ProjectID, req.Name, req.AgentType)
 
 	return &ContainerResult{ContainerID: newID, Name: req.Name, ProjectID: row.ProjectID}, nil
 }
@@ -314,7 +362,12 @@ func stringSlicesEqual(a, b []string) bool {
 
 // ValidateContainer checks whether a container has the required Warden
 // terminal infrastructure installed.
-func (s *Service) ValidateContainer(ctx context.Context, project *db.ProjectRow) (*ValidateContainerResult, error) {
+func (s *Service) ValidateContainer(ctx context.Context, projectID string) (*ValidateContainerResult, error) {
+	project, err := s.resolveProject(projectID)
+	if err != nil {
+		return nil, err
+	}
+
 	valid, missing, err := s.docker.ValidateInfrastructure(ctx, project.ContainerID)
 	if err != nil {
 		return nil, err

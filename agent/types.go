@@ -139,6 +139,13 @@ type ParsedEvent struct {
 	CompactTrigger string
 	// PreCompactTokens is the token count before compaction (populated on ContextCompact events).
 	PreCompactTokens int64
+
+	// SourceLine is the raw JSONL line bytes that produced this event.
+	// Used to compute a content hash for deduplication in the audit DB.
+	// Set by the session watcher; empty for hook-sourced events.
+	SourceLine []byte
+	// SourceIndex disambiguates multiple events parsed from the same JSONL line.
+	SourceIndex int
 }
 
 // ProjectInfo provides project metadata for session file discovery.

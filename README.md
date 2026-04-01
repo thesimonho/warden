@@ -129,9 +129,9 @@ Warden's engine is a Go library and HTTP API. You get container lifecycle, workt
 
 ```go
 // Embed the engine directly
-app, err := warden.New(warden.Options{})
-defer app.Close()
-projects, _ := app.Service.ListProjects(ctx)
+w, err := warden.New(warden.Options{})
+defer w.Close()
+projects, _ := w.Service.ListProjects(ctx)
 ```
 
 ```bash

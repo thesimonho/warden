@@ -97,25 +97,26 @@ func registerAPIRoutes(mux *http.ServeMux, svc *service.Service, broker *eventbu
 
 // --- Helpers ---
 
-// resolveProject looks up the project row from a projectId path parameter.
-// Writes a 404 error response and returns nil if the project is not found.
-func (rt *routes) resolveProject(w http.ResponseWriter, r *http.Request) *db.ProjectRow {
-	projectID := r.PathValue("projectId")
-	if !engine.ValidProjectID(projectID) {
-		writeError(w, ErrCodeInvalidBody, "invalid project ID", http.StatusBadRequest)
-		return nil
-	}
-	row, err := rt.svc.GetProject(projectID)
-	if err != nil {
-		writeError(w, ErrCodeInternal, "failed to look up project", http.StatusInternalServerError)
-		slog.Error("resolve project", "projectId", projectID, "err", err)
-		return nil
-	}
-	if row == nil {
+// writeServiceError maps common service-layer errors to HTTP responses.
+// Returns true if it wrote an error response, false if the error was not recognized.
+func writeServiceError(w http.ResponseWriter, err error) bool {
+	if errors.Is(err, service.ErrNotFound) {
 		writeError(w, ErrCodeNotFound, "project not found", http.StatusNotFound)
-		return nil
+		return true
 	}
-	return row
+	if errors.Is(err, service.ErrInvalidInput) {
+		writeError(w, ErrCodeInvalidBody, err.Error(), http.StatusBadRequest)
+		return true
+	}
+	if errors.Is(err, service.ErrBudgetExceeded) {
+		writeError(w, ErrCodeBudgetExceeded, err.Error(), http.StatusForbidden)
+		return true
+	}
+	if engine.IsStaleMountsError(err) {
+		writeError(w, ErrCodeStaleMounts, err.Error(), http.StatusConflict)
+		return true
+	}
+	return false
 }
 
 // --- Projects ---
@@ -194,15 +195,15 @@ func (rt *routes) handleAddProject(w http.ResponseWriter, r *http.Request) {
 //	@Failure		500			{object}	apiError
 //	@Router			/api/v1/projects/{projectId} [delete]
 func (rt *routes) handleRemoveProject(w http.ResponseWriter, r *http.Request) {
-	row := rt.resolveProject(w, r)
-	if row == nil {
-		return
-	}
+	projectID := r.PathValue("projectId")
 
-	result, err := rt.svc.RemoveProject(row.ProjectID)
+	result, err := rt.svc.RemoveProject(projectID)
 	if err != nil {
+		if writeServiceError(w, err) {
+			return
+		}
 		writeError(w, ErrCodeInternal, err.Error(), http.StatusInternalServerError)
-		slog.Error("remove project", "projectId", row.ProjectID, "err", err)
+		slog.Error("remove project", "projectId", projectID, "err", err)
 		return
 	}
 
@@ -221,14 +222,14 @@ func (rt *routes) handleRemoveProject(w http.ResponseWriter, r *http.Request) {
 //	@Failure		500	{object}	apiError
 //	@Router			/api/v1/projects/{projectId}/costs [delete]
 func (rt *routes) handleResetProjectCosts(w http.ResponseWriter, r *http.Request) {
-	row := rt.resolveProject(w, r)
-	if row == nil {
-		return
-	}
+	projectID := r.PathValue("projectId")
 
-	if err := rt.svc.ResetProjectCosts(row.ProjectID); err != nil {
+	if err := rt.svc.ResetProjectCosts(projectID); err != nil {
+		if writeServiceError(w, err) {
+			return
+		}
 		writeError(w, ErrCodeInternal, err.Error(), http.StatusInternalServerError)
-		slog.Error("reset project costs", "projectId", row.ProjectID, "err", err)
+		slog.Error("reset project costs", "projectId", projectID, "err", err)
 		return
 	}
 
@@ -247,15 +248,15 @@ func (rt *routes) handleResetProjectCosts(w http.ResponseWriter, r *http.Request
 //	@Failure		500			{object}	apiError
 //	@Router			/api/v1/projects/{projectId}/audit [delete]
 func (rt *routes) handlePurgeProjectAudit(w http.ResponseWriter, r *http.Request) {
-	row := rt.resolveProject(w, r)
-	if row == nil {
-		return
-	}
+	projectID := r.PathValue("projectId")
 
-	deleted, err := rt.svc.PurgeProjectAudit(row.ProjectID)
+	deleted, err := rt.svc.PurgeProjectAudit(projectID)
 	if err != nil {
+		if writeServiceError(w, err) {
+			return
+		}
 		writeError(w, ErrCodeInternal, err.Error(), http.StatusInternalServerError)
-		slog.Error("purge project audit", "projectId", row.ProjectID, "err", err)
+		slog.Error("purge project audit", "projectId", projectID, "err", err)
 		return
 	}
 
@@ -274,15 +275,15 @@ func (rt *routes) handlePurgeProjectAudit(w http.ResponseWriter, r *http.Request
 //	@Failure		500			{object}	apiError
 //	@Router			/api/v1/projects/{projectId}/stop [post]
 func (rt *routes) handleStopProject(w http.ResponseWriter, r *http.Request) {
-	row := rt.resolveProject(w, r)
-	if row == nil {
-		return
-	}
+	projectID := r.PathValue("projectId")
 
-	result, err := rt.svc.StopProject(r.Context(), row)
+	result, err := rt.svc.StopProject(r.Context(), projectID)
 	if err != nil {
+		if writeServiceError(w, err) {
+			return
+		}
 		writeError(w, ErrCodeInternal, err.Error(), http.StatusInternalServerError)
-		slog.Error("stop project", "projectId", row.ProjectID, "err", err)
+		slog.Error("stop project", "projectId", projectID, "err", err)
 		return
 	}
 
@@ -302,23 +303,15 @@ func (rt *routes) handleStopProject(w http.ResponseWriter, r *http.Request) {
 //	@Failure		500			{object}	apiError
 //	@Router			/api/v1/projects/{projectId}/restart [post]
 func (rt *routes) handleRestartProject(w http.ResponseWriter, r *http.Request) {
-	row := rt.resolveProject(w, r)
-	if row == nil {
-		return
-	}
+	projectID := r.PathValue("projectId")
 
-	result, err := rt.svc.RestartProject(r.Context(), row)
+	result, err := rt.svc.RestartProject(r.Context(), projectID)
 	if err != nil {
-		if errors.Is(err, service.ErrBudgetExceeded) {
-			writeError(w, ErrCodeBudgetExceeded, err.Error(), http.StatusForbidden)
-			return
-		}
-		if engine.IsStaleMountsError(err) {
-			writeError(w, ErrCodeStaleMounts, err.Error(), http.StatusConflict)
+		if writeServiceError(w, err) {
 			return
 		}
 		writeError(w, ErrCodeInternal, err.Error(), http.StatusInternalServerError)
-		slog.Error("restart project", "projectId", row.ProjectID, "err", err)
+		slog.Error("restart project", "projectId", projectID, "err", err)
 		return
 	}
 
@@ -340,15 +333,15 @@ func (rt *routes) handleRestartProject(w http.ResponseWriter, r *http.Request) {
 //	@Failure		500			{object}	apiError
 //	@Router			/api/v1/projects/{projectId}/worktrees [get]
 func (rt *routes) handleListWorktrees(w http.ResponseWriter, r *http.Request) {
-	row := rt.resolveProject(w, r)
-	if row == nil {
-		return
-	}
+	projectID := r.PathValue("projectId")
 
-	worktrees, err := rt.svc.ListWorktrees(r.Context(), row)
+	worktrees, err := rt.svc.ListWorktrees(r.Context(), projectID)
 	if err != nil {
+		if writeServiceError(w, err) {
+			return
+		}
 		writeError(w, ErrCodeInternal, err.Error(), http.StatusInternalServerError)
-		slog.Error("list worktrees", "projectId", row.ProjectID, "err", err)
+		slog.Error("list worktrees", "projectId", projectID, "err", err)
 		return
 	}
 
@@ -369,10 +362,7 @@ func (rt *routes) handleListWorktrees(w http.ResponseWriter, r *http.Request) {
 //	@Failure		500			{object}	apiError
 //	@Router			/api/v1/projects/{projectId}/worktrees [post]
 func (rt *routes) handleCreateWorktree(w http.ResponseWriter, r *http.Request) {
-	row := rt.resolveProject(w, r)
-	if row == nil {
-		return
-	}
+	projectID := r.PathValue("projectId")
 
 	r.Body = http.MaxBytesReader(w, r.Body, 1<<10)
 
@@ -394,10 +384,13 @@ func (rt *routes) handleCreateWorktree(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	resp, err := rt.svc.CreateWorktree(r.Context(), row, req.Name)
+	resp, err := rt.svc.CreateWorktree(r.Context(), projectID, req.Name)
 	if err != nil {
+		if writeServiceError(w, err) {
+			return
+		}
 		writeError(w, ErrCodeInternal, err.Error(), http.StatusInternalServerError)
-		slog.Error("create worktree", "projectId", row.ProjectID, "name", req.Name, "err", err)
+		slog.Error("create worktree", "projectId", projectID, "name", req.Name, "err", err)
 		return
 	}
 
@@ -418,10 +411,7 @@ func (rt *routes) handleCreateWorktree(w http.ResponseWriter, r *http.Request) {
 //	@Failure		500			{object}	apiError
 //	@Router			/api/v1/projects/{projectId}/worktrees/{wid}/connect [post]
 func (rt *routes) handleConnectTerminal(w http.ResponseWriter, r *http.Request) {
-	row := rt.resolveProject(w, r)
-	if row == nil {
-		return
-	}
+	projectID := r.PathValue("projectId")
 
 	wid := r.PathValue("wid")
 	if !isValidWorktreeID(wid) {
@@ -429,10 +419,13 @@ func (rt *routes) handleConnectTerminal(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	resp, err := rt.svc.ConnectTerminal(r.Context(), row, wid)
+	resp, err := rt.svc.ConnectTerminal(r.Context(), projectID, wid)
 	if err != nil {
+		if writeServiceError(w, err) {
+			return
+		}
 		writeError(w, ErrCodeInternal, err.Error(), http.StatusInternalServerError)
-		slog.Error("connect terminal", "projectId", row.ProjectID, "wid", wid, "err", err)
+		slog.Error("connect terminal", "projectId", projectID, "wid", wid, "err", err)
 		return
 	}
 
@@ -453,10 +446,7 @@ func (rt *routes) handleConnectTerminal(w http.ResponseWriter, r *http.Request) 
 //	@Failure		500			{object}	apiError
 //	@Router			/api/v1/projects/{projectId}/worktrees/{wid}/disconnect [post]
 func (rt *routes) handleDisconnectTerminal(w http.ResponseWriter, r *http.Request) {
-	row := rt.resolveProject(w, r)
-	if row == nil {
-		return
-	}
+	projectID := r.PathValue("projectId")
 
 	wid := r.PathValue("wid")
 	if !isValidWorktreeID(wid) {
@@ -464,10 +454,13 @@ func (rt *routes) handleDisconnectTerminal(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	result, err := rt.svc.DisconnectTerminal(r.Context(), row, wid)
+	result, err := rt.svc.DisconnectTerminal(r.Context(), projectID, wid)
 	if err != nil {
+		if writeServiceError(w, err) {
+			return
+		}
 		writeError(w, ErrCodeInternal, err.Error(), http.StatusInternalServerError)
-		slog.Error("disconnect terminal", "projectId", row.ProjectID, "wid", wid, "err", err)
+		slog.Error("disconnect terminal", "projectId", projectID, "wid", wid, "err", err)
 		return
 	}
 
@@ -489,10 +482,7 @@ func (rt *routes) handleDisconnectTerminal(w http.ResponseWriter, r *http.Reques
 //	@Failure		500			{object}	apiError
 //	@Router			/api/v1/projects/{projectId}/worktrees/{wid}/kill [post]
 func (rt *routes) handleKillWorktreeProcess(w http.ResponseWriter, r *http.Request) {
-	row := rt.resolveProject(w, r)
-	if row == nil {
-		return
-	}
+	projectID := r.PathValue("projectId")
 
 	wid := r.PathValue("wid")
 	if !isValidWorktreeID(wid) {
@@ -500,10 +490,13 @@ func (rt *routes) handleKillWorktreeProcess(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	result, err := rt.svc.KillWorktreeProcess(r.Context(), row, wid)
+	result, err := rt.svc.KillWorktreeProcess(r.Context(), projectID, wid)
 	if err != nil {
+		if writeServiceError(w, err) {
+			return
+		}
 		writeError(w, ErrCodeInternal, err.Error(), http.StatusInternalServerError)
-		slog.Error("kill worktree process", "projectId", row.ProjectID, "wid", wid, "err", err)
+		slog.Error("kill worktree process", "projectId", projectID, "wid", wid, "err", err)
 		return
 	}
 
@@ -525,10 +518,7 @@ func (rt *routes) handleKillWorktreeProcess(w http.ResponseWriter, r *http.Reque
 //	@Failure		500			{object}	apiError
 //	@Router			/api/v1/projects/{projectId}/worktrees/{wid} [delete]
 func (rt *routes) handleRemoveWorktree(w http.ResponseWriter, r *http.Request) {
-	row := rt.resolveProject(w, r)
-	if row == nil {
-		return
-	}
+	projectID := r.PathValue("projectId")
 
 	wid := r.PathValue("wid")
 	if !isValidWorktreeID(wid) {
@@ -536,10 +526,13 @@ func (rt *routes) handleRemoveWorktree(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	result, err := rt.svc.RemoveWorktree(r.Context(), row, wid)
+	result, err := rt.svc.RemoveWorktree(r.Context(), projectID, wid)
 	if err != nil {
+		if writeServiceError(w, err) {
+			return
+		}
 		writeError(w, ErrCodeInternal, err.Error(), http.StatusInternalServerError)
-		slog.Error("remove worktree", "projectId", row.ProjectID, "wid", wid, "err", err)
+		slog.Error("remove worktree", "projectId", projectID, "wid", wid, "err", err)
 		return
 	}
 
@@ -559,15 +552,15 @@ func (rt *routes) handleRemoveWorktree(w http.ResponseWriter, r *http.Request) {
 //	@Failure		500			{object}	apiError
 //	@Router			/api/v1/projects/{projectId}/worktrees/cleanup [post]
 func (rt *routes) handleCleanupWorktrees(w http.ResponseWriter, r *http.Request) {
-	row := rt.resolveProject(w, r)
-	if row == nil {
-		return
-	}
+	projectID := r.PathValue("projectId")
 
-	removed, err := rt.svc.CleanupWorktrees(r.Context(), row)
+	removed, err := rt.svc.CleanupWorktrees(r.Context(), projectID)
 	if err != nil {
+		if writeServiceError(w, err) {
+			return
+		}
 		writeError(w, ErrCodeInternal, err.Error(), http.StatusInternalServerError)
-		slog.Error("cleanup worktrees", "projectId", row.ProjectID, "err", err)
+		slog.Error("cleanup worktrees", "projectId", projectID, "err", err)
 		return
 	}
 
@@ -588,10 +581,7 @@ func (rt *routes) handleCleanupWorktrees(w http.ResponseWriter, r *http.Request)
 //	@Failure		500			{object}	apiError
 //	@Router			/api/v1/projects/{projectId}/worktrees/{wid}/diff [get]
 func (rt *routes) handleGetWorktreeDiff(w http.ResponseWriter, r *http.Request) {
-	row := rt.resolveProject(w, r)
-	if row == nil {
-		return
-	}
+	projectID := r.PathValue("projectId")
 
 	wid := r.PathValue("wid")
 	if !isValidWorktreeID(wid) {
@@ -599,10 +589,13 @@ func (rt *routes) handleGetWorktreeDiff(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	resp, err := rt.svc.GetWorktreeDiff(r.Context(), row, wid)
+	resp, err := rt.svc.GetWorktreeDiff(r.Context(), projectID, wid)
 	if err != nil {
+		if writeServiceError(w, err) {
+			return
+		}
 		writeError(w, ErrCodeInternal, err.Error(), http.StatusInternalServerError)
-		slog.Error("get worktree diff", "projectId", row.ProjectID, "wid", wid, "err", err)
+		slog.Error("get worktree diff", "projectId", projectID, "wid", wid, "err", err)
 		return
 	}
 
@@ -627,10 +620,7 @@ func (rt *routes) handleGetWorktreeDiff(w http.ResponseWriter, r *http.Request) 
 //	@Failure		500			{object}	apiError
 //	@Router			/api/v1/projects/{projectId}/container [post]
 func (rt *routes) handleCreateContainer(w http.ResponseWriter, r *http.Request) {
-	row := rt.resolveProject(w, r)
-	if row == nil {
-		return
-	}
+	projectID := r.PathValue("projectId")
 
 	r.Body = http.MaxBytesReader(w, r.Body, 1<<16)
 
@@ -657,12 +647,15 @@ func (rt *routes) handleCreateContainer(w http.ResponseWriter, r *http.Request) 
 
 	result, err := rt.svc.CreateContainer(r.Context(), req)
 	if err != nil {
-		slog.Error("create container", "projectId", row.ProjectID, "name", req.Name, "err", err)
+		slog.Error("create container", "projectId", projectID, "name", req.Name, "err", err)
+		if writeServiceError(w, err) {
+			return
+		}
 		if errors.Is(err, engine.ErrNameTaken) {
 			writeError(w, ErrCodeNameTaken, err.Error(), http.StatusConflict)
-		} else {
-			writeError(w, ErrCodeInternal, err.Error(), http.StatusInternalServerError)
+			return
 		}
+		writeError(w, ErrCodeInternal, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
@@ -681,15 +674,15 @@ func (rt *routes) handleCreateContainer(w http.ResponseWriter, r *http.Request) 
 //	@Failure		500			{object}	apiError
 //	@Router			/api/v1/projects/{projectId}/container [delete]
 func (rt *routes) handleDeleteContainer(w http.ResponseWriter, r *http.Request) {
-	row := rt.resolveProject(w, r)
-	if row == nil {
-		return
-	}
+	projectID := r.PathValue("projectId")
 
-	result, err := rt.svc.DeleteContainer(r.Context(), row)
+	result, err := rt.svc.DeleteContainer(r.Context(), projectID)
 	if err != nil {
+		if writeServiceError(w, err) {
+			return
+		}
 		writeError(w, ErrCodeInternal, err.Error(), http.StatusInternalServerError)
-		slog.Error("delete container", "projectId", row.ProjectID, "err", err)
+		slog.Error("delete container", "projectId", projectID, "err", err)
 		return
 	}
 
@@ -709,15 +702,15 @@ func (rt *routes) handleDeleteContainer(w http.ResponseWriter, r *http.Request) 
 //	@Failure		500			{object}	apiError
 //	@Router			/api/v1/projects/{projectId}/container/config [get]
 func (rt *routes) handleInspectContainer(w http.ResponseWriter, r *http.Request) {
-	row := rt.resolveProject(w, r)
-	if row == nil {
-		return
-	}
+	projectID := r.PathValue("projectId")
 
-	cfg, err := rt.svc.InspectContainer(r.Context(), row)
+	cfg, err := rt.svc.InspectContainer(r.Context(), projectID)
 	if err != nil {
+		if writeServiceError(w, err) {
+			return
+		}
 		writeError(w, ErrCodeInternal, err.Error(), http.StatusInternalServerError)
-		slog.Error("inspect container", "projectId", row.ProjectID, "err", err)
+		slog.Error("inspect container", "projectId", projectID, "err", err)
 		return
 	}
 
@@ -737,15 +730,15 @@ func (rt *routes) handleInspectContainer(w http.ResponseWriter, r *http.Request)
 //	@Failure		500			{object}	apiError
 //	@Router			/api/v1/projects/{projectId}/container/validate [get]
 func (rt *routes) handleValidateContainer(w http.ResponseWriter, r *http.Request) {
-	row := rt.resolveProject(w, r)
-	if row == nil {
-		return
-	}
+	projectID := r.PathValue("projectId")
 
-	result, err := rt.svc.ValidateContainer(r.Context(), row)
+	result, err := rt.svc.ValidateContainer(r.Context(), projectID)
 	if err != nil {
+		if writeServiceError(w, err) {
+			return
+		}
 		writeError(w, ErrCodeInternal, err.Error(), http.StatusInternalServerError)
-		slog.Error("validate infrastructure", "projectId", row.ProjectID, "err", err)
+		slog.Error("validate infrastructure", "projectId", projectID, "err", err)
 		return
 	}
 
@@ -767,10 +760,7 @@ func (rt *routes) handleValidateContainer(w http.ResponseWriter, r *http.Request
 //	@Failure		500			{object}	apiError
 //	@Router			/api/v1/projects/{projectId}/container [put]
 func (rt *routes) handleUpdateContainer(w http.ResponseWriter, r *http.Request) {
-	row := rt.resolveProject(w, r)
-	if row == nil {
-		return
-	}
+	projectID := r.PathValue("projectId")
 
 	r.Body = http.MaxBytesReader(w, r.Body, 1<<16)
 
@@ -790,10 +780,13 @@ func (rt *routes) handleUpdateContainer(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	result, err := rt.svc.UpdateContainer(r.Context(), row, req)
+	result, err := rt.svc.UpdateContainer(r.Context(), projectID, req)
 	if err != nil {
+		if writeServiceError(w, err) {
+			return
+		}
 		writeError(w, ErrCodeInternal, err.Error(), http.StatusInternalServerError)
-		slog.Error("update container", "projectId", row.ProjectID, "err", err)
+		slog.Error("update container", "projectId", projectID, "err", err)
 		return
 	}
 
@@ -1451,8 +1444,18 @@ func (rt *routes) handleSSE(w http.ResponseWriter, r *http.Request) {
 //	@Failure		503			{object}	apiError	"Terminal proxy not configured"
 //	@Router			/api/v1/projects/{projectId}/ws/{wid} [get]
 func (rt *routes) handleTerminalWS(w http.ResponseWriter, r *http.Request) {
-	row := rt.resolveProject(w, r)
+	projectID := r.PathValue("projectId")
+
+	// The WebSocket handler needs the container ID for docker exec and the
+	// full project row for NotifyTerminalDisconnected, so resolve via GetProject.
+	row, err := rt.svc.GetProject(projectID)
+	if err != nil {
+		writeError(w, ErrCodeInternal, "failed to look up project", http.StatusInternalServerError)
+		slog.Error("resolve project for terminal WS", "projectId", projectID, "err", err)
+		return
+	}
 	if row == nil {
+		writeError(w, ErrCodeNotFound, "project not found", http.StatusNotFound)
 		return
 	}
 

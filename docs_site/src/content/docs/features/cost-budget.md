@@ -99,10 +99,10 @@ c.UpdateSettings(ctx, api.UpdateSettingsRequest{
 ### Go Library
 
 ```go
-app, _ := warden.New(warden.Options{})
+w, _ := warden.New(warden.Options{})
 
 // Reset costs
-app.Service.ResetProjectCosts(projectID)
+w.Service.ResetProjectCosts(projectID)
 ```
 
 Budget enforcement happens automatically when Warden captures cost data — no manual triggering needed.

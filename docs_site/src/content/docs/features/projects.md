@@ -139,13 +139,13 @@ c.DeleteContainer(ctx, projectID)
 When using Warden as a Go library, project operations are available on the `service.Service` type:
 
 ```go
-app, _ := warden.New(warden.Options{})
+w, _ := warden.New(warden.Options{})
 
 // Add and configure a project
-result, _ := app.Service.AddProject("my-project", "/home/user/code/my-project")
+result, _ := w.Service.AddProject("my-project", "/home/user/code/my-project")
 
 // Create container (same CreateContainerRequest as the client)
-containerResult, _ := app.Service.CreateContainer(ctx, project, engine.CreateContainerRequest{...})
+containerResult, _ := w.Service.CreateContainer(ctx, engine.CreateContainerRequest{...})
 ```
 
 See the [Go Packages](/warden/reference/go/) reference for full API documentation.

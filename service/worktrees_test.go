@@ -23,6 +23,15 @@ func testProjectRowMinimal(containerID, containerName string) *db.ProjectRow {
 	}
 }
 
+// insertTestProject inserts a ProjectRow into the DB for tests that need
+// the service to resolve a project by ID.
+func insertTestProject(t *testing.T, store *db.Store, row *db.ProjectRow) {
+	t.Helper()
+	if err := store.InsertProject(*row); err != nil {
+		t.Fatalf("failed to insert test project: %v", err)
+	}
+}
+
 func TestListWorktrees(t *testing.T) {
 	t.Parallel()
 
@@ -32,10 +41,12 @@ func TestListWorktrees(t *testing.T) {
 			{ID: "feature-x", Path: "/project/.claude/worktrees/feature-x", Branch: "feature-x", State: engine.WorktreeStateDisconnected},
 		},
 	}
-	svc := New(mock, testDB(t), nil, nil)
+	database := testDB(t)
+	svc := New(ServiceDeps{Engine: mock, DB: database})
 
 	row := testProjectRowMinimal("abc123def456", "my-project")
-	worktrees, err := svc.ListWorktrees(context.Background(), row)
+	insertTestProject(t, database, row)
+	worktrees, err := svc.ListWorktrees(context.Background(), row.ProjectID)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -49,10 +60,12 @@ func TestListWorktrees_Error(t *testing.T) {
 	t.Parallel()
 
 	mock := &mockEngine{worktreesErr: errors.New("container not found")}
-	svc := New(mock, testDB(t), nil, nil)
+	database := testDB(t)
+	svc := New(ServiceDeps{Engine: mock, DB: database})
 
 	row := testProjectRowMinimal("abc123def456", "my-project")
-	_, err := svc.ListWorktrees(context.Background(), row)
+	insertTestProject(t, database, row)
+	_, err := svc.ListWorktrees(context.Background(), row.ProjectID)
 	if err == nil {
 		t.Fatal("expected error")
 	}
@@ -90,10 +103,12 @@ func TestListWorktrees_OverlaysState(t *testing.T) {
 		Timestamp:     now.Add(time.Second),
 	})
 
-	svc := New(mock, testDB(t), store, nil)
+	database := testDB(t)
+	svc := New(ServiceDeps{Engine: mock, DB: database, Store: store})
 
 	row := testProjectRowMinimal("abc123def456", "my-project")
-	worktrees, err := svc.ListWorktrees(context.Background(), row)
+	insertTestProject(t, database, row)
+	worktrees, err := svc.ListWorktrees(context.Background(), row.ProjectID)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -110,10 +125,12 @@ func TestCreateWorktree(t *testing.T) {
 	mock := &mockEngine{
 		createWorktreeResp: "feature-y",
 	}
-	svc := New(mock, testDB(t), nil, nil)
+	database := testDB(t)
+	svc := New(ServiceDeps{Engine: mock, DB: database})
 
 	row := testProjectRowMinimal("abc123def456", "my-project")
-	resp, err := svc.CreateWorktree(context.Background(), row, "feature-y")
+	insertTestProject(t, database, row)
+	resp, err := svc.CreateWorktree(context.Background(), row.ProjectID, "feature-y")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -126,10 +143,12 @@ func TestCreateWorktree_Error(t *testing.T) {
 	t.Parallel()
 
 	mock := &mockEngine{createWorktreeErr: errors.New("failed")}
-	svc := New(mock, testDB(t), nil, nil)
+	database := testDB(t)
+	svc := New(ServiceDeps{Engine: mock, DB: database})
 
 	row := testProjectRowMinimal("abc123def456", "my-project")
-	_, err := svc.CreateWorktree(context.Background(), row, "feature-y")
+	insertTestProject(t, database, row)
+	_, err := svc.CreateWorktree(context.Background(), row.ProjectID, "feature-y")
 	if err == nil {
 		t.Fatal("expected error")
 	}
@@ -145,14 +164,16 @@ func TestCreateWorktree_BroadcastsListChanged(t *testing.T) {
 	broker := eventbus.NewBroker()
 	defer broker.Shutdown()
 	store := eventbus.NewStore(broker, nil)
-	svc := New(mock, testDB(t), store, nil)
+	database := testDB(t)
+	svc := New(ServiceDeps{Engine: mock, DB: database, Store: store})
 
 	// Subscribe before creating to catch the broadcast.
 	ch, unsub := broker.Subscribe()
 	defer unsub()
 
 	row := testProjectRowMinimal("abc123def456", "my-project")
-	_, err := svc.CreateWorktree(context.Background(), row, "feature-y")
+	insertTestProject(t, database, row)
+	_, err := svc.CreateWorktree(context.Background(), row.ProjectID, "feature-y")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -182,10 +203,12 @@ func TestConnectTerminal(t *testing.T) {
 	mock := &mockEngine{
 		connectResp: "main",
 	}
-	svc := New(mock, testDB(t), nil, nil)
+	database := testDB(t)
+	svc := New(ServiceDeps{Engine: mock, DB: database})
 
 	row := testProjectRowMinimal("abc123def456", "my-project")
-	resp, err := svc.ConnectTerminal(context.Background(), row, "main")
+	insertTestProject(t, database, row)
+	resp, err := svc.ConnectTerminal(context.Background(), row.ProjectID, "main")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -204,10 +227,12 @@ func TestConnectTerminal_PushesEvent(t *testing.T) {
 	broker := eventbus.NewBroker()
 	defer broker.Shutdown()
 	store := eventbus.NewStore(broker, nil)
-	svc := New(mock, testDB(t), store, nil)
+	database := testDB(t)
+	svc := New(ServiceDeps{Engine: mock, DB: database, Store: store})
 
 	row := testProjectRowMinimal("abc123def456", "my-project")
-	_, err := svc.ConnectTerminal(context.Background(), row, "main")
+	insertTestProject(t, database, row)
+	_, err := svc.ConnectTerminal(context.Background(), row.ProjectID, "main")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -226,10 +251,12 @@ func TestRemoveWorktree(t *testing.T) {
 	broker := eventbus.NewBroker()
 	defer broker.Shutdown()
 	store := eventbus.NewStore(broker, nil)
-	svc := New(mock, testDB(t), store, nil)
+	database := testDB(t)
+	svc := New(ServiceDeps{Engine: mock, DB: database, Store: store})
 
 	row := testProjectRowMinimal("abc123def456", "my-project")
-	_, err := svc.RemoveWorktree(context.Background(), row, "feature-x")
+	insertTestProject(t, database, row)
+	_, err := svc.RemoveWorktree(context.Background(), row.ProjectID, "feature-x")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -239,10 +266,12 @@ func TestRemoveWorktree_Error(t *testing.T) {
 	t.Parallel()
 
 	mock := &mockEngine{removeWorktreeErr: errors.New("cannot remove main")}
-	svc := New(mock, testDB(t), nil, nil)
+	database := testDB(t)
+	svc := New(ServiceDeps{Engine: mock, DB: database})
 
 	row := testProjectRowMinimal("abc123def456", "my-project")
-	_, err := svc.RemoveWorktree(context.Background(), row, "main")
+	insertTestProject(t, database, row)
+	_, err := svc.RemoveWorktree(context.Background(), row.ProjectID, "main")
 	if err == nil {
 		t.Fatal("expected error")
 	}
@@ -258,10 +287,12 @@ func TestCleanupWorktrees(t *testing.T) {
 	broker := eventbus.NewBroker()
 	defer broker.Shutdown()
 	store := eventbus.NewStore(broker, nil)
-	svc := New(mock, testDB(t), store, nil)
+	database := testDB(t)
+	svc := New(ServiceDeps{Engine: mock, DB: database, Store: store})
 
 	row := testProjectRowMinimal("abc123def456", "my-project")
-	removed, err := svc.CleanupWorktrees(context.Background(), row)
+	insertTestProject(t, database, row)
+	removed, err := svc.CleanupWorktrees(context.Background(), row.ProjectID)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -275,10 +306,12 @@ func TestKillWorktreeProcess(t *testing.T) {
 	t.Parallel()
 
 	mock := &mockEngine{}
-	svc := New(mock, testDB(t), nil, nil)
+	database := testDB(t)
+	svc := New(ServiceDeps{Engine: mock, DB: database})
 
 	row := testProjectRowMinimal("abc123def456", "my-project")
-	_, err := svc.KillWorktreeProcess(context.Background(), row, "main")
+	insertTestProject(t, database, row)
+	_, err := svc.KillWorktreeProcess(context.Background(), row.ProjectID, "main")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -288,10 +321,12 @@ func TestKillWorktreeProcess_Error(t *testing.T) {
 	t.Parallel()
 
 	mock := &mockEngine{killWorktreeErr: errors.New("process not found")}
-	svc := New(mock, testDB(t), nil, nil)
+	database := testDB(t)
+	svc := New(ServiceDeps{Engine: mock, DB: database})
 
 	row := testProjectRowMinimal("abc123def456", "my-project")
-	_, err := svc.KillWorktreeProcess(context.Background(), row, "main")
+	insertTestProject(t, database, row)
+	_, err := svc.KillWorktreeProcess(context.Background(), row.ProjectID, "main")
 	if err == nil {
 		t.Fatal("expected error")
 	}
@@ -301,10 +336,12 @@ func TestDisconnectTerminal(t *testing.T) {
 	t.Parallel()
 
 	mock := &mockEngine{}
-	svc := New(mock, testDB(t), nil, nil)
+	database := testDB(t)
+	svc := New(ServiceDeps{Engine: mock, DB: database})
 
 	row := testProjectRowMinimal("abc123def456", "my-project")
-	_, err := svc.DisconnectTerminal(context.Background(), row, "main")
+	insertTestProject(t, database, row)
+	_, err := svc.DisconnectTerminal(context.Background(), row.ProjectID, "main")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

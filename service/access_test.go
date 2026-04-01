@@ -9,7 +9,7 @@ import (
 
 func TestListAccessItems_IncludesBuiltIns(t *testing.T) {
 	t.Parallel()
-	svc := New(&mockEngine{}, testDB(t), nil, nil)
+	svc := New(ServiceDeps{Engine: &mockEngine{}, DB: testDB(t)})
 
 	items, err := svc.ListAccessItems()
 	if err != nil {
@@ -34,7 +34,7 @@ func TestListAccessItems_IncludesBuiltIns(t *testing.T) {
 
 func TestCreateAccessItem(t *testing.T) {
 	t.Parallel()
-	svc := New(&mockEngine{}, testDB(t), nil, nil)
+	svc := New(ServiceDeps{Engine: &mockEngine{}, DB: testDB(t)})
 
 	item, err := svc.CreateAccessItem(api.CreateAccessItemRequest{
 		Label:       "GitHub CLI",
@@ -82,7 +82,7 @@ func TestCreateAccessItem(t *testing.T) {
 
 func TestCreateAccessItem_ValidationErrors(t *testing.T) {
 	t.Parallel()
-	svc := New(&mockEngine{}, testDB(t), nil, nil)
+	svc := New(ServiceDeps{Engine: &mockEngine{}, DB: testDB(t)})
 
 	_, err := svc.CreateAccessItem(api.CreateAccessItemRequest{
 		Label: "",
@@ -102,7 +102,7 @@ func TestCreateAccessItem_ValidationErrors(t *testing.T) {
 
 func TestUpdateAccessItem_UserItem(t *testing.T) {
 	t.Parallel()
-	svc := New(&mockEngine{}, testDB(t), nil, nil)
+	svc := New(ServiceDeps{Engine: &mockEngine{}, DB: testDB(t)})
 
 	item, err := svc.CreateAccessItem(api.CreateAccessItemRequest{
 		Label:       "Original",
@@ -133,7 +133,7 @@ func TestUpdateAccessItem_UserItem(t *testing.T) {
 
 func TestUpdateAccessItem_BuiltInCreatesOverride(t *testing.T) {
 	t.Parallel()
-	svc := New(&mockEngine{}, testDB(t), nil, nil)
+	svc := New(ServiceDeps{Engine: &mockEngine{}, DB: testDB(t)})
 
 	newDesc := "Custom SSH description"
 	updated, err := svc.UpdateAccessItem(access.BuiltInIDSSH, api.UpdateAccessItemRequest{
@@ -167,7 +167,7 @@ func TestUpdateAccessItem_BuiltInCreatesOverride(t *testing.T) {
 
 func TestResetAccessItem_RestoresDefault(t *testing.T) {
 	t.Parallel()
-	svc := New(&mockEngine{}, testDB(t), nil, nil)
+	svc := New(ServiceDeps{Engine: &mockEngine{}, DB: testDB(t)})
 
 	// Customize the git built-in.
 	newDesc := "Custom Git"
@@ -201,7 +201,7 @@ func TestResetAccessItem_RestoresDefault(t *testing.T) {
 
 func TestResetAccessItem_RejectsNonBuiltIn(t *testing.T) {
 	t.Parallel()
-	svc := New(&mockEngine{}, testDB(t), nil, nil)
+	svc := New(ServiceDeps{Engine: &mockEngine{}, DB: testDB(t)})
 
 	_, err := svc.ResetAccessItem("custom-id")
 	if err == nil {
@@ -211,7 +211,7 @@ func TestResetAccessItem_RejectsNonBuiltIn(t *testing.T) {
 
 func TestDeleteAccessItem_RejectsBuiltIn(t *testing.T) {
 	t.Parallel()
-	svc := New(&mockEngine{}, testDB(t), nil, nil)
+	svc := New(ServiceDeps{Engine: &mockEngine{}, DB: testDB(t)})
 
 	err := svc.DeleteAccessItem(access.BuiltInIDGit)
 	if err == nil {
@@ -221,7 +221,7 @@ func TestDeleteAccessItem_RejectsBuiltIn(t *testing.T) {
 
 func TestDeleteAccessItem_UserItem(t *testing.T) {
 	t.Parallel()
-	svc := New(&mockEngine{}, testDB(t), nil, nil)
+	svc := New(ServiceDeps{Engine: &mockEngine{}, DB: testDB(t)})
 
 	item, err := svc.CreateAccessItem(api.CreateAccessItemRequest{
 		Label:       "Temp",
@@ -243,7 +243,7 @@ func TestDeleteAccessItem_UserItem(t *testing.T) {
 
 func TestResolveAccessItems_BuiltIn(t *testing.T) {
 	t.Parallel()
-	svc := New(&mockEngine{}, testDB(t), nil, nil)
+	svc := New(ServiceDeps{Engine: &mockEngine{}, DB: testDB(t)})
 
 	// Resolve git built-in — will resolve if ~/.gitconfig exists on the host.
 	resp, err := svc.ResolveAccessItems([]access.Item{*access.BuiltInItemByID(access.BuiltInIDGit)})
@@ -260,7 +260,7 @@ func TestResolveAccessItems_BuiltIn(t *testing.T) {
 
 func TestResolveAccessItems_UserItem(t *testing.T) {
 	// Cannot use t.Parallel() with t.Setenv.
-	svc := New(&mockEngine{}, testDB(t), nil, nil)
+	svc := New(ServiceDeps{Engine: &mockEngine{}, DB: testDB(t)})
 
 	t.Setenv("WARDEN_TEST_ACCESS_TOKEN", "secret123")
 

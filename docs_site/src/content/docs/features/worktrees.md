@@ -115,15 +115,15 @@ defer conn.Close()
 ### Go Library
 
 ```go
-app, _ := warden.New(warden.Options{})
+w, _ := warden.New(warden.Options{})
 
 // Create worktree and start agent
-result, _ := app.Service.CreateWorktree(ctx, project, "fix-auth-bug")
+result, _ := w.Service.CreateWorktree(ctx, projectID, "fix-auth-bug")
 
 // Terminal lifecycle
-app.Service.ConnectTerminal(ctx, project, worktreeID)
-app.Service.DisconnectTerminal(ctx, project, worktreeID)
-app.Service.KillWorktreeProcess(ctx, project, worktreeID)
+w.Service.ConnectTerminal(ctx, projectID, worktreeID)
+w.Service.DisconnectTerminal(ctx, projectID, worktreeID)
+w.Service.KillWorktreeProcess(ctx, projectID, worktreeID)
 ```
 
 See the [Go Packages](/warden/reference/go/) reference for full API documentation.

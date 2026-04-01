@@ -22,7 +22,7 @@ func TestListProjects(t *testing.T) {
 	}
 	database := testDB(t)
 	_ = database.InsertProject(db.ProjectRow{ProjectID: "test-project", Name: "test-project", HostPath: "/test/test-project"})
-	svc := New(mock, database, nil, nil)
+	svc := New(ServiceDeps{Engine: mock, DB: database})
 
 	projects, err := svc.ListProjects(context.Background())
 	if err != nil {
@@ -42,7 +42,7 @@ func TestListProjects_Error(t *testing.T) {
 
 	mock := &mockEngine{projectsErr: errors.New("docker down")}
 	database := testDB(t)
-	svc := New(mock, database, nil, nil)
+	svc := New(ServiceDeps{Engine: mock, DB: database})
 
 	_, err := svc.ListProjects(context.Background())
 	if err == nil {
@@ -63,7 +63,7 @@ func TestListProjects_OverlaysCost(t *testing.T) {
 	_ = database.InsertProject(db.ProjectRow{ProjectID: "my-project", Name: "my-project", HostPath: "/test/my-project"})
 	_ = database.UpsertSessionCost("my-project", "session-abc", 1.5, false)
 
-	svc := New(mock, database, nil, nil)
+	svc := New(ServiceDeps{Engine: mock, DB: database})
 
 	projects, err := svc.ListProjects(context.Background())
 	if err != nil {
@@ -88,7 +88,7 @@ func TestListProjects_OverlaysCostIsEstimated(t *testing.T) {
 	_ = database.InsertProject(db.ProjectRow{ProjectID: "my-project", Name: "my-project", HostPath: "/test/my-project"})
 	_ = database.UpsertSessionCost("my-project", "session-abc", 2.75, true)
 
-	svc := New(mock, database, nil, nil)
+	svc := New(ServiceDeps{Engine: mock, DB: database})
 
 	projects, err := svc.ListProjects(context.Background())
 	if err != nil {
@@ -113,7 +113,7 @@ func TestListProjects_OverlaysCostIsEstimatedFromDB(t *testing.T) {
 	_ = database.InsertProject(db.ProjectRow{ProjectID: "my-project", Name: "my-project", HostPath: "/test/my-project"})
 	_ = database.UpsertSessionCost("my-project", "session-abc", 3.50, true)
 
-	svc := New(mock, database, nil, nil)
+	svc := New(ServiceDeps{Engine: mock, DB: database})
 
 	projects, err := svc.ListProjects(context.Background())
 	if err != nil {
@@ -132,7 +132,7 @@ func TestAddProject(t *testing.T) {
 	t.Parallel()
 
 	database := testDB(t)
-	svc := New(&mockEngine{}, database, nil, nil)
+	svc := New(ServiceDeps{Engine: &mockEngine{}, DB: database})
 
 	result, err := svc.AddProject("my-project", "/home/user/my-project")
 	if err != nil {
@@ -154,7 +154,7 @@ func TestRemoveProject(t *testing.T) {
 
 	database := testDB(t)
 	_ = database.InsertProject(db.ProjectRow{ProjectID: "my-project", Name: "my-project", HostPath: "/test/my-project"})
-	svc := New(&mockEngine{}, database, nil, nil)
+	svc := New(ServiceDeps{Engine: &mockEngine{}, DB: database})
 
 	if _, err := svc.RemoveProject("my-project"); err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -175,7 +175,7 @@ func TestRemoveProject_AuditOff_CleansCostsAndEvents(t *testing.T) {
 	_ = database.Write(db.Entry{ProjectID: "my-project", Event: "session_start"})
 
 	// Default audit mode is "off".
-	svc := New(&mockEngine{}, database, nil, nil)
+	svc := New(ServiceDeps{Engine: &mockEngine{}, DB: database})
 
 	if _, err := svc.RemoveProject("my-project"); err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -201,7 +201,7 @@ func TestRemoveProject_AuditOn_PreservesCostsAndEvents(t *testing.T) {
 	_ = database.Write(db.Entry{ProjectID: "my-project", Event: "session_start"})
 	_ = database.SetSetting("auditLogMode", string(api.AuditLogStandard))
 
-	svc := New(&mockEngine{}, database, nil, nil)
+	svc := New(ServiceDeps{Engine: &mockEngine{}, DB: database})
 
 	if _, err := svc.RemoveProject("my-project"); err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -222,10 +222,12 @@ func TestStopProject(t *testing.T) {
 	t.Parallel()
 
 	mock := &mockEngine{}
-	svc := New(mock, testDB(t), nil, nil)
+	database := testDB(t)
+	svc := New(ServiceDeps{Engine: mock, DB: database})
 
-	row := &db.ProjectRow{ProjectID: "proj-1", ContainerID: "abc123def456", ContainerName: "my-project", Name: "my-project"}
-	if _, err := svc.StopProject(context.Background(), row); err != nil {
+	row := &db.ProjectRow{ProjectID: "proj-1", ContainerID: "abc123def456", ContainerName: "my-project", Name: "my-project", HostPath: "/test/my-project"}
+	insertTestProject(t, database, row)
+	if _, err := svc.StopProject(context.Background(), row.ProjectID); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
@@ -234,10 +236,12 @@ func TestStopProject_Error(t *testing.T) {
 	t.Parallel()
 
 	mock := &mockEngine{stopErr: errors.New("not found")}
-	svc := New(mock, testDB(t), nil, nil)
+	database := testDB(t)
+	svc := New(ServiceDeps{Engine: mock, DB: database})
 
-	row := &db.ProjectRow{ProjectID: "proj-1", ContainerID: "abc123def456", ContainerName: "my-project", Name: "my-project"}
-	_, err := svc.StopProject(context.Background(), row)
+	row := &db.ProjectRow{ProjectID: "proj-1", ContainerID: "abc123def456", ContainerName: "my-project", Name: "my-project", HostPath: "/test/my-project"}
+	insertTestProject(t, database, row)
+	_, err := svc.StopProject(context.Background(), row.ProjectID)
 	if err == nil {
 		t.Fatal("expected error")
 	}
@@ -264,7 +268,7 @@ func TestListProjects_OverlaysAttention(t *testing.T) {
 		Timestamp:     time.Now(),
 	})
 
-	svc := New(mock, database, store, nil)
+	svc := New(ServiceDeps{Engine: mock, DB: database, Store: store})
 
 	projects, err := svc.ListProjects(context.Background())
 	if err != nil {
@@ -309,7 +313,7 @@ func TestListProjects_OverlaysAttentionHighestPriority(t *testing.T) {
 		Timestamp:     time.Now(),
 	})
 
-	svc := New(mock, database, store, nil)
+	svc := New(ServiceDeps{Engine: mock, DB: database, Store: store})
 
 	projects, err := svc.ListProjects(context.Background())
 	if err != nil {

@@ -14,7 +14,7 @@ func TestCreateContainer(t *testing.T) {
 
 	database := testDB(t)
 	mock := &mockEngine{containerID: "new123container"}
-	svc := New(mock, database, nil, nil)
+	svc := New(ServiceDeps{Engine: mock, DB: database})
 
 	result, err := svc.CreateContainer(context.Background(), engine.CreateContainerRequest{
 		Name:        "my-project",
@@ -46,7 +46,7 @@ func TestCreateContainer_NameTaken(t *testing.T) {
 	t.Parallel()
 
 	mock := &mockEngine{containerErr: engine.ErrNameTaken}
-	svc := New(mock, testDB(t), nil, nil)
+	svc := New(ServiceDeps{Engine: mock, DB: testDB(t)})
 
 	_, err := svc.CreateContainer(context.Background(), engine.CreateContainerRequest{
 		Name:        "existing",
@@ -61,10 +61,12 @@ func TestDeleteContainer(t *testing.T) {
 	t.Parallel()
 
 	mock := &mockEngine{}
-	svc := New(mock, testDB(t), nil, nil)
+	database := testDB(t)
+	svc := New(ServiceDeps{Engine: mock, DB: database})
 
-	row := &db.ProjectRow{ProjectID: "proj-1", ContainerID: "abc123def456", ContainerName: "my-project", Name: "my-project"}
-	_, err := svc.DeleteContainer(context.Background(), row)
+	row := &db.ProjectRow{ProjectID: "proj-1", ContainerID: "abc123def456", ContainerName: "my-project", Name: "my-project", HostPath: "/test/my-project"}
+	insertTestProject(t, database, row)
+	_, err := svc.DeleteContainer(context.Background(), row.ProjectID)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -87,9 +89,11 @@ func TestInspectContainer(t *testing.T) {
 	mock := &mockEngine{
 		inspectConfig: &engine.ContainerConfig{Name: "my-project"},
 	}
-	svc := New(mock, testDB(t), nil, nil)
+	database := testDB(t)
+	insertTestProject(t, database, row)
+	svc := New(ServiceDeps{Engine: mock, DB: database})
 
-	cfg, err := svc.InspectContainer(context.Background(), row)
+	cfg, err := svc.InspectContainer(context.Background(), row.ProjectID)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -112,10 +116,12 @@ func TestUpdateContainer(t *testing.T) {
 	t.Parallel()
 
 	mock := &mockEngine{recreateID: "new456container"}
-	svc := New(mock, testDB(t), nil, nil)
+	database := testDB(t)
+	svc := New(ServiceDeps{Engine: mock, DB: database})
 
-	row := &db.ProjectRow{ProjectID: "proj-1", ContainerID: "old123container", ContainerName: "my-project", Name: "my-project"}
-	result, err := svc.UpdateContainer(context.Background(), row, engine.CreateContainerRequest{
+	row := &db.ProjectRow{ProjectID: "proj-1", ContainerID: "old123container", ContainerName: "my-project", Name: "my-project", HostPath: "/test/my-project"}
+	insertTestProject(t, database, row)
+	result, err := svc.UpdateContainer(context.Background(), row.ProjectID, engine.CreateContainerRequest{
 		Name:        "my-project",
 		ProjectPath: "/home/user/project",
 	})
@@ -133,7 +139,7 @@ func TestUpdateContainer_LightUpdate(t *testing.T) {
 
 	database := testDB(t)
 	mock := &mockEngine{containerID: "container123"}
-	svc := New(mock, database, nil, nil)
+	svc := New(ServiceDeps{Engine: mock, DB: database})
 
 	// Create the project first so the DB row exists.
 	_, err := svc.CreateContainer(context.Background(), engine.CreateContainerRequest{
@@ -149,7 +155,7 @@ func TestUpdateContainer_LightUpdate(t *testing.T) {
 	row, _ := database.GetProject(projectID)
 
 	// Update only lightweight fields (name, skipPermissions, costBudget).
-	result, err := svc.UpdateContainer(context.Background(), row, engine.CreateContainerRequest{
+	result, err := svc.UpdateContainer(context.Background(), row.ProjectID, engine.CreateContainerRequest{
 		Name:            "renamed-project",
 		ProjectPath:     "/home/user/project",
 		Image:           "ghcr.io/test:latest",
@@ -189,7 +195,7 @@ func TestUpdateContainer_LightUpdate_RenameError(t *testing.T) {
 		containerID: "container123",
 		renameErr:   errors.New("rename failed"),
 	}
-	svc := New(mock, database, nil, nil)
+	svc := New(ServiceDeps{Engine: mock, DB: database})
 
 	_, err := svc.CreateContainer(context.Background(), engine.CreateContainerRequest{
 		Name:        "my-project",
@@ -204,7 +210,7 @@ func TestUpdateContainer_LightUpdate_RenameError(t *testing.T) {
 	row, _ := database.GetProject(projectID)
 
 	// Rename should fail and propagate.
-	_, err = svc.UpdateContainer(context.Background(), row, engine.CreateContainerRequest{
+	_, err = svc.UpdateContainer(context.Background(), row.ProjectID, engine.CreateContainerRequest{
 		Name:        "new-name",
 		ProjectPath: "/home/user/project",
 		Image:       "ghcr.io/test:latest",
@@ -325,10 +331,12 @@ func TestValidateContainer(t *testing.T) {
 	t.Parallel()
 
 	mock := &mockEngine{validateValid: true, validateMissing: []string{}}
-	svc := New(mock, testDB(t), nil, nil)
+	database := testDB(t)
+	svc := New(ServiceDeps{Engine: mock, DB: database})
 
-	row := &db.ProjectRow{ProjectID: "proj-1", ContainerID: "abc123def456", Name: "my-project"}
-	result, err := svc.ValidateContainer(context.Background(), row)
+	row := &db.ProjectRow{ProjectID: "proj-1", ContainerID: "abc123def456", Name: "my-project", HostPath: "/test/my-project"}
+	insertTestProject(t, database, row)
+	result, err := svc.ValidateContainer(context.Background(), row.ProjectID)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -342,10 +350,12 @@ func TestValidateContainer_Missing(t *testing.T) {
 	t.Parallel()
 
 	mock := &mockEngine{validateValid: false, validateMissing: []string{"abduco", "create-terminal.sh"}}
-	svc := New(mock, testDB(t), nil, nil)
+	database := testDB(t)
+	svc := New(ServiceDeps{Engine: mock, DB: database})
 
-	row := &db.ProjectRow{ProjectID: "proj-1", ContainerID: "abc123def456", Name: "my-project"}
-	result, err := svc.ValidateContainer(context.Background(), row)
+	row := &db.ProjectRow{ProjectID: "proj-1", ContainerID: "abc123def456", Name: "my-project", HostPath: "/test/my-project"}
+	insertTestProject(t, database, row)
+	result, err := svc.ValidateContainer(context.Background(), row.ProjectID)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

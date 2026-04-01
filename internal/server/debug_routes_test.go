@@ -16,7 +16,7 @@ func TestHandleGetSettings_IncludesAuditLogMode(t *testing.T) {
 
 	mock := &mockEngineClient{}
 	mux := http.NewServeMux()
-	registerAPIRoutes(mux, service.New(mock, testDB(t), nil, nil), nil, nil)
+	registerAPIRoutes(mux, service.New(service.ServiceDeps{Engine: mock, DB: testDB(t)}), nil, nil)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/settings", nil)
 	rec := httptest.NewRecorder()
@@ -47,7 +47,7 @@ func TestHandleUpdateSettings_AuditLogMode(t *testing.T) {
 	mock := &mockEngineClient{}
 	database := testDB(t)
 	mux := http.NewServeMux()
-	registerAPIRoutes(mux, service.New(mock, database, nil, nil), nil, nil)
+	registerAPIRoutes(mux, service.New(service.ServiceDeps{Engine: mock, DB: database}), nil, nil)
 
 	body := strings.NewReader(`{"auditLogMode":"detailed"}`)
 	req := httptest.NewRequest(http.MethodPut, "/api/v1/settings", body)
@@ -76,7 +76,7 @@ func TestHandleUpdateSettings_RuntimeStillRequiresRestart(t *testing.T) {
 
 	mock := &mockEngineClient{}
 	mux := http.NewServeMux()
-	registerAPIRoutes(mux, service.New(mock, testDB(t), nil, nil), nil, nil)
+	registerAPIRoutes(mux, service.New(service.ServiceDeps{Engine: mock, DB: testDB(t)}), nil, nil)
 
 	body := strings.NewReader(`{"runtime":"podman"}`)
 	req := httptest.NewRequest(http.MethodPut, "/api/v1/settings", body)
@@ -107,7 +107,7 @@ func TestHandlePostAuditEvent(t *testing.T) {
 
 	writer := db.NewAuditWriter(logger, db.AuditDetailed, nil)
 	mux := http.NewServeMux()
-	registerAPIRoutes(mux, service.New(&mockEngineClient{}, logger, nil, writer), nil, nil)
+	registerAPIRoutes(mux, service.New(service.ServiceDeps{Engine: &mockEngineClient{}, DB: logger, Audit: writer}), nil, nil)
 
 	body := strings.NewReader(`{"event":"terminal_opened","message":"terminal opened"}`)
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/audit", body)
@@ -142,7 +142,7 @@ func TestHandleDeleteAuditEvents(t *testing.T) {
 	_ = logger.Write(db.Entry{Source: db.SourceBackend, Message: "test"})
 
 	mux := http.NewServeMux()
-	registerAPIRoutes(mux, service.New(&mockEngineClient{}, logger, nil, nil), nil, nil)
+	registerAPIRoutes(mux, service.New(service.ServiceDeps{Engine: &mockEngineClient{}, DB: logger}), nil, nil)
 
 	req := httptest.NewRequest(http.MethodDelete, "/api/v1/audit", nil)
 	rec := httptest.NewRecorder()

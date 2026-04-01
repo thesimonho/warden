@@ -23,7 +23,7 @@ All packages are importable via `go get github.com/thesimonho/warden`:
 
 | Package         | Purpose                                            |
 | --------------- | -------------------------------------------------- |
-| `warden` (root) | High-level `App` — wires everything together       |
+| `warden` (root) | Engine entry point — `warden.New()` returns `*Warden` with `.Service` |
 | `access`        | Credential passthrough model (items, credentials, resolution) |
 | `api`           | API contract types (request/response/result)       |
 | `client`        | Typed HTTP client for the Warden API               |
@@ -41,6 +41,22 @@ See the [Go Packages](../../reference/go/) reference for full API documentation.
 ## Integration paths
 
 If you're building in Go, you have two additional options: a **client package** that wraps the API for convenience, or importing the **library directly** to skip the binary entirely.
+
+### Decision tree
+
+```
+Are you writing Go?
+├─ Yes → Want single-process deployment with no separate binary?
+│         ├─ Yes → Go library (import warden, call warden.New())
+│         └─ No  → Running warden as a server?
+│                 ├─ Yes → Go client (typed HTTP wrapper)
+│                 └─ No  → Run it first, then use Go client
+│
+└─ No  → Using a language other than Go?
+         └─ Run the warden binary as a server, then:
+            ├─ HTTP API (raw REST/SSE/WebSocket)
+            └─ Bindings/SDKs if available for your language
+```
 
 ## HTTP API (any language)
 
@@ -70,9 +86,9 @@ If you want to skip the binary entirely and embed Warden's engine in your Go pro
 ```go
 import "github.com/thesimonho/warden"
 
-app, err := warden.New(warden.Options{})
-defer app.Close()
-projects, _ := app.Service.ListProjects(ctx)
+w, err := warden.New(warden.Options{})
+defer w.Close()
+projects, _ := w.Service.ListProjects(ctx)
 ```
 
 See the [Go library guide](../go-library/) for the full API.

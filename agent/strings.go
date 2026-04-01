@@ -15,7 +15,7 @@ const MaxPromptLength = 500
 // Patterns:
 //   - .claude/worktrees/<id>  → <id>  (Claude Code native worktrees)
 //   - .warden/worktrees/<id>  → <id>  (Warden-managed worktrees for Codex)
-func WorktreeIDFromCWD(cwd, workspaceDir string) string {
+func WorktreeIDFromCWD(cwd string) string {
 	for _, prefix := range []string{"/.claude/worktrees/", "/.warden/worktrees/"} {
 		if idx := strings.Index(cwd, prefix); idx >= 0 {
 			rest := cwd[idx+len(prefix):]

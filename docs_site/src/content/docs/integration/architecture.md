@@ -5,21 +5,42 @@ description: How Warden is structured — layered system, infrastructure layout,
 
 ## Layered system
 
-Warden is a layered system. Each layer is independently usable:
+Warden is a three-layer system. Each layer is independently usable and testable:
 
 ```
-┌───────────────────────────────────┐
-│  Frontends (web, TUI)             │  ← Use these directly, or build your own
-├───────────────────────────────────┤
-│  HTTP API  /api/v1/*              │  ← REST, SSE, WebSocket
-├───────────────────────────────────┤
-│  Engine (Go library)              │  ← Container lifecycle, security, events
-├───────────────────────────────────┤
-│  Container image                  │  ← Agent CLIs + abduco + network isolation
-└───────────────────────────────────┘
+┌─────────────────────────────────────┐
+│  Layer 3: Frontends                 │
+│  (web dashboard, TUI)               │  ← Use these directly, or build your own
+├─────────────────────────────────────┤
+│  Layer 2: HTTP API                  │
+│  REST + SSE + WebSocket             │  ← /api/v1/* (any language)
+├─────────────────────────────────────┤
+│  Layer 1: Service                   │
+│  Business logic (project/worktree    │  ← Go library (direct import)
+│  lifecycle, cost tracking, audit)    │  ← Go client (typed HTTP wrapper)
+├─────────────────────────────────────┤
+│  Container image                    │  ← Agent CLIs + abduco + isolation
+└─────────────────────────────────────┘
 ```
 
-The engine and security model are the core. Everything above is a consumer of the engine's public interfaces — including Warden's own frontends. You can integrate at any layer: use the HTTP API from any language, import the Go client for typed access, or embed the engine directly as a Go library.
+### How to integrate
+
+The decision tree below shows where to start based on your use case:
+
+```
+Are you writing Go?
+├─ Yes → Want single-process deployment?
+│         ├─ Yes → Layer 1 (Go library): import warden, call warden.New()
+│         └─ No  → Layer 2 via Layer 2 client (typed HTTP wrapper)
+│
+└─ No  → Use Layer 2 from your language (raw HTTP/SSE/WebSocket)
+```
+
+**Layer 1 (Service)** is the engine entry point: `warden.New()` returns `*Warden` with `.Service` exposing all operations. The frontends are reference implementations — they use the exact same Layer 2 and Layer 1 interfaces you would.
+
+**Layer 2 (HTTP API)** is REST + SSE + WebSocket at `/api/v1/*`. Works from any language.
+
+**Layer 3 (Frontends)** are the web dashboard (`warden-desktop`) and TUI (`warden-tui`). Both are optional — you can build your own or use the layers directly.
 
 ## Workspace directory structure
 

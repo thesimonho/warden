@@ -79,14 +79,13 @@ See the [HTTP API error codes](../http-api/#error-codes) for the full list.
 
 ## When to use the client vs. the library
 
-| `client.New()` (typed HTTP wrapper) | `warden.New()` (direct import) |
-| ----------------------------------- | ------------------------------ |
-| Requires `warden` binary running    | No binary needed               |
-| Multi-process or remote             | Single-process deployment      |
-| Simpler integration                 | Full control over lifecycle    |
+| Approach                          | Setup                           | Use when                              |
+| --------------------------------- | ------------------------------- | ------------------------------------- |
+| `client.New()` (HTTP wrapper)     | Run `warden` binary separately  | Multi-process, remote server, or when the binary is already running |
+| `warden.New()` (Layer 1 import)   | No binary needed                | Single-process deployment, embedded applications, full control |
 
 If you don't want to run a separate server process, you can import the library directly — see the [Go Library](../go-library/) guide.
 
 ## Reference implementation
 
-This is the same approach the TUI binary uses internally. See [`internal/tui/`](https://github.com/thesimonho/warden/tree/main/internal/tui) for the reference implementation — specifically the Client interface, data loading patterns, and terminal attachment.
+This is the same approach the TUI binary uses internally. The TUI wraps the service via a `Client` interface and delegates to it. See [`internal/tui/`](https://github.com/thesimonho/warden/tree/main/internal/tui) for the reference implementation — the `Client` interface shows the abstraction boundary, and `ServiceAdapter` shows how to adapt the Layer 1 service to the interface for embedded use.

@@ -15,7 +15,7 @@ func newTestService(t *testing.T) (*Service, *db.Store) {
 		t.Fatalf("db.New() error: %v", err)
 	}
 	t.Cleanup(func() { store.Close() }) //nolint:errcheck
-	return New(nil, store, nil, nil), store
+	return New(ServiceDeps{DB: store}), store
 }
 
 func writeTestEvents(t *testing.T, store *db.Store) {
@@ -296,7 +296,7 @@ func TestWriteAuditCSV(t *testing.T) {
 
 func TestGetAuditLog_NilDB(t *testing.T) {
 	t.Parallel()
-	svc := New(nil, nil, nil, nil)
+	svc := New(ServiceDeps{})
 
 	entries, err := svc.GetAuditLog(api.AuditFilters{})
 	if err != nil {
