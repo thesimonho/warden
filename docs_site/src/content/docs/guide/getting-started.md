@@ -52,7 +52,7 @@ Fill in the project name and host path, configure environment variables and othe
 
 **API key:** Pass `OPENAI_API_KEY` as an environment variable when creating the container.
 
-**Subscription login:** Open the terminal and run `codex` — it prompts you to authenticate. Authentication persists across restarts.
+**Subscription login:** Authenticate on your host machine first by running `codex login`. Because Warden mounts `~/.codex` into the container, the auth token is shared automatically — no need to authenticate again inside the container.
 
 ## Agent config directories
 
