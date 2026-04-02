@@ -69,6 +69,7 @@ interface TerminalClipboardDeps {
   terminalRef: React.RefObject<Terminal | null>
   wsRef: React.RefObject<WebSocket | null>
   projectId: string
+  agentType: string
 }
 
 /**
@@ -76,7 +77,12 @@ interface TerminalClipboardDeps {
  * gets its own explicit-copy tracker so multi-terminal layouts don't
  * interfere with each other's toast notifications.
  */
-export function useTerminalClipboard({ terminalRef, wsRef, projectId }: TerminalClipboardDeps) {
+export function useTerminalClipboard({
+  terminalRef,
+  wsRef,
+  projectId,
+  agentType,
+}: TerminalClipboardDeps) {
   const copyTrackerRef = useRef(createExplicitCopyTracker())
 
   /** Sends raw bytes to the PTY via the WebSocket. */
@@ -127,13 +133,13 @@ export function useTerminalClipboard({ terminalRef, wsRef, projectId }: Terminal
   const pasteImage = useCallback(
     async (blob: Blob) => {
       try {
-        await uploadClipboardImage(projectId, blob)
+        await uploadClipboardImage(projectId, agentType, blob)
         sendToPty(CTRL_V_BYTE)
       } catch {
         toast.error('Failed to upload image')
       }
     },
-    [projectId, sendToPty],
+    [projectId, agentType, sendToPty],
   )
 
   /**

@@ -89,7 +89,7 @@ export default function ManageProjectDialog({
     // Delete container first so no orphaned container remains if a later step fails.
     if (shouldDeleteContainer && hasContainer) {
       try {
-        await deleteContainer(project.projectId)
+        await deleteContainer(project.projectId, project.agentType)
       } catch {
         errors.push('delete container')
       }
@@ -97,8 +97,8 @@ export default function ManageProjectDialog({
 
     // Cost reset and audit purge are independent — run in parallel.
     const dataCleanup: Promise<unknown>[] = []
-    if (resetCosts) dataCleanup.push(resetProjectCosts(project.projectId))
-    if (purgeAudit) dataCleanup.push(purgeProjectAudit(project.projectId))
+    if (resetCosts) dataCleanup.push(resetProjectCosts(project.projectId, project.agentType))
+    if (purgeAudit) dataCleanup.push(purgeProjectAudit(project.projectId, project.agentType))
     const results = await Promise.allSettled(dataCleanup)
     const dataLabels = [resetCosts && 'reset costs', purgeAudit && 'purge audit'].filter(Boolean)
     results.forEach((r, i) => {
@@ -108,7 +108,7 @@ export default function ManageProjectDialog({
     // Remove from Warden last so cost/audit cleanup can resolve the project row.
     if (removeFromWarden) {
       try {
-        await removeProject(project.projectId)
+        await removeProject(project.projectId, project.agentType)
         void deleteProjectScrollback(project.projectId)
       } catch {
         errors.push('remove project')

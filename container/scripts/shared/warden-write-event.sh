@@ -51,6 +51,7 @@ warden_check_event_env() {
   CONTAINER_NAME="${WARDEN_CONTAINER_NAME:-}"
   if [ -z "$CONTAINER_NAME" ]; then return 1; fi
   PROJECT_ID="${WARDEN_PROJECT_ID:-}"
+  AGENT_TYPE="${WARDEN_AGENT_TYPE:-claude-code}"
   if [ -z "${WARDEN_EVENT_DIR:-}" ]; then return 1; fi
   return 0
 }
@@ -97,13 +98,13 @@ warden_extract_field() {
 # controlled identifiers that cannot contain JSON-special characters.
 # The data argument must be a valid JSON fragment (object or scalar).
 #
-# Requires CONTAINER_NAME, PROJECT_ID, and WORKTREE_ID to be set.
+# Requires CONTAINER_NAME, PROJECT_ID, AGENT_TYPE, and WORKTREE_ID to be set.
 #
 # Usage: JSON=$(warden_build_event_json "$event_type" "$data_json")
 warden_build_event_json() {
   local event_type="$1" data="$2"
-  printf '{"type":"%s","containerName":"%s","projectId":"%s","worktreeId":"%s","data":%s}' \
-    "$event_type" "$CONTAINER_NAME" "$PROJECT_ID" "$WORKTREE_ID" "$data"
+  printf '{"type":"%s","containerName":"%s","projectId":"%s","agentType":"%s","worktreeId":"%s","data":%s}' \
+    "$event_type" "$CONTAINER_NAME" "$PROJECT_ID" "$AGENT_TYPE" "$WORKTREE_ID" "$data"
 }
 
 # warden_write_event writes a JSON event to the event directory.

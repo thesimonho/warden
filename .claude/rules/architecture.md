@@ -33,7 +33,7 @@ Key properties:
 - Client mirrors the API surface 1:1. Client → network boundary → API → Service.
 - Client and API have identical surface area. Service has the same operations PLUS lower-level access for power users.
 - Each reference implementation uses exactly ONE layer:
-  - Web SPA → API (HTTP calls to `/api/v1/*`)
+  - Web SPA → API (HTTP calls to `/api/v1/projects/{projectID}/{agentType}/*` and other routes)
   - TUI → Client interface (via `ServiceAdapter` for embedded mode, swappable with `client.Client` for remote mode)
 - `warden.New()` wires deps and returns `*Warden` which exposes Service. It's the constructor, not a layer.
 

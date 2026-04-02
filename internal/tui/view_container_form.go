@@ -12,6 +12,7 @@ import (
 
 	"github.com/thesimonho/warden/agent"
 	"github.com/thesimonho/warden/api"
+	"github.com/thesimonho/warden/constants"
 	"github.com/thesimonho/warden/engine"
 	"github.com/thesimonho/warden/internal/tui/components"
 )
@@ -69,8 +70,9 @@ var networkDescriptions = map[string]string{
 // ContainerFormView handles creating or editing a container using
 // native bubbles components instead of huh.
 type ContainerFormView struct {
-	client   Client
-	editID   string
+	client        Client
+	editID        string
+	editAgentType string
 	defaults *api.DefaultsResponse
 	loading  bool
 	err      error
@@ -145,10 +147,11 @@ func NewContainerFormView(client Client) *ContainerFormView {
 }
 
 // NewContainerEditView creates a container editing form.
-func NewContainerEditView(client Client, editID string) *ContainerFormView {
+func NewContainerEditView(client Client, editID, editAgentType string) *ContainerFormView {
 	v := &ContainerFormView{
 		client:        client,
 		editID:        editID,
+		editAgentType: editAgentType,
 		loading:       true,
 		keys:          DefaultFormKeyMap(),
 		accessToggles: make(map[string]bool),
@@ -228,7 +231,7 @@ func (v *ContainerFormView) Init() tea.Cmd {
 	}
 	if v.editID != "" {
 		cmds = append(cmds, func() tea.Msg {
-			cfg, err := v.client.InspectContainer(context.Background(), v.editID)
+			cfg, err := v.client.InspectContainer(context.Background(), v.editID, v.editAgentType)
 			return containerConfigLoadedMsg{Config: cfg, Err: err}
 		})
 	}
@@ -879,12 +882,12 @@ func (v *ContainerFormView) submit() tea.Cmd {
 
 	if v.editID != "" {
 		return func() tea.Msg {
-			_, err := v.client.UpdateContainer(context.Background(), v.editID, req)
+			_, err := v.client.UpdateContainer(context.Background(), v.editID, v.editAgentType, req)
 			return OperationResultMsg{Operation: "update", Err: err}
 		}
 	}
 	return func() tea.Msg {
-		_, err := v.client.CreateContainer(context.Background(), "", req)
+		_, err := v.client.CreateContainer(context.Background(), "", string(req.AgentType), req)
 		return OperationResultMsg{Operation: "create", Err: err}
 	}
 }
@@ -927,9 +930,9 @@ func (v *ContainerFormView) refilterDefaultMounts() {
 }
 
 // isMountForAgent returns true if a default mount belongs to the given agent type.
-func isMountForAgent(dm api.DefaultMount, agentType string) bool {
+func isMountForAgent(dm api.DefaultMount, agentType constants.AgentType) bool {
 	if dm.AgentType != "" {
-		return dm.AgentType == agentType
+		return dm.AgentType == string(agentType)
 	}
 	return true // non-agent mount, always include
 }

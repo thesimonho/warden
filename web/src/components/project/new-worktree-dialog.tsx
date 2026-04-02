@@ -15,6 +15,7 @@ import { createWorktree } from '@/lib/api'
 /** Props for the NewWorktreeDialog component. */
 interface NewWorktreeDialogProps {
   projectId: string
+  agentType: string
   open: boolean
   onOpenChange: (open: boolean) => void
   onCreated: (worktreeId: string) => void
@@ -33,6 +34,7 @@ interface NewWorktreeDialogProps {
  */
 export default function NewWorktreeDialog({
   projectId,
+  agentType,
   open,
   onOpenChange,
   onCreated,
@@ -73,7 +75,7 @@ export default function NewWorktreeDialog({
     setError(null)
 
     try {
-      const response = await createWorktree(projectId, trimmedName)
+      const response = await createWorktree(projectId, agentType, trimmedName)
       setName('')
       onOpenChange(false)
       onCreated(response.worktreeId)

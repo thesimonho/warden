@@ -9,6 +9,7 @@ import (
 	"github.com/docker/docker/api/types/container"
 
 	"github.com/thesimonho/warden/agent"
+	"github.com/thesimonho/warden/constants"
 )
 
 // ReadAgentStatus reads the agent config file from a running container
@@ -46,16 +47,16 @@ func (ec *EngineClient) resolveProvider(ctx context.Context, containerID string)
 
 // cachedAgentType returns the WARDEN_AGENT_TYPE for a container, reading
 // from the container env on first call and caching for subsequent calls.
-func (ec *EngineClient) cachedAgentType(ctx context.Context, containerID string) string {
+func (ec *EngineClient) cachedAgentType(ctx context.Context, containerID string) constants.AgentType {
 	if cached, ok := ec.agentTypeCache.Load(containerID); ok {
-		return cached.(string)
+		return cached.(constants.AgentType)
 	}
 
 	info, err := ec.api.ContainerInspect(ctx, containerID)
 	if err != nil {
 		return ""
 	}
-	agentType := envValue(info.Config.Env, "WARDEN_AGENT_TYPE")
+	agentType := constants.AgentType(envValue(info.Config.Env, "WARDEN_AGENT_TYPE"))
 	ec.agentTypeCache.Store(containerID, agentType)
 	return agentType
 }

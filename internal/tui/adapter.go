@@ -62,75 +62,75 @@ func (a *ServiceAdapter) ListProjects(ctx context.Context) ([]engine.Project, er
 }
 
 // AddProject delegates to Service.AddProject.
-func (a *ServiceAdapter) AddProject(_ context.Context, name, hostPath string) (*api.ProjectResult, error) {
-	return a.w.Service.AddProject(name, hostPath)
+func (a *ServiceAdapter) AddProject(_ context.Context, name, hostPath, agentType string) (*api.ProjectResult, error) {
+	return a.w.Service.AddProject(name, hostPath, agentType)
 }
 
 // RemoveProject delegates to Service.RemoveProject.
-func (a *ServiceAdapter) RemoveProject(_ context.Context, projectID string) (*api.ProjectResult, error) {
-	return a.w.Service.RemoveProject(projectID)
+func (a *ServiceAdapter) RemoveProject(_ context.Context, projectID, agentType string) (*api.ProjectResult, error) {
+	return a.w.Service.RemoveProject(projectID, agentType)
 }
 
 // StopProject delegates to Service.StopProject.
-func (a *ServiceAdapter) StopProject(ctx context.Context, projectID string) (*api.ProjectResult, error) {
-	return a.w.Service.StopProject(ctx, projectID)
+func (a *ServiceAdapter) StopProject(ctx context.Context, projectID, agentType string) (*api.ProjectResult, error) {
+	return a.w.Service.StopProject(ctx, projectID, agentType)
 }
 
 // RestartProject delegates to Service.RestartProject.
-func (a *ServiceAdapter) RestartProject(ctx context.Context, projectID string) (*api.ProjectResult, error) {
-	return a.w.Service.RestartProject(ctx, projectID)
+func (a *ServiceAdapter) RestartProject(ctx context.Context, projectID, agentType string) (*api.ProjectResult, error) {
+	return a.w.Service.RestartProject(ctx, projectID, agentType)
 }
 
 // --- Worktrees ---
 
 // ListWorktrees delegates to Service.ListWorktrees.
-func (a *ServiceAdapter) ListWorktrees(ctx context.Context, projectID string) ([]engine.Worktree, error) {
-	return a.w.Service.ListWorktrees(ctx, projectID)
+func (a *ServiceAdapter) ListWorktrees(ctx context.Context, projectID, agentType string) ([]engine.Worktree, error) {
+	return a.w.Service.ListWorktrees(ctx, projectID, agentType)
 }
 
 // CreateWorktree delegates to Service.CreateWorktree.
-func (a *ServiceAdapter) CreateWorktree(ctx context.Context, projectID, name string) (*api.WorktreeResult, error) {
-	return a.w.Service.CreateWorktree(ctx, projectID, name)
+func (a *ServiceAdapter) CreateWorktree(ctx context.Context, projectID, agentType, name string) (*api.WorktreeResult, error) {
+	return a.w.Service.CreateWorktree(ctx, projectID, agentType, name)
 }
 
 // ConnectTerminal delegates to Service.ConnectTerminal.
-func (a *ServiceAdapter) ConnectTerminal(ctx context.Context, projectID, worktreeID string) (*api.WorktreeResult, error) {
-	return a.w.Service.ConnectTerminal(ctx, projectID, worktreeID)
+func (a *ServiceAdapter) ConnectTerminal(ctx context.Context, projectID, agentType, worktreeID string) (*api.WorktreeResult, error) {
+	return a.w.Service.ConnectTerminal(ctx, projectID, agentType, worktreeID)
 }
 
 // DisconnectTerminal delegates to Service.DisconnectTerminal.
-func (a *ServiceAdapter) DisconnectTerminal(ctx context.Context, projectID, worktreeID string) (*api.WorktreeResult, error) {
-	return a.w.Service.DisconnectTerminal(ctx, projectID, worktreeID)
+func (a *ServiceAdapter) DisconnectTerminal(ctx context.Context, projectID, agentType, worktreeID string) (*api.WorktreeResult, error) {
+	return a.w.Service.DisconnectTerminal(ctx, projectID, agentType, worktreeID)
 }
 
 // KillWorktreeProcess delegates to Service.KillWorktreeProcess.
-func (a *ServiceAdapter) KillWorktreeProcess(ctx context.Context, projectID, worktreeID string) (*api.WorktreeResult, error) {
-	return a.w.Service.KillWorktreeProcess(ctx, projectID, worktreeID)
+func (a *ServiceAdapter) KillWorktreeProcess(ctx context.Context, projectID, agentType, worktreeID string) (*api.WorktreeResult, error) {
+	return a.w.Service.KillWorktreeProcess(ctx, projectID, agentType, worktreeID)
 }
 
 // RemoveWorktree delegates to Service.RemoveWorktree.
-func (a *ServiceAdapter) RemoveWorktree(ctx context.Context, projectID, worktreeID string) (*api.WorktreeResult, error) {
-	return a.w.Service.RemoveWorktree(ctx, projectID, worktreeID)
+func (a *ServiceAdapter) RemoveWorktree(ctx context.Context, projectID, agentType, worktreeID string) (*api.WorktreeResult, error) {
+	return a.w.Service.RemoveWorktree(ctx, projectID, agentType, worktreeID)
 }
 
 // CleanupWorktrees delegates to Service.CleanupWorktrees.
-func (a *ServiceAdapter) CleanupWorktrees(ctx context.Context, projectID string) ([]string, error) {
-	return a.w.Service.CleanupWorktrees(ctx, projectID)
+func (a *ServiceAdapter) CleanupWorktrees(ctx context.Context, projectID, agentType string) ([]string, error) {
+	return a.w.Service.CleanupWorktrees(ctx, projectID, agentType)
 }
 
 // GetWorktreeDiff delegates to Service.GetWorktreeDiff.
-func (a *ServiceAdapter) GetWorktreeDiff(ctx context.Context, projectID, worktreeID string) (*api.DiffResponse, error) {
-	return a.w.Service.GetWorktreeDiff(ctx, projectID, worktreeID)
+func (a *ServiceAdapter) GetWorktreeDiff(ctx context.Context, projectID, agentType, worktreeID string) (*api.DiffResponse, error) {
+	return a.w.Service.GetWorktreeDiff(ctx, projectID, agentType, worktreeID)
 }
 
 // ResetProjectCosts delegates to Service.ResetProjectCosts.
-func (a *ServiceAdapter) ResetProjectCosts(_ context.Context, projectID string) error {
-	return a.w.Service.ResetProjectCosts(projectID)
+func (a *ServiceAdapter) ResetProjectCosts(_ context.Context, projectID, agentType string) error {
+	return a.w.Service.ResetProjectCosts(projectID, agentType)
 }
 
 // PurgeProjectAudit delegates to Service.PurgeProjectAudit.
-func (a *ServiceAdapter) PurgeProjectAudit(_ context.Context, projectID string) error {
-	_, err := a.w.Service.PurgeProjectAudit(projectID)
+func (a *ServiceAdapter) PurgeProjectAudit(_ context.Context, projectID, agentType string) error {
+	_, err := a.w.Service.PurgeProjectAudit(projectID, agentType)
 	return err
 }
 
@@ -139,28 +139,28 @@ func (a *ServiceAdapter) PurgeProjectAudit(_ context.Context, projectID string) 
 // CreateContainer delegates to Service.CreateContainer.
 // The projectID parameter is used by the HTTP client but ignored here —
 // the service computes the project ID from req.ProjectPath.
-func (a *ServiceAdapter) CreateContainer(_ context.Context, _ string, req engine.CreateContainerRequest) (*api.ContainerResult, error) {
+func (a *ServiceAdapter) CreateContainer(_ context.Context, _, _ string, req engine.CreateContainerRequest) (*api.ContainerResult, error) {
 	return a.w.Service.CreateContainer(context.Background(), req)
 }
 
 // DeleteContainer delegates to Service.DeleteContainer.
-func (a *ServiceAdapter) DeleteContainer(ctx context.Context, projectID string) (*api.ContainerResult, error) {
-	return a.w.Service.DeleteContainer(ctx, projectID)
+func (a *ServiceAdapter) DeleteContainer(ctx context.Context, projectID, agentType string) (*api.ContainerResult, error) {
+	return a.w.Service.DeleteContainer(ctx, projectID, agentType)
 }
 
 // InspectContainer delegates to Service.InspectContainer.
-func (a *ServiceAdapter) InspectContainer(ctx context.Context, projectID string) (*engine.ContainerConfig, error) {
-	return a.w.Service.InspectContainer(ctx, projectID)
+func (a *ServiceAdapter) InspectContainer(ctx context.Context, projectID, agentType string) (*engine.ContainerConfig, error) {
+	return a.w.Service.InspectContainer(ctx, projectID, agentType)
 }
 
 // UpdateContainer delegates to Service.UpdateContainer.
-func (a *ServiceAdapter) UpdateContainer(ctx context.Context, projectID string, req engine.CreateContainerRequest) (*api.ContainerResult, error) {
-	return a.w.Service.UpdateContainer(ctx, projectID, req)
+func (a *ServiceAdapter) UpdateContainer(ctx context.Context, projectID, agentType string, req engine.CreateContainerRequest) (*api.ContainerResult, error) {
+	return a.w.Service.UpdateContainer(ctx, projectID, agentType, req)
 }
 
 // ValidateContainer delegates to Service.ValidateContainer.
-func (a *ServiceAdapter) ValidateContainer(ctx context.Context, projectID string) (*api.ValidateContainerResult, error) {
-	return a.w.Service.ValidateContainer(ctx, projectID)
+func (a *ServiceAdapter) ValidateContainer(ctx context.Context, projectID, agentType string) (*api.ValidateContainerResult, error) {
+	return a.w.Service.ValidateContainer(ctx, projectID, agentType)
 }
 
 // --- Settings ---
@@ -266,8 +266,8 @@ func (a *ServiceAdapter) ResolveAccessItems(_ context.Context, req api.ResolveAc
 // --- Clipboard ---
 
 // UploadClipboard delegates to Service.UploadClipboard.
-func (a *ServiceAdapter) UploadClipboard(ctx context.Context, projectID string, content []byte, mimeType string) (*api.ClipboardUploadResponse, error) {
-	return a.w.Service.UploadClipboard(ctx, projectID, content, mimeType)
+func (a *ServiceAdapter) UploadClipboard(ctx context.Context, projectID, agentType string, content []byte, mimeType string) (*api.ClipboardUploadResponse, error) {
+	return a.w.Service.UploadClipboard(ctx, projectID, agentType, content, mimeType)
 }
 
 // --- Real-time Events ---

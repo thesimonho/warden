@@ -97,8 +97,9 @@ type WorktreeStatePayload struct {
 // parsed from the event payload. sessionID and cost are zero when the
 // event carried no cost data. Set via [Store.SetStopCallback].
 // projectID is the deterministic project identifier (from WARDEN_PROJECT_ID).
+// agentType is the agent type identifier (from WARDEN_AGENT_TYPE).
 // containerName is the Docker container name (from WARDEN_CONTAINER_NAME).
-type StopCallbackFunc func(projectID, containerName, sessionID string, cost float64, isEstimated bool)
+type StopCallbackFunc func(projectID, agentType, containerName, sessionID string, cost float64, isEstimated bool)
 
 // StaleCallbackFunc is called when a container stops sending heartbeats
 // and is marked stale. The service layer uses this to write an audit
@@ -263,7 +264,7 @@ func (s *Store) HandleEvent(event ContainerEvent) {
 	// budget enforcement. Uses cost data already parsed by handleStop.
 	// Runs outside the lock because enforcement may call back into docker.
 	if event.Type == EventStop && onStop != nil {
-		onStop(event.ProjectID, event.ContainerName, stopCost.SessionID, stopCost.TotalCost, stopCost.IsEstimated)
+		onStop(event.ProjectID, event.AgentType, event.ContainerName, stopCost.SessionID, stopCost.TotalCost, stopCost.IsEstimated)
 	}
 
 	// Fire alive callback when a container appears for the first time

@@ -106,6 +106,8 @@ type NavigateMsg struct {
 	Tab Tab
 	// ProjectID is set when navigating to project detail.
 	ProjectID string
+	// AgentType is the agent type for the project.
+	AgentType string
 	// ProjectName is the display name for the project.
 	ProjectName string
 }

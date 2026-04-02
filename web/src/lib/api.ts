@@ -28,6 +28,7 @@
  * @module
  */
 import type {
+  AgentType,
   Project,
   ContainerConfig,
   Worktree,
@@ -52,6 +53,11 @@ import type {
 
 /** Base URL for API requests. Empty string since Vite proxies /api to the backend. */
 const API_BASE = ''
+
+/** Builds the URL prefix for a project-scoped API endpoint. */
+function projectUrl(projectId: string, agentType: string): string {
+  return `/api/v1/projects/${projectId}/${agentType}`
+}
 
 /**
  * Error thrown by `apiFetch` for non-ok responses.
@@ -122,10 +128,11 @@ export async function fetchProjects(): Promise<Project[]> {
  * Stops a running project.
  *
  * @param projectId - The stable project ID (12-char hex hash).
+ * @param agentType - The CLI agent type for this project.
  * @returns The project name and container ID.
  */
-export async function stopProject(projectId: string): Promise<ProjectResult> {
-  const response = await apiFetch(`/api/v1/projects/${projectId}/stop`, { method: 'POST' })
+export async function stopProject(projectId: string, agentType: string): Promise<ProjectResult> {
+  const response = await apiFetch(`${projectUrl(projectId, agentType)}/stop`, { method: 'POST' })
   return response.json() as Promise<ProjectResult>
 }
 
@@ -133,10 +140,11 @@ export async function stopProject(projectId: string): Promise<ProjectResult> {
  * Restarts a project.
  *
  * @param projectId - The stable project ID (12-char hex hash).
+ * @param agentType - The CLI agent type for this project.
  * @returns The project name and container ID.
  */
-export async function restartProject(projectId: string): Promise<ProjectResult> {
-  const response = await apiFetch(`/api/v1/projects/${projectId}/restart`, { method: 'POST' })
+export async function restartProject(projectId: string, agentType: string): Promise<ProjectResult> {
+  const response = await apiFetch(`${projectUrl(projectId, agentType)}/restart`, { method: 'POST' })
   return response.json() as Promise<ProjectResult>
 }
 
@@ -144,10 +152,11 @@ export async function restartProject(projectId: string): Promise<ProjectResult> 
  * Fetches all worktrees for a given project with their terminal state.
  *
  * @param projectId - The project ID to fetch worktrees for.
+ * @param agentType - The CLI agent type for this project.
  * @returns An array of worktrees belonging to the project.
  */
-export async function fetchWorktrees(projectId: string): Promise<Worktree[]> {
-  const response = await apiFetch(`/api/v1/projects/${projectId}/worktrees`)
+export async function fetchWorktrees(projectId: string, agentType: string): Promise<Worktree[]> {
+  const response = await apiFetch(`${projectUrl(projectId, agentType)}/worktrees`)
   return response.json() as Promise<Worktree[]>
 }
 
@@ -155,11 +164,16 @@ export async function fetchWorktrees(projectId: string): Promise<Worktree[]> {
  * Creates a new git worktree and connects a terminal to it.
  *
  * @param projectId - The project to create the worktree in.
+ * @param agentType - The CLI agent type for this project.
  * @param name - The name for the new worktree.
  * @returns The worktree result with worktree and project IDs.
  */
-export async function createWorktree(projectId: string, name: string): Promise<WorktreeResult> {
-  const response = await apiFetch(`/api/v1/projects/${projectId}/worktrees`, {
+export async function createWorktree(
+  projectId: string,
+  agentType: string,
+  name: string,
+): Promise<WorktreeResult> {
+  const response = await apiFetch(`${projectUrl(projectId, agentType)}/worktrees`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ name }),
@@ -171,16 +185,19 @@ export async function createWorktree(projectId: string, name: string): Promise<W
  * Connects a terminal to a worktree, starting Claude Code.
  *
  * @param projectId - The project the worktree belongs to.
+ * @param agentType - The CLI agent type for this project.
  * @param worktreeId - The worktree ID to connect.
  * @returns The worktree result with worktree and project IDs.
  */
 export async function connectTerminal(
   projectId: string,
+  agentType: string,
   worktreeId: string,
 ): Promise<WorktreeResult> {
-  const response = await apiFetch(`/api/v1/projects/${projectId}/worktrees/${worktreeId}/connect`, {
-    method: 'POST',
-  })
+  const response = await apiFetch(
+    `${projectUrl(projectId, agentType)}/worktrees/${worktreeId}/connect`,
+    { method: 'POST' },
+  )
   return response.json() as Promise<WorktreeResult>
 }
 
@@ -189,15 +206,17 @@ export async function connectTerminal(
  * The abduco session (and Claude/bash) continues running in the background.
  *
  * @param projectId - The project the worktree belongs to.
+ * @param agentType - The CLI agent type for this project.
  * @param worktreeId - The worktree ID to disconnect.
  * @returns The worktree result with worktree and project IDs.
  */
 export async function disconnectTerminal(
   projectId: string,
+  agentType: string,
   worktreeId: string,
 ): Promise<WorktreeResult> {
   const response = await apiFetch(
-    `/api/v1/projects/${projectId}/worktrees/${worktreeId}/disconnect`,
+    `${projectUrl(projectId, agentType)}/worktrees/${worktreeId}/disconnect`,
     { method: 'POST' },
   )
   return response.json() as Promise<WorktreeResult>
@@ -208,16 +227,19 @@ export async function disconnectTerminal(
  * This is destructive — the terminal session is destroyed and cannot be reconnected.
  *
  * @param projectId - The project the worktree belongs to.
+ * @param agentType - The CLI agent type for this project.
  * @param worktreeId - The worktree ID to kill.
  * @returns The worktree result with worktree and project IDs.
  */
 export async function killWorktreeProcess(
   projectId: string,
+  agentType: string,
   worktreeId: string,
 ): Promise<WorktreeResult> {
-  const response = await apiFetch(`/api/v1/projects/${projectId}/worktrees/${worktreeId}/kill`, {
-    method: 'POST',
-  })
+  const response = await apiFetch(
+    `${projectUrl(projectId, agentType)}/worktrees/${worktreeId}/kill`,
+    { method: 'POST' },
+  )
   return response.json() as Promise<WorktreeResult>
 }
 
@@ -226,14 +248,16 @@ export async function killWorktreeProcess(
  * and cleans up tracking state. Cannot remove the main worktree.
  *
  * @param projectId - The project the worktree belongs to.
+ * @param agentType - The CLI agent type for this project.
  * @param worktreeId - The worktree ID to remove.
  * @returns The worktree result with worktree and project IDs.
  */
 export async function removeWorktree(
   projectId: string,
+  agentType: string,
   worktreeId: string,
 ): Promise<WorktreeResult> {
-  const response = await apiFetch(`/api/v1/projects/${projectId}/worktrees/${worktreeId}`, {
+  const response = await apiFetch(`${projectUrl(projectId, agentType)}/worktrees/${worktreeId}`, {
     method: 'DELETE',
   })
   return response.json() as Promise<WorktreeResult>
@@ -248,10 +272,14 @@ interface CleanupWorktreesResult {
  * Removes orphaned worktree directories that exist on disk but are no longer tracked by git.
  *
  * @param projectId - The project whose container to clean up.
+ * @param agentType - The CLI agent type for this project.
  * @returns The list of removed worktree IDs.
  */
-export async function cleanupWorktrees(projectId: string): Promise<CleanupWorktreesResult> {
-  const response = await apiFetch(`/api/v1/projects/${projectId}/worktrees/cleanup`, {
+export async function cleanupWorktrees(
+  projectId: string,
+  agentType: string,
+): Promise<CleanupWorktreesResult> {
+  const response = await apiFetch(`${projectUrl(projectId, agentType)}/worktrees/cleanup`, {
     method: 'POST',
   })
   return response.json() as Promise<CleanupWorktreesResult>
@@ -261,14 +289,18 @@ export async function cleanupWorktrees(projectId: string): Promise<CleanupWorktr
  * Fetches uncommitted changes (tracked + untracked) for a worktree.
  *
  * @param projectId - Container ID.
+ * @param agentType - The CLI agent type for this project.
  * @param worktreeId - Worktree ID.
  * @returns Diff response with per-file stats and unified diff.
  */
 export async function fetchWorktreeDiff(
   projectId: string,
+  agentType: string,
   worktreeId: string,
 ): Promise<DiffResponse> {
-  const response = await apiFetch(`/api/v1/projects/${projectId}/worktrees/${worktreeId}/diff`)
+  const response = await apiFetch(
+    `${projectUrl(projectId, agentType)}/worktrees/${worktreeId}/diff`,
+  )
   return response.json() as Promise<DiffResponse>
 }
 
@@ -282,10 +314,14 @@ interface ValidateContainerResult {
  * Validates whether a project's container has the required Warden terminal infrastructure.
  *
  * @param projectId - The stable project ID (12-char hex hash).
+ * @param agentType - The CLI agent type for this project.
  * @returns Whether the container is valid and which binaries are missing.
  */
-export async function validateContainer(projectId: string): Promise<ValidateContainerResult> {
-  const response = await apiFetch(`/api/v1/projects/${projectId}/container/validate`)
+export async function validateContainer(
+  projectId: string,
+  agentType: string,
+): Promise<ValidateContainerResult> {
+  const response = await apiFetch(`${projectUrl(projectId, agentType)}/container/validate`)
   return response.json() as Promise<ValidateContainerResult>
 }
 
@@ -293,14 +329,16 @@ export async function validateContainer(projectId: string): Promise<ValidateCont
  * Creates a new container for a project.
  *
  * @param projectId - The stable project ID (12-char hex hash).
+ * @param agentType - The CLI agent type for this project.
  * @param req - The container creation request.
  * @returns The container ID and name.
  */
 export async function createContainer(
   projectId: string,
+  agentType: string,
   req: CreateContainerRequest,
 ): Promise<ContainerResult> {
-  const response = await apiFetch(`/api/v1/projects/${projectId}/container`, {
+  const response = await apiFetch(`${projectUrl(projectId, agentType)}/container`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(req),
@@ -362,13 +400,18 @@ export async function listDirectories(dirPath: string, includeFiles = false): Pr
  *
  * @param name - The project name.
  * @param projectPath - Absolute host path for the project directory.
+ * @param agentType - The CLI agent type for this project.
  * @returns The project name.
  */
-export async function addProject(name: string, projectPath: string): Promise<ProjectResult> {
+export async function addProject(
+  name: string,
+  projectPath: string,
+  agentType: AgentType,
+): Promise<ProjectResult> {
   const response = await apiFetch('/api/v1/projects', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name, projectPath }),
+    body: JSON.stringify({ name, projectPath, agentType }),
   })
   return response.json() as Promise<ProjectResult>
 }
@@ -377,10 +420,11 @@ export async function addProject(name: string, projectPath: string): Promise<Pro
  * Removes a project from the dashboard.
  *
  * @param projectId - The stable project ID (12-char hex hash).
+ * @param agentType - The CLI agent type for this project.
  * @returns The project name.
  */
-export async function removeProject(projectId: string): Promise<ProjectResult> {
-  const response = await apiFetch(`/api/v1/projects/${projectId}`, {
+export async function removeProject(projectId: string, agentType: string): Promise<ProjectResult> {
+  const response = await apiFetch(`${projectUrl(projectId, agentType)}`, {
     method: 'DELETE',
   })
   return response.json() as Promise<ProjectResult>
@@ -390,19 +434,24 @@ export async function removeProject(projectId: string): Promise<ProjectResult> {
  * Resets all cost history for a project.
  *
  * @param projectId - The stable project ID (12-char hex hash).
+ * @param agentType - The CLI agent type for this project.
  */
-export async function resetProjectCosts(projectId: string): Promise<void> {
-  await apiFetch(`/api/v1/projects/${projectId}/costs`, { method: 'DELETE' })
+export async function resetProjectCosts(projectId: string, agentType: string): Promise<void> {
+  await apiFetch(`${projectUrl(projectId, agentType)}/costs`, { method: 'DELETE' })
 }
 
 /**
  * Purges all audit events for a project.
  *
  * @param projectId - The stable project ID (12-char hex hash).
+ * @param agentType - The CLI agent type for this project.
  * @returns The number of deleted events.
  */
-export async function purgeProjectAudit(projectId: string): Promise<{ deleted: number }> {
-  const response = await apiFetch(`/api/v1/projects/${projectId}/audit`, { method: 'DELETE' })
+export async function purgeProjectAudit(
+  projectId: string,
+  agentType: string,
+): Promise<{ deleted: number }> {
+  const response = await apiFetch(`${projectUrl(projectId, agentType)}/audit`, { method: 'DELETE' })
   return response.json() as Promise<{ deleted: number }>
 }
 
@@ -410,10 +459,16 @@ export async function purgeProjectAudit(projectId: string): Promise<{ deleted: n
  * Deletes a project's container.
  *
  * @param projectId - The stable project ID (12-char hex hash).
+ * @param agentType - The CLI agent type for this project.
  * @returns The container ID and name.
  */
-export async function deleteContainer(projectId: string): Promise<ContainerResult> {
-  const response = await apiFetch(`/api/v1/projects/${projectId}/container`, { method: 'DELETE' })
+export async function deleteContainer(
+  projectId: string,
+  agentType: string,
+): Promise<ContainerResult> {
+  const response = await apiFetch(`${projectUrl(projectId, agentType)}/container`, {
+    method: 'DELETE',
+  })
   return response.json() as Promise<ContainerResult>
 }
 
@@ -421,10 +476,14 @@ export async function deleteContainer(projectId: string): Promise<ContainerResul
  * Fetches the editable configuration of a project's container.
  *
  * @param projectId - The stable project ID (12-char hex hash).
+ * @param agentType - The CLI agent type for this project.
  * @returns The container's configuration.
  */
-export async function fetchContainerConfig(projectId: string): Promise<ContainerConfig> {
-  const response = await apiFetch(`/api/v1/projects/${projectId}/container/config`)
+export async function fetchContainerConfig(
+  projectId: string,
+  agentType: string,
+): Promise<ContainerConfig> {
+  const response = await apiFetch(`${projectUrl(projectId, agentType)}/container/config`)
   return response.json() as Promise<ContainerConfig>
 }
 
@@ -432,14 +491,16 @@ export async function fetchContainerConfig(projectId: string): Promise<Container
  * Recreates a project's container with updated configuration.
  *
  * @param projectId - The stable project ID (12-char hex hash).
+ * @param agentType - The CLI agent type for this project.
  * @param req - The new container configuration.
  * @returns The new container ID and name.
  */
 export async function updateContainer(
   projectId: string,
+  agentType: string,
   req: CreateContainerRequest,
 ): Promise<ContainerResult> {
-  const response = await apiFetch(`/api/v1/projects/${projectId}/container`, {
+  const response = await apiFetch(`${projectUrl(projectId, agentType)}/container`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(req),
@@ -733,13 +794,18 @@ export async function resolveAccessItems(items: AccessItem[]): Promise<ResolvedI
  * sending Ctrl+V to the PTY so the agent's clipboard read picks up the image.
  *
  * @param projectId - The project whose container receives the image.
+ * @param agentType - The CLI agent type for this project.
  * @param file - The image blob from the browser clipboard.
  * @returns The path where the image was staged inside the container.
  */
-export async function uploadClipboardImage(projectId: string, file: Blob): Promise<string> {
+export async function uploadClipboardImage(
+  projectId: string,
+  agentType: string,
+  file: Blob,
+): Promise<string> {
   const form = new FormData()
   form.append('file', file, 'paste.png')
-  const response = await apiFetch(`/api/v1/projects/${projectId}/clipboard`, {
+  const response = await apiFetch(`${projectUrl(projectId, agentType)}/clipboard`, {
     method: 'POST',
     body: form,
   })

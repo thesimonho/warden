@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"io"
 
 	"github.com/thesimonho/warden/agent"
 	"github.com/thesimonho/warden/api"
@@ -123,6 +124,10 @@ func (m *mockEngine) ReadAgentCostAndBillingType(_ context.Context, _, _ string)
 
 func (m *mockEngine) GetWorktreeDiff(_ context.Context, _, _ string) (*api.DiffResponse, error) {
 	return nil, nil
+}
+
+func (m *mockEngine) CopyFileToContainer(_ context.Context, _, _, _ string, _ io.Reader, _ int64) error {
+	return nil
 }
 
 func (m *mockEngine) ContainerStartupHealth(_ context.Context, _ string) (*engine.ContainerHealth, error) {

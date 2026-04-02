@@ -32,7 +32,7 @@ func TestGetEffectiveBudget_PerProjectBudget(t *testing.T) {
 	// Insert a project with a per-project budget.
 	_ = db.InsertProject(testProjectRow("budgeted", 25.00))
 
-	budget := svc.GetEffectiveBudget("budgeted")
+	budget := svc.GetEffectiveBudget("budgeted", "claude-code")
 	if budget != 25.00 {
 		t.Errorf("expected 25.00, got %f", budget)
 	}
@@ -50,7 +50,7 @@ func TestGetEffectiveBudget_FallsBackToGlobalDefault(t *testing.T) {
 	// Insert a project with no per-project budget.
 	_ = db.InsertProject(testProjectRow("no-budget", 0))
 
-	budget := svc.GetEffectiveBudget("no-budget")
+	budget := svc.GetEffectiveBudget("no-budget", "claude-code")
 	if budget != 10.00 {
 		t.Errorf("expected global default 10.00, got %f", budget)
 	}
@@ -63,7 +63,7 @@ func TestGetEffectiveBudget_Unlimited(t *testing.T) {
 	svc := New(ServiceDeps{Engine: &mockEngine{}, DB: db})
 
 	// No project in DB, no global default.
-	budget := svc.GetEffectiveBudget("unknown")
+	budget := svc.GetEffectiveBudget("unknown", "claude-code")
 	if budget != 0 {
 		t.Errorf("expected 0 (unlimited), got %f", budget)
 	}
@@ -74,7 +74,7 @@ func TestGetEffectiveBudget_NilDB(t *testing.T) {
 
 	svc := New(ServiceDeps{Engine: &mockEngine{}})
 
-	budget := svc.GetEffectiveBudget("anything")
+	budget := svc.GetEffectiveBudget("anything", "claude-code")
 	if budget != 0 {
 		t.Errorf("expected 0 (unlimited) with nil DB, got %f", budget)
 	}

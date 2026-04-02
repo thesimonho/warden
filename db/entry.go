@@ -90,6 +90,8 @@ type Entry struct {
 	Event string `json:"event"`
 	// ProjectID is the deterministic project identifier (sha256 of host path, 12 hex chars).
 	ProjectID string `json:"projectId,omitempty"`
+	// AgentType identifies the agent that produced this event (e.g. "claude-code", "codex").
+	AgentType string `json:"agentType,omitempty"`
 	// ContainerName is a snapshot of the container name at the time of the event.
 	ContainerName string `json:"containerName,omitempty"`
 	// Worktree is the worktree ID (only for agent events).
@@ -155,4 +157,11 @@ type ProjectRow struct {
 	ContainerID string
 	// ContainerName is the Docker container name (may differ from Name if renamed).
 	ContainerName string
+}
+
+// ProjectAgentKey uniquely identifies a project+agent pair. Used as a map key
+// where the compound (project_id, agent_type) identity is needed.
+type ProjectAgentKey struct {
+	ProjectID string
+	AgentType string
 }

@@ -10,6 +10,8 @@ package api
 type ProjectResult struct {
 	// ProjectID is the deterministic project identifier.
 	ProjectID string `json:"projectId"`
+	// AgentType is the agent type for this project (e.g. "claude-code", "codex").
+	AgentType string `json:"agentType"`
 	// Name is the user-chosen project display name.
 	Name string `json:"name"`
 	// ContainerID is the Docker container ID, when available.
@@ -35,6 +37,8 @@ type ContainerResult struct {
 	Name string `json:"name"`
 	// ProjectID is the deterministic project identifier.
 	ProjectID string `json:"projectId"`
+	// AgentType is the agent type for this container.
+	AgentType string `json:"agentType"`
 }
 
 // ValidateContainerResult holds the output of infrastructure validation.
@@ -69,6 +73,10 @@ type SettingsResponse struct {
 	BudgetActionStopWorktrees bool `json:"budgetActionStopWorktrees"`
 	BudgetActionStopContainer bool `json:"budgetActionStopContainer"`
 	BudgetActionPreventStart  bool `json:"budgetActionPreventStart"`
+
+	// WorkingDirectory is the server process's working directory. Used by
+	// development tooling to auto-create projects without manual path entry.
+	WorkingDirectory string `json:"workingDirectory"`
 }
 
 // UpdateSettingsRequest holds the fields that can be updated.

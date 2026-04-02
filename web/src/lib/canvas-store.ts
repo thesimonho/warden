@@ -18,6 +18,8 @@ export interface CanvasPanel {
   id: string
   /** Project (container) ID this panel is connected to. */
   projectId: string
+  /** CLI agent type for this project. */
+  agentType: string
   /** Project display name. */
   projectName: string
   /** Worktree ID within the project. */
@@ -153,6 +155,7 @@ export function useCanvasStore() {
     (
       params: {
         projectId: string
+        agentType: string
         projectName: string
         worktreeId: string
         branch?: string

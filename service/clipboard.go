@@ -18,8 +18,8 @@ const clipboardDir = "/tmp/warden-clipboard"
 // for the xclip shim to serve. Used by the web frontend to enable image
 // paste — the browser uploads the image, then sends Ctrl+V to the PTY.
 // The agent calls xclip, and the shim returns the staged file.
-func (s *Service) UploadClipboard(ctx context.Context, projectID string, content []byte, mimeType string) (*api.ClipboardUploadResponse, error) {
-	project, err := s.resolveProject(projectID)
+func (s *Service) UploadClipboard(ctx context.Context, projectID, agentType string, content []byte, mimeType string) (*api.ClipboardUploadResponse, error) {
+	project, err := s.resolveProject(projectID, agentType)
 	if err != nil {
 		return nil, err
 	}

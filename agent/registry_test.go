@@ -3,6 +3,8 @@ package agent
 import (
 	"sync"
 	"testing"
+
+	"github.com/thesimonho/warden/constants"
 )
 
 // mockProvider implements StatusProvider for testing.
@@ -168,7 +170,7 @@ func TestShortLabel(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		input string
+		input constants.AgentType
 		want  string
 	}{
 		{ClaudeCode, "claude"},
@@ -193,7 +195,7 @@ func TestConstants(t *testing.T) {
 	if Codex != "codex" {
 		t.Errorf("Codex = %q, want %q", Codex, "codex")
 	}
-	if DefaultAgentType != ClaudeCode {
-		t.Errorf("DefaultAgentType = %q, want %q", DefaultAgentType, ClaudeCode)
+	if DefaultType != ClaudeCode {
+		t.Errorf("DefaultType = %q, want %q", DefaultType, ClaudeCode)
 	}
 }

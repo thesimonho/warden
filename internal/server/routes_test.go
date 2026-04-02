@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -129,6 +130,10 @@ func (m *mockEngineClient) GetWorktreeDiff(_ context.Context, _, _ string) (*api
 	return nil, nil
 }
 
+func (m *mockEngineClient) CopyFileToContainer(_ context.Context, _, _, _ string, _ io.Reader, _ int64) error {
+	return nil
+}
+
 func (m *mockEngineClient) ContainerStartupHealth(_ context.Context, _ string) (*engine.ContainerHealth, error) {
 	return &engine.ContainerHealth{}, nil
 }
@@ -238,7 +243,7 @@ func TestHandleAddProject(t *testing.T) {
 	// Verify by decoding the response to get the computed project ID.
 	var result api.ProjectResult
 	if err := json.NewDecoder(rec.Body).Decode(&result); err == nil && result.ProjectID != "" {
-		has, _ := database.HasProject(result.ProjectID)
+		has, _ := database.HasProject(result.ProjectID, "claude-code")
 		if !has {
 			t.Error("expected project to be added to database")
 		}
@@ -272,7 +277,7 @@ func TestHandleRemoveProject(t *testing.T) {
 	mux := http.NewServeMux()
 	registerAPIRoutes(mux, service.New(service.ServiceDeps{Engine: mock, DB: database}), nil, nil)
 
-	req := httptest.NewRequest(http.MethodDelete, "/api/v1/projects/"+pid, nil)
+	req := httptest.NewRequest(http.MethodDelete, "/api/v1/projects/"+pid+"/claude-code", nil)
 	rec := httptest.NewRecorder()
 	mux.ServeHTTP(rec, req)
 
@@ -280,7 +285,7 @@ func TestHandleRemoveProject(t *testing.T) {
 		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
 	}
 
-	has, _ := database.HasProject(pid)
+	has, _ := database.HasProject(pid, "claude-code")
 	if has {
 		t.Error("expected project to be removed from database")
 	}
@@ -295,7 +300,7 @@ func TestHandleStopProject(t *testing.T) {
 	mux := http.NewServeMux()
 	registerAPIRoutes(mux, service.New(service.ServiceDeps{Engine: mock, DB: database}), nil, nil)
 
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/projects/"+pid+"/stop", nil)
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/projects/"+pid+"/claude-code/stop", nil)
 	rec := httptest.NewRecorder()
 	mux.ServeHTTP(rec, req)
 
@@ -311,7 +316,7 @@ func TestHandleStopProject_InvalidID(t *testing.T) {
 	mux := http.NewServeMux()
 	registerAPIRoutes(mux, service.New(service.ServiceDeps{Engine: mock, DB: testDB(t)}), nil, nil)
 
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/projects/INVALID_ID!/stop", nil)
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/projects/INVALID_ID!/claude-code/stop", nil)
 	rec := httptest.NewRecorder()
 	mux.ServeHTTP(rec, req)
 
@@ -331,7 +336,7 @@ func TestHandleStopProject_DockerError(t *testing.T) {
 	mux := http.NewServeMux()
 	registerAPIRoutes(mux, service.New(service.ServiceDeps{Engine: mock, DB: database}), nil, nil)
 
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/projects/"+pid+"/stop", nil)
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/projects/"+pid+"/claude-code/stop", nil)
 	rec := httptest.NewRecorder()
 	mux.ServeHTTP(rec, req)
 
@@ -349,7 +354,7 @@ func TestHandleRestartProject(t *testing.T) {
 	mux := http.NewServeMux()
 	registerAPIRoutes(mux, service.New(service.ServiceDeps{Engine: mock, DB: database}), nil, nil)
 
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/projects/"+pid+"/restart", nil)
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/projects/"+pid+"/claude-code/restart", nil)
 	rec := httptest.NewRecorder()
 	mux.ServeHTTP(rec, req)
 
@@ -372,7 +377,7 @@ func TestHandleListWorktrees(t *testing.T) {
 	mux := http.NewServeMux()
 	registerAPIRoutes(mux, service.New(service.ServiceDeps{Engine: mock, DB: database}), nil, nil)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/projects/"+pid+"/worktrees", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/projects/"+pid+"/claude-code/worktrees", nil)
 	rec := httptest.NewRecorder()
 	mux.ServeHTTP(rec, req)
 
@@ -404,7 +409,7 @@ func TestHandleListWorktrees_Error(t *testing.T) {
 	mux := http.NewServeMux()
 	registerAPIRoutes(mux, service.New(service.ServiceDeps{Engine: mock, DB: database}), nil, nil)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/projects/"+pid+"/worktrees", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/projects/"+pid+"/claude-code/worktrees", nil)
 	rec := httptest.NewRecorder()
 	mux.ServeHTTP(rec, req)
 
@@ -425,7 +430,7 @@ func TestHandleCreateWorktree(t *testing.T) {
 	registerAPIRoutes(mux, service.New(service.ServiceDeps{Engine: mock, DB: database}), nil, nil)
 
 	body := strings.NewReader(`{"name":"feature-y"}`)
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/projects/"+pid+"/worktrees", body)
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/projects/"+pid+"/claude-code/worktrees", body)
 	rec := httptest.NewRecorder()
 	mux.ServeHTTP(rec, req)
 
@@ -453,7 +458,7 @@ func TestHandleCreateWorktree_MissingName(t *testing.T) {
 	registerAPIRoutes(mux, service.New(service.ServiceDeps{Engine: mock, DB: database}), nil, nil)
 
 	body := strings.NewReader(`{}`)
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/projects/"+pid+"/worktrees", body)
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/projects/"+pid+"/claude-code/worktrees", body)
 	rec := httptest.NewRecorder()
 	mux.ServeHTTP(rec, req)
 
@@ -472,7 +477,7 @@ func TestHandleCreateWorktree_InvalidBody(t *testing.T) {
 	registerAPIRoutes(mux, service.New(service.ServiceDeps{Engine: mock, DB: database}), nil, nil)
 
 	body := strings.NewReader(`not json`)
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/projects/"+pid+"/worktrees", body)
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/projects/"+pid+"/claude-code/worktrees", body)
 	rec := httptest.NewRecorder()
 	mux.ServeHTTP(rec, req)
 
@@ -492,7 +497,7 @@ func TestHandleConnectTerminal(t *testing.T) {
 	mux := http.NewServeMux()
 	registerAPIRoutes(mux, service.New(service.ServiceDeps{Engine: mock, DB: database}), nil, nil)
 
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/projects/"+pid+"/worktrees/main/connect", nil)
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/projects/"+pid+"/claude-code/worktrees/main/connect", nil)
 	rec := httptest.NewRecorder()
 	mux.ServeHTTP(rec, req)
 
@@ -510,7 +515,7 @@ func TestHandleConnectTerminal_InvalidWorktreeID(t *testing.T) {
 	mux := http.NewServeMux()
 	registerAPIRoutes(mux, service.New(service.ServiceDeps{Engine: mock, DB: database}), nil, nil)
 
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/projects/"+pid+"/worktrees/../connect", nil)
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/projects/"+pid+"/claude-code/worktrees/../connect", nil)
 	rec := httptest.NewRecorder()
 	mux.ServeHTTP(rec, req)
 
@@ -529,7 +534,7 @@ func TestHandleDisconnectTerminal(t *testing.T) {
 	mux := http.NewServeMux()
 	registerAPIRoutes(mux, service.New(service.ServiceDeps{Engine: mock, DB: database}), nil, nil)
 
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/projects/"+pid+"/worktrees/main/disconnect", nil)
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/projects/"+pid+"/claude-code/worktrees/main/disconnect", nil)
 	rec := httptest.NewRecorder()
 	mux.ServeHTTP(rec, req)
 
@@ -549,7 +554,7 @@ func TestHandleDisconnectTerminal_Error(t *testing.T) {
 	mux := http.NewServeMux()
 	registerAPIRoutes(mux, service.New(service.ServiceDeps{Engine: mock, DB: database}), nil, nil)
 
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/projects/"+pid+"/worktrees/main/disconnect", nil)
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/projects/"+pid+"/claude-code/worktrees/main/disconnect", nil)
 	rec := httptest.NewRecorder()
 	mux.ServeHTTP(rec, req)
 
@@ -567,7 +572,7 @@ func TestHandleKillWorktreeProcess(t *testing.T) {
 	mux := http.NewServeMux()
 	registerAPIRoutes(mux, service.New(service.ServiceDeps{Engine: mock, DB: database}), nil, nil)
 
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/projects/"+pid+"/worktrees/main/kill", nil)
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/projects/"+pid+"/claude-code/worktrees/main/kill", nil)
 	rec := httptest.NewRecorder()
 	mux.ServeHTTP(rec, req)
 
@@ -587,7 +592,7 @@ func TestHandleKillWorktreeProcess_Error(t *testing.T) {
 	mux := http.NewServeMux()
 	registerAPIRoutes(mux, service.New(service.ServiceDeps{Engine: mock, DB: database}), nil, nil)
 
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/projects/"+pid+"/worktrees/main/kill", nil)
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/projects/"+pid+"/claude-code/worktrees/main/kill", nil)
 	rec := httptest.NewRecorder()
 	mux.ServeHTTP(rec, req)
 
@@ -608,7 +613,7 @@ func TestHandleCreateContainer(t *testing.T) {
 	registerAPIRoutes(mux, service.New(service.ServiceDeps{Engine: mock, DB: database}), nil, nil)
 
 	body := strings.NewReader(`{"name":"my-project","image":"claude-project-dev","projectPath":"/home/user/project"}`)
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/projects/"+pid+"/container", body)
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/projects/"+pid+"/claude-code/container", body)
 	rec := httptest.NewRecorder()
 	mux.ServeHTTP(rec, req)
 
@@ -627,7 +632,7 @@ func TestHandleCreateContainer_MissingProjectPath(t *testing.T) {
 	registerAPIRoutes(mux, service.New(service.ServiceDeps{Engine: mock, DB: database}), nil, nil)
 
 	body := strings.NewReader(`{"name":"my-project","image":"claude-project-dev"}`)
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/projects/"+pid+"/container", body)
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/projects/"+pid+"/claude-code/container", body)
 	rec := httptest.NewRecorder()
 	mux.ServeHTTP(rec, req)
 
@@ -750,7 +755,7 @@ func TestHandleDeleteContainer(t *testing.T) {
 	mux := http.NewServeMux()
 	registerAPIRoutes(mux, service.New(service.ServiceDeps{Engine: mock, DB: database}), nil, nil)
 
-	req := httptest.NewRequest(http.MethodDelete, "/api/v1/projects/"+pid+"/container", nil)
+	req := httptest.NewRequest(http.MethodDelete, "/api/v1/projects/"+pid+"/claude-code/container", nil)
 	rec := httptest.NewRecorder()
 	mux.ServeHTTP(rec, req)
 
@@ -770,7 +775,7 @@ func TestHandleDeleteContainer_Error(t *testing.T) {
 	mux := http.NewServeMux()
 	registerAPIRoutes(mux, service.New(service.ServiceDeps{Engine: mock, DB: database}), nil, nil)
 
-	req := httptest.NewRequest(http.MethodDelete, "/api/v1/projects/"+pid+"/container", nil)
+	req := httptest.NewRequest(http.MethodDelete, "/api/v1/projects/"+pid+"/claude-code/container", nil)
 	rec := httptest.NewRecorder()
 	mux.ServeHTTP(rec, req)
 
@@ -786,7 +791,7 @@ func TestHandleDeleteContainer_NotFound(t *testing.T) {
 	mux := http.NewServeMux()
 	registerAPIRoutes(mux, service.New(service.ServiceDeps{Engine: mock, DB: testDB(t)}), nil, nil)
 
-	req := httptest.NewRequest(http.MethodDelete, "/api/v1/projects/aabbccddeeff/container", nil)
+	req := httptest.NewRequest(http.MethodDelete, "/api/v1/projects/aabbccddeeff/claude-code/container", nil)
 	rec := httptest.NewRecorder()
 	mux.ServeHTTP(rec, req)
 
@@ -810,7 +815,7 @@ func TestHandleInspectContainer(t *testing.T) {
 	mux := http.NewServeMux()
 	registerAPIRoutes(mux, service.New(service.ServiceDeps{Engine: mock, DB: database}), nil, nil)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/projects/"+pid+"/container/config", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/projects/"+pid+"/claude-code/container/config", nil)
 	rec := httptest.NewRecorder()
 	mux.ServeHTTP(rec, req)
 
@@ -839,7 +844,7 @@ func TestHandleInspectContainer_Error(t *testing.T) {
 	mux := http.NewServeMux()
 	registerAPIRoutes(mux, service.New(service.ServiceDeps{Engine: mock, DB: database}), nil, nil)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/projects/"+pid+"/container/config", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/projects/"+pid+"/claude-code/container/config", nil)
 	rec := httptest.NewRecorder()
 	mux.ServeHTTP(rec, req)
 
@@ -860,7 +865,7 @@ func TestHandleUpdateContainer(t *testing.T) {
 	registerAPIRoutes(mux, service.New(service.ServiceDeps{Engine: mock, DB: database}), nil, nil)
 
 	body := strings.NewReader(`{"name":"my-project","image":"warden:latest","projectPath":"/home/user/project"}`)
-	req := httptest.NewRequest(http.MethodPut, "/api/v1/projects/"+pid+"/container", body)
+	req := httptest.NewRequest(http.MethodPut, "/api/v1/projects/"+pid+"/claude-code/container", body)
 	rec := httptest.NewRecorder()
 	mux.ServeHTTP(rec, req)
 
@@ -879,7 +884,7 @@ func TestHandleUpdateContainer_MissingProjectPath(t *testing.T) {
 	registerAPIRoutes(mux, service.New(service.ServiceDeps{Engine: mock, DB: database}), nil, nil)
 
 	body := strings.NewReader(`{"name":"my-project","image":"warden:latest"}`)
-	req := httptest.NewRequest(http.MethodPut, "/api/v1/projects/"+pid+"/container", body)
+	req := httptest.NewRequest(http.MethodPut, "/api/v1/projects/"+pid+"/claude-code/container", body)
 	rec := httptest.NewRecorder()
 	mux.ServeHTTP(rec, req)
 
@@ -900,7 +905,7 @@ func TestHandleValidateContainer(t *testing.T) {
 	mux := http.NewServeMux()
 	registerAPIRoutes(mux, service.New(service.ServiceDeps{Engine: mock, DB: database}), nil, nil)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/projects/"+pid+"/container/validate", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/projects/"+pid+"/claude-code/container/validate", nil)
 	rec := httptest.NewRecorder()
 	mux.ServeHTTP(rec, req)
 
@@ -930,7 +935,7 @@ func TestHandleValidateContainer_MissingInfrastructure(t *testing.T) {
 	mux := http.NewServeMux()
 	registerAPIRoutes(mux, service.New(service.ServiceDeps{Engine: mock, DB: database}), nil, nil)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/projects/"+pid+"/container/validate", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/projects/"+pid+"/claude-code/container/validate", nil)
 	rec := httptest.NewRecorder()
 	mux.ServeHTTP(rec, req)
 
@@ -965,7 +970,7 @@ func TestHandleValidateContainer_Error(t *testing.T) {
 	mux := http.NewServeMux()
 	registerAPIRoutes(mux, service.New(service.ServiceDeps{Engine: mock, DB: database}), nil, nil)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/projects/"+pid+"/container/validate", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/projects/"+pid+"/claude-code/container/validate", nil)
 	rec := httptest.NewRecorder()
 	mux.ServeHTTP(rec, req)
 
@@ -981,7 +986,7 @@ func TestHandleValidateContainer_NotFound(t *testing.T) {
 	mux := http.NewServeMux()
 	registerAPIRoutes(mux, service.New(service.ServiceDeps{Engine: mock, DB: testDB(t)}), nil, nil)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/projects/aabbccddeeff/container/validate", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/projects/aabbccddeeff/claude-code/container/validate", nil)
 	rec := httptest.NewRecorder()
 	mux.ServeHTTP(rec, req)
 
@@ -1005,7 +1010,7 @@ func TestHandleListProjects_OverlaysCostFromDB(t *testing.T) {
 
 	database := testDB(t)
 	_ = database.InsertProject(db.ProjectRow{ProjectID: "my-project", Name: "my-project", HostPath: "/test/my-project"})
-	_ = database.UpsertSessionCost("my-project", "session-abc", 4.56, false)
+	_ = database.UpsertSessionCost("my-project", "claude-code", "session-abc", 4.56, false)
 
 	mux := http.NewServeMux()
 	registerAPIRoutes(mux, service.New(service.ServiceDeps{Engine: mock, DB: database}), nil, nil)
@@ -1082,7 +1087,7 @@ func TestHandleListWorktrees_OverlaysAttentionFromStore(t *testing.T) {
 	mux := http.NewServeMux()
 	registerAPIRoutes(mux, service.New(service.ServiceDeps{Engine: mock, DB: database, Store: store}), nil, nil)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/projects/"+pid+"/worktrees", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/projects/"+pid+"/claude-code/worktrees", nil)
 	rec := httptest.NewRecorder()
 	mux.ServeHTTP(rec, req)
 
@@ -1150,7 +1155,7 @@ func TestHandleListWorktrees_AttentionClearOverlay(t *testing.T) {
 	mux := http.NewServeMux()
 	registerAPIRoutes(mux, service.New(service.ServiceDeps{Engine: mock, DB: database, Store: store}), nil, nil)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/projects/"+pid+"/worktrees", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/projects/"+pid+"/claude-code/worktrees", nil)
 	rec := httptest.NewRecorder()
 	mux.ServeHTTP(rec, req)
 
@@ -1193,7 +1198,7 @@ func TestHandleListWorktrees_OverlayWorksWithoutInspect(t *testing.T) {
 	mux := http.NewServeMux()
 	registerAPIRoutes(mux, service.New(service.ServiceDeps{Engine: mock, DB: database, Store: store}), nil, nil)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/projects/"+pid+"/worktrees", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/projects/"+pid+"/claude-code/worktrees", nil)
 	rec := httptest.NewRecorder()
 	mux.ServeHTTP(rec, req)
 
@@ -1239,7 +1244,7 @@ func TestHandleListWorktrees_SessionEndTransitionsToShell(t *testing.T) {
 	mux := http.NewServeMux()
 	registerAPIRoutes(mux, service.New(service.ServiceDeps{Engine: mock, DB: database, Store: store}), nil, nil)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/projects/"+pid+"/worktrees", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/projects/"+pid+"/claude-code/worktrees", nil)
 	rec := httptest.NewRecorder()
 	mux.ServeHTTP(rec, req)
 

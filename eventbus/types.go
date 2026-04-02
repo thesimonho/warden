@@ -84,6 +84,8 @@ type ContainerEvent struct {
 	ContainerName string `json:"containerName"`
 	// ProjectID is the deterministic project identifier (set via WARDEN_PROJECT_ID env).
 	ProjectID string `json:"projectId,omitempty"`
+	// AgentType identifies the agent that produced this event (set via WARDEN_AGENT_TYPE env).
+	AgentType string `json:"agentType,omitempty"`
 	// WorktreeID is the worktree this event pertains to (e.g. "main", "feature-x").
 	WorktreeID string `json:"worktreeId"`
 	// Data carries event-specific payload (e.g. notificationType, cost fields).

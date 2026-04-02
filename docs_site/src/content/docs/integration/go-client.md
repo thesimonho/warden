@@ -32,12 +32,14 @@ Each project includes an `AgentType` field (`"claude-code"` or `"codex"`) that i
 ## Example: Create a worktree
 
 ```go
-resp, err := c.CreateWorktree(ctx, projectID, "feature-branch")
+resp, err := c.CreateWorktree(ctx, projectID, "claude-code", "feature-branch")
 if err != nil {
     return err
 }
 fmt.Printf("Created worktree: %s\n", resp.WorktreeID)
 ```
+
+The `agentType` parameter identifies which agent the project runs (`"claude-code"` or `"codex"`). When creating a worktree for an existing project, use the same agent type as the project.
 
 ## Example: Manage a project
 
@@ -45,17 +47,19 @@ The client exposes the same four management actions as the web and TUI dashboard
 
 ```go
 // Reset all cost tracking data for a project.
-err := c.ResetProjectCosts(ctx, projectID)
+err := c.ResetProjectCosts(ctx, projectID, agentType)
 
 // Purge all audit events for a project.
-err := c.PurgeProjectAudit(ctx, projectID)
+err := c.PurgeProjectAudit(ctx, projectID, agentType)
 
 // Delete a project's container (stop + remove).
-_, err := c.DeleteContainer(ctx, projectID)
+_, err := c.DeleteContainer(ctx, projectID, agentType)
 
 // Remove a project from Warden (untrack).
-_, err := c.RemoveProject(ctx, projectID)
+_, err := c.RemoveProject(ctx, projectID, agentType)
 ```
+
+All management operations require both the `projectID` and `agentType` to uniquely identify the project.
 
 ## Error handling
 

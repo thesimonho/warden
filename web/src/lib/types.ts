@@ -178,6 +178,7 @@ export function worktreeDisplayName(worktreeId: string, projectName: string): st
 /** Payload for `worktree_state` SSE events. */
 export interface WorktreeStateEvent {
   projectId: string
+  agentType?: AgentType
   containerName: string
   worktreeId: string
   needsInput: boolean
@@ -212,6 +213,7 @@ export function deriveWorktreeStateFromEvent(
 /** Payload for `project_state` SSE events. */
 export interface ProjectStateEvent {
   projectId: string
+  agentType?: AgentType
   containerName: string
   totalCost: number
   messageCount: number
@@ -222,6 +224,7 @@ export interface ProjectStateEvent {
 /** Payload for `worktree_list_changed` SSE events. */
 export interface WorktreeListChangedEvent {
   projectId: string
+  agentType?: AgentType
   /** Container name whose worktree list changed. */
   containerName: string
 }
@@ -235,6 +238,7 @@ export interface WorktreeResult {
 /** Result of a project mutation (add, remove, stop, restart). */
 export interface ProjectResult {
   projectId: string
+  agentType: AgentType
   name: string
   containerId?: string
 }
@@ -444,6 +448,8 @@ export type AuditLogMode = 'off' | 'standard' | 'detailed'
 export interface ServerSettings {
   /** Active container runtime. */
   runtime: 'docker' | 'podman'
+  /** Server working directory (used for resolving relative paths). */
+  workingDirectory: string
   /** Audit log mode (off/standard/detailed). */
   auditLogMode: AuditLogMode
   /** Global default per-project cost budget in USD (0 = unlimited). */
@@ -493,6 +499,8 @@ export interface AuditLogEntry {
   event: string
   /** Stable project ID (empty for backend/frontend events without one). */
   projectId?: string
+  /** Agent type associated with the event. */
+  agentType?: AgentType
   /** Container name (for display). */
   containerName?: string
   /** Worktree ID (only for agent events). */

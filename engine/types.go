@@ -8,6 +8,7 @@ import (
 
 	"github.com/thesimonho/warden/agent"
 	"github.com/thesimonho/warden/api"
+	"github.com/thesimonho/warden/constants"
 )
 
 // AgentStatus represents whether the agent CLI is actively running inside a container.
@@ -126,7 +127,7 @@ type Project struct {
 	// IsGitRepo indicates whether the container's /project is a git repository.
 	IsGitRepo bool `json:"isGitRepo"`
 	// AgentType identifies the CLI agent running in this project (e.g. "claude-code", "codex").
-	AgentType string `json:"agentType"`
+	AgentType constants.AgentType `json:"agentType"`
 	// SkipPermissions indicates whether terminals should skip permission prompts.
 	SkipPermissions bool `json:"skipPermissions"`
 	// MountedDir is the host directory mounted into the container.
@@ -176,7 +177,7 @@ type CreateContainerRequest struct {
 	Image       string            `json:"image"`
 	ProjectPath string            `json:"projectPath"`
 	// AgentType selects the CLI agent to run (e.g. "claude-code", "codex"). Defaults to "claude-code".
-	AgentType string            `json:"agentType,omitempty"`
+	AgentType constants.AgentType `json:"agentType,omitempty"`
 	EnvVars   map[string]string `json:"envVars,omitempty"`
 	// Mounts is a list of additional bind mounts from host into the container.
 	Mounts []Mount `json:"mounts,omitempty"`
@@ -200,7 +201,7 @@ type ContainerConfig struct {
 	Image           string            `json:"image"`
 	ProjectPath     string            `json:"projectPath"`
 	// AgentType identifies the CLI agent running in this project.
-	AgentType       string            `json:"agentType"`
+	AgentType       constants.AgentType `json:"agentType"`
 	EnvVars         map[string]string `json:"envVars,omitempty"`
 	Mounts          []Mount           `json:"mounts,omitempty"`
 	SkipPermissions bool              `json:"skipPermissions"`

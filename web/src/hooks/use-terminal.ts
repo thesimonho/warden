@@ -56,6 +56,8 @@ export type TerminalStatus = 'connecting' | 'connected' | 'disconnected' | 'erro
 interface UseTerminalOptions {
   /** Container ID (12 or 64 char hex). */
   projectId: string
+  /** CLI agent type for this project. */
+  agentType: string
   /** Worktree identifier. */
   worktreeId: string
   /** Whether the terminal should be active (connected). */
@@ -106,9 +108,9 @@ const SCROLLBACK_LINES = 10_000
  * backend, so we use the current host. In production, the Go binary serves
  * both the SPA and the WebSocket endpoint on the same origin.
  */
-function buildWSUrl(projectId: string, worktreeId: string): string {
+function buildWSUrl(projectId: string, agentType: string, worktreeId: string): string {
   const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-  return `${protocol}//${window.location.host}/api/v1/projects/${projectId}/ws/${worktreeId}`
+  return `${protocol}//${window.location.host}/api/v1/projects/${projectId}/${agentType}/ws/${worktreeId}`
 }
 
 /**
@@ -123,6 +125,7 @@ function buildWSUrl(projectId: string, worktreeId: string): string {
  */
 export function useTerminal({
   projectId,
+  agentType,
   worktreeId,
   isActive,
   isFocused = true,
@@ -144,7 +147,7 @@ export function useTerminal({
   const isFocusedRef = useRef(isFocused)
   const [status, setStatus] = useState<TerminalStatus>('disconnected')
 
-  const clipboard = useTerminalClipboard({ terminalRef, wsRef, projectId })
+  const clipboard = useTerminalClipboard({ terminalRef, wsRef, projectId, agentType })
 
   // Keep focus ref in sync so the message handler (closure) sees changes.
   isFocusedRef.current = isFocused
@@ -214,7 +217,7 @@ export function useTerminal({
     const terminal = terminalRef.current
     if (!terminal || isDisposedRef.current) return
 
-    const url = buildWSUrl(projectId, worktreeId)
+    const url = buildWSUrl(projectId, agentType, worktreeId)
     const ws = new WebSocket(url)
     ws.binaryType = 'arraybuffer'
     wsRef.current = ws
@@ -292,7 +295,7 @@ export function useTerminal({
       },
       { once: true },
     )
-  }, [projectId, worktreeId, fit, flushWriteBuffer])
+  }, [projectId, agentType, worktreeId, fit, flushWriteBuffer])
 
   /** Tears down the WebSocket and terminal, preventing reconnection. */
   const detach = useCallback(() => {
@@ -545,7 +548,7 @@ export function useTerminal({
       // Fetch worktree state in parallel to check if the agent has exited —
       // stale scrollback from a finished session should not be restored.
       const sbKey = scrollbackKey(projectId, worktreeId)
-      Promise.all([loadScrollback(sbKey), fetchWorktrees(projectId).catch(() => [])])
+      Promise.all([loadScrollback(sbKey), fetchWorktrees(projectId, agentType).catch(() => [])])
         .then(([entry, worktrees]) => {
           if (effectCancelled) return
           const wt = worktrees.find((w) => w.id === worktreeId)
@@ -592,7 +595,7 @@ export function useTerminal({
     // are stable (empty deps). `detach` depends on [projectId, worktreeId] which
     // are already in this effect's deps, so changes are covered without listing it.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isActive, projectId, worktreeId])
+  }, [isActive, projectId, agentType, worktreeId])
 
   return {
     containerRef,

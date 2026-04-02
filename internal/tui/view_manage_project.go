@@ -35,6 +35,7 @@ func purgeConfirmWord(name string) string {
 type ManageProjectView struct {
 	client    Client
 	projectID string
+	agentType string
 	name      string
 	// Whether the project has a container.
 	hasContainer bool
@@ -55,7 +56,7 @@ type ManageProjectView struct {
 }
 
 // NewManageProjectView creates a manage dialog for the given project.
-func NewManageProjectView(client Client, projectID, name string, hasContainer bool) *ManageProjectView {
+func NewManageProjectView(client Client, projectID, agentType, name string, hasContainer bool) *ManageProjectView {
 	ti := textinput.New()
 	ti.Placeholder = purgeConfirmWord(name)
 	ti.Prompt = "> "
@@ -64,6 +65,7 @@ func NewManageProjectView(client Client, projectID, name string, hasContainer bo
 	return &ManageProjectView{
 		client:       client,
 		projectID:    projectID,
+		agentType:    agentType,
 		name:         name,
 		hasContainer: hasContainer,
 		confirmInput: ti,
@@ -266,6 +268,7 @@ func (v *ManageProjectView) updateConfirm(msg tea.KeyPressMsg) (View, tea.Cmd) {
 // removal runs last so earlier steps can still resolve the project row.
 func (v *ManageProjectView) executeActions() tea.Cmd {
 	projectID := v.projectID
+	agentType := v.agentType
 	client := v.client
 	doDelete := v.checked[actionDeleteContainer] && v.hasContainer
 	doReset := v.checked[actionResetCosts]
@@ -279,7 +282,7 @@ func (v *ManageProjectView) executeActions() tea.Cmd {
 		var errors []string
 
 		if doDelete {
-			if _, err := client.DeleteContainer(ctx, projectID); err != nil {
+			if _, err := client.DeleteContainer(ctx, projectID, agentType); err != nil {
 				errors = append(errors, fmt.Sprintf("delete container: %v", err))
 			}
 		}
@@ -295,13 +298,13 @@ func (v *ManageProjectView) executeActions() tea.Cmd {
 		if doReset {
 			concurrent++
 			go func() {
-				ch <- result{"reset costs", client.ResetProjectCosts(ctx, projectID)}
+				ch <- result{"reset costs", client.ResetProjectCosts(ctx, projectID, agentType)}
 			}()
 		}
 		if doPurge {
 			concurrent++
 			go func() {
-				ch <- result{"purge audit", client.PurgeProjectAudit(ctx, projectID)}
+				ch <- result{"purge audit", client.PurgeProjectAudit(ctx, projectID, agentType)}
 			}()
 		}
 		for range concurrent {
@@ -312,7 +315,7 @@ func (v *ManageProjectView) executeActions() tea.Cmd {
 		}
 
 		if doRemove {
-			if _, err := client.RemoveProject(ctx, projectID); err != nil {
+			if _, err := client.RemoveProject(ctx, projectID, agentType); err != nil {
 				errors = append(errors, fmt.Sprintf("remove project: %v", err))
 			}
 		}

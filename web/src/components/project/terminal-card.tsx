@@ -38,6 +38,8 @@ export interface TerminalCardHandle {
 export interface TerminalCardProps {
   /** Container ID for the project. */
   projectId: string
+  /** CLI agent type for this project. */
+  agentType: string
   /** Worktree identifier within the project. */
   worktreeId: string
   /** Project display name shown in the title bar. */
@@ -88,6 +90,7 @@ export interface TerminalCardProps {
 const TerminalCard = forwardRef<TerminalCardHandle, TerminalCardProps>(function TerminalCard(
   {
     projectId,
+    agentType,
     worktreeId,
     projectName,
     branch,
@@ -112,6 +115,7 @@ const TerminalCard = forwardRef<TerminalCardHandle, TerminalCardProps>(function 
 
   const { containerRef, detach, focus, fit, clipboard } = useTerminal({
     projectId,
+    agentType,
     worktreeId,
     isActive,
     isFocused: isFocused && activeTab === 'terminal',
@@ -280,7 +284,7 @@ const TerminalCard = forwardRef<TerminalCardHandle, TerminalCardProps>(function 
       {/* Changes tab — only rendered when active */}
       {activeTab === 'changes' && (
         <div className="min-h-0 flex-1">
-          <ChangesView projectId={projectId} worktreeId={worktreeId} />
+          <ChangesView projectId={projectId} agentType={agentType} worktreeId={worktreeId} />
         </div>
       )}
     </div>

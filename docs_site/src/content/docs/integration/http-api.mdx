@@ -245,7 +245,7 @@ Events include `worktree_state` (attention/terminal state changes per worktree),
 Upload an image to the container's clipboard staging directory for agent use:
 
 ```
-POST /api/v1/projects/{projectId}/clipboard
+POST /api/v1/projects/{projectId}/{agentType}/clipboard
 Content-Type: multipart/form-data
 
 file: <image file>
@@ -276,15 +276,15 @@ This is transparent to agents — Claude Code's fullscreen mode automatically us
 
 Terminal interaction requires two steps:
 
-1. **Connect** (`POST /api/v1/projects/{id}/worktrees/{wid}/connect`) — starts the terminal process (abduco session) if not already running. This is idempotent — calling it on a running terminal is safe.
+1. **Connect** (`POST /api/v1/projects/{projectId}/{agentType}/worktrees/{wid}/connect`) — starts the terminal process (abduco session) if not already running. This is idempotent — calling it on a running terminal is safe.
 
-2. **Attach** (`GET /api/v1/projects/{id}/ws/{wid}`) — opens a WebSocket viewer into the running session. Binary frames carry PTY I/O; text frames carry JSON control messages (resize).
+2. **Attach** (`GET /api/v1/projects/{projectId}/{agentType}/ws/{wid}`) — opens a WebSocket viewer into the running session. Binary frames carry PTY I/O; text frames carry JSON control messages (resize).
 
 The abduco session survives viewer disconnects. After the viewer closes:
 
-3. **Disconnect** (`POST /api/v1/projects/{id}/worktrees/{wid}/disconnect`) — notifies the server the viewer closed (triggers state update events).
+3. **Disconnect** (`POST /api/v1/projects/{projectId}/{agentType}/worktrees/{wid}/disconnect`) — notifies the server the viewer closed (triggers state update events).
 
-To fully terminate a terminal, use **Kill** (`POST /api/v1/projects/{id}/worktrees/{wid}/kill`) instead.
+To fully terminate a terminal, use **Kill** (`POST /api/v1/projects/{projectId}/{agentType}/worktrees/{wid}/kill`) instead.
 
 ```
 Connect (start process) → Attach (open viewer) → Read/Write → Close viewer → Disconnect
@@ -293,7 +293,7 @@ Connect (start process) → Attach (open viewer) → Read/Write → Close viewer
 
 ### WebSocket protocol
 
-The terminal WebSocket at `/api/v1/projects/{id}/ws/{wid}` uses:
+The terminal WebSocket at `/api/v1/projects/{projectId}/{agentType}/ws/{wid}` uses:
 
 - **Binary frames**: raw PTY data (stdin input / stdout output)
 - **Text frames**: JSON control messages — currently only resize:

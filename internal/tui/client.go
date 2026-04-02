@@ -29,79 +29,79 @@ type Client interface {
 
 	// AddProject registers a project directory in Warden.
 	// API: POST /api/v1/projects
-	AddProject(ctx context.Context, name, hostPath string) (*api.ProjectResult, error)
+	AddProject(ctx context.Context, name, hostPath, agentType string) (*api.ProjectResult, error)
 
 	// RemoveProject removes a project by its project ID.
-	// API: DELETE /api/v1/projects/{projectId}
-	RemoveProject(ctx context.Context, projectID string) (*api.ProjectResult, error)
+	// API: DELETE /api/v1/projects/{projectId}/{agentType}
+	RemoveProject(ctx context.Context, projectID, agentType string) (*api.ProjectResult, error)
 
 	// StopProject stops a running project's container.
-	// API: POST /api/v1/projects/{projectId}/stop
-	StopProject(ctx context.Context, projectID string) (*api.ProjectResult, error)
+	// API: POST /api/v1/projects/{projectId}/{agentType}/stop
+	StopProject(ctx context.Context, projectID, agentType string) (*api.ProjectResult, error)
 
 	// RestartProject restarts a project's container.
-	// API: POST /api/v1/projects/{projectId}/restart
-	RestartProject(ctx context.Context, projectID string) (*api.ProjectResult, error)
+	// API: POST /api/v1/projects/{projectId}/{agentType}/restart
+	RestartProject(ctx context.Context, projectID, agentType string) (*api.ProjectResult, error)
 
 	// ListWorktrees returns all worktrees for a project with terminal state.
-	// API: GET /api/v1/projects/{projectId}/worktrees
-	ListWorktrees(ctx context.Context, projectID string) ([]engine.Worktree, error)
+	// API: GET /api/v1/projects/{projectId}/{agentType}/worktrees
+	ListWorktrees(ctx context.Context, projectID, agentType string) ([]engine.Worktree, error)
 
 	// CreateWorktree creates a git worktree and connects a terminal.
-	// API: POST /api/v1/projects/{projectId}/worktrees
-	CreateWorktree(ctx context.Context, projectID, name string) (*api.WorktreeResult, error)
+	// API: POST /api/v1/projects/{projectId}/{agentType}/worktrees
+	CreateWorktree(ctx context.Context, projectID, agentType, name string) (*api.WorktreeResult, error)
 
 	// ConnectTerminal starts or reconnects a terminal for a worktree.
-	// API: POST /api/v1/projects/{projectId}/worktrees/{wid}/connect
-	ConnectTerminal(ctx context.Context, projectID, worktreeID string) (*api.WorktreeResult, error)
+	// API: POST /api/v1/projects/{projectId}/{agentType}/worktrees/{wid}/connect
+	ConnectTerminal(ctx context.Context, projectID, agentType, worktreeID string) (*api.WorktreeResult, error)
 
 	// DisconnectTerminal closes the terminal viewer for a worktree.
-	// API: POST /api/v1/projects/{projectId}/worktrees/{wid}/disconnect
-	DisconnectTerminal(ctx context.Context, projectID, worktreeID string) (*api.WorktreeResult, error)
+	// API: POST /api/v1/projects/{projectId}/{agentType}/worktrees/{wid}/disconnect
+	DisconnectTerminal(ctx context.Context, projectID, agentType, worktreeID string) (*api.WorktreeResult, error)
 
 	// KillWorktreeProcess kills the abduco session and all child processes.
-	// API: POST /api/v1/projects/{projectId}/worktrees/{wid}/kill
-	KillWorktreeProcess(ctx context.Context, projectID, worktreeID string) (*api.WorktreeResult, error)
+	// API: POST /api/v1/projects/{projectId}/{agentType}/worktrees/{wid}/kill
+	KillWorktreeProcess(ctx context.Context, projectID, agentType, worktreeID string) (*api.WorktreeResult, error)
 
 	// RemoveWorktree kills the process and removes the git worktree.
-	// API: DELETE /api/v1/projects/{projectId}/worktrees/{wid}
-	RemoveWorktree(ctx context.Context, projectID, worktreeID string) (*api.WorktreeResult, error)
+	// API: DELETE /api/v1/projects/{projectId}/{agentType}/worktrees/{wid}
+	RemoveWorktree(ctx context.Context, projectID, agentType, worktreeID string) (*api.WorktreeResult, error)
 
 	// CleanupWorktrees removes orphaned worktree directories.
-	// API: POST /api/v1/projects/{projectId}/worktrees/cleanup
-	CleanupWorktrees(ctx context.Context, projectID string) ([]string, error)
+	// API: POST /api/v1/projects/{projectId}/{agentType}/worktrees/cleanup
+	CleanupWorktrees(ctx context.Context, projectID, agentType string) ([]string, error)
 
 	// GetWorktreeDiff returns uncommitted changes for a worktree.
-	// API: GET /api/v1/projects/{projectId}/worktrees/{wid}/diff
-	GetWorktreeDiff(ctx context.Context, projectID, worktreeID string) (*api.DiffResponse, error)
+	// API: GET /api/v1/projects/{projectId}/{agentType}/worktrees/{wid}/diff
+	GetWorktreeDiff(ctx context.Context, projectID, agentType, worktreeID string) (*api.DiffResponse, error)
 
 	// CreateContainer creates a new container for the given project.
-	// API: POST /api/v1/projects/{projectId}/container
-	CreateContainer(ctx context.Context, projectID string, req engine.CreateContainerRequest) (*api.ContainerResult, error)
+	// API: POST /api/v1/projects/{projectId}/{agentType}/container
+	CreateContainer(ctx context.Context, projectID, agentType string, req engine.CreateContainerRequest) (*api.ContainerResult, error)
 
 	// ResetProjectCosts removes all cost history for a project.
-	// API: DELETE /api/v1/projects/{projectId}/costs
-	ResetProjectCosts(ctx context.Context, projectID string) error
+	// API: DELETE /api/v1/projects/{projectId}/{agentType}/costs
+	ResetProjectCosts(ctx context.Context, projectID, agentType string) error
 
 	// PurgeProjectAudit removes all audit events for a project.
-	// API: DELETE /api/v1/projects/{projectId}/audit
-	PurgeProjectAudit(ctx context.Context, projectID string) error
+	// API: DELETE /api/v1/projects/{projectId}/{agentType}/audit
+	PurgeProjectAudit(ctx context.Context, projectID, agentType string) error
 
 	// DeleteContainer stops and removes the container for the given project.
-	// API: DELETE /api/v1/projects/{projectId}/container
-	DeleteContainer(ctx context.Context, projectID string) (*api.ContainerResult, error)
+	// API: DELETE /api/v1/projects/{projectId}/{agentType}/container
+	DeleteContainer(ctx context.Context, projectID, agentType string) (*api.ContainerResult, error)
 
 	// InspectContainer returns the editable configuration of the project's container.
-	// API: GET /api/v1/projects/{projectId}/container/config
-	InspectContainer(ctx context.Context, projectID string) (*engine.ContainerConfig, error)
+	// API: GET /api/v1/projects/{projectId}/{agentType}/container/config
+	InspectContainer(ctx context.Context, projectID, agentType string) (*engine.ContainerConfig, error)
 
 	// UpdateContainer recreates the project's container with updated configuration.
-	// API: PUT /api/v1/projects/{projectId}/container
-	UpdateContainer(ctx context.Context, projectID string, req engine.CreateContainerRequest) (*api.ContainerResult, error)
+	// API: PUT /api/v1/projects/{projectId}/{agentType}/container
+	UpdateContainer(ctx context.Context, projectID, agentType string, req engine.CreateContainerRequest) (*api.ContainerResult, error)
 
 	// ValidateContainer checks whether the project's container has Warden infrastructure.
-	// API: GET /api/v1/projects/{projectId}/container/validate
-	ValidateContainer(ctx context.Context, projectID string) (*api.ValidateContainerResult, error)
+	// API: GET /api/v1/projects/{projectId}/{agentType}/container/validate
+	ValidateContainer(ctx context.Context, projectID, agentType string) (*api.ValidateContainerResult, error)
 
 	// GetSettings returns the current server-side settings.
 	// API: GET /api/v1/settings
@@ -173,8 +173,8 @@ type Client interface {
 	ResolveAccessItems(ctx context.Context, req api.ResolveAccessItemsRequest) (*api.ResolveAccessItemsResponse, error)
 
 	// UploadClipboard stages an image in the container's clipboard directory.
-	// API: POST /api/v1/projects/{projectId}/clipboard
-	UploadClipboard(ctx context.Context, projectID string, content []byte, mimeType string) (*api.ClipboardUploadResponse, error)
+	// API: POST /api/v1/projects/{projectId}/{agentType}/clipboard
+	UploadClipboard(ctx context.Context, projectID, agentType string, content []byte, mimeType string) (*api.ClipboardUploadResponse, error)
 
 	// SubscribeEvents returns a channel of real-time SSE events and an
 	// unsubscribe function. The channel is closed when the context is

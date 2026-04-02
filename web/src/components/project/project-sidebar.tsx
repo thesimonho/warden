@@ -36,7 +36,13 @@ const PROJECT_POLL_INTERVAL_MS = 10_000
 
 /** Callback signature for adding a worktree panel to the canvas. */
 interface OnAddPanel {
-  (params: { projectId: string; projectName: string; worktreeId: string; branch?: string }): void
+  (params: {
+    projectId: string
+    agentType: string
+    projectName: string
+    worktreeId: string
+    branch?: string
+  }): void
 }
 
 /** Group ordering for the worktree list — panels on canvas first. */
@@ -57,8 +63,10 @@ export type ViewMode = 'grid' | 'canvas'
 interface ProjectSidebarProps {
   /** Currently selected project ID, driven by the URL. */
   selectedProjectId: string
+  /** CLI agent type for the selected project. */
+  selectedAgentType: string
   /** Called when the user picks a different project in the dropdown. */
-  onProjectChange: (projectId: string) => void
+  onProjectChange: (projectId: string, agentType: string) => void
   /** Current display mode for the workspace area. */
   viewMode: ViewMode
   /** Called when the user switches between grid and canvas modes. */
@@ -82,6 +90,7 @@ interface ProjectSidebarProps {
  */
 export default function ProjectSidebar({
   selectedProjectId,
+  selectedAgentType,
   onProjectChange,
   viewMode,
   onViewModeChange,
@@ -98,13 +107,17 @@ export default function ProjectSidebar({
   // Fall back to the first running project when the current selection is invalid.
   useEffect(() => {
     if (runningProjects.length === 0) return
-    const isValid = runningProjects.some((p) => p.projectId === selectedProjectId)
+    const isValid = runningProjects.some(
+      (p) => p.projectId === selectedProjectId && p.agentType === selectedAgentType,
+    )
     if (!isValid) {
-      onProjectChange(runningProjects[0].projectId)
+      onProjectChange(runningProjects[0].projectId, runningProjects[0].agentType)
     }
-  }, [runningProjects, selectedProjectId, onProjectChange])
+  }, [runningProjects, selectedProjectId, selectedAgentType, onProjectChange])
 
-  const selectedProject = runningProjects.find((p) => p.projectId === selectedProjectId)
+  const selectedProject = runningProjects.find(
+    (p) => p.projectId === selectedProjectId && p.agentType === selectedAgentType,
+  )
 
   return (
     <div
@@ -141,13 +154,23 @@ export default function ProjectSidebar({
         ) : (
           <div className="space-y-1">
             <label className="text-muted-foreground text-sm font-medium">Project</label>
-            <Select value={selectedProjectId} onValueChange={onProjectChange}>
+            <Select
+              value={`${selectedProjectId}:${selectedAgentType}`}
+              onValueChange={(compound) => {
+                const [id, ...rest] = compound.split(':')
+                const agentType = rest.join(':')
+                onProjectChange(id, agentType)
+              }}
+            >
               <SelectTrigger data-testid="project-select" className="h-8 text-sm">
                 <SelectValue placeholder="Select a project" />
               </SelectTrigger>
               <SelectContent>
                 {runningProjects.map((project) => (
-                  <SelectItem key={project.projectId} value={project.projectId}>
+                  <SelectItem
+                    key={`${project.projectId}:${project.agentType}`}
+                    value={`${project.projectId}:${project.agentType}`}
+                  >
                     {project.name}
                   </SelectItem>
                 ))}
@@ -162,8 +185,9 @@ export default function ProjectSidebar({
       <div className="min-h-0 min-w-0 flex-1 overflow-y-auto">
         {selectedProject && (
           <ProjectWorktreeList
-            key={selectedProject.projectId}
+            key={`${selectedProject.projectId}:${selectedProject.agentType}`}
             projectId={selectedProject.projectId}
+            agentType={selectedProject.agentType}
             projectName={selectedProject.name}
             isGitRepo={selectedProject.isGitRepo}
             mount={workspaceMount(selectedProject)}
@@ -185,6 +209,7 @@ export default function ProjectSidebar({
 /** Props for the project-specific worktree list. */
 interface ProjectWorktreeListProps {
   projectId: string
+  agentType: string
   projectName: string
   isGitRepo: boolean
   /** Host↔container path mapping for the workspace mount. */
@@ -204,6 +229,7 @@ interface ProjectWorktreeListProps {
 /** Lists worktrees for a project, with an add button for each. */
 function ProjectWorktreeList({
   projectId,
+  agentType,
   projectName,
   isGitRepo,
   mount,
@@ -216,7 +242,7 @@ function ProjectWorktreeList({
   activePanelIds,
   focusedPanelId,
 }: ProjectWorktreeListProps) {
-  const { worktrees, isLoading, refetch } = useWorktrees(projectId)
+  const { worktrees, isLoading, refetch } = useWorktrees(projectId, agentType)
   const [connectingId, setConnectingId] = useState<string | null>(null)
 
   const isOverBudget = costBudget > 0 && totalCost > costBudget
@@ -274,9 +300,10 @@ function ProjectWorktreeList({
       if (shouldConnect) {
         setConnectingId(worktree.id)
         try {
-          await connectTerminal(projectId, worktree.id)
+          await connectTerminal(projectId, agentType, worktree.id)
           onAddPanel({
             projectId,
+            agentType,
             projectName,
             worktreeId: worktree.id,
             branch: worktree.branch,
@@ -291,13 +318,14 @@ function ProjectWorktreeList({
       } else {
         onAddPanel({
           projectId,
+          agentType,
           projectName,
           worktreeId: worktree.id,
           branch: worktree.branch,
         })
       }
     },
-    [projectId, projectName, onAddPanel, refetch],
+    [projectId, agentType, projectName, onAddPanel, refetch],
   )
 
   /**
@@ -311,7 +339,7 @@ function ProjectWorktreeList({
       const panelId = buildPanelId(projectId, worktree.id)
       setConnectingId(worktree.id)
       try {
-        await connectTerminal(projectId, worktree.id)
+        await connectTerminal(projectId, agentType, worktree.id)
         onFocusPanel(panelId)
         refetch()
       } catch (err) {
@@ -321,14 +349,14 @@ function ProjectWorktreeList({
         setConnectingId(null)
       }
     },
-    [projectId, onFocusPanel, refetch],
+    [projectId, agentType, onFocusPanel, refetch],
   )
 
   /** Disconnects the terminal viewer for a worktree. */
   const handleDisconnect = useCallback(
     async (worktreeId: string) => {
       try {
-        await disconnectTerminal(projectId, worktreeId)
+        await disconnectTerminal(projectId, agentType, worktreeId)
         const panelId = buildPanelId(projectId, worktreeId)
         onRemovePanel(panelId)
         refetch()
@@ -337,14 +365,14 @@ function ProjectWorktreeList({
         toast.error('Failed to disconnect terminal', { description: message })
       }
     },
-    [projectId, onRemovePanel, refetch],
+    [projectId, agentType, onRemovePanel, refetch],
   )
 
   /** Removes a worktree entirely (git worktree remove + cleanup). */
   const handleRemove = useCallback(
     async (worktreeId: string) => {
       try {
-        await removeWorktree(projectId, worktreeId)
+        await removeWorktree(projectId, agentType, worktreeId)
         void deleteScrollback(scrollbackKey(projectId, worktreeId))
         const panelId = buildPanelId(projectId, worktreeId)
         onRemovePanel(panelId)
@@ -356,7 +384,7 @@ function ProjectWorktreeList({
         refetch()
       }
     },
-    [projectId, onRemovePanel, refetch],
+    [projectId, agentType, onRemovePanel, refetch],
   )
 
   const handleReveal = useRevealInFileManager(mount)
@@ -400,6 +428,7 @@ function ProjectWorktreeList({
     <>
       <WorktreeList
         projectId={projectId}
+        agentType={agentType}
         projectName={projectName}
         isGitRepo={isGitRepo}
         worktrees={worktrees}

@@ -33,7 +33,7 @@ func TestCreateContainer(t *testing.T) {
 
 	// Verify auto-add to database with computed project ID.
 	projectID, _ := engine.ProjectID("/home/user/project")
-	has, _ := database.HasProject(projectID)
+	has, _ := database.HasProject(projectID, "claude-code")
 	if !has {
 		t.Error("expected project to be auto-added to database")
 	}
@@ -66,7 +66,7 @@ func TestDeleteContainer(t *testing.T) {
 
 	row := &db.ProjectRow{ProjectID: "proj-1", ContainerID: "abc123def456", ContainerName: "my-project", Name: "my-project", HostPath: "/test/my-project"}
 	insertTestProject(t, database, row)
-	_, err := svc.DeleteContainer(context.Background(), row.ProjectID)
+	_, err := svc.DeleteContainer(context.Background(), row.ProjectID, "claude-code")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -93,7 +93,7 @@ func TestInspectContainer(t *testing.T) {
 	insertTestProject(t, database, row)
 	svc := New(ServiceDeps{Engine: mock, DB: database})
 
-	cfg, err := svc.InspectContainer(context.Background(), row.ProjectID)
+	cfg, err := svc.InspectContainer(context.Background(), row.ProjectID, "claude-code")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -121,7 +121,7 @@ func TestUpdateContainer(t *testing.T) {
 
 	row := &db.ProjectRow{ProjectID: "proj-1", ContainerID: "old123container", ContainerName: "my-project", Name: "my-project", HostPath: "/test/my-project"}
 	insertTestProject(t, database, row)
-	result, err := svc.UpdateContainer(context.Background(), row.ProjectID, engine.CreateContainerRequest{
+	result, err := svc.UpdateContainer(context.Background(), row.ProjectID, "claude-code", engine.CreateContainerRequest{
 		Name:        "my-project",
 		ProjectPath: "/home/user/project",
 	})
@@ -152,10 +152,10 @@ func TestUpdateContainer_LightUpdate(t *testing.T) {
 	}
 
 	projectID, _ := engine.ProjectID("/home/user/project")
-	row, _ := database.GetProject(projectID)
+	row, _ := database.GetProject(projectID, "claude-code")
 
 	// Update only lightweight fields (name, skipPermissions, costBudget).
-	result, err := svc.UpdateContainer(context.Background(), row.ProjectID, engine.CreateContainerRequest{
+	result, err := svc.UpdateContainer(context.Background(), row.ProjectID, "claude-code", engine.CreateContainerRequest{
 		Name:            "renamed-project",
 		ProjectPath:     "/home/user/project",
 		Image:           "ghcr.io/test:latest",
@@ -175,7 +175,7 @@ func TestUpdateContainer_LightUpdate(t *testing.T) {
 	}
 
 	// Verify DB was updated.
-	updated, _ := database.GetProject(projectID)
+	updated, _ := database.GetProject(projectID, "claude-code")
 	if updated.Name != "renamed-project" {
 		t.Errorf("expected DB name 'renamed-project', got %q", updated.Name)
 	}
@@ -207,10 +207,10 @@ func TestUpdateContainer_LightUpdate_RenameError(t *testing.T) {
 	}
 
 	projectID, _ := engine.ProjectID("/home/user/project")
-	row, _ := database.GetProject(projectID)
+	row, _ := database.GetProject(projectID, "claude-code")
 
 	// Rename should fail and propagate.
-	_, err = svc.UpdateContainer(context.Background(), row.ProjectID, engine.CreateContainerRequest{
+	_, err = svc.UpdateContainer(context.Background(), row.ProjectID, "claude-code", engine.CreateContainerRequest{
 		Name:        "new-name",
 		ProjectPath: "/home/user/project",
 		Image:       "ghcr.io/test:latest",
@@ -336,7 +336,7 @@ func TestValidateContainer(t *testing.T) {
 
 	row := &db.ProjectRow{ProjectID: "proj-1", ContainerID: "abc123def456", Name: "my-project", HostPath: "/test/my-project"}
 	insertTestProject(t, database, row)
-	result, err := svc.ValidateContainer(context.Background(), row.ProjectID)
+	result, err := svc.ValidateContainer(context.Background(), row.ProjectID, "claude-code")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -355,7 +355,7 @@ func TestValidateContainer_Missing(t *testing.T) {
 
 	row := &db.ProjectRow{ProjectID: "proj-1", ContainerID: "abc123def456", Name: "my-project", HostPath: "/test/my-project"}
 	insertTestProject(t, database, row)
-	result, err := svc.ValidateContainer(context.Background(), row.ProjectID)
+	result, err := svc.ValidateContainer(context.Background(), row.ProjectID, "claude-code")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

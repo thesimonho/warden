@@ -95,9 +95,9 @@ func (c *Client) ListProjects(ctx context.Context) ([]engine.Project, error) {
 }
 
 // AddProject registers a project directory in Warden.
-func (c *Client) AddProject(ctx context.Context, name, hostPath string) (*api.ProjectResult, error) {
+func (c *Client) AddProject(ctx context.Context, name, hostPath, agentType string) (*api.ProjectResult, error) {
 	var resp api.ProjectResult
-	body := map[string]string{"name": name, "projectPath": hostPath}
+	body := map[string]string{"name": name, "projectPath": hostPath, "agentType": agentType}
 	if err := c.post(ctx, "/api/v1/projects", body, &resp); err != nil {
 		return nil, err
 	}
@@ -105,27 +105,30 @@ func (c *Client) AddProject(ctx context.Context, name, hostPath string) (*api.Pr
 }
 
 // RemoveProject removes a project from the database by project ID.
-func (c *Client) RemoveProject(ctx context.Context, projectID string) (*api.ProjectResult, error) {
+func (c *Client) RemoveProject(ctx context.Context, projectID, agentType string) (*api.ProjectResult, error) {
 	var resp api.ProjectResult
-	if err := c.deleteWithBody(ctx, "/api/v1/projects/"+url.PathEscape(projectID), &resp); err != nil {
+	path := projectPath(projectID, agentType)
+	if err := c.deleteWithBody(ctx, path, &resp); err != nil {
 		return nil, err
 	}
 	return &resp, nil
 }
 
 // StopProject stops the container with the given ID.
-func (c *Client) StopProject(ctx context.Context, id string) (*api.ProjectResult, error) {
+func (c *Client) StopProject(ctx context.Context, id, agentType string) (*api.ProjectResult, error) {
 	var resp api.ProjectResult
-	if err := c.post(ctx, "/api/v1/projects/"+id+"/stop", nil, &resp); err != nil {
+	path := projectPath(id, agentType) + "/stop"
+	if err := c.post(ctx, path, nil, &resp); err != nil {
 		return nil, err
 	}
 	return &resp, nil
 }
 
 // RestartProject restarts the container with the given ID.
-func (c *Client) RestartProject(ctx context.Context, id string) (*api.ProjectResult, error) {
+func (c *Client) RestartProject(ctx context.Context, id, agentType string) (*api.ProjectResult, error) {
 	var resp api.ProjectResult
-	if err := c.post(ctx, "/api/v1/projects/"+id+"/restart", nil, &resp); err != nil {
+	path := projectPath(id, agentType) + "/restart"
+	if err := c.post(ctx, path, nil, &resp); err != nil {
 		return nil, err
 	}
 	return &resp, nil
@@ -134,18 +137,20 @@ func (c *Client) RestartProject(ctx context.Context, id string) (*api.ProjectRes
 // --- Worktrees ---
 
 // ListWorktrees returns all worktrees for the given container.
-func (c *Client) ListWorktrees(ctx context.Context, projectID string) ([]engine.Worktree, error) {
+func (c *Client) ListWorktrees(ctx context.Context, projectID, agentType string) ([]engine.Worktree, error) {
 	var worktrees []engine.Worktree
-	if err := c.get(ctx, "/api/v1/projects/"+projectID+"/worktrees", &worktrees); err != nil {
+	path := projectPath(projectID, agentType) + "/worktrees"
+	if err := c.get(ctx, path, &worktrees); err != nil {
 		return nil, err
 	}
 	return worktrees, nil
 }
 
 // CreateWorktree creates a new git worktree and connects a terminal.
-func (c *Client) CreateWorktree(ctx context.Context, projectID, name string) (*api.WorktreeResult, error) {
+func (c *Client) CreateWorktree(ctx context.Context, projectID, agentType, name string) (*api.WorktreeResult, error) {
 	var resp api.WorktreeResult
-	if err := c.post(ctx, "/api/v1/projects/"+projectID+"/worktrees", map[string]string{"name": name}, &resp); err != nil {
+	path := projectPath(projectID, agentType) + "/worktrees"
+	if err := c.post(ctx, path, map[string]string{"name": name}, &resp); err != nil {
 		return nil, err
 	}
 	return &resp, nil
@@ -157,56 +162,62 @@ func (c *Client) CreateWorktree(ctx context.Context, projectID, name string) (*a
 // even if no viewer is attached, allowing Claude Code to work independently.
 //
 // If the terminal is already running, this is a no-op that returns success.
-func (c *Client) ConnectTerminal(ctx context.Context, projectID, worktreeID string) (*api.WorktreeResult, error) {
+func (c *Client) ConnectTerminal(ctx context.Context, projectID, agentType, worktreeID string) (*api.WorktreeResult, error) {
 	var resp api.WorktreeResult
-	if err := c.post(ctx, "/api/v1/projects/"+projectID+"/worktrees/"+worktreeID+"/connect", nil, &resp); err != nil {
+	path := projectPath(projectID, agentType) + "/worktrees/" + worktreeID + "/connect"
+	if err := c.post(ctx, path, nil, &resp); err != nil {
 		return nil, err
 	}
 	return &resp, nil
 }
 
 // DisconnectTerminal closes the terminal viewer for a worktree.
-func (c *Client) DisconnectTerminal(ctx context.Context, projectID, worktreeID string) (*api.WorktreeResult, error) {
+func (c *Client) DisconnectTerminal(ctx context.Context, projectID, agentType, worktreeID string) (*api.WorktreeResult, error) {
 	var resp api.WorktreeResult
-	if err := c.post(ctx, "/api/v1/projects/"+projectID+"/worktrees/"+worktreeID+"/disconnect", nil, &resp); err != nil {
+	path := projectPath(projectID, agentType) + "/worktrees/" + worktreeID + "/disconnect"
+	if err := c.post(ctx, path, nil, &resp); err != nil {
 		return nil, err
 	}
 	return &resp, nil
 }
 
 // KillWorktreeProcess kills the terminal process for a worktree.
-func (c *Client) KillWorktreeProcess(ctx context.Context, projectID, worktreeID string) (*api.WorktreeResult, error) {
+func (c *Client) KillWorktreeProcess(ctx context.Context, projectID, agentType, worktreeID string) (*api.WorktreeResult, error) {
 	var resp api.WorktreeResult
-	if err := c.post(ctx, "/api/v1/projects/"+projectID+"/worktrees/"+worktreeID+"/kill", nil, &resp); err != nil {
+	path := projectPath(projectID, agentType) + "/worktrees/" + worktreeID + "/kill"
+	if err := c.post(ctx, path, nil, &resp); err != nil {
 		return nil, err
 	}
 	return &resp, nil
 }
 
 // RemoveWorktree fully removes a worktree.
-func (c *Client) RemoveWorktree(ctx context.Context, projectID, worktreeID string) (*api.WorktreeResult, error) {
+func (c *Client) RemoveWorktree(ctx context.Context, projectID, agentType, worktreeID string) (*api.WorktreeResult, error) {
 	var resp api.WorktreeResult
-	if err := c.deleteWithBody(ctx, "/api/v1/projects/"+projectID+"/worktrees/"+worktreeID, &resp); err != nil {
+	path := projectPath(projectID, agentType) + "/worktrees/" + worktreeID
+	if err := c.deleteWithBody(ctx, path, &resp); err != nil {
 		return nil, err
 	}
 	return &resp, nil
 }
 
 // CleanupWorktrees removes orphaned worktree directories.
-func (c *Client) CleanupWorktrees(ctx context.Context, projectID string) ([]string, error) {
+func (c *Client) CleanupWorktrees(ctx context.Context, projectID, agentType string) ([]string, error) {
 	var resp struct {
 		Removed []string `json:"removed"`
 	}
-	if err := c.post(ctx, "/api/v1/projects/"+projectID+"/worktrees/cleanup", nil, &resp); err != nil {
+	path := projectPath(projectID, agentType) + "/worktrees/cleanup"
+	if err := c.post(ctx, path, nil, &resp); err != nil {
 		return nil, err
 	}
 	return resp.Removed, nil
 }
 
 // GetWorktreeDiff returns uncommitted changes for a worktree.
-func (c *Client) GetWorktreeDiff(ctx context.Context, projectID, worktreeID string) (*api.DiffResponse, error) {
+func (c *Client) GetWorktreeDiff(ctx context.Context, projectID, agentType, worktreeID string) (*api.DiffResponse, error) {
 	var resp api.DiffResponse
-	if err := c.get(ctx, "/api/v1/projects/"+projectID+"/worktrees/"+worktreeID+"/diff", &resp); err != nil {
+	path := projectPath(projectID, agentType) + "/worktrees/" + worktreeID + "/diff"
+	if err := c.get(ctx, path, &resp); err != nil {
 		return nil, err
 	}
 	return &resp, nil
@@ -215,55 +226,59 @@ func (c *Client) GetWorktreeDiff(ctx context.Context, projectID, worktreeID stri
 // --- Containers ---
 
 // CreateContainer creates a new container for the given project.
-func (c *Client) CreateContainer(ctx context.Context, projectID string, req engine.CreateContainerRequest) (*api.ContainerResult, error) {
+func (c *Client) CreateContainer(ctx context.Context, projectID, agentType string, req engine.CreateContainerRequest) (*api.ContainerResult, error) {
 	var resp api.ContainerResult
-	if err := c.post(ctx, "/api/v1/projects/"+projectID+"/container", req, &resp); err != nil {
+	if err := c.post(ctx, projectPath(projectID, agentType)+"/container", req, &resp); err != nil {
 		return nil, err
 	}
 	return &resp, nil
 }
 
 // ResetProjectCosts removes all cost history for a project.
-func (c *Client) ResetProjectCosts(ctx context.Context, projectID string) error {
-	return c.delete(ctx, "/api/v1/projects/"+projectID+"/costs")
+func (c *Client) ResetProjectCosts(ctx context.Context, projectID, agentType string) error {
+	return c.delete(ctx, projectPath(projectID, agentType) + "/costs")
 }
 
 // PurgeProjectAudit removes all audit events for a project.
-func (c *Client) PurgeProjectAudit(ctx context.Context, projectID string) error {
-	return c.delete(ctx, "/api/v1/projects/"+projectID+"/audit")
+func (c *Client) PurgeProjectAudit(ctx context.Context, projectID, agentType string) error {
+	return c.delete(ctx, projectPath(projectID, agentType) + "/audit")
 }
 
 // DeleteContainer stops and removes the container for the given project.
-func (c *Client) DeleteContainer(ctx context.Context, projectID string) (*api.ContainerResult, error) {
+func (c *Client) DeleteContainer(ctx context.Context, projectID, agentType string) (*api.ContainerResult, error) {
 	var resp api.ContainerResult
-	if err := c.deleteWithBody(ctx, "/api/v1/projects/"+projectID+"/container", &resp); err != nil {
+	path := projectPath(projectID, agentType) + "/container"
+	if err := c.deleteWithBody(ctx, path, &resp); err != nil {
 		return nil, err
 	}
 	return &resp, nil
 }
 
 // InspectContainer returns the configuration of the project's container.
-func (c *Client) InspectContainer(ctx context.Context, projectID string) (*engine.ContainerConfig, error) {
+func (c *Client) InspectContainer(ctx context.Context, projectID, agentType string) (*engine.ContainerConfig, error) {
 	var cfg engine.ContainerConfig
-	if err := c.get(ctx, "/api/v1/projects/"+projectID+"/container/config", &cfg); err != nil {
+	path := projectPath(projectID, agentType) + "/container/config"
+	if err := c.get(ctx, path, &cfg); err != nil {
 		return nil, err
 	}
 	return &cfg, nil
 }
 
 // UpdateContainer recreates the project's container with updated configuration.
-func (c *Client) UpdateContainer(ctx context.Context, projectID string, req engine.CreateContainerRequest) (*api.ContainerResult, error) {
+func (c *Client) UpdateContainer(ctx context.Context, projectID, agentType string, req engine.CreateContainerRequest) (*api.ContainerResult, error) {
 	var resp api.ContainerResult
-	if err := c.put(ctx, "/api/v1/projects/"+projectID+"/container", req, &resp); err != nil {
+	path := projectPath(projectID, agentType) + "/container"
+	if err := c.put(ctx, path, req, &resp); err != nil {
 		return nil, err
 	}
 	return &resp, nil
 }
 
 // ValidateContainer checks whether the project's container has Warden infrastructure.
-func (c *Client) ValidateContainer(ctx context.Context, projectID string) (*api.ValidateContainerResult, error) {
+func (c *Client) ValidateContainer(ctx context.Context, projectID, agentType string) (*api.ValidateContainerResult, error) {
 	var resp api.ValidateContainerResult
-	if err := c.get(ctx, "/api/v1/projects/"+projectID+"/container/validate", &resp); err != nil {
+	path := projectPath(projectID, agentType) + "/container/validate"
+	if err := c.get(ctx, path, &resp); err != nil {
 		return nil, err
 	}
 	return &resp, nil
@@ -703,7 +718,7 @@ type TerminalConnection interface {
 
 // UploadClipboard stages an image file in the container's clipboard directory
 // for the xclip shim. Returns the path where the file was written.
-func (c *Client) UploadClipboard(ctx context.Context, projectID string, content []byte, mimeType string) (*api.ClipboardUploadResponse, error) {
+func (c *Client) UploadClipboard(ctx context.Context, projectID, agentType string, content []byte, mimeType string) (*api.ClipboardUploadResponse, error) {
 	var buf bytes.Buffer
 	writer := multipart.NewWriter(&buf)
 
@@ -718,7 +733,8 @@ func (c *Client) UploadClipboard(ctx context.Context, projectID string, content 
 		return nil, fmt.Errorf("closing multipart writer: %w", err)
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.baseURL+"/api/v1/projects/"+projectID+"/clipboard", &buf)
+	clipPath := projectPath(projectID, agentType) + "/clipboard"
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.baseURL+clipPath, &buf)
 	if err != nil {
 		return nil, err
 	}
@@ -761,6 +777,11 @@ func (e *APIError) Error() string {
 		return fmt.Sprintf("warden API error %d [%s]: %s", e.StatusCode, e.Code, e.Message)
 	}
 	return fmt.Sprintf("warden API error %d: %s", e.StatusCode, e.Message)
+}
+
+// projectPath builds the base URL path for a project+agent pair.
+func projectPath(projectID, agentType string) string {
+	return "/api/v1/projects/" + url.PathEscape(projectID) + "/" + url.PathEscape(agentType)
 }
 
 func (c *Client) get(ctx context.Context, path string, out any) error {

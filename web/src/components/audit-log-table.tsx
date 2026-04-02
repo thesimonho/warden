@@ -35,6 +35,7 @@ import {
   Copy,
   Loader2,
 } from 'lucide-react'
+import { AgentIcon } from '@/components/ui/agent-icons'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
 import {
@@ -48,7 +49,7 @@ import {
   entryMessage,
 } from '@/lib/audit-log-utils'
 import { readStorage, writeStorage } from '@/lib/storage'
-import type { AuditLogEntry, AuditCategory, AuditLogLevel } from '@/lib/types'
+import type { AgentType, AuditLogEntry, AuditCategory, AuditLogLevel } from '@/lib/types'
 
 // --- Styles ---
 
@@ -100,6 +101,7 @@ const columns: ColumnDef<AuditLogEntry, unknown>[] = [
       [
         row.event,
         row.projectId,
+        row.agentType,
         row.containerName,
         row.worktree,
         row.msg,
@@ -169,13 +171,25 @@ const columns: ColumnDef<AuditLogEntry, unknown>[] = [
   {
     accessorKey: 'ts',
     header: 'Timestamp',
-    size: 160,
+    size: 130,
     minSize: 120,
     sortingFn: 'datetime',
     sortDescFirst: true,
     cell: ({ getValue }) => (
       <span className="text-muted-foreground">{formatTimestamp(getValue<string>())}</span>
     ),
+  },
+  {
+    accessorKey: 'agentType',
+    header: 'Agent',
+    size: 70,
+    minSize: 50,
+    sortUndefined: 'last',
+    cell: ({ getValue }) => {
+      const at = getValue<AgentType | undefined>()
+      if (!at) return null
+      return <AgentIcon type={at} className="h-4 w-4" />
+    },
   },
   {
     accessorKey: 'projectId',

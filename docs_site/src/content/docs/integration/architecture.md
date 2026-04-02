@@ -42,6 +42,12 @@ Are you writing Go?
 
 **Layer 3 (Frontends)** are the web dashboard (`warden-desktop`) and TUI (`warden-tui`). Both are optional — you can build your own or use the layers directly.
 
+## Project identification
+
+A project is uniquely identified by a **compound primary key**: `(projectID, agentType)`. This allows multiple containers to exist for the same directory, each running a different agent type (e.g., both Claude Code and Codex against the same repo). The `projectID` is a deterministic 12-character hex string derived from the SHA-256 of the resolved absolute host path, while `agentType` is either `"claude-code"` or `"codex"`.
+
+All API routes include the agent type as a path segment: `/api/v1/projects/{projectId}/{agentType}/...`. This ensures operations are scoped to the correct container.
+
 ## Workspace directory structure
 
 Inside containers, Warden stores agent-specific files and state at dedicated paths:
@@ -69,7 +75,7 @@ Warden runs as a host process that manages project containers. Communication flo
 │  Browser                                                         │
 │   ├── REST  /api/v1/*     (project CRUD, settings, audit)        │
 │   ├── SSE   /api/v1/events (real-time state, cost, attention)    │
-│   └── WS    /api/v1/projects/{id}/ws/{wid}  (terminal I/O)       │
+│   └── WS    /api/v1/projects/{id}/{agentType}/ws/{wid}  (terminal I/O) │
 └──────────┬──────────┬──────────┬─────────────────────────────────┘
            │          │          │
 ┌──────────▼──────────▼──────────▼─────────────────────────────────┐

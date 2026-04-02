@@ -13,6 +13,7 @@ import type { DiffFileSummary } from '@/lib/types'
 /** Props for the ChangesView component. */
 interface ChangesViewProps {
   projectId: string
+  agentType: string
   worktreeId: string
 }
 
@@ -53,8 +54,8 @@ function buildFileDiffMap(rawDiff: string, files: DiffFileSummary[]): Map<string
  * All files are collapsed by default so the user can scan the file list
  * first, then drill into specific files.
  */
-export function ChangesView({ projectId, worktreeId }: ChangesViewProps) {
-  const { diff, isLoading, error, refetch } = useDiff(projectId, worktreeId, true)
+export function ChangesView({ projectId, agentType, worktreeId }: ChangesViewProps) {
+  const { diff, isLoading, error, refetch } = useDiff(projectId, agentType, worktreeId, true)
   const [expandedFiles, setExpandedFiles] = useState<Set<string>>(new Set())
   const { resolvedTheme } = useTheme()
   const isDark = resolvedTheme === 'dark'

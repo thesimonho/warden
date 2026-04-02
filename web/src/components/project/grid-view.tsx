@@ -102,6 +102,7 @@ function GridCellInner({
 
   const handleDisconnect = useTerminalDisconnect(
     panel.projectId,
+    panel.agentType,
     panel.worktreeId,
     panel.id,
     terminalRef,
@@ -134,6 +135,7 @@ function GridCellInner({
       <TerminalCard
         ref={setTerminalRef}
         projectId={panel.projectId}
+        agentType={panel.agentType}
         worktreeId={panel.worktreeId}
         projectName={worktreeDisplayName(panel.worktreeId, panel.projectName)}
         branch={panel.branch}

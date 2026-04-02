@@ -274,7 +274,7 @@ export default function ProjectCard({
             data-testid="view-button"
             size="sm"
             variant="default"
-            onClick={() => navigate(`/projects/${project.projectId}`)}
+            onClick={() => navigate(`/projects/${project.projectId}/${project.agentType}`)}
             disabled={!isRunning || isOverBudget}
           >
             View

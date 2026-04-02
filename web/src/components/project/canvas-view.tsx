@@ -106,6 +106,7 @@ function CanvasViewInner({
 
   const handleDisconnect = useTerminalDisconnect(
     panel.projectId,
+    panel.agentType,
     panel.worktreeId,
     panel.id,
     terminalRef,
@@ -186,6 +187,7 @@ function CanvasViewInner({
         <TerminalCard
           ref={terminalRef}
           projectId={panel.projectId}
+          agentType={panel.agentType}
           worktreeId={panel.worktreeId}
           projectName={worktreeDisplayName(panel.worktreeId, panel.projectName)}
           branch={panel.branch}

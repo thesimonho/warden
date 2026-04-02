@@ -6,6 +6,8 @@ import (
 	"time"
 
 	"github.com/thesimonho/warden/agent"
+	"github.com/thesimonho/warden/constants"
+	"github.com/thesimonho/warden/db"
 	"github.com/thesimonho/warden/engine"
 )
 
@@ -18,7 +20,7 @@ const watcherCooldown = 10 * time.Second
 // three-line normalization block at every lifecycle callsite.
 func (s *Service) startProjectWatcher(projectID, containerName, agentType string) {
 	if agentType == "" {
-		agentType = agent.DefaultAgentType
+		agentType = string(agent.DefaultType)
 	}
 	workspaceDir := engine.ContainerWorkspaceDir(containerName)
 	s.StartSessionWatcher(projectID, containerName, agentType, workspaceDir)
@@ -35,14 +37,16 @@ func (s *Service) StartSessionWatcher(projectID, containerName, agentType, works
 		return
 	}
 
+	key := db.ProjectAgentKey{ProjectID: projectID, AgentType: agentType}
+
 	s.sessionWatchersMu.Lock()
 	defer s.sessionWatchersMu.Unlock()
 
-	if _, exists := s.sessionWatchers[projectID]; exists {
+	if _, exists := s.sessionWatchers[key]; exists {
 		return
 	}
 
-	provider, ok := s.agentRegistry.Get(agentType)
+	provider, ok := s.agentRegistry.Get(constants.AgentType(agentType))
 	if !ok {
 		return
 	}
@@ -70,6 +74,7 @@ func (s *Service) StartSessionWatcher(projectID, containerName, agentType, works
 		ctx := SessionContext{
 			ProjectID:     projectID,
 			ContainerName: containerName,
+			AgentType:     agentType,
 			WorktreeID:    worktreeID,
 		}
 		ce := SessionEventToContainerEvent(event, ctx)
@@ -84,30 +89,32 @@ func (s *Service) StartSessionWatcher(projectID, containerName, agentType, works
 		return
 	}
 
-	s.sessionWatchers[projectID] = sw
-	delete(s.sessionWatcherCooldowns, projectID)
-	slog.Info("started session watcher", "project", projectID)
+	s.sessionWatchers[key] = sw
+	delete(s.sessionWatcherCooldowns, key)
+	slog.Info("started session watcher", "project", projectID, "agentType", agentType)
 }
 
-// StopSessionWatcher stops and removes the session watcher for a project.
+// StopSessionWatcher stops and removes the session watcher for a project+agent.
 // Records a cooldown timestamp to prevent rapid restarts during crash-loops.
-// No-op if no watcher is running for the given project.
-func (s *Service) StopSessionWatcher(projectID string) {
+// No-op if no watcher is running for the given key.
+func (s *Service) StopSessionWatcher(projectID, agentType string) {
+	key := db.ProjectAgentKey{ProjectID: projectID, AgentType: agentType}
+
 	s.sessionWatchersMu.Lock()
 	defer s.sessionWatchersMu.Unlock()
 
-	if sw, exists := s.sessionWatchers[projectID]; exists {
+	if sw, exists := s.sessionWatchers[key]; exists {
 		sw.Stop()
-		delete(s.sessionWatchers, projectID)
-		s.sessionWatcherCooldowns[projectID] = time.Now()
-		slog.Info("stopped session watcher", "project", projectID)
+		delete(s.sessionWatchers, key)
+		s.sessionWatcherCooldowns[key] = time.Now()
+		slog.Info("stopped session watcher", "project", projectID, "agentType", agentType)
 	}
 }
 
 // RestartSessionWatcher stops any existing watcher for the project
 // and starts a new one. Used when a container is restarted or renamed.
 func (s *Service) RestartSessionWatcher(projectID, containerName, agentType, workspaceDir string) {
-	s.StopSessionWatcher(projectID)
+	s.StopSessionWatcher(projectID, agentType)
 	s.StartSessionWatcher(projectID, containerName, agentType, workspaceDir)
 }
 
@@ -117,9 +124,9 @@ func (s *Service) StopAllSessionWatchers() {
 	s.sessionWatchersMu.Lock()
 	defer s.sessionWatchersMu.Unlock()
 
-	for id, sw := range s.sessionWatchers {
+	for key, sw := range s.sessionWatchers {
 		sw.Stop()
-		delete(s.sessionWatchers, id)
+		delete(s.sessionWatchers, key)
 	}
 }
 
@@ -135,12 +142,31 @@ func (s *Service) HandleContainerAlive(projectID, containerName string) {
 		return
 	}
 
+	// Quick in-memory check: if any watcher exists for this projectID,
+	// skip the DB lookup entirely. This avoids a DB query on every heartbeat.
 	s.sessionWatchersMu.Lock()
-	if _, alreadyWatching := s.sessionWatchers[projectID]; alreadyWatching {
-		s.sessionWatchersMu.Unlock()
+	alreadyWatching := false
+	for key := range s.sessionWatchers {
+		if key.ProjectID == projectID {
+			alreadyWatching = true
+			break
+		}
+	}
+	s.sessionWatchersMu.Unlock()
+	if alreadyWatching {
 		return
 	}
-	if lastStop, ok := s.sessionWatcherCooldowns[projectID]; ok {
+
+	// Look up the project to get the agent type.
+	row, err := s.db.GetProjectByContainerName(containerName)
+	if err != nil || row == nil {
+		return
+	}
+
+	key := db.ProjectAgentKey{ProjectID: row.ProjectID, AgentType: row.AgentType}
+
+	s.sessionWatchersMu.Lock()
+	if lastStop, ok := s.sessionWatcherCooldowns[key]; ok {
 		if time.Since(lastStop) < watcherCooldown {
 			s.sessionWatchersMu.Unlock()
 			return
@@ -148,14 +174,9 @@ func (s *Service) HandleContainerAlive(projectID, containerName string) {
 	}
 	s.sessionWatchersMu.Unlock()
 
-	row, err := s.db.GetProject(projectID)
-	if err != nil || row == nil {
-		return
-	}
-
 	slog.Info("container came alive, starting session watcher",
-		"project", projectID, "container", containerName)
-	s.startProjectWatcher(projectID, containerName, row.AgentType)
+		"project", row.ProjectID, "container", containerName)
+	s.startProjectWatcher(row.ProjectID, containerName, row.AgentType)
 }
 
 // ResumeSessionWatchers starts session watchers for all projects that
@@ -176,6 +197,6 @@ func (s *Service) ResumeSessionWatchers(ctx context.Context) {
 		if p.State != "running" {
 			continue
 		}
-		s.startProjectWatcher(p.ProjectID, p.Name, p.AgentType)
+		s.startProjectWatcher(p.ProjectID, p.Name, string(p.AgentType))
 	}
 }

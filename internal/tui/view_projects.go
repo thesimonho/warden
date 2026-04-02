@@ -162,6 +162,7 @@ func (v *ProjectsView) handleKey(msg tea.KeyPressMsg) (View, tea.Cmd) {
 				return NavigateMsg{
 					Tab:         TabProjects,
 					ProjectID:   selected.ProjectID,
+					AgentType:   string(selected.AgentType),
 					ProjectName: selected.Name,
 				}
 			}
@@ -172,7 +173,7 @@ func (v *ProjectsView) handleKey(msg tea.KeyPressMsg) (View, tea.Cmd) {
 			break
 		}
 		if selected.HasContainer {
-			formView := NewContainerEditView(v.client, selected.ProjectID)
+			formView := NewContainerEditView(v.client, selected.ProjectID, string(selected.AgentType))
 			return formView, formView.Init()
 		}
 		// No container — open create form pre-filled with project info.
@@ -182,9 +183,9 @@ func (v *ProjectsView) handleKey(msg tea.KeyPressMsg) (View, tea.Cmd) {
 	case key.Matches(msg, v.keys.Toggle):
 		if selected != nil && selected.HasContainer {
 			if selected.State == components.ContainerStateRunning {
-				return v, stopProject(v.client, selected.ProjectID)
+				return v, stopProject(v.client, selected.ProjectID, string(selected.AgentType))
 			}
-			return v, restartProject(v.client, selected.ProjectID)
+			return v, restartProject(v.client, selected.ProjectID, string(selected.AgentType))
 		}
 
 	case key.Matches(msg, v.keys.New):
@@ -193,7 +194,7 @@ func (v *ProjectsView) handleKey(msg tea.KeyPressMsg) (View, tea.Cmd) {
 
 	case key.Matches(msg, v.keys.Remove):
 		if selected != nil {
-			manageView := NewManageProjectView(v.client, selected.ProjectID, selected.Name, selected.HasContainer)
+			manageView := NewManageProjectView(v.client, selected.ProjectID, string(selected.AgentType), selected.Name, selected.HasContainer)
 			return manageView, manageView.Init()
 		}
 
@@ -284,16 +285,16 @@ func loadProjects(client Client) tea.Cmd {
 	}
 }
 
-func stopProject(client Client, id string) tea.Cmd {
+func stopProject(client Client, id, agentType string) tea.Cmd {
 	return func() tea.Msg {
-		_, err := client.StopProject(context.Background(), id)
+		_, err := client.StopProject(context.Background(), id, agentType)
 		return OperationResultMsg{Operation: "stop", Err: err}
 	}
 }
 
-func restartProject(client Client, id string) tea.Cmd {
+func restartProject(client Client, id, agentType string) tea.Cmd {
 	return func() tea.Msg {
-		_, err := client.RestartProject(context.Background(), id)
+		_, err := client.RestartProject(context.Background(), id, agentType)
 		return OperationResultMsg{Operation: "restart", Err: err}
 	}
 }

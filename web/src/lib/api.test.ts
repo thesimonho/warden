@@ -80,11 +80,11 @@ describe('createWorktree', () => {
     const fetchMock = mockFetchOk({ worktreeId: 'feature-x', projectId: 'proj-1' })
     vi.stubGlobal('fetch', fetchMock)
 
-    await createWorktree('proj-1', 'feature-x')
+    await createWorktree('proj-1', 'claude-code', 'feature-x')
 
     expect(fetchMock).toHaveBeenCalledOnce()
     const [url, options] = fetchMock.mock.calls[0]
-    expect(url).toBe('/api/v1/projects/proj-1/worktrees')
+    expect(url).toBe('/api/v1/projects/proj-1/claude-code/worktrees')
     expect(options.method).toBe('POST')
   })
 
@@ -92,7 +92,7 @@ describe('createWorktree', () => {
     const fetchMock = mockFetchOk({ worktreeId: 'fix-bug', projectId: 'proj-1' })
     vi.stubGlobal('fetch', fetchMock)
 
-    await createWorktree('proj-1', 'fix-bug')
+    await createWorktree('proj-1', 'claude-code', 'fix-bug')
 
     const body = JSON.parse(fetchMock.mock.calls[0][1].body)
     expect(body).toEqual({ name: 'fix-bug' })
@@ -102,7 +102,7 @@ describe('createWorktree', () => {
     const fetchMock = mockFetchOk({ worktreeId: 'feature-x', projectId: 'proj-1' })
     vi.stubGlobal('fetch', fetchMock)
 
-    const result = await createWorktree('proj-1', 'feature-x')
+    const result = await createWorktree('proj-1', 'claude-code', 'feature-x')
 
     expect(result).toEqual({ worktreeId: 'feature-x', projectId: 'proj-1' })
   })
@@ -111,14 +111,14 @@ describe('createWorktree', () => {
     const fetchMock = mockFetchError(500, 'Internal Server Error')
     vi.stubGlobal('fetch', fetchMock)
 
-    await expect(createWorktree('proj-1', 'feature-x')).rejects.toThrow()
+    await expect(createWorktree('proj-1', 'claude-code', 'feature-x')).rejects.toThrow()
   })
 
   it('sets Content-Type to application/json', async () => {
     const fetchMock = mockFetchOk({ worktreeId: 'feature-x', projectId: 'proj-1' })
     vi.stubGlobal('fetch', fetchMock)
 
-    await createWorktree('proj-1', 'feature-x')
+    await createWorktree('proj-1', 'claude-code', 'feature-x')
 
     const headers = fetchMock.mock.calls[0][1].headers
     expect(headers['Content-Type']).toBe('application/json')
@@ -134,11 +134,11 @@ describe('connectTerminal', () => {
     const fetchMock = mockFetchOk({ worktreeId: 'main', projectId: 'proj-1' })
     vi.stubGlobal('fetch', fetchMock)
 
-    await connectTerminal('proj-1', 'main')
+    await connectTerminal('proj-1', 'claude-code', 'main')
 
     expect(fetchMock).toHaveBeenCalledOnce()
     const [url, options] = fetchMock.mock.calls[0]
-    expect(url).toBe('/api/v1/projects/proj-1/worktrees/main/connect')
+    expect(url).toBe('/api/v1/projects/proj-1/claude-code/worktrees/main/connect')
     expect(options.method).toBe('POST')
   })
 
@@ -146,7 +146,7 @@ describe('connectTerminal', () => {
     const fetchMock = mockFetchOk({ worktreeId: 'main', projectId: 'proj-1' })
     vi.stubGlobal('fetch', fetchMock)
 
-    const result = await connectTerminal('proj-1', 'main')
+    const result = await connectTerminal('proj-1', 'claude-code', 'main')
 
     expect(result).toEqual({ worktreeId: 'main', projectId: 'proj-1' })
   })
@@ -155,7 +155,7 @@ describe('connectTerminal', () => {
     const fetchMock = mockFetchError(500, 'Internal Server Error')
     vi.stubGlobal('fetch', fetchMock)
 
-    await expect(connectTerminal('proj-1', 'main')).rejects.toThrow()
+    await expect(connectTerminal('proj-1', 'claude-code', 'main')).rejects.toThrow()
   })
 })
 
@@ -168,11 +168,11 @@ describe('disconnectTerminal', () => {
     const fetchMock = mockFetchOk({ worktreeId: 'main', projectId: 'proj-1' })
     vi.stubGlobal('fetch', fetchMock)
 
-    await disconnectTerminal('proj-1', 'main')
+    await disconnectTerminal('proj-1', 'claude-code', 'main')
 
     expect(fetchMock).toHaveBeenCalledOnce()
     const [url, options] = fetchMock.mock.calls[0]
-    expect(url).toBe('/api/v1/projects/proj-1/worktrees/main/disconnect')
+    expect(url).toBe('/api/v1/projects/proj-1/claude-code/worktrees/main/disconnect')
     expect(options.method).toBe('POST')
   })
 
@@ -180,7 +180,7 @@ describe('disconnectTerminal', () => {
     const fetchMock = mockFetchOk({ worktreeId: 'main', projectId: 'proj-1' })
     vi.stubGlobal('fetch', fetchMock)
 
-    const result = await disconnectTerminal('proj-1', 'main')
+    const result = await disconnectTerminal('proj-1', 'claude-code', 'main')
 
     expect(result).toEqual({ worktreeId: 'main', projectId: 'proj-1' })
   })
@@ -189,7 +189,7 @@ describe('disconnectTerminal', () => {
     const fetchMock = mockFetchError(404, 'Not Found')
     vi.stubGlobal('fetch', fetchMock)
 
-    await expect(disconnectTerminal('proj-1', 'main')).rejects.toThrow()
+    await expect(disconnectTerminal('proj-1', 'claude-code', 'main')).rejects.toThrow()
   })
 })
 
@@ -202,11 +202,11 @@ describe('removeProject', () => {
     const fetchMock = mockFetchOk({ name: 'my-project' })
     vi.stubGlobal('fetch', fetchMock)
 
-    await removeProject('abc123def456')
+    await removeProject('abc123def456', 'claude-code')
 
     expect(fetchMock).toHaveBeenCalledOnce()
     const [url, options] = fetchMock.mock.calls[0]
-    expect(url).toBe('/api/v1/projects/abc123def456')
+    expect(url).toBe('/api/v1/projects/abc123def456/claude-code')
     expect(options.method).toBe('DELETE')
   })
 
@@ -214,7 +214,7 @@ describe('removeProject', () => {
     const fetchMock = mockFetchOk({ name: 'my-project' })
     vi.stubGlobal('fetch', fetchMock)
 
-    const result = await removeProject('abc123def456')
+    const result = await removeProject('abc123def456', 'claude-code')
 
     expect(result).toEqual({ name: 'my-project' })
   })
@@ -223,7 +223,7 @@ describe('removeProject', () => {
     const fetchMock = mockFetchError(500, 'Internal Server Error')
     vi.stubGlobal('fetch', fetchMock)
 
-    await expect(removeProject('abc123def456')).rejects.toThrow()
+    await expect(removeProject('abc123def456', 'claude-code')).rejects.toThrow()
   })
 })
 
@@ -236,11 +236,11 @@ describe('deleteContainer', () => {
     const fetchMock = mockFetchOk({ containerId: 'abc123def456', name: 'my-container' })
     vi.stubGlobal('fetch', fetchMock)
 
-    await deleteContainer('proj-1')
+    await deleteContainer('proj-1', 'claude-code')
 
     expect(fetchMock).toHaveBeenCalledOnce()
     const [url, options] = fetchMock.mock.calls[0]
-    expect(url).toBe('/api/v1/projects/proj-1/container')
+    expect(url).toBe('/api/v1/projects/proj-1/claude-code/container')
     expect(options.method).toBe('DELETE')
   })
 
@@ -248,7 +248,7 @@ describe('deleteContainer', () => {
     const fetchMock = mockFetchOk({ containerId: 'abc123def456', name: 'my-container' })
     vi.stubGlobal('fetch', fetchMock)
 
-    const result = await deleteContainer('proj-1')
+    const result = await deleteContainer('proj-1', 'claude-code')
 
     expect(result).toEqual({ containerId: 'abc123def456', name: 'my-container' })
   })
@@ -257,7 +257,7 @@ describe('deleteContainer', () => {
     const fetchMock = mockFetchError(500, 'Internal Server Error')
     vi.stubGlobal('fetch', fetchMock)
 
-    await expect(deleteContainer('proj-1')).rejects.toThrow()
+    await expect(deleteContainer('proj-1', 'claude-code')).rejects.toThrow()
   })
 })
 
@@ -270,18 +270,18 @@ describe('validateContainer', () => {
     const fetchMock = mockFetchOk({ valid: true, missing: null })
     vi.stubGlobal('fetch', fetchMock)
 
-    await validateContainer('proj-1')
+    await validateContainer('proj-1', 'claude-code')
 
     expect(fetchMock).toHaveBeenCalledOnce()
     const [url] = fetchMock.mock.calls[0]
-    expect(url).toBe('/api/v1/projects/proj-1/container/validate')
+    expect(url).toBe('/api/v1/projects/proj-1/claude-code/container/validate')
   })
 
   it('returns validation result with valid container', async () => {
     const fetchMock = mockFetchOk({ valid: true, missing: null })
     vi.stubGlobal('fetch', fetchMock)
 
-    const result = await validateContainer('proj-1')
+    const result = await validateContainer('proj-1', 'claude-code')
 
     expect(result).toEqual({ valid: true, missing: null })
   })
@@ -293,7 +293,7 @@ describe('validateContainer', () => {
     })
     vi.stubGlobal('fetch', fetchMock)
 
-    const result = await validateContainer('proj-1')
+    const result = await validateContainer('proj-1', 'claude-code')
 
     expect(result.valid).toBe(false)
     expect(result.missing).toHaveLength(2)
@@ -303,7 +303,7 @@ describe('validateContainer', () => {
     const fetchMock = mockFetchError(500, 'Internal Server Error')
     vi.stubGlobal('fetch', fetchMock)
 
-    await expect(validateContainer('proj-1')).rejects.toThrow()
+    await expect(validateContainer('proj-1', 'claude-code')).rejects.toThrow()
   })
 })
 
@@ -322,11 +322,11 @@ describe('fetchWorktreeDiff', () => {
     })
     vi.stubGlobal('fetch', fetchMock)
 
-    await fetchWorktreeDiff('proj-1', 'main')
+    await fetchWorktreeDiff('proj-1', 'claude-code', 'main')
 
     expect(fetchMock).toHaveBeenCalledOnce()
     const [url] = fetchMock.mock.calls[0]
-    expect(url).toBe('/api/v1/projects/proj-1/worktrees/main/diff')
+    expect(url).toBe('/api/v1/projects/proj-1/claude-code/worktrees/main/diff')
   })
 
   it('returns diff response from response', async () => {
@@ -342,7 +342,7 @@ describe('fetchWorktreeDiff', () => {
     const fetchMock = mockFetchOk(body)
     vi.stubGlobal('fetch', fetchMock)
 
-    const result = await fetchWorktreeDiff('proj-1', 'main')
+    const result = await fetchWorktreeDiff('proj-1', 'claude-code', 'main')
 
     expect(result.files).toHaveLength(1)
     expect(result.totalAdditions).toBe(10)
@@ -352,6 +352,6 @@ describe('fetchWorktreeDiff', () => {
     const fetchMock = mockFetchError(500, 'Internal Server Error')
     vi.stubGlobal('fetch', fetchMock)
 
-    await expect(fetchWorktreeDiff('proj-1', 'main')).rejects.toThrow()
+    await expect(fetchWorktreeDiff('proj-1', 'claude-code', 'main')).rejects.toThrow()
   })
 })

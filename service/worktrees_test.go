@@ -46,7 +46,7 @@ func TestListWorktrees(t *testing.T) {
 
 	row := testProjectRowMinimal("abc123def456", "my-project")
 	insertTestProject(t, database, row)
-	worktrees, err := svc.ListWorktrees(context.Background(), row.ProjectID)
+	worktrees, err := svc.ListWorktrees(context.Background(), row.ProjectID, "claude-code")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -65,7 +65,7 @@ func TestListWorktrees_Error(t *testing.T) {
 
 	row := testProjectRowMinimal("abc123def456", "my-project")
 	insertTestProject(t, database, row)
-	_, err := svc.ListWorktrees(context.Background(), row.ProjectID)
+	_, err := svc.ListWorktrees(context.Background(), row.ProjectID, "claude-code")
 	if err == nil {
 		t.Fatal("expected error")
 	}
@@ -108,7 +108,7 @@ func TestListWorktrees_OverlaysState(t *testing.T) {
 
 	row := testProjectRowMinimal("abc123def456", "my-project")
 	insertTestProject(t, database, row)
-	worktrees, err := svc.ListWorktrees(context.Background(), row.ProjectID)
+	worktrees, err := svc.ListWorktrees(context.Background(), row.ProjectID, "claude-code")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -130,7 +130,7 @@ func TestCreateWorktree(t *testing.T) {
 
 	row := testProjectRowMinimal("abc123def456", "my-project")
 	insertTestProject(t, database, row)
-	resp, err := svc.CreateWorktree(context.Background(), row.ProjectID, "feature-y")
+	resp, err := svc.CreateWorktree(context.Background(), row.ProjectID, "claude-code", "feature-y")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -148,7 +148,7 @@ func TestCreateWorktree_Error(t *testing.T) {
 
 	row := testProjectRowMinimal("abc123def456", "my-project")
 	insertTestProject(t, database, row)
-	_, err := svc.CreateWorktree(context.Background(), row.ProjectID, "feature-y")
+	_, err := svc.CreateWorktree(context.Background(), row.ProjectID, "claude-code", "feature-y")
 	if err == nil {
 		t.Fatal("expected error")
 	}
@@ -173,7 +173,7 @@ func TestCreateWorktree_BroadcastsListChanged(t *testing.T) {
 
 	row := testProjectRowMinimal("abc123def456", "my-project")
 	insertTestProject(t, database, row)
-	_, err := svc.CreateWorktree(context.Background(), row.ProjectID, "feature-y")
+	_, err := svc.CreateWorktree(context.Background(), row.ProjectID, "claude-code", "feature-y")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -208,7 +208,7 @@ func TestConnectTerminal(t *testing.T) {
 
 	row := testProjectRowMinimal("abc123def456", "my-project")
 	insertTestProject(t, database, row)
-	resp, err := svc.ConnectTerminal(context.Background(), row.ProjectID, "main")
+	resp, err := svc.ConnectTerminal(context.Background(), row.ProjectID, "claude-code", "main")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -232,7 +232,7 @@ func TestConnectTerminal_PushesEvent(t *testing.T) {
 
 	row := testProjectRowMinimal("abc123def456", "my-project")
 	insertTestProject(t, database, row)
-	_, err := svc.ConnectTerminal(context.Background(), row.ProjectID, "main")
+	_, err := svc.ConnectTerminal(context.Background(), row.ProjectID, "claude-code", "main")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -256,7 +256,7 @@ func TestRemoveWorktree(t *testing.T) {
 
 	row := testProjectRowMinimal("abc123def456", "my-project")
 	insertTestProject(t, database, row)
-	_, err := svc.RemoveWorktree(context.Background(), row.ProjectID, "feature-x")
+	_, err := svc.RemoveWorktree(context.Background(), row.ProjectID, "claude-code", "feature-x")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -271,7 +271,7 @@ func TestRemoveWorktree_Error(t *testing.T) {
 
 	row := testProjectRowMinimal("abc123def456", "my-project")
 	insertTestProject(t, database, row)
-	_, err := svc.RemoveWorktree(context.Background(), row.ProjectID, "main")
+	_, err := svc.RemoveWorktree(context.Background(), row.ProjectID, "claude-code", "main")
 	if err == nil {
 		t.Fatal("expected error")
 	}
@@ -292,7 +292,7 @@ func TestCleanupWorktrees(t *testing.T) {
 
 	row := testProjectRowMinimal("abc123def456", "my-project")
 	insertTestProject(t, database, row)
-	removed, err := svc.CleanupWorktrees(context.Background(), row.ProjectID)
+	removed, err := svc.CleanupWorktrees(context.Background(), row.ProjectID, "claude-code")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -311,7 +311,7 @@ func TestKillWorktreeProcess(t *testing.T) {
 
 	row := testProjectRowMinimal("abc123def456", "my-project")
 	insertTestProject(t, database, row)
-	_, err := svc.KillWorktreeProcess(context.Background(), row.ProjectID, "main")
+	_, err := svc.KillWorktreeProcess(context.Background(), row.ProjectID, "claude-code", "main")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -326,7 +326,7 @@ func TestKillWorktreeProcess_Error(t *testing.T) {
 
 	row := testProjectRowMinimal("abc123def456", "my-project")
 	insertTestProject(t, database, row)
-	_, err := svc.KillWorktreeProcess(context.Background(), row.ProjectID, "main")
+	_, err := svc.KillWorktreeProcess(context.Background(), row.ProjectID, "claude-code", "main")
 	if err == nil {
 		t.Fatal("expected error")
 	}
@@ -341,7 +341,7 @@ func TestDisconnectTerminal(t *testing.T) {
 
 	row := testProjectRowMinimal("abc123def456", "my-project")
 	insertTestProject(t, database, row)
-	_, err := svc.DisconnectTerminal(context.Background(), row.ProjectID, "main")
+	_, err := svc.DisconnectTerminal(context.Background(), row.ProjectID, "claude-code", "main")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

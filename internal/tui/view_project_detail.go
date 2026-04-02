@@ -129,6 +129,7 @@ func (d worktreeDelegate) Render(w io.Writer, m list.Model, index int, item list
 type ProjectDetailView struct {
 	client        Client
 	projectID     string
+	agentType     string
 	projectName   string
 	disconnectKey string
 	list          list.Model
@@ -144,7 +145,7 @@ type ProjectDetailView struct {
 }
 
 // NewProjectDetailView creates a project detail view.
-func NewProjectDetailView(client Client, projectID, projectName, disconnectKey string) *ProjectDetailView {
+func NewProjectDetailView(client Client, projectID, agentType, projectName, disconnectKey string) *ProjectDetailView {
 	delegate := newWorktreeDelegate()
 
 	l := list.New([]list.Item{}, delegate, 0, 0)
@@ -157,6 +158,7 @@ func NewProjectDetailView(client Client, projectID, projectName, disconnectKey s
 	return &ProjectDetailView{
 		client:        client,
 		projectID:     projectID,
+		agentType:     agentType,
 		projectName:   projectName,
 		disconnectKey: disconnectKey,
 		list:          l,
@@ -168,7 +170,7 @@ func NewProjectDetailView(client Client, projectID, projectName, disconnectKey s
 // Init fetches the worktree list.
 func (v *ProjectDetailView) Init() tea.Cmd {
 	v.loading = true
-	return loadWorktrees(v.client, v.projectID)
+	return loadWorktrees(v.client, v.projectID, v.agentType)
 }
 
 // Update handles messages for the project detail view.
@@ -204,28 +206,28 @@ func (v *ProjectDetailView) Update(msg tea.Msg) (View, tea.Cmd) {
 		if msg.Err != nil {
 			v.err = msg.Err
 		}
-		return v, loadWorktrees(v.client, v.projectID)
+		return v, loadWorktrees(v.client, v.projectID, v.agentType)
 
 	case SSEEventMsg:
 		evt := eventbus.SSEEvent(msg)
 		switch evt.Event {
 		case eventbus.SSEWorktreeState, eventbus.SSEWorktreeListChanged:
-			return v, loadWorktrees(v.client, v.projectID)
+			return v, loadWorktrees(v.client, v.projectID, v.agentType)
 		}
 		return v, nil
 
 	case TerminalExitedMsg:
 		var cmds []tea.Cmd
 		if selected, ok := v.list.SelectedItem().(worktreeItem); ok {
-			cmds = append(cmds, disconnectTerminal(v.client, v.projectID, selected.wt.ID))
+			cmds = append(cmds, disconnectTerminal(v.client, v.projectID, v.agentType, selected.wt.ID))
 		}
-		cmds = append(cmds, loadWorktrees(v.client, v.projectID))
+		cmds = append(cmds, loadWorktrees(v.client, v.projectID, v.agentType))
 		return v, tea.Batch(cmds...)
 
 	case tea.KeyPressMsg:
 		if v.err != nil {
 			v.err = nil
-			return v, loadWorktrees(v.client, v.projectID)
+			return v, loadWorktrees(v.client, v.projectID, v.agentType)
 		}
 		// Don't handle keys while filtering.
 		if v.list.FilterState() == list.Filtering {
@@ -250,7 +252,7 @@ func (v *ProjectDetailView) updateNewWorktreeInput(msg tea.Msg) (View, tea.Cmd) 
 			name := v.newWorktreeInput.Value()
 			if name != "" {
 				v.showNewInput = false
-				return v, createWorktree(v.client, v.projectID, name)
+				return v, createWorktree(v.client, v.projectID, v.agentType, name)
 			}
 			return v, nil
 		}
@@ -331,22 +333,22 @@ func (v *ProjectDetailView) handleKey(msg tea.KeyPressMsg) (View, tea.Cmd) {
 
 	case key.Matches(msg, v.keys.Connect):
 		if hasSelected {
-			return v, attachTerminal(v.client, v.projectID, selected.wt.ID)
+			return v, attachTerminal(v.client, v.projectID, v.agentType, selected.wt.ID)
 		}
 
 	case key.Matches(msg, v.keys.Disconnect):
 		if hasSelected {
-			return v, disconnectTerminal(v.client, v.projectID, selected.wt.ID)
+			return v, disconnectTerminal(v.client, v.projectID, v.agentType, selected.wt.ID)
 		}
 
 	case key.Matches(msg, v.keys.Kill):
 		if hasSelected {
-			return v, killWorktree(v.client, v.projectID, selected.wt.ID)
+			return v, killWorktree(v.client, v.projectID, v.agentType, selected.wt.ID)
 		}
 
 	case key.Matches(msg, v.keys.Remove):
 		if hasSelected {
-			return v, removeWorktree(v.client, v.projectID, selected.wt.ID)
+			return v, removeWorktree(v.client, v.projectID, v.agentType, selected.wt.ID)
 		}
 
 	case key.Matches(msg, v.keys.New):
@@ -354,7 +356,7 @@ func (v *ProjectDetailView) handleKey(msg tea.KeyPressMsg) (View, tea.Cmd) {
 		return v, cmd
 
 	case key.Matches(msg, v.keys.Cleanup):
-		return v, cleanupWorktrees(v.client, v.projectID)
+		return v, cleanupWorktrees(v.client, v.projectID, v.agentType)
 	}
 
 	// Delegate to list for cursor movement.
@@ -365,17 +367,17 @@ func (v *ProjectDetailView) handleKey(msg tea.KeyPressMsg) (View, tea.Cmd) {
 
 // --- Commands ---
 
-func loadWorktrees(client Client, projectID string) tea.Cmd {
+func loadWorktrees(client Client, projectID, agentType string) tea.Cmd {
 	return func() tea.Msg {
-		worktrees, err := client.ListWorktrees(context.Background(), projectID)
+		worktrees, err := client.ListWorktrees(context.Background(), projectID, agentType)
 		return WorktreesLoadedMsg{Worktrees: worktrees, Err: err}
 	}
 }
 
 // attachTerminal starts the terminal process and opens a viewer connection.
-func attachTerminal(c Client, projectID, worktreeID string) tea.Cmd {
+func attachTerminal(c Client, projectID, agentType, worktreeID string) tea.Cmd {
 	return func() tea.Msg {
-		_, err := c.ConnectTerminal(context.Background(), projectID, worktreeID)
+		_, err := c.ConnectTerminal(context.Background(), projectID, agentType, worktreeID)
 		if err != nil {
 			return TerminalExitedMsg{Err: err}
 		}
@@ -392,37 +394,37 @@ type execTerminalMsg struct {
 	conn client.TerminalConnection
 }
 
-func createWorktree(client Client, projectID, name string) tea.Cmd {
+func createWorktree(client Client, projectID, agentType, name string) tea.Cmd {
 	return func() tea.Msg {
-		_, err := client.CreateWorktree(context.Background(), projectID, name)
+		_, err := client.CreateWorktree(context.Background(), projectID, agentType, name)
 		return OperationResultMsg{Operation: "create", Err: err}
 	}
 }
 
-func disconnectTerminal(client Client, projectID, worktreeID string) tea.Cmd {
+func disconnectTerminal(client Client, projectID, agentType, worktreeID string) tea.Cmd {
 	return func() tea.Msg {
-		_, err := client.DisconnectTerminal(context.Background(), projectID, worktreeID)
+		_, err := client.DisconnectTerminal(context.Background(), projectID, agentType, worktreeID)
 		return OperationResultMsg{Operation: "disconnect", Err: err}
 	}
 }
 
-func killWorktree(client Client, projectID, worktreeID string) tea.Cmd {
+func killWorktree(client Client, projectID, agentType, worktreeID string) tea.Cmd {
 	return func() tea.Msg {
-		_, err := client.KillWorktreeProcess(context.Background(), projectID, worktreeID)
+		_, err := client.KillWorktreeProcess(context.Background(), projectID, agentType, worktreeID)
 		return OperationResultMsg{Operation: "kill", Err: err}
 	}
 }
 
-func removeWorktree(client Client, projectID, worktreeID string) tea.Cmd {
+func removeWorktree(client Client, projectID, agentType, worktreeID string) tea.Cmd {
 	return func() tea.Msg {
-		_, err := client.RemoveWorktree(context.Background(), projectID, worktreeID)
+		_, err := client.RemoveWorktree(context.Background(), projectID, agentType, worktreeID)
 		return OperationResultMsg{Operation: "remove", Err: err}
 	}
 }
 
-func cleanupWorktrees(client Client, projectID string) tea.Cmd {
+func cleanupWorktrees(client Client, projectID, agentType string) tea.Cmd {
 	return func() tea.Msg {
-		_, err := client.CleanupWorktrees(context.Background(), projectID)
+		_, err := client.CleanupWorktrees(context.Background(), projectID, agentType)
 		return OperationResultMsg{Operation: "cleanup", Err: err}
 	}
 }

@@ -7,6 +7,7 @@
 package service
 
 import (
+	"os"
 	"sync"
 	"time"
 
@@ -47,18 +48,20 @@ type Service struct {
 	agentRegistry *agent.Registry
 	eventWatcher  *eventbus.Watcher
 	eventHandler  func(eventbus.ContainerEvent)
-	homeDir       string
+	homeDir    string
+	workingDir string
 
-	// Session watcher state — one watcher per project, keyed by project ID.
-	sessionWatchers         map[string]*agent.SessionWatcher
+	// Session watcher state — one watcher per project+agent, keyed by compound key.
+	sessionWatchers         map[db.ProjectAgentKey]*agent.SessionWatcher
 	sessionWatchersMu       sync.Mutex
-	sessionWatcherCooldowns map[string]time.Time // projectID → last stop time
+	sessionWatcherCooldowns map[db.ProjectAgentKey]time.Time
 }
 
 // New creates a Service with the given dependencies. The lifecycle
 // deps (Registry, EventWatcher, EventHandler, HomeDir) may be nil —
 // session watcher operations degrade gracefully when absent.
 func New(deps ServiceDeps) *Service {
+	wd, _ := os.Getwd()
 	return &Service{
 		docker:                  deps.Engine,
 		db:                      deps.DB,
@@ -68,7 +71,8 @@ func New(deps ServiceDeps) *Service {
 		eventWatcher:            deps.EventWatcher,
 		eventHandler:            deps.EventHandler,
 		homeDir:                 deps.HomeDir,
-		sessionWatchers:         make(map[string]*agent.SessionWatcher),
-		sessionWatcherCooldowns: make(map[string]time.Time),
+		workingDir:              wd,
+		sessionWatchers:         make(map[db.ProjectAgentKey]*agent.SessionWatcher),
+		sessionWatcherCooldowns: make(map[db.ProjectAgentKey]time.Time),
 	}
 }

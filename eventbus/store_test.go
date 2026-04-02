@@ -874,7 +874,7 @@ func TestStore_HandleStop_CallbackWithValidCost(t *testing.T) {
 	}
 
 	store := NewStore(nil, nil)
-	store.SetStopCallback(func(projectID, containerName, sessionID string, cost float64, isEstimated bool) {
+	store.SetStopCallback(func(projectID, agentType, containerName, sessionID string, cost float64, isEstimated bool) {
 		called.containerName = containerName
 		called.sessionID = sessionID
 		called.cost = cost
@@ -904,7 +904,7 @@ func TestStore_HandleStop_CallbackWithZeroCost(t *testing.T) {
 	var receivedCost float64
 
 	store := NewStore(nil, nil)
-	store.SetStopCallback(func(projectID, containerName, sessionID string, cost float64, isEstimated bool) {
+	store.SetStopCallback(func(projectID, agentType, containerName, sessionID string, cost float64, isEstimated bool) {
 		called = true
 		receivedCost = cost
 	})
@@ -929,7 +929,7 @@ func TestStore_HandleStop_CallbackWithNilData(t *testing.T) {
 	var called bool
 
 	store := NewStore(nil, nil)
-	store.SetStopCallback(func(projectID, containerName, sessionID string, cost float64, isEstimated bool) {
+	store.SetStopCallback(func(projectID, agentType, containerName, sessionID string, cost float64, isEstimated bool) {
 		called = true
 	})
 

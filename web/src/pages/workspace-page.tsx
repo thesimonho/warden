@@ -4,42 +4,65 @@ import { ArrowLeft } from 'lucide-react'
 import { useProjects } from '@/hooks/use-projects'
 import ProjectView from '@/components/project/project-view'
 
+/** Parsed workspace panel entry — project ID paired with its agent type. */
+interface WorkspaceEntry {
+  projectId: string
+  agentType: string
+}
+
+/** Encodes a workspace entry as "projectId:agentType" for the query string. */
+function encodeEntry(entry: WorkspaceEntry): string {
+  return `${entry.projectId}:${entry.agentType}`
+}
+
+/** Decodes a "projectId:agentType" token from the query string. */
+function decodeEntry(token: string): WorkspaceEntry | null {
+  const [projectId, agentType] = token.split(':')
+  return projectId && agentType ? { projectId, agentType } : null
+}
+
 /**
  * Workspace page showing multiple project views in a grid.
  *
  * Each cell is a full ProjectView with its own sidebar, grid/canvas
- * toggle, and terminal panels. Project IDs are read from the `ids`
- * query parameter (comma-separated).
+ * toggle, and terminal panels. Project entries are read from the `ids`
+ * query parameter as comma-separated "projectId:agentType" pairs.
  *
- * Example: /workspace?ids=abc123,def456
+ * Example: /workspace?ids=abc123:claude-code,def456:codex
  */
 export default function WorkspacePage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const { projects } = useProjects()
 
-  const ids = useMemo(
-    () => searchParams.get('ids')?.split(',').filter(Boolean) ?? [],
+  const entries = useMemo(
+    () =>
+      (searchParams.get('ids')?.split(',').filter(Boolean) ?? [])
+        .map(decodeEntry)
+        .filter((e): e is WorkspaceEntry => e !== null),
     [searchParams],
   )
 
-  const projectById = useMemo(() => new Map(projects.map((p) => [p.projectId, p])), [projects])
+  const projectByKey = useMemo(
+    () => new Map(projects.map((p) => [`${p.projectId}:${p.agentType}`, p])),
+    [projects],
+  )
   const selectedProjects = useMemo(
     () =>
-      ids.flatMap((id) => {
-        const p = projectById.get(id)
+      entries.flatMap((entry) => {
+        const p = projectByKey.get(encodeEntry(entry))
         return p ? [p] : []
       }),
-    [ids, projectById],
+    [entries, projectByKey],
   )
 
-  /** Updates a single project ID in the URL while preserving the others. */
+  /** Updates a single entry in the URL while preserving the others. */
   const handleProjectChange = useCallback(
-    (index: number, newProjectId: string) => {
-      const updated = [...ids]
-      updated[index] = newProjectId
-      setSearchParams({ ids: updated.join(',') }, { replace: true })
+    (index: number, newProjectId: string, newAgentType: string) => {
+      const updated = [...entries]
+      updated[index] = { projectId: newProjectId, agentType: newAgentType }
+      setSearchParams({ ids: updated.map(encodeEntry).join(',') }, { replace: true })
     },
-    [ids, setSearchParams],
+    [entries, setSearchParams],
   )
 
   return (
@@ -65,10 +88,14 @@ export default function WorkspacePage() {
       ) : (
         <div className="grid min-h-0 flex-1 grid-cols-1 gap-1 lg:grid-cols-2">
           {selectedProjects.map((project, index) => (
-            <div key={project.projectId} className="min-h-0 overflow-hidden border-b lg:border-r">
+            <div
+              key={`${project.projectId}:${project.agentType}`}
+              className="min-h-0 overflow-hidden border-b lg:border-r"
+            >
               <ProjectView
                 projectId={project.projectId}
-                onProjectChange={(newId) => handleProjectChange(index, newId)}
+                agentType={project.agentType}
+                onProjectChange={(newId, newAgent) => handleProjectChange(index, newId, newAgent)}
               />
             </div>
           ))}

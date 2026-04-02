@@ -203,8 +203,8 @@ func TestGetAuditSummary_TimeFilteredCost(t *testing.T) {
 	svc, store := newTestService(t)
 	writeTestEvents(t, store)
 
-	_ = store.UpsertSessionCost("proj1", "s1", 1.50, false)
-	_ = store.UpsertSessionCost("proj1", "s2", 3.00, false)
+	_ = store.UpsertSessionCost("proj1", "claude-code", "s1", 1.50, false)
+	_ = store.UpsertSessionCost("proj1", "claude-code", "s2", 3.00, false)
 
 	t.Run("range encompassing now includes all costs", func(t *testing.T) {
 		summary, err := svc.GetAuditSummary(context.Background(), api.AuditFilters{
@@ -240,8 +240,8 @@ func TestGetAuditSummary_DeletedProjectCost(t *testing.T) {
 	// Simulate cost data from a project that was later deleted.
 	// The session_costs rows are preserved (audit logging on), but the
 	// project no longer exists in ListProjects.
-	_ = store.UpsertSessionCost("deleted-proj", "s1", 2.50, false)
-	_ = store.UpsertSessionCost("deleted-proj", "s2", 1.00, false)
+	_ = store.UpsertSessionCost("deleted-proj", "claude-code", "s1", 2.50, false)
+	_ = store.UpsertSessionCost("deleted-proj", "claude-code", "s2", 1.00, false)
 
 	// Without time filter — this was the buggy path.
 	summary, err := svc.GetAuditSummary(context.Background(), api.AuditFilters{})

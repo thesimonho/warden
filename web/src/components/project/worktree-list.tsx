@@ -27,6 +27,7 @@ function worktreeLabel(worktree: Worktree, projectName: string): string {
 /** Props for the worktree list component. */
 interface WorktreeListProps {
   projectId: string
+  agentType: string
   projectName: string
   isGitRepo: boolean
   worktrees: Worktree[]
@@ -104,6 +105,7 @@ function partitionWorktrees(
  */
 export default function WorktreeList({
   projectId,
+  agentType,
   projectName,
   isGitRepo,
   worktrees,
@@ -143,7 +145,7 @@ export default function WorktreeList({
   const handleRefresh = useCallback(async () => {
     setIsRefreshing(true)
     try {
-      const result = await cleanupWorktrees(projectId)
+      const result = await cleanupWorktrees(projectId, agentType)
       const count = result.removed?.length ?? 0
       if (count > 0) {
         toast.success(`Removed ${count} unused worktree${count > 1 ? 's' : ''}`)
@@ -155,7 +157,7 @@ export default function WorktreeList({
     } finally {
       setIsRefreshing(false)
     }
-  }, [projectId, onRefreshComplete])
+  }, [projectId, agentType, onRefreshComplete])
 
   const renderItem = (wt: Worktree) => {
     const panelId = buildPanelId(projectId, wt.id)
@@ -241,6 +243,7 @@ export default function WorktreeList({
       {isGitRepo && (
         <NewWorktreeDialog
           projectId={projectId}
+          agentType={agentType}
           open={isDialogOpen}
           onOpenChange={setIsDialogOpen}
           onCreated={onWorktreeCreated}

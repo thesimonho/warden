@@ -13,8 +13,8 @@ import (
 // ListWorktrees returns all worktrees for the given project with
 // their terminal state, enriched with real-time data from the event
 // store when available.
-func (s *Service) ListWorktrees(ctx context.Context, projectID string) ([]engine.Worktree, error) {
-	project, err := s.resolveProject(projectID)
+func (s *Service) ListWorktrees(ctx context.Context, projectID, agentType string) ([]engine.Worktree, error) {
+	project, err := s.resolveProject(projectID, agentType)
 	if err != nil {
 		return nil, err
 	}
@@ -37,8 +37,8 @@ func (s *Service) ListWorktrees(ctx context.Context, projectID string) ([]engine
 }
 
 // CreateWorktree creates a new git worktree and connects a terminal.
-func (s *Service) CreateWorktree(ctx context.Context, projectID, name string) (*WorktreeResult, error) {
-	project, err := s.resolveProject(projectID)
+func (s *Service) CreateWorktree(ctx context.Context, projectID, agentType, name string) (*WorktreeResult, error) {
+	project, err := s.resolveProject(projectID, agentType)
 	if err != nil {
 		return nil, err
 	}
@@ -78,8 +78,8 @@ func (s *Service) CreateWorktree(ctx context.Context, projectID, name string) (*
 // container. For background reconnects (abduco alive, no script
 // needed), pushes a synthetic terminal_connected event so the store
 // transitions from background to connected.
-func (s *Service) ConnectTerminal(ctx context.Context, projectID, worktreeID string) (*WorktreeResult, error) {
-	project, err := s.resolveProject(projectID)
+func (s *Service) ConnectTerminal(ctx context.Context, projectID, agentType, worktreeID string) (*WorktreeResult, error) {
+	project, err := s.resolveProject(projectID, agentType)
 	if err != nil {
 		return nil, err
 	}
@@ -117,8 +117,8 @@ func (s *Service) ConnectTerminal(ctx context.Context, projectID, worktreeID str
 // synthetic terminal_disconnected event so the store transitions
 // from connected to background without relying on the container
 // script's async curl delivery.
-func (s *Service) DisconnectTerminal(ctx context.Context, projectID, worktreeID string) (*WorktreeResult, error) {
-	project, err := s.resolveProject(projectID)
+func (s *Service) DisconnectTerminal(ctx context.Context, projectID, agentType, worktreeID string) (*WorktreeResult, error) {
+	project, err := s.resolveProject(projectID, agentType)
 	if err != nil {
 		return nil, err
 	}
@@ -152,8 +152,8 @@ func (s *Service) DisconnectTerminal(ctx context.Context, projectID, worktreeID 
 
 // KillWorktreeProcess kills abduco and all child processes for a
 // worktree, destroying the terminal entirely.
-func (s *Service) KillWorktreeProcess(ctx context.Context, projectID, worktreeID string) (*WorktreeResult, error) {
-	project, err := s.resolveProject(projectID)
+func (s *Service) KillWorktreeProcess(ctx context.Context, projectID, agentType, worktreeID string) (*WorktreeResult, error) {
+	project, err := s.resolveProject(projectID, agentType)
 	if err != nil {
 		return nil, err
 	}
@@ -181,8 +181,8 @@ func (s *Service) KillWorktreeProcess(ctx context.Context, projectID, worktreeID
 
 // RemoveWorktree fully removes a worktree: kills processes, runs
 // `git worktree remove`, and cleans up tracking state.
-func (s *Service) RemoveWorktree(ctx context.Context, projectID, worktreeID string) (*WorktreeResult, error) {
-	project, err := s.resolveProject(projectID)
+func (s *Service) RemoveWorktree(ctx context.Context, projectID, agentType, worktreeID string) (*WorktreeResult, error) {
+	project, err := s.resolveProject(projectID, agentType)
 	if err != nil {
 		return nil, err
 	}
@@ -223,8 +223,8 @@ func (s *Service) RemoveWorktree(ctx context.Context, projectID, worktreeID stri
 
 // CleanupWorktrees removes orphaned worktree directories and stale
 // terminal tracking directories. Returns the list of removed IDs.
-func (s *Service) CleanupWorktrees(ctx context.Context, projectID string) ([]string, error) {
-	project, err := s.resolveProject(projectID)
+func (s *Service) CleanupWorktrees(ctx context.Context, projectID, agentType string) ([]string, error) {
+	project, err := s.resolveProject(projectID, agentType)
 	if err != nil {
 		return nil, err
 	}
@@ -268,8 +268,8 @@ func (s *Service) CleanupWorktrees(ctx context.Context, projectID string) ([]str
 }
 
 // GetWorktreeDiff returns uncommitted changes for a worktree.
-func (s *Service) GetWorktreeDiff(ctx context.Context, projectID, worktreeID string) (*api.DiffResponse, error) {
-	project, err := s.resolveProject(projectID)
+func (s *Service) GetWorktreeDiff(ctx context.Context, projectID, agentType, worktreeID string) (*api.DiffResponse, error) {
+	project, err := s.resolveProject(projectID, agentType)
 	if err != nil {
 		return nil, err
 	}

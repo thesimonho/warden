@@ -53,14 +53,14 @@ func (s *Service) CreateContainer(ctx context.Context, req engine.CreateContaine
 	if s.eventWatcher != nil {
 		s.eventWatcher.WatchContainerDir(req.Name)
 	}
-	s.startProjectWatcher(row.ProjectID, req.Name, req.AgentType)
+	s.startProjectWatcher(row.ProjectID, req.Name, string(req.AgentType))
 
 	return &ContainerResult{ContainerID: containerID, Name: req.Name, ProjectID: row.ProjectID}, nil
 }
 
 // DeleteContainer stops and removes a container.
-func (s *Service) DeleteContainer(ctx context.Context, projectID string) (*ContainerResult, error) {
-	project, err := s.resolveProject(projectID)
+func (s *Service) DeleteContainer(ctx context.Context, projectID, agentType string) (*ContainerResult, error) {
+	project, err := s.resolveProject(projectID, agentType)
 	if err != nil {
 		return nil, err
 	}
@@ -74,7 +74,7 @@ func (s *Service) DeleteContainer(ctx context.Context, projectID string) (*Conta
 	s.docker.CleanupEventDir(containerName)
 
 	// Stop lifecycle watchers for the deleted container.
-	s.StopSessionWatcher(project.ProjectID)
+	s.StopSessionWatcher(project.ProjectID, project.AgentType)
 	if s.eventWatcher != nil {
 		s.eventWatcher.CleanupContainerDir(containerName)
 	}
@@ -100,8 +100,8 @@ func (s *Service) DeleteContainer(ctx context.Context, projectID string) (*Conta
 // InspectContainer returns the editable configuration of a container.
 // Docker-derived fields come from the engine; DB metadata is overlaid
 // directly from the project row.
-func (s *Service) InspectContainer(ctx context.Context, projectID string) (*engine.ContainerConfig, error) {
-	project, err := s.resolveProject(projectID)
+func (s *Service) InspectContainer(ctx context.Context, projectID, agentType string) (*engine.ContainerConfig, error) {
+	project, err := s.resolveProject(projectID, agentType)
 	if err != nil {
 		return nil, err
 	}
@@ -151,8 +151,8 @@ func (s *Service) InspectContainer(ctx context.Context, projectID string) (*engi
 // lightweight settings changed (name, skipPermissions, costBudget), the
 // container is updated in-place without recreation. Otherwise the container
 // is fully recreated with the new configuration.
-func (s *Service) UpdateContainer(ctx context.Context, projectID string, req engine.CreateContainerRequest) (*ContainerResult, error) {
-	project, err := s.resolveProject(projectID)
+func (s *Service) UpdateContainer(ctx context.Context, projectID, agentType string, req engine.CreateContainerRequest) (*ContainerResult, error) {
+	project, err := s.resolveProject(projectID, agentType)
 	if err != nil {
 		return nil, err
 	}
@@ -177,7 +177,7 @@ func (s *Service) updateContainerSettings(ctx context.Context, project *db.Proje
 		containerName = req.Name
 
 		// Restart lifecycle watchers with the new container name.
-		s.StopSessionWatcher(project.ProjectID)
+		s.StopSessionWatcher(project.ProjectID, project.AgentType)
 		if s.eventWatcher != nil {
 			s.eventWatcher.CleanupContainerDir(oldContainerName)
 			s.eventWatcher.WatchContainerDir(containerName)
@@ -190,6 +190,7 @@ func (s *Service) updateContainerSettings(ctx context.Context, project *db.Proje
 
 	if err := s.db.UpdateProjectSettings(
 		project.ProjectID,
+		project.AgentType,
 		req.Name,
 		containerName,
 		req.SkipPermissions,
@@ -227,7 +228,7 @@ func (s *Service) recreateContainer(ctx context.Context, project *db.ProjectRow,
 
 	// Stop lifecycle watchers for the old container before recreation.
 	oldContainerName := effectiveContainerName(project)
-	s.StopSessionWatcher(project.ProjectID)
+	s.StopSessionWatcher(project.ProjectID, project.AgentType)
 	if s.eventWatcher != nil {
 		s.eventWatcher.CleanupContainerDir(oldContainerName)
 	}
@@ -251,7 +252,7 @@ func (s *Service) recreateContainer(ctx context.Context, project *db.ProjectRow,
 	if s.eventWatcher != nil {
 		s.eventWatcher.WatchContainerDir(req.Name)
 	}
-	s.startProjectWatcher(row.ProjectID, req.Name, req.AgentType)
+	s.startProjectWatcher(row.ProjectID, req.Name, string(req.AgentType))
 
 	return &ContainerResult{ContainerID: newID, Name: req.Name, ProjectID: row.ProjectID}, nil
 }
@@ -267,13 +268,13 @@ func needsRecreation(project *db.ProjectRow, req engine.CreateContainerRequest) 
 		return true
 	}
 
-	reqAgent := req.AgentType
+	reqAgent := string(req.AgentType)
 	if reqAgent == "" {
-		reqAgent = agent.DefaultAgentType
+		reqAgent = string(agent.DefaultType)
 	}
 	existingAgent := project.AgentType
 	if existingAgent == "" {
-		existingAgent = agent.DefaultAgentType
+		existingAgent = string(agent.DefaultType)
 	}
 	if reqAgent != existingAgent {
 		return true
@@ -374,8 +375,8 @@ func stringSlicesEqual(a, b []string) bool {
 
 // ValidateContainer checks whether a container has the required Warden
 // terminal infrastructure installed.
-func (s *Service) ValidateContainer(ctx context.Context, projectID string) (*ValidateContainerResult, error) {
-	project, err := s.resolveProject(projectID)
+func (s *Service) ValidateContainer(ctx context.Context, projectID, agentType string) (*ValidateContainerResult, error) {
+	project, err := s.resolveProject(projectID, agentType)
 	if err != nil {
 		return nil, err
 	}
@@ -396,9 +397,9 @@ func projectRowFromRequest(req engine.CreateContainerRequest) (db.ProjectRow, er
 		return db.ProjectRow{}, fmt.Errorf("computing project ID: %w", err)
 	}
 
-	agentType := req.AgentType
+	agentType := string(req.AgentType)
 	if agentType == "" {
-		agentType = agent.DefaultAgentType
+		agentType = string(agent.DefaultType)
 	}
 
 	row := db.ProjectRow{

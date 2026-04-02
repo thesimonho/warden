@@ -17,8 +17,10 @@ const POST_ANIMATION_BUFFER_MS = 50
 export interface ProjectViewProps {
   /** Project (container) ID to display. */
   projectId: string
+  /** CLI agent type for this project. */
+  agentType: string
   /** Called when the user picks a different project in the sidebar dropdown. */
-  onProjectChange: (projectId: string) => void
+  onProjectChange: (projectId: string, agentType: string) => void
 }
 
 /**
@@ -29,7 +31,7 @@ export interface ProjectViewProps {
  * The route page wrapper (`project-page.tsx`) handles fixed viewport
  * positioning; the workspace page embeds it in a grid cell.
  */
-export default function ProjectView({ projectId, onProjectChange }: ProjectViewProps) {
+export default function ProjectView({ projectId, agentType, onProjectChange }: ProjectViewProps) {
   const [viewMode, setViewMode] = useState<ViewMode>('grid')
 
   const {
@@ -244,7 +246,13 @@ export default function ProjectView({ projectId, onProjectChange }: ProjectViewP
 
   /** Adds a panel, panning the canvas to center it or focusing the grid cell. */
   const handleAddPanel = useCallback(
-    (params: { projectId: string; projectName: string; worktreeId: string; branch?: string }) => {
+    (params: {
+      projectId: string
+      agentType: string
+      projectName: string
+      worktreeId: string
+      branch?: string
+    }) => {
       const cs = canvasSizeRef.current
       if (viewMode === 'canvas' && cs.width > 0) {
         const center = viewportToCanvas(cs.width / 2, cs.height / 2)
@@ -295,6 +303,7 @@ export default function ProjectView({ projectId, onProjectChange }: ProjectViewP
     <div className="flex h-full">
       <ProjectSidebar
         selectedProjectId={projectId}
+        selectedAgentType={agentType}
         onProjectChange={onProjectChange}
         viewMode={viewMode}
         onViewModeChange={setViewMode}

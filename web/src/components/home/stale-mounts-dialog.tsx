@@ -17,7 +17,7 @@ interface StaleMountsDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   /** The project that failed to start due to stale mounts. */
-  project: { id: string; name: string } | null
+  project: { id: string; agentType: string; name: string } | null
   /** Called after successful recreation to refresh the project list. */
   onRecreated: () => void
 }
@@ -41,8 +41,8 @@ export default function StaleMountsDialog({
     if (!project) return
     setIsRecreating(true)
     try {
-      const config = await fetchContainerConfig(project.id)
-      await updateContainer(project.id, {
+      const config = await fetchContainerConfig(project.id, project.agentType)
+      await updateContainer(project.id, project.agentType, {
         name: config.name,
         image: config.image,
         projectPath: config.projectPath,

@@ -1,12 +1,21 @@
 import { useCallback, useEffect, useState } from 'react'
 import type React from 'react'
 import { useNavigate, useOutletContext } from 'react-router-dom'
-import { LayoutGrid, Square, RotateCw, X, Loader2, Plus, RefreshCw, Box } from 'lucide-react'
+import { LayoutGrid, Square, RotateCw, X, Loader2, Plus, RefreshCw, Box, Zap } from 'lucide-react'
 import { toast } from 'sonner'
 import { useNotifications } from '@/hooks/use-notifications'
 import { useProjects } from '@/hooks/use-projects'
 import { useRecentWorkspaces } from '@/hooks/use-recent-workspaces'
-import { ApiError, stopProject, restartProject, fetchProjects } from '@/lib/api'
+import {
+  ApiError,
+  stopProject,
+  restartProject,
+  fetchProjects,
+  fetchSettings,
+  addProject,
+  createContainer,
+} from '@/lib/api'
+import type { AgentType, ServerSettings } from '@/lib/types'
 import type { Project } from '@/lib/types'
 import { Button } from '@/components/ui/button'
 import CostDashboard from '@/components/home/cost-dashboard'
@@ -34,14 +43,34 @@ export default function HomePage() {
   const [createForProject, setCreateForProject] = useState<CreateForProject | null>(null)
   const [staleMountsProject, setStaleMountsProject] = useState<{
     id: string
+    agentType: string
     name: string
   } | null>(null)
+  const [serverSettings, setServerSettings] = useState<ServerSettings | null>(null)
+
+  // Fetch server settings in dev mode for the quick-add buttons.
+  useEffect(() => {
+    if (import.meta.env.DEV) {
+      fetchSettings()
+        .then(setServerSettings)
+        .catch(() => {})
+    }
+  }, [])
+
+  /** Resolves the agent type for a project ID from the current project list. */
+  const agentTypeFor = useCallback(
+    (id: string): AgentType => {
+      const p = projects.find((proj) => proj.projectId === id)
+      return p?.agentType ?? 'claude-code'
+    },
+    [projects],
+  )
 
   const handleStop = useCallback(
     async (id: string) => {
       setPendingStopIds((prev) => new Set([...prev, id]))
       try {
-        await stopProject(id)
+        await stopProject(id, agentTypeFor(id))
         toast.success('Project stopped')
         refetch()
       } catch (err) {
@@ -54,14 +83,14 @@ export default function HomePage() {
         })
       }
     },
-    [refetch],
+    [refetch, agentTypeFor],
   )
 
   const handleRestart = useCallback(
     async (id: string) => {
       setPendingRestartIds((prev) => new Set([...prev, id]))
       try {
-        await restartProject(id)
+        await restartProject(id, agentTypeFor(id))
         // Wait briefly for the container to either stabilize or crash
         await new Promise((r) => setTimeout(r, 2000))
         const updated = await fetchProjects()
@@ -75,7 +104,11 @@ export default function HomePage() {
       } catch (err) {
         if (err instanceof ApiError && err.code === 'STALE_MOUNTS') {
           const match = projects.find((p) => p.projectId === id)
-          setStaleMountsProject({ id, name: match?.name ?? id })
+          setStaleMountsProject({
+            id,
+            agentType: agentTypeFor(id),
+            name: match?.name ?? id,
+          })
         } else {
           toast.error(err instanceof Error ? err.message : 'Failed to restart project')
         }
@@ -87,7 +120,7 @@ export default function HomePage() {
         })
       }
     },
-    [projects, refetch],
+    [projects, refetch, agentTypeFor],
   )
 
   const handleRemove = useCallback((project: Project) => {
@@ -131,9 +164,10 @@ export default function HomePage() {
   const handleOpenWorkspace = useCallback(
     (ids: string[]) => {
       addWorkspace(ids)
-      navigate(`/workspace?ids=${ids.join(',')}`)
+      const encoded = ids.map((id) => `${id}:${agentTypeFor(id)}`).join(',')
+      navigate(`/workspace?ids=${encoded}`)
     },
-    [addWorkspace, navigate],
+    [addWorkspace, navigate, agentTypeFor],
   )
 
   const handleOpenSelected = () => {
@@ -174,13 +208,40 @@ export default function HomePage() {
   )
 
   const handleStopSelected = useCallback(
-    () => handleBulkAction(stopProject, setPendingStopIds, 'stop'),
-    [handleBulkAction],
+    () => handleBulkAction((id) => stopProject(id, agentTypeFor(id)), setPendingStopIds, 'stop'),
+    [handleBulkAction, agentTypeFor],
   )
 
   const handleRestartSelected = useCallback(
-    () => handleBulkAction(restartProject, setPendingRestartIds, 'restart'),
-    [handleBulkAction],
+    () =>
+      handleBulkAction(
+        (id) => restartProject(id, agentTypeFor(id)),
+        setPendingRestartIds,
+        'restart',
+      ),
+    [handleBulkAction, agentTypeFor],
+  )
+
+  const handleQuickAdd = useCallback(
+    async (agentType: AgentType) => {
+      if (!serverSettings?.workingDirectory) return
+      try {
+        const result = await addProject('warden', serverSettings.workingDirectory, agentType)
+        await createContainer(result.projectId, agentType, {
+          name: `warden-${agentType}`,
+          image: '',
+          projectPath: serverSettings.workingDirectory,
+          agentType,
+          skipPermissions: true,
+        })
+        toast.success(`${agentType} project created`)
+        refetch()
+        navigate(`/projects/${result.projectId}/${agentType}`)
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : 'Failed to quick-add project')
+      }
+    },
+    [serverSettings?.workingDirectory, refetch, navigate],
   )
 
   useEffect(() => {
@@ -211,6 +272,28 @@ export default function HomePage() {
             >
               Select
             </Button>
+          )}
+          {!isSelectMode && import.meta.env.DEV && serverSettings?.workingDirectory && (
+            <>
+              <Button
+                size="sm"
+                variant="outline"
+                color="warning"
+                onClick={() => handleQuickAdd('claude-code')}
+                icon={Zap}
+              >
+                Claude
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                color="warning"
+                onClick={() => handleQuickAdd('codex')}
+                icon={Zap}
+              >
+                Codex
+              </Button>
+            </>
           )}
           {!isSelectMode && (
             <Button
@@ -305,6 +388,7 @@ export default function HomePage() {
         }}
         onProjectAdded={refetch}
         editProjectId={editTarget?.projectId}
+        editAgentType={editTarget?.agentType}
         editIsRunning={editTarget?.state === 'running'}
       />
 

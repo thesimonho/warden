@@ -13,6 +13,7 @@ import (
 	"github.com/docker/docker/api/types/image"
 
 	"github.com/thesimonho/warden/agent"
+	"github.com/thesimonho/warden/constants"
 )
 
 // defaultPidsLimit is the maximum number of processes allowed in a container.
@@ -277,9 +278,9 @@ func (ec *EngineClient) InspectContainer(ctx context.Context, id string) (*Conta
 	}
 
 	// Read agent type from the container's env.
-	cfg.AgentType = envValue(info.Config.Env, "WARDEN_AGENT_TYPE")
+	cfg.AgentType = constants.AgentType(envValue(info.Config.Env, "WARDEN_AGENT_TYPE"))
 	if cfg.AgentType == "" {
-		cfg.AgentType = agent.DefaultAgentType
+		cfg.AgentType = agent.DefaultType
 	}
 
 	// Determine the workspace mount path from env vars.

@@ -317,7 +317,7 @@ func (a App) updateDetailView(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (a App) handleNavigate(msg NavigateMsg) (tea.Model, tea.Cmd) {
 	if msg.ProjectID != "" {
-		a.detailView = NewProjectDetailView(a.client, msg.ProjectID, msg.ProjectName, a.disconnectKey)
+		a.detailView = NewProjectDetailView(a.client, msg.ProjectID, msg.AgentType, msg.ProjectName, a.disconnectKey)
 		a.detailView, _ = a.detailView.Update(tea.WindowSizeMsg{
 			Width: a.width, Height: a.height,
 		})

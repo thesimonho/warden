@@ -61,7 +61,7 @@ func TestListProjects_OverlaysCost(t *testing.T) {
 
 	database := testDB(t)
 	_ = database.InsertProject(db.ProjectRow{ProjectID: "my-project", Name: "my-project", HostPath: "/test/my-project"})
-	_ = database.UpsertSessionCost("my-project", "session-abc", 1.5, false)
+	_ = database.UpsertSessionCost("my-project", "claude-code", "session-abc", 1.5, false)
 
 	svc := New(ServiceDeps{Engine: mock, DB: database})
 
@@ -86,7 +86,7 @@ func TestListProjects_OverlaysCostIsEstimated(t *testing.T) {
 
 	database := testDB(t)
 	_ = database.InsertProject(db.ProjectRow{ProjectID: "my-project", Name: "my-project", HostPath: "/test/my-project"})
-	_ = database.UpsertSessionCost("my-project", "session-abc", 2.75, true)
+	_ = database.UpsertSessionCost("my-project", "claude-code", "session-abc", 2.75, true)
 
 	svc := New(ServiceDeps{Engine: mock, DB: database})
 
@@ -111,7 +111,7 @@ func TestListProjects_OverlaysCostIsEstimatedFromDB(t *testing.T) {
 
 	database := testDB(t)
 	_ = database.InsertProject(db.ProjectRow{ProjectID: "my-project", Name: "my-project", HostPath: "/test/my-project"})
-	_ = database.UpsertSessionCost("my-project", "session-abc", 3.50, true)
+	_ = database.UpsertSessionCost("my-project", "claude-code", "session-abc", 3.50, true)
 
 	svc := New(ServiceDeps{Engine: mock, DB: database})
 
@@ -134,7 +134,7 @@ func TestAddProject(t *testing.T) {
 	database := testDB(t)
 	svc := New(ServiceDeps{Engine: &mockEngine{}, DB: database})
 
-	result, err := svc.AddProject("my-project", "/home/user/my-project")
+	result, err := svc.AddProject("my-project", "/home/user/my-project", "claude-code")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -143,7 +143,7 @@ func TestAddProject(t *testing.T) {
 		t.Error("expected non-empty ProjectID")
 	}
 
-	has, _ := database.HasProject(result.ProjectID)
+	has, _ := database.HasProject(result.ProjectID, "claude-code")
 	if !has {
 		t.Error("expected project to be added to database")
 	}
@@ -156,11 +156,11 @@ func TestRemoveProject(t *testing.T) {
 	_ = database.InsertProject(db.ProjectRow{ProjectID: "my-project", Name: "my-project", HostPath: "/test/my-project"})
 	svc := New(ServiceDeps{Engine: &mockEngine{}, DB: database})
 
-	if _, err := svc.RemoveProject("my-project"); err != nil {
+	if _, err := svc.RemoveProject("my-project", "claude-code"); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	has, _ := database.HasProject("my-project")
+	has, _ := database.HasProject("my-project", "claude-code")
 	if has {
 		t.Error("expected project to be removed from database")
 	}
@@ -171,17 +171,17 @@ func TestRemoveProject_AuditOff_CleansCostsAndEvents(t *testing.T) {
 
 	database := testDB(t)
 	_ = database.InsertProject(db.ProjectRow{ProjectID: "my-project", Name: "my-project", HostPath: "/tmp/my-project"})
-	_ = database.UpsertSessionCost("my-project", "sess-1", 5.00, false)
+	_ = database.UpsertSessionCost("my-project", "claude-code", "sess-1", 5.00, false)
 	_ = database.Write(db.Entry{ProjectID: "my-project", Event: "session_start"})
 
 	// Default audit mode is "off".
 	svc := New(ServiceDeps{Engine: &mockEngine{}, DB: database})
 
-	if _, err := svc.RemoveProject("my-project"); err != nil {
+	if _, err := svc.RemoveProject("my-project", "claude-code"); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	cost, _ := database.GetProjectTotalCost("my-project")
+	cost, _ := database.GetProjectTotalCost("my-project", "claude-code")
 	if cost.TotalCost != 0 {
 		t.Errorf("expected costs cleaned up when audit off, got %f", cost.TotalCost)
 	}
@@ -197,17 +197,17 @@ func TestRemoveProject_AuditOn_PreservesCostsAndEvents(t *testing.T) {
 
 	database := testDB(t)
 	_ = database.InsertProject(db.ProjectRow{ProjectID: "my-project", Name: "my-project", HostPath: "/tmp/my-project"})
-	_ = database.UpsertSessionCost("my-project", "sess-1", 5.00, false)
+	_ = database.UpsertSessionCost("my-project", "claude-code", "sess-1", 5.00, false)
 	_ = database.Write(db.Entry{ProjectID: "my-project", Event: "session_start"})
 	_ = database.SetSetting("auditLogMode", string(api.AuditLogStandard))
 
 	svc := New(ServiceDeps{Engine: &mockEngine{}, DB: database})
 
-	if _, err := svc.RemoveProject("my-project"); err != nil {
+	if _, err := svc.RemoveProject("my-project", "claude-code"); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	cost, _ := database.GetProjectTotalCost("my-project")
+	cost, _ := database.GetProjectTotalCost("my-project", "claude-code")
 	if cost.TotalCost != 5.00 {
 		t.Errorf("expected costs preserved when audit on, got %f", cost.TotalCost)
 	}
@@ -227,7 +227,7 @@ func TestStopProject(t *testing.T) {
 
 	row := &db.ProjectRow{ProjectID: "proj-1", ContainerID: "abc123def456", ContainerName: "my-project", Name: "my-project", HostPath: "/test/my-project"}
 	insertTestProject(t, database, row)
-	if _, err := svc.StopProject(context.Background(), row.ProjectID); err != nil {
+	if _, err := svc.StopProject(context.Background(), row.ProjectID, "claude-code"); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
@@ -241,7 +241,7 @@ func TestStopProject_Error(t *testing.T) {
 
 	row := &db.ProjectRow{ProjectID: "proj-1", ContainerID: "abc123def456", ContainerName: "my-project", Name: "my-project", HostPath: "/test/my-project"}
 	insertTestProject(t, database, row)
-	_, err := svc.StopProject(context.Background(), row.ProjectID)
+	_, err := svc.StopProject(context.Background(), row.ProjectID, "claude-code")
 	if err == nil {
 		t.Fatal("expected error")
 	}

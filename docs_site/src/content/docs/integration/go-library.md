@@ -73,27 +73,27 @@ for _, proj := range projects {
 ### Stop/Restart
 
 ```go
-err := w.Service.StopProject(ctx, "project-id")
-err := w.Service.RestartProject(ctx, "project-id")
+err := w.Service.StopProject(ctx, "project-id", "claude-code")
+err := w.Service.RestartProject(ctx, "project-id", "claude-code")
 ```
 
 ### Delete a project
 
 ```go
-err := w.Service.DeleteContainer(ctx, "project-id")
-err := w.Service.RemoveProject("project-id")
+err := w.Service.DeleteContainer(ctx, "project-id", "claude-code")
+err := w.Service.RemoveProject("project-id", "claude-code")
 ```
 
 ### Reset project cost history
 
 ```go
-err := w.Service.ResetProjectCosts("project-id")
+err := w.Service.ResetProjectCosts("project-id", "claude-code")
 ```
 
 ### Purge project audit history
 
 ```go
-deleted, err := w.Service.PurgeProjectAudit("project-id")
+deleted, err := w.Service.PurgeProjectAudit("project-id", "claude-code")
 ```
 
 ### Get project and worktree status
@@ -101,8 +101,9 @@ deleted, err := w.Service.PurgeProjectAudit("project-id")
 ```go
 projects, err := w.Service.ListProjects(ctx)
 projectID := projects[0].ProjectID
+agentType := projects[0].AgentType
 
-worktrees, err := w.Service.ListWorktrees(ctx, projectID)
+worktrees, err := w.Service.ListWorktrees(ctx, projectID, agentType)
 for _, wt := range worktrees {
     fmt.Printf("  - %s (state: %s)\n", wt.ID, wt.State)
 }
@@ -113,45 +114,47 @@ for _, wt := range worktrees {
 ### Create a worktree
 
 ```go
-result, err := w.Service.CreateWorktree(ctx, "project-id", "feature-branch")
+result, err := w.Service.CreateWorktree(ctx, "project-id", "claude-code", "feature-branch")
 ```
+
+The `agentType` parameter specifies which agent manages the worktree (`"claude-code"` or `"codex"`). This must match the agent type used when creating the project.
 
 ### Connect terminal (start agent)
 
 ```go
-result, err := w.Service.ConnectTerminal(ctx, "project-id", "worktree-id")
+result, err := w.Service.ConnectTerminal(ctx, "project-id", "claude-code", "worktree-id")
 ```
 
 ### Disconnect terminal
 
 ```go
-result, err := w.Service.DisconnectTerminal(ctx, "project-id", "worktree-id")
+result, err := w.Service.DisconnectTerminal(ctx, "project-id", "claude-code", "worktree-id")
 ```
 
 ### Kill worktree process
 
 ```go
-result, err := w.Service.KillWorktreeProcess(ctx, "project-id", "worktree-id")
+result, err := w.Service.KillWorktreeProcess(ctx, "project-id", "claude-code", "worktree-id")
 ```
 
 ### Remove worktree
 
 ```go
-result, err := w.Service.RemoveWorktree(ctx, "project-id", "worktree-id")
+result, err := w.Service.RemoveWorktree(ctx, "project-id", "claude-code", "worktree-id")
 ```
 
 ### Restart a worktree
 
 ```go
 // Kill and reconnect
-err := w.Service.KillWorktreeProcess(ctx, "project-id", "worktree-id")
-result, err := w.Service.ConnectTerminal(ctx, "project-id", "worktree-id")
+err := w.Service.KillWorktreeProcess(ctx, "project-id", "claude-code", "worktree-id")
+result, err := w.Service.ConnectTerminal(ctx, "project-id", "claude-code", "worktree-id")
 ```
 
 ### List worktrees
 
 ```go
-worktrees, err := w.Service.ListWorktrees(ctx, "project-id")
+worktrees, err := w.Service.ListWorktrees(ctx, "project-id", "claude-code")
 for _, wt := range worktrees {
     fmt.Printf("%s: state=%s, branch=%s\n", wt.ID, wt.State, wt.Branch)
 }
@@ -282,28 +285,28 @@ func main() {
     fmt.Printf("Created: %s (ID: %s)\n", containerResult.ProjectName, containerResult.ContainerID)
 
     // 3. Create worktree
-    wtResult, err := w.Service.CreateWorktree(ctx, projectID, "feature-branch")
+    wtResult, err := w.Service.CreateWorktree(ctx, projectID, "claude-code", "feature-branch")
     if err != nil {
         log.Fatal(err)
     }
 
     // 4. Connect terminal (start agent)
-    _, err = w.Service.ConnectTerminal(ctx, projectID, wtResult.WorktreeID)
+    _, err = w.Service.ConnectTerminal(ctx, projectID, "claude-code", wtResult.WorktreeID)
     if err != nil {
         log.Fatal(err)
     }
 
     // 5. Get worktree status
-    worktrees, err := w.Service.ListWorktrees(ctx, projectID)
+    worktrees, err := w.Service.ListWorktrees(ctx, projectID, "claude-code")
     if err != nil {
         log.Fatal(err)
     }
     fmt.Printf("Project status: %d worktrees\n", len(worktrees))
 
     // 6. Clean up
-    _, _ = w.Service.DisconnectTerminal(ctx, projectID, wtResult.WorktreeID)
-    _ = w.Service.DeleteContainer(ctx, projectID)
-    _ = w.Service.RemoveProject(projectID)
+    _, _ = w.Service.DisconnectTerminal(ctx, projectID, "claude-code", wtResult.WorktreeID)
+    _ = w.Service.DeleteContainer(ctx, projectID, "claude-code")
+    _ = w.Service.RemoveProject(projectID, "claude-code")
 }
 ```
 

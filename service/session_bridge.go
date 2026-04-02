@@ -12,6 +12,7 @@ import (
 type SessionContext struct {
 	ProjectID     string
 	ContainerName string
+	AgentType     string
 	WorktreeID    string
 }
 
@@ -29,6 +30,7 @@ func SessionEventToContainerEvent(event agent.ParsedEvent, ctx SessionContext) *
 		Type:          eventType,
 		ContainerName: ctx.ContainerName,
 		ProjectID:     ctx.ProjectID,
+		AgentType:     ctx.AgentType,
 		WorktreeID:    ctx.WorktreeID,
 		Timestamp:     parseTimestamp(event.Timestamp),
 		SourceLine:    event.SourceLine,
