@@ -58,20 +58,15 @@ export default function HomePage() {
     }
   }, [])
 
-  /** Resolves the agent type for a project ID from the current project list. */
-  const agentTypeFor = useCallback(
-    (id: string): AgentType => {
-      const p = projects.find((proj) => proj.projectId === id)
-      return p?.agentType ?? 'claude-code'
-    },
-    [projects],
-  )
+  /** Builds a compound key for uniquely identifying a project across agent types. */
+  const compoundKey = (id: string, agentType: string) => `${id}:${agentType}`
 
   const handleStop = useCallback(
-    async (id: string) => {
-      setPendingStopIds((prev) => new Set([...prev, id]))
+    async (id: string, agentType: AgentType) => {
+      const key = compoundKey(id, agentType)
+      setPendingStopIds((prev) => new Set([...prev, key]))
       try {
-        await stopProject(id, agentTypeFor(id))
+        await stopProject(id, agentType)
         toast.success('Project stopped')
         refetch()
       } catch (err) {
@@ -79,23 +74,24 @@ export default function HomePage() {
       } finally {
         setPendingStopIds((prev) => {
           const next = new Set(prev)
-          next.delete(id)
+          next.delete(key)
           return next
         })
       }
     },
-    [refetch, agentTypeFor],
+    [refetch],
   )
 
   const handleRestart = useCallback(
-    async (id: string) => {
-      setPendingRestartIds((prev) => new Set([...prev, id]))
+    async (id: string, agentType: AgentType) => {
+      const key = compoundKey(id, agentType)
+      setPendingRestartIds((prev) => new Set([...prev, key]))
       try {
-        await restartProject(id, agentTypeFor(id))
+        await restartProject(id, agentType)
         // Wait briefly for the container to either stabilize or crash
         await new Promise((r) => setTimeout(r, 2000))
         const updated = await fetchProjects()
-        const project = updated.find((p) => p.projectId === id)
+        const project = updated.find((p) => p.projectId === id && p.agentType === agentType)
         if (project?.state === 'running') {
           toast.success('Project started')
         } else {
@@ -104,10 +100,10 @@ export default function HomePage() {
         refetch()
       } catch (err) {
         if (err instanceof ApiError && err.code === 'STALE_MOUNTS') {
-          const match = projects.find((p) => p.projectId === id)
+          const match = projects.find((p) => p.projectId === id && p.agentType === agentType)
           setStaleMountsProject({
             id,
-            agentType: agentTypeFor(id),
+            agentType,
             name: match?.name ?? id,
           })
         } else {
@@ -116,12 +112,12 @@ export default function HomePage() {
       } finally {
         setPendingRestartIds((prev) => {
           const next = new Set(prev)
-          next.delete(id)
+          next.delete(key)
           return next
         })
       }
     },
-    [projects, refetch, agentTypeFor],
+    [projects, refetch],
   )
 
   const handleRemove = useCallback((project: Project) => {
@@ -140,13 +136,14 @@ export default function HomePage() {
     }
   }, [])
 
-  const handleToggleSelect = useCallback((id: string) => {
+  const handleToggleSelect = useCallback((id: string, agentType: AgentType) => {
+    const key = compoundKey(id, agentType)
     setSelectedIds((prev) => {
       const next = new Set(prev)
-      if (next.has(id)) {
-        next.delete(id)
+      if (next.has(key)) {
+        next.delete(key)
       } else {
-        next.add(id)
+        next.add(key)
       }
       return next
     })
@@ -163,12 +160,13 @@ export default function HomePage() {
   }
 
   const handleOpenWorkspace = useCallback(
-    (ids: string[]) => {
-      addWorkspace(ids)
-      const encoded = ids.map((id) => `${id}:${agentTypeFor(id)}`).join(',')
+    (keys: string[]) => {
+      const projectIds = keys.map((key) => key.split(':')[0])
+      addWorkspace(projectIds)
+      const encoded = keys.join(',')
       navigate(`/workspace?ids=${encoded}`)
     },
-    [addWorkspace, navigate, agentTypeFor],
+    [addWorkspace, navigate],
   )
 
   const handleOpenSelected = () => {
@@ -176,16 +174,27 @@ export default function HomePage() {
     handleOpenWorkspace([...selectedIds])
   }
 
+  /** Parses a compound key back into its project ID and agent type. */
+  const parseKey = (key: string): [string, AgentType] => {
+    const [id, agentType] = key.split(':')
+    return [id, agentType as AgentType]
+  }
+
   const handleBulkAction = useCallback(
     async (
-      action: (id: string) => Promise<unknown>,
+      action: (id: string, agentType: AgentType) => Promise<unknown>,
       setPending: React.Dispatch<React.SetStateAction<Set<string>>>,
       label: string,
     ) => {
-      const ids = [...selectedIds]
-      setPending((prev) => new Set([...prev, ...ids]))
+      const keys = [...selectedIds]
+      setPending((prev) => new Set([...prev, ...keys]))
       try {
-        const results = await Promise.allSettled(ids.map(action))
+        const results = await Promise.allSettled(
+          keys.map((key) => {
+            const [id, agentType] = parseKey(key)
+            return action(id, agentType)
+          }),
+        )
         const failed = results.filter((r) => r.status === 'rejected')
         if (failed.length > 0) {
           toast.error(
@@ -193,14 +202,14 @@ export default function HomePage() {
           )
         } else {
           toast.success(
-            `${ids.length} project${ids.length !== 1 ? 's' : ''} ${label}${label.endsWith('e') ? 'd' : 'ed'}`,
+            `${keys.length} project${keys.length !== 1 ? 's' : ''} ${label}${label.endsWith('e') ? 'd' : 'ed'}`,
           )
         }
         refetch()
       } finally {
         setPending((prev) => {
           const next = new Set(prev)
-          ids.forEach((id) => next.delete(id))
+          keys.forEach((key) => next.delete(key))
           return next
         })
       }
@@ -209,18 +218,13 @@ export default function HomePage() {
   )
 
   const handleStopSelected = useCallback(
-    () => handleBulkAction((id) => stopProject(id, agentTypeFor(id)), setPendingStopIds, 'stop'),
-    [handleBulkAction, agentTypeFor],
+    () => handleBulkAction(stopProject, setPendingStopIds, 'stop'),
+    [handleBulkAction],
   )
 
   const handleRestartSelected = useCallback(
-    () =>
-      handleBulkAction(
-        (id) => restartProject(id, agentTypeFor(id)),
-        setPendingRestartIds,
-        'restart',
-      ),
-    [handleBulkAction, agentTypeFor],
+    () => handleBulkAction(restartProject, setPendingRestartIds, 'restart'),
+    [handleBulkAction],
   )
 
   const handleQuickAdd = useCallback(

@@ -13,7 +13,7 @@ import {
   RotateCcw,
   Play,
 } from 'lucide-react'
-import type { Project } from '@/lib/types'
+import type { AgentType, Project } from '@/lib/types'
 import { formatCost } from '@/lib/cost'
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -26,14 +26,14 @@ import { AgentIcon } from '@/components/ui/agent-icons'
 /** Props for the ProjectCard component. */
 interface ProjectCardProps {
   project: Project
-  onStop: (id: string) => void
-  onRestart: (id: string) => void
+  onStop: (id: string, agentType: AgentType) => void
+  onRestart: (id: string, agentType: AgentType) => void
   onRemove: (project: Project) => void
   onEdit: (project: Project) => void
   /** When true, clicking the card toggles selection instead of navigating. */
   isSelectable?: boolean
   isSelected?: boolean
-  onToggleSelect?: (id: string) => void
+  onToggleSelect?: (id: string, agentType: AgentType) => void
   /** Whether a stop action is in flight for this project. */
   isStopPending?: boolean
   /** Whether a restart action is in flight for this project. */
@@ -76,7 +76,7 @@ export default function ProjectCard({
     budgetActionPreventStart && project.costBudget > 0 && project.totalCost > project.costBudget
 
   const handleCardClick = () => {
-    if (isSelectable) onToggleSelect?.(project.projectId)
+    if (isSelectable) onToggleSelect?.(project.projectId, project.agentType)
   }
 
   if (isNotFound) {
@@ -146,7 +146,7 @@ export default function ProjectCard({
                     size="sm"
                     variant="ghost"
                     color="muted"
-                    onClick={() => onRestart(project.projectId)}
+                    onClick={() => onRestart(project.projectId, project.agentType)}
                     disabled={isStopPending || isRestartPending || isOverBudget}
                     icon={isRestartPending ? Loader2 : RotateCcw}
                     loading={isRestartPending}
@@ -163,7 +163,7 @@ export default function ProjectCard({
                     size="sm"
                     variant="ghost"
                     color="error"
-                    onClick={() => onStop(project.projectId)}
+                    onClick={() => onStop(project.projectId, project.agentType)}
                     disabled={isStopPending || isRestartPending}
                     icon={isStopPending ? Loader2 : Square}
                     loading={isStopPending}
@@ -180,7 +180,7 @@ export default function ProjectCard({
                   size="sm"
                   variant="ghost"
                   color="success"
-                  onClick={() => onRestart(project.projectId)}
+                  onClick={() => onRestart(project.projectId, project.agentType)}
                   disabled={isStopPending || isRestartPending || isOverBudget}
                   icon={isRestartPending ? Loader2 : Play}
                   loading={isRestartPending}
