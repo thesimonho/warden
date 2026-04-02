@@ -40,6 +40,9 @@ type SessionEntry struct {
 	Commands []string `json:"commands,omitempty"`
 	// CompactMetadata holds context compaction details (system/compact_boundary).
 	CompactMetadata *CompactMetadata `json:"compactMetadata,omitempty"`
+
+	// Operation distinguishes queue-operation entry kinds ("enqueue", "remove").
+	Operation string `json:"operation,omitempty"`
 }
 
 // CompactMetadata holds details about a context compaction event.

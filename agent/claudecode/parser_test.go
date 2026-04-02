@@ -49,8 +49,8 @@ func TestParseFixture_EventCounts(t *testing.T) {
 	if got := result.Counts[agent.EventToolUse]; got != 4 {
 		t.Errorf("ToolUse events = %d, want 4", got)
 	}
-	if got := result.Counts[agent.EventUserPrompt]; got != 1 {
-		t.Errorf("UserPrompt events = %d, want 1", got)
+	if got := result.Counts[agent.EventUserPrompt]; got != 2 {
+		t.Errorf("UserPrompt events = %d, want 2", got)
 	}
 	if got := result.Counts[agent.EventTokenUpdate]; got != 5 {
 		t.Errorf("TokenUpdate events = %d, want 5", got)
@@ -442,6 +442,45 @@ func TestParseLine_WorktreeIDFromWardenManaged(t *testing.T) {
 	}
 	if events[0].WorktreeID != "my-fix" {
 		t.Errorf("WorktreeID = %q, want %q", events[0].WorktreeID, "my-fix")
+	}
+}
+
+func TestParseLine_QueueOperationEnqueue(t *testing.T) {
+	t.Parallel()
+
+	parser := NewParser()
+	events := parser.ParseLine([]byte(`{"type":"queue-operation","operation":"enqueue","timestamp":"2026-01-01T00:00:00Z","sessionId":"s1","content":"fix the tests","cwd":"/home/warden/project"}`))
+	if len(events) != 1 {
+		t.Fatalf("expected 1 event, got %d", len(events))
+	}
+	if events[0].Type != agent.EventUserPrompt {
+		t.Errorf("event type = %s, want %s", events[0].Type, agent.EventUserPrompt)
+	}
+	if events[0].Prompt != "fix the tests" {
+		t.Errorf("prompt = %q, want %q", events[0].Prompt, "fix the tests")
+	}
+	if events[0].WorktreeID != "main" {
+		t.Errorf("WorktreeID = %q, want %q", events[0].WorktreeID, "main")
+	}
+}
+
+func TestParseLine_QueueOperationRemove(t *testing.T) {
+	t.Parallel()
+
+	parser := NewParser()
+	events := parser.ParseLine([]byte(`{"type":"queue-operation","operation":"remove","timestamp":"2026-01-01T00:00:00Z","sessionId":"s1"}`))
+	if len(events) != 0 {
+		t.Errorf("remove operation produced %d events, want 0", len(events))
+	}
+}
+
+func TestParseLine_QueueOperationEmptyContent(t *testing.T) {
+	t.Parallel()
+
+	parser := NewParser()
+	events := parser.ParseLine([]byte(`{"type":"queue-operation","operation":"enqueue","timestamp":"2026-01-01T00:00:00Z","sessionId":"s1","content":""}`))
+	if len(events) != 0 {
+		t.Errorf("empty content enqueue produced %d events, want 0", len(events))
 	}
 }
 

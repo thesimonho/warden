@@ -44,8 +44,10 @@ func (p *Parser) ParseLine(line []byte) []agent.ParsedEvent {
 		events = p.parseUser(entry)
 	case "system":
 		events = p.parseSystem(entry)
+	case "queue-operation":
+		events = parseQueueOperation(entry)
 	default:
-		// file-history-snapshot, queue-operation, last-prompt — no events.
+		// file-history-snapshot, last-prompt — no events.
 		return nil
 	}
 
@@ -116,6 +118,21 @@ func scanJSONLFiles(dir string) []string {
 // Example: "/home/warden/my-project" → "-home-warden-my-project"
 func encodeWorkspacePath(workspaceDir string) string {
 	return strings.ReplaceAll(workspaceDir, "/", "-")
+}
+
+// parseQueueOperation handles queue-operation JSONL entries. Enqueued prompts
+// are user messages submitted while Claude is still working — they should be
+// logged as user_prompt events just like regular user messages.
+func parseQueueOperation(entry SessionEntry) []agent.ParsedEvent {
+	if entry.Operation != "enqueue" || entry.Content == "" {
+		return nil
+	}
+	return []agent.ParsedEvent{{
+		Type:      agent.EventUserPrompt,
+		SessionID: entry.SessionID,
+		Timestamp: entry.Timestamp,
+		Prompt:    agent.TruncateString(entry.Content, agent.MaxPromptLength),
+	}}
 }
 
 // parseAssistant handles assistant-type JSONL entries. Produces ToolUse events
