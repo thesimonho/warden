@@ -291,10 +291,11 @@ func applyDBMetadata(p *engine.Project, row *db.ProjectRow, defaultBudget float6
 // When the container is crash-looping, an additional container_startup_failed
 // event is written with the container's log tail for diagnostics.
 func (s *Service) HandleContainerStale(containerName string) {
-	var projectID string
+	var projectID, agentType string
 	if s.db != nil {
 		if row, err := s.db.GetProjectByContainerName(containerName); err == nil && row != nil {
 			projectID = row.ProjectID
+			agentType = row.AgentType
 			containerName = effectiveContainerName(row)
 		}
 	}
@@ -312,6 +313,7 @@ func (s *Service) HandleContainerStale(containerName string) {
 		Source:        db.SourceBackend,
 		Level:         db.LevelWarn,
 		ProjectID:     projectID,
+		AgentType:     agentType,
 		ContainerName: containerName,
 		Event:         "container_heartbeat_stale",
 		Message:       "container heartbeat stale, marking worktrees disconnected",
@@ -338,6 +340,7 @@ func (s *Service) HandleContainerStale(containerName string) {
 		Source:        db.SourceBackend,
 		Level:         db.LevelError,
 		ProjectID:     projectID,
+		AgentType:     agentType,
 		ContainerName: containerName,
 		Event:         "container_startup_failed",
 		Message:       msg,

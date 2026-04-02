@@ -89,6 +89,7 @@ func (s *Service) DeleteContainer(ctx context.Context, projectID, agentType stri
 		Source:        db.SourceBackend,
 		Level:         db.LevelInfo,
 		ProjectID:     project.ProjectID,
+		AgentType:     project.AgentType,
 		ContainerName: containerName,
 		Event:         "container_deleted",
 		Message:       fmt.Sprintf("container %q deleted", containerName),

@@ -137,19 +137,23 @@ func (s *Service) StopAllSessionWatchers() {
 // This handles edge cases that ResumeSessionWatchers misses: containers
 // that start after the server, containers that restart after being marked
 // stale, and containers created by external tools.
-func (s *Service) HandleContainerAlive(projectID, containerName string) {
+func (s *Service) HandleContainerAlive(projectID, agentType, containerName string) {
 	if s.agentRegistry == nil {
 		return
 	}
 
-	// Quick in-memory check: if any watcher exists for this projectID,
+	key := db.ProjectAgentKey{ProjectID: projectID, AgentType: agentType}
+
+	// Quick in-memory check: if a watcher exists for this (projectID, agentType),
 	// skip the DB lookup entirely. This avoids a DB query on every heartbeat.
 	s.sessionWatchersMu.Lock()
-	alreadyWatching := false
-	for key := range s.sessionWatchers {
-		if key.ProjectID == projectID {
-			alreadyWatching = true
-			break
+	_, alreadyWatching := s.sessionWatchers[key]
+	if !alreadyWatching {
+		if lastStop, ok := s.sessionWatcherCooldowns[key]; ok {
+			if time.Since(lastStop) < watcherCooldown {
+				s.sessionWatchersMu.Unlock()
+				return
+			}
 		}
 	}
 	s.sessionWatchersMu.Unlock()
@@ -157,26 +161,9 @@ func (s *Service) HandleContainerAlive(projectID, containerName string) {
 		return
 	}
 
-	// Look up the project to get the agent type.
-	row, err := s.db.GetProjectByContainerName(containerName)
-	if err != nil || row == nil {
-		return
-	}
-
-	key := db.ProjectAgentKey{ProjectID: row.ProjectID, AgentType: row.AgentType}
-
-	s.sessionWatchersMu.Lock()
-	if lastStop, ok := s.sessionWatcherCooldowns[key]; ok {
-		if time.Since(lastStop) < watcherCooldown {
-			s.sessionWatchersMu.Unlock()
-			return
-		}
-	}
-	s.sessionWatchersMu.Unlock()
-
 	slog.Info("container came alive, starting session watcher",
-		"project", row.ProjectID, "container", containerName)
-	s.startProjectWatcher(row.ProjectID, containerName, row.AgentType)
+		"project", projectID, "agentType", agentType, "container", containerName)
+	s.startProjectWatcher(projectID, containerName, agentType)
 }
 
 // ResumeSessionWatchers starts session watchers for all projects that

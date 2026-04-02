@@ -56,7 +56,7 @@ export function useWorktrees(projectId: string, agentType: string): UseWorktrees
   /** Applies a worktree_state SSE event to local state. */
   const handleWorktreeState = useCallback(
     (event: WorktreeStateEvent) => {
-      if (event.projectId !== projectId) return
+      if (event.projectId !== projectId || event.agentType !== agentType) return
 
       startTransition(() => {
         setWorktrees((prev) => {
@@ -89,15 +89,15 @@ export function useWorktrees(projectId: string, agentType: string): UseWorktrees
         })
       })
     },
-    [projectId],
+    [projectId, agentType],
   )
 
   /** Refetches the worktree list when a structural change occurs. */
   const handleWorktreeListChanged = useCallback(
     (event: WorktreeListChangedEvent) => {
-      if (event.projectId === projectId) refetch()
+      if (event.projectId === projectId && event.agentType === agentType) refetch()
     },
-    [projectId, refetch],
+    [projectId, agentType, refetch],
   )
 
   useEventSource({

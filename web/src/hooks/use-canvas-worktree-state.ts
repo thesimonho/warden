@@ -66,7 +66,7 @@ export function useCanvasWorktreeState(panels: CanvasPanel[]): Map<string, Panel
             const worktreeMap = new Map(worktrees.map((wt) => [wt.id, wt]))
 
             for (const panel of currentPanels) {
-              if (panel.projectId !== projectId) continue
+              if (panel.projectId !== projectId || panel.agentType !== agentType) continue
               const wt = worktreeMap.get(panel.worktreeId)
 
               if (!wt) {
@@ -175,7 +175,10 @@ export function useCanvasWorktreeState(panels: CanvasPanel[]): Map<string, Panel
 
     // Find panels matching this event.
     const matchingPanels = currentPanels.filter(
-      (p) => p.projectId === event.projectId && p.worktreeId === event.worktreeId,
+      (p) =>
+        p.projectId === event.projectId &&
+        p.agentType === event.agentType &&
+        p.worktreeId === event.worktreeId,
     )
     if (matchingPanels.length === 0) return
 

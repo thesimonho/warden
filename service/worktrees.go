@@ -50,6 +50,7 @@ func (s *Service) CreateWorktree(ctx context.Context, projectID, agentType, name
 			Source:        db.SourceBackend,
 			Level:         db.LevelError,
 			ProjectID:     project.ProjectID,
+			AgentType:     project.AgentType,
 			ContainerName: containerName,
 			Worktree:      name,
 			Event:         "worktree_create_failed",
@@ -62,13 +63,16 @@ func (s *Service) CreateWorktree(ctx context.Context, projectID, agentType, name
 		Source:        db.SourceBackend,
 		Level:         db.LevelInfo,
 		ProjectID:     project.ProjectID,
+		AgentType:     project.AgentType,
 		ContainerName: containerName,
 		Worktree:      worktreeID,
 		Event:         "worktree_created",
 	})
 
 	if containerName != "" && s.store != nil {
-		s.store.BroadcastWorktreeListChanged(containerName)
+		s.store.BroadcastWorktreeListChanged(eventbus.ProjectRef{
+			ProjectID: project.ProjectID, AgentType: project.AgentType, ContainerName: containerName,
+		})
 	}
 
 	return &WorktreeResult{WorktreeID: worktreeID, ProjectID: project.ProjectID}, nil
@@ -91,6 +95,7 @@ func (s *Service) ConnectTerminal(ctx context.Context, projectID, agentType, wor
 			Source:        db.SourceBackend,
 			Level:         db.LevelError,
 			ProjectID:     project.ProjectID,
+			AgentType:     project.AgentType,
 			ContainerName: containerName,
 			Worktree:      worktreeID,
 			Event:         "terminal_connect_failed",
@@ -104,6 +109,7 @@ func (s *Service) ConnectTerminal(ctx context.Context, projectID, agentType, wor
 			Type:          eventbus.EventTerminalConnected,
 			ContainerName: containerName,
 			ProjectID:     project.ProjectID,
+			AgentType:     project.AgentType,
 			WorktreeID:    worktreeID,
 			Timestamp:     time.Now(),
 		})
@@ -129,6 +135,7 @@ func (s *Service) DisconnectTerminal(ctx context.Context, projectID, agentType, 
 			Source:        db.SourceBackend,
 			Level:         db.LevelError,
 			ProjectID:     project.ProjectID,
+			AgentType:     project.AgentType,
 			ContainerName: containerName,
 			Worktree:      worktreeID,
 			Event:         "terminal_disconnect_failed",
@@ -142,6 +149,7 @@ func (s *Service) DisconnectTerminal(ctx context.Context, projectID, agentType, 
 			Type:          eventbus.EventTerminalDisconnected,
 			ContainerName: containerName,
 			ProjectID:     project.ProjectID,
+			AgentType:     project.AgentType,
 			WorktreeID:    worktreeID,
 			Timestamp:     time.Now(),
 		})
@@ -164,6 +172,7 @@ func (s *Service) KillWorktreeProcess(ctx context.Context, projectID, agentType,
 			Source:        db.SourceBackend,
 			Level:         db.LevelError,
 			ProjectID:     project.ProjectID,
+			AgentType:     project.AgentType,
 			ContainerName: containerName,
 			Worktree:      worktreeID,
 			Event:         "worktree_kill_failed",
@@ -173,7 +182,9 @@ func (s *Service) KillWorktreeProcess(ctx context.Context, projectID, agentType,
 	}
 
 	if containerName != "" && s.store != nil {
-		s.store.BroadcastWorktreeListChanged(containerName)
+		s.store.BroadcastWorktreeListChanged(eventbus.ProjectRef{
+			ProjectID: project.ProjectID, AgentType: project.AgentType, ContainerName: containerName,
+		})
 	}
 
 	return &WorktreeResult{WorktreeID: worktreeID, ProjectID: project.ProjectID}, nil
@@ -193,6 +204,7 @@ func (s *Service) RemoveWorktree(ctx context.Context, projectID, agentType, work
 			Source:        db.SourceBackend,
 			Level:         db.LevelError,
 			ProjectID:     project.ProjectID,
+			AgentType:     project.AgentType,
 			ContainerName: containerName,
 			Worktree:      worktreeID,
 			Event:         "worktree_remove_failed",
@@ -209,13 +221,16 @@ func (s *Service) RemoveWorktree(ctx context.Context, projectID, agentType, work
 		Source:        db.SourceBackend,
 		Level:         db.LevelInfo,
 		ProjectID:     project.ProjectID,
+		AgentType:     project.AgentType,
 		ContainerName: containerName,
 		Worktree:      worktreeID,
 		Event:         "worktree_removed",
 	})
 
 	if containerName != "" && s.store != nil {
-		s.store.BroadcastWorktreeListChanged(containerName)
+		s.store.BroadcastWorktreeListChanged(eventbus.ProjectRef{
+			ProjectID: project.ProjectID, AgentType: project.AgentType, ContainerName: containerName,
+		})
 	}
 
 	return &WorktreeResult{WorktreeID: worktreeID, ProjectID: project.ProjectID}, nil
@@ -236,6 +251,7 @@ func (s *Service) CleanupWorktrees(ctx context.Context, projectID, agentType str
 			Source:        db.SourceBackend,
 			Level:         db.LevelError,
 			ProjectID:     project.ProjectID,
+			AgentType:     project.AgentType,
 			ContainerName: containerName,
 			Event:         "worktree_cleanup_failed",
 			Message:       err.Error(),
@@ -254,6 +270,7 @@ func (s *Service) CleanupWorktrees(ctx context.Context, projectID, agentType str
 			Source:        db.SourceBackend,
 			Level:         db.LevelInfo,
 			ProjectID:     project.ProjectID,
+			AgentType:     project.AgentType,
 			ContainerName: containerName,
 			Worktree:      wid,
 			Event:         "worktree_cleaned_up",
@@ -261,7 +278,9 @@ func (s *Service) CleanupWorktrees(ctx context.Context, projectID, agentType str
 	}
 
 	if containerName != "" && s.store != nil && len(removed) > 0 {
-		s.store.BroadcastWorktreeListChanged(containerName)
+		s.store.BroadcastWorktreeListChanged(eventbus.ProjectRef{
+			ProjectID: project.ProjectID, AgentType: project.AgentType, ContainerName: containerName,
+		})
 	}
 
 	return removed, nil
@@ -286,6 +305,7 @@ func (s *Service) NotifyTerminalDisconnected(_ context.Context, project *db.Proj
 			Type:          eventbus.EventTerminalDisconnected,
 			ContainerName: containerName,
 			ProjectID:     project.ProjectID,
+			AgentType:     project.AgentType,
 			WorktreeID:    worktreeID,
 			Timestamp:     time.Now(),
 		})

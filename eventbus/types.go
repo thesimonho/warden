@@ -99,6 +99,15 @@ type ContainerEvent struct {
 	SourceIndex int `json:"-"`
 }
 
+// Ref returns a [ProjectRef] from this event's identity fields.
+func (e ContainerEvent) Ref() ProjectRef {
+	return ProjectRef{
+		ProjectID:     e.ProjectID,
+		AgentType:     e.AgentType,
+		ContainerName: e.ContainerName,
+	}
+}
+
 // AttentionData carries notification details for attention events.
 type AttentionData struct {
 	NotificationType engine.NotificationType `json:"notificationType"`
@@ -220,13 +229,22 @@ const (
 	SSEHeartbeat SSEEventType = "heartbeat"
 )
 
+// ProjectRef identifies a project in SSE event payloads. Embedded by all
+// broadcast payload structs so the frontend can match events to the correct
+// (projectId, agentType) pair. ContainerName is included for display and
+// legacy matching.
+type ProjectRef struct {
+	ProjectID     string `json:"projectId,omitempty"`
+	AgentType     string `json:"agentType,omitempty"`
+	ContainerName string `json:"containerName"`
+}
+
 // BudgetEventPayload is the shared JSON payload for budget enforcement SSE
 // events (budget_exceeded and budget_container_stopped).
 type BudgetEventPayload struct {
-	ProjectID     string  `json:"projectId,omitempty"`
-	ContainerName string  `json:"containerName"`
-	TotalCost     float64 `json:"totalCost"`
-	Budget        float64 `json:"budget"`
+	ProjectRef
+	TotalCost float64 `json:"totalCost"`
+	Budget    float64 `json:"budget"`
 }
 
 // BudgetContainerStoppedPayload extends [BudgetEventPayload] with the

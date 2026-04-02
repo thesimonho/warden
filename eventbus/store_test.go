@@ -702,7 +702,7 @@ func TestBuildWorktreeBroadcast_IncludesTerminalState(t *testing.T) {
 		UpdatedAt:       time.Now(),
 	}
 
-	b := buildWorktreeBroadcast("project-1", "proj-1", "main", att, ts)
+	b := buildWorktreeBroadcast(ProjectRef{ProjectID: "project-1", AgentType: "claude-code", ContainerName: "proj-1"}, "main", att, ts)
 
 	payload, ok := b.data.(WorktreeStatePayload)
 	if !ok {
@@ -852,7 +852,7 @@ func TestStore_EvictWorktree_ClearsTerminalContainersWhenEmpty(t *testing.T) {
 func TestBuildWorktreeBroadcast_NilTerminalState(t *testing.T) {
 	att := &WorktreeState{SessionActive: true}
 
-	b := buildWorktreeBroadcast("project-1", "proj-1", "main", att, nil)
+	b := buildWorktreeBroadcast(ProjectRef{ProjectID: "project-1", AgentType: "claude-code", ContainerName: "proj-1"}, "main", att, nil)
 
 	payload, ok := b.data.(WorktreeStatePayload)
 	if !ok {
@@ -1171,7 +1171,7 @@ func TestStore_AliveCallback_HeartbeatForUnknownContainer(t *testing.T) {
 	var calledProjectID, calledContainer string
 
 	store := NewStore(nil, nil)
-	store.SetAliveCallback(func(projectID, containerName string) {
+	store.SetAliveCallback(func(projectID, agentType, containerName string) {
 		mu.Lock()
 		defer mu.Unlock()
 		calledProjectID = projectID
@@ -1200,7 +1200,7 @@ func TestStore_AliveCallback_SessionStartForUnknownContainer(t *testing.T) {
 	var called bool
 
 	store := NewStore(nil, nil)
-	store.SetAliveCallback(func(projectID, containerName string) {
+	store.SetAliveCallback(func(projectID, agentType, containerName string) {
 		called = true
 	})
 
@@ -1221,7 +1221,7 @@ func TestStore_AliveCallback_SecondHeartbeatDoesNotFire(t *testing.T) {
 	var callCount int
 
 	store := NewStore(nil, nil)
-	store.SetAliveCallback(func(projectID, containerName string) {
+	store.SetAliveCallback(func(projectID, agentType, containerName string) {
 		callCount++
 	})
 
@@ -1252,7 +1252,7 @@ func TestStore_AliveCallback_FiresAgainAfterStale(t *testing.T) {
 	var callCount int
 
 	store := NewStore(nil, nil)
-	store.SetAliveCallback(func(projectID, containerName string) {
+	store.SetAliveCallback(func(projectID, agentType, containerName string) {
 		callCount++
 	})
 
@@ -1286,7 +1286,7 @@ func TestStore_AliveCallback_NonLifecycleEventDoesNotFire(t *testing.T) {
 	var called bool
 
 	store := NewStore(nil, nil)
-	store.SetAliveCallback(func(projectID, containerName string) {
+	store.SetAliveCallback(func(projectID, agentType, containerName string) {
 		called = true
 	})
 

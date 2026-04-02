@@ -27,14 +27,14 @@ export default function ProjectPage() {
   /** Redirect to home when budget enforcement stops the current project's container. */
   const handleBudgetContainerStopped = useCallback(
     (event: BudgetContainerStoppedEvent) => {
-      if (event.projectId !== projectId) return
+      if (event.projectId !== projectId || event.agentType !== agentType) return
 
       toast.error(
         `Container stopped — budget exceeded ($${event.totalCost.toFixed(2)} / $${event.budget.toFixed(2)})`,
       )
       navigate('/', { replace: true })
     },
-    [projectId, navigate],
+    [projectId, agentType, navigate],
   )
 
   useEventSource({ onBudgetContainerStopped: handleBudgetContainerStopped })

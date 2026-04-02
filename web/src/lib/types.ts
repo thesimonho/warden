@@ -468,6 +468,7 @@ export interface ServerSettings {
 /** Shared payload shape for budget enforcement SSE events. */
 export interface BudgetEventPayload {
   projectId: string
+  agentType?: AgentType
   containerName: string
   totalCost: number
   budget: number
