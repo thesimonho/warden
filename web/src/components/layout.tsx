@@ -41,9 +41,9 @@ export default function Layout() {
       })
       .catch(() => {})
 
-    // Evict scrollback entries older than 7 days to prevent unbounded growth.
-    const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000
-    evictStaleScrollback(SEVEN_DAYS_MS)
+    // Evict scrollback entries older than 14 days to prevent unbounded growth.
+    const TWO_WEEKS_MS = 14 * 24 * 60 * 60 * 1000
+    evictStaleScrollback(TWO_WEEKS_MS)
   }, [])
 
   const handleSettingsChange = useCallback((updated: DashboardSettings) => {
