@@ -1,6 +1,11 @@
 {
   "permissions": {
-    "allow": ["Bash(curl*localhost:5173*)", "Bash(curl*localhost:8090*)"]
+    "allow": [
+      "Bash(curl*localhost:5173*)",
+      "Bash(curl*localhost:8090*)",
+      "Bash(curl*127.0.0.1:5173*)",
+      "Bash(curl*127.0.0.1:8090*)"
+    ]
   },
   "enabledPlugins": {
     "gopls-lsp@claude-plugins-official": true,
@@ -10,7 +15,7 @@
   "sandbox": {
     "enabled": true,
     "autoAllowBashIfSandboxed": true,
-    "excludedCommands": ["git", "docker", "curl"],
+    "excludedCommands": ["docker"],
     "filesystem": {
       "allowWrite": [
         "~/.cache/go-build/",
@@ -23,9 +28,7 @@
         "localhost:8090",
         "localhost:5173",
         "127.0.0.1:8090",
-        "127.0.0.1:5173",
-        "[::1]:8090",
-        "[::1]:5173"
+        "127.0.0.1:5173"
       ],
       "allowUnixSockets": ["/run/user/1000/agent-browser"]
     }
