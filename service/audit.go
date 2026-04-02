@@ -17,7 +17,7 @@ import (
 var auditEventsByCategory = map[api.AuditCategory][]string{
 	api.AuditCategorySession: {
 		string(eventbus.EventSessionStart), string(eventbus.EventSessionEnd),
-		string(eventbus.EventStop), string(eventbus.EventSessionExit),
+		string(eventbus.EventSessionExit),
 		string(eventbus.EventTurnComplete), string(eventbus.EventTurnDuration),
 		string(eventbus.EventContextCompact),
 		string(eventbus.EventSystemInfo),

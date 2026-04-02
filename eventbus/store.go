@@ -796,11 +796,15 @@ func (s *Store) aggregateContainerAttention(containerName string) (needsInput bo
 }
 
 // writeToAuditLog persists a container event to the audit log via the
-// AuditWriter. Skips heartbeat and attention_clear events — heartbeats
-// are too frequent, and attention_clear fires on every user prompt with
-// no independent audit value (the user_prompt event already captures this).
+// AuditWriter. Skips events that are too noisy or have no independent
+// audit value:
+//   - heartbeat: fires every 30s per container
+//   - attention_clear: fires on every user prompt (user_prompt captures this)
+//   - stop: fires on every assistant message with token usage; cost data is
+//     already persisted via handleStop → PersistSessionCost, so the audit
+//     entry adds noise without value
 func (s *Store) writeToAuditLog(writer *db.AuditWriter, event ContainerEvent) {
-	if writer == nil || event.Type == EventHeartbeat || event.Type == EventAttentionClear {
+	if writer == nil || event.Type == EventHeartbeat || event.Type == EventAttentionClear || event.Type == EventStop {
 		return
 	}
 

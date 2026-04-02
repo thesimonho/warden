@@ -6,7 +6,7 @@ import (
 
 // testStandardEvents mirrors the production standard events for testing.
 var testStandardEvents = map[string]bool{
-	"session_start": true, "session_end": true, "stop": true, "session_exit": true,
+	"session_start": true, "session_end": true, "session_exit": true,
 	"terminal_connected": true, "terminal_disconnected": true, "stop_failure": true,
 	"budget_exceeded": true, "budget_enforcement_failed": true,
 	"process_killed": true, "restart_blocked_stale_mounts": true,

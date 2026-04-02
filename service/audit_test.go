@@ -28,7 +28,6 @@ func writeTestEvents(t *testing.T, store *db.Store) {
 		{Source: db.SourceAgent, Level: db.LevelInfo, Event: "permission_request", ProjectID: "proj1", Worktree: "main", Message: "Write"},
 		{Source: db.SourceAgent, Level: db.LevelInfo, Event: "user_prompt", ProjectID: "proj1", Worktree: "main", Message: "fix the bug"},
 		{Source: db.SourceAgent, Level: db.LevelInfo, Event: "tool_use", ProjectID: "proj1", Worktree: "feat-1", Message: "Read"},
-		{Source: db.SourceAgent, Level: db.LevelInfo, Event: "stop", ProjectID: "proj1", Worktree: "main"},
 		{Source: db.SourceAgent, Level: db.LevelInfo, Event: "session_end", ProjectID: "proj1", Worktree: "main"},
 		{Source: db.SourceAgent, Level: db.LevelWarn, Event: "stop_failure", ProjectID: "proj1", Worktree: "main", Message: "rate_limit"},
 		{Source: db.SourceAgent, Level: db.LevelInfo, Event: "subagent_start", ProjectID: "proj1", Worktree: "main", Message: "Explore"},
@@ -58,9 +57,9 @@ func TestGetAuditLog_AllEvents(t *testing.T) {
 		t.Fatalf("GetAuditLog() error: %v", err)
 	}
 
-	// No category filter = all 19 events returned.
-	if len(entries) != 19 {
-		t.Errorf("expected 19 entries, got %d", len(entries))
+	// No category filter = all 18 events returned.
+	if len(entries) != 18 {
+		t.Errorf("expected 18 entries, got %d", len(entries))
 	}
 }
 
@@ -313,7 +312,7 @@ func TestStandardAuditEvents(t *testing.T) {
 
 	// Must contain all session events.
 	sessionEvents := []string{
-		"session_start", "session_end", "stop", "session_exit",
+		"session_start", "session_end", "session_exit",
 		"terminal_connected", "terminal_disconnected",
 		"stop_failure", "worktree_created", "worktree_removed",
 	}
