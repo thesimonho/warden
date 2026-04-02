@@ -373,7 +373,7 @@ function ProjectWorktreeList({
     async (worktreeId: string) => {
       try {
         await removeWorktree(projectId, agentType, worktreeId)
-        void deleteScrollback(scrollbackKey(projectId, worktreeId))
+        void deleteScrollback(scrollbackKey(projectId, agentType, worktreeId))
         const panelId = buildPanelId(projectId, worktreeId)
         onRemovePanel(panelId)
         refetch()

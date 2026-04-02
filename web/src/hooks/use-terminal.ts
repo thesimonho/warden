@@ -342,7 +342,7 @@ export function useTerminal({
       try {
         const data = serializeTerminal(terminal, serializeAddon)
         if (data) {
-          saveScrollback(projectId, worktreeId, data, terminal.cols, terminal.rows)
+          saveScrollback(projectId, agentType, worktreeId, data, terminal.cols, terminal.rows)
         }
       } catch {
         // Serialization failure is not critical.
@@ -357,7 +357,7 @@ export function useTerminal({
     fitAddonRef.current = null
     serializeAddonRef.current = null
     setStatus('disconnected')
-  }, [projectId, worktreeId])
+  }, [projectId, agentType, worktreeId])
 
   // Switch flush strategy when focus changes.
   // Focused: cancel interval, let RAF handle it (scheduled per-message).
@@ -547,7 +547,7 @@ export function useTerminal({
       // abduco's visible-screen replay appends after the historical content.
       // Fetch worktree state in parallel to check if the agent has exited —
       // stale scrollback from a finished session should not be restored.
-      const sbKey = scrollbackKey(projectId, worktreeId)
+      const sbKey = scrollbackKey(projectId, agentType, worktreeId)
       Promise.all([loadScrollback(sbKey), fetchWorktrees(projectId, agentType).catch(() => [])])
         .then(([entry, worktrees]) => {
           if (effectCancelled) return

@@ -2,9 +2,10 @@
  * IndexedDB storage for terminal scrollback buffers.
  *
  * Persists serialized xterm.js buffer state across disconnect/reconnect cycles
- * and page reloads. Each entry is keyed by `${projectId}:${worktreeId}` so it
- * survives container recreation (projectId is a deterministic hash of the host
- * path, not the container ID).
+ * and page reloads. Each entry is keyed by `${projectId}:${agentType}:${worktreeId}`
+ * so it survives container recreation (projectId is a deterministic hash of the
+ * host path, not the container ID) and distinguishes between agent types running
+ * against the same directory.
  *
  * All operations silently catch errors and post debug events to the audit log.
  * IndexedDB can fail in private browsing or when storage is full — scrollback
@@ -22,10 +23,12 @@ const SAVED_AT_INDEX = 'by-saved-at'
 
 /** Shape of a persisted scrollback entry. */
 export interface ScrollbackEntry {
-  /** Composite key: `${projectId}:${worktreeId}`. */
+  /** Composite key: `${projectId}:${agentType}:${worktreeId}`. */
   key: string
   /** Stable project identifier (12-char hex SHA-256 of host path). */
   projectId: string
+  /** Agent type (e.g. "claude-code", "codex"). */
+  agentType: string
   /** Worktree identifier (e.g. "main", "feature-x"). */
   worktreeId: string
   /** Serialized ANSI escape sequence string from @xterm/addon-serialize. */
@@ -39,8 +42,8 @@ export interface ScrollbackEntry {
 }
 
 /** Builds the IndexedDB key for a terminal's scrollback buffer. */
-export function scrollbackKey(projectId: string, worktreeId: string): string {
-  return `${projectId}:${worktreeId}`
+export function scrollbackKey(projectId: string, agentType: string, worktreeId: string): string {
+  return `${projectId}:${agentType}:${worktreeId}`
 }
 
 /** Lazy singleton — opened once, reused for all operations. */
@@ -99,6 +102,7 @@ function logError(operation: string, error: unknown): void {
 /** Persists a scrollback buffer entry. */
 export async function saveScrollback(
   projectId: string,
+  agentType: string,
   worktreeId: string,
   data: string,
   cols: number,
@@ -107,8 +111,9 @@ export async function saveScrollback(
   try {
     const db = await openDB()
     const entry: ScrollbackEntry = {
-      key: scrollbackKey(projectId, worktreeId),
+      key: scrollbackKey(projectId, agentType, worktreeId),
       projectId,
+      agentType,
       worktreeId,
       data,
       cols,
