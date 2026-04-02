@@ -420,7 +420,8 @@ func (ec *EngineClient) enrichWorktreeState(ctx context.Context, containerID str
 			if ts.exitCode >= 0 {
 				// Agent exited but shell is still alive
 				worktrees[i].State = WorktreeStateShell
-				worktrees[i].ExitCode = ts.exitCode
+				code := ts.exitCode
+				worktrees[i].ExitCode = &code
 			} else {
 				worktrees[i].State = WorktreeStateConnected
 			}

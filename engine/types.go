@@ -151,8 +151,9 @@ type Worktree struct {
 	Branch string `json:"branch,omitempty"`
 	// State is the terminal connection state (connected, shell, disconnected).
 	State WorktreeState `json:"state"`
-	// ExitCode is Claude's exit code when in shell state.
-	ExitCode int `json:"exitCode,omitempty"`
+	// ExitCode is the agent's exit code when in shell state.
+	// Nil means the agent is still running (or no exit code captured).
+	ExitCode *int `json:"exitCode,omitempty"`
 	// NeedsInput is true when Claude is blocked waiting for user attention.
 	NeedsInput bool `json:"needsInput,omitempty"`
 	// NotificationType indicates why Claude needs attention.

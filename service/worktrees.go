@@ -322,6 +322,9 @@ func (s *Service) overlayStoreState(containerName string, worktrees []engine.Wor
 		}
 
 		worktrees[i].State = derivedState
-		worktrees[i].ExitCode = ts.ExitCode
+		if ts.ExitCode >= 0 {
+			code := ts.ExitCode
+			worktrees[i].ExitCode = &code
+		}
 	}
 }

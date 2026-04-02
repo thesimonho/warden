@@ -38,7 +38,13 @@ import { Unicode11Addon } from '@xterm/addon-unicode11'
 import { WebLinksAddon } from '@xterm/addon-web-links'
 import { getTerminalTheme } from '@/lib/terminal-themes'
 import { useTerminalClipboard } from '@/hooks/use-terminal-clipboard'
-import { saveScrollback, loadScrollback, scrollbackKey } from '@/lib/scrollback-db'
+import {
+  saveScrollback,
+  loadScrollback,
+  deleteScrollback,
+  scrollbackKey,
+} from '@/lib/scrollback-db'
+import { fetchWorktrees } from '@/lib/api'
 import { serializeTerminal } from '@/lib/scrollback-serialize'
 import '@fontsource/jetbrains-mono/400.css'
 import '@fontsource/jetbrains-mono/600.css'
@@ -536,11 +542,19 @@ export function useTerminal({
 
       // Restore saved scrollback before connecting the WebSocket so
       // abduco's visible-screen replay appends after the historical content.
+      // Fetch worktree state in parallel to check if the agent has exited —
+      // stale scrollback from a finished session should not be restored.
       const sbKey = scrollbackKey(projectId, worktreeId)
-      loadScrollback(sbKey)
-        .then((entry) => {
+      Promise.all([loadScrollback(sbKey), fetchWorktrees(projectId).catch(() => [])])
+        .then(([entry, worktrees]) => {
           if (effectCancelled) return
-          if (entry) terminal.write(entry.data)
+          const wt = worktrees.find((w) => w.id === worktreeId)
+          const hasAgentExited = wt != null && wt.exitCode != null
+          if (entry && !hasAgentExited) {
+            terminal.write(entry.data)
+          } else if (entry) {
+            deleteScrollback(sbKey)
+          }
           connect()
         })
         .catch(() => {

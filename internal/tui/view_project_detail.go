@@ -41,8 +41,8 @@ func (i worktreeItem) Description() string {
 // statusText returns the status line with optional exit code.
 func (i worktreeItem) statusText() string {
 	s := string(i.wt.State)
-	if i.wt.ExitCode > 0 {
-		s += fmt.Sprintf(" (exit %d)", i.wt.ExitCode)
+	if i.wt.ExitCode != nil && *i.wt.ExitCode > 0 {
+		s += fmt.Sprintf(" (exit %d)", *i.wt.ExitCode)
 	}
 	return s
 }
