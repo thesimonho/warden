@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import type React from 'react'
 import { useNavigate, useOutletContext } from 'react-router-dom'
-import { LayoutGrid, Square, RotateCw, X, Loader2, Plus, RefreshCw, Box, Zap } from 'lucide-react'
+import { LayoutGrid, Square, RotateCw, X, Loader2, Plus, RefreshCw, Box } from 'lucide-react'
 import { toast } from 'sonner'
 import { useNotifications } from '@/hooks/use-notifications'
 import { useProjects } from '@/hooks/use-projects'
@@ -291,18 +291,18 @@ export default function HomePage() {
                 variant="outline"
                 color="warning"
                 onClick={() => handleQuickAdd('claude-code')}
-                icon={Zap}
+                icon={Plus}
               >
-                Claude
+                Claude (dev)
               </Button>
               <Button
                 size="sm"
                 variant="outline"
                 color="warning"
                 onClick={() => handleQuickAdd('codex')}
-                icon={Zap}
+                icon={Plus}
               >
-                Codex
+                Codex (dev)
               </Button>
             </>
           )}
