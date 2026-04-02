@@ -2,6 +2,7 @@ import { useCallback, useState } from 'react'
 import { AlertTriangle, FolderCog, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { deleteContainer, removeProject, resetProjectCosts, purgeProjectAudit } from '@/lib/api'
+import { deleteProjectScrollback } from '@/lib/scrollback-db'
 import type { Project } from '@/lib/types'
 import {
   Dialog,
@@ -108,6 +109,7 @@ export default function ManageProjectDialog({
     if (removeFromWarden) {
       try {
         await removeProject(project.projectId)
+        deleteProjectScrollback(project.projectId)
       } catch {
         errors.push('remove project')
       }

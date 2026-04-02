@@ -33,10 +33,13 @@
 import { useEffect, useRef, useCallback, useState } from 'react'
 import { Terminal } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
+import { SerializeAddon } from '@xterm/addon-serialize'
 import { Unicode11Addon } from '@xterm/addon-unicode11'
 import { WebLinksAddon } from '@xterm/addon-web-links'
 import { toast } from 'sonner'
 import { getTerminalTheme } from '@/lib/terminal-themes'
+import { saveScrollback, loadScrollback } from '@/lib/scrollback-db'
+import { scrollbackKey, serializeTerminal, restoreScrollback } from '@/lib/scrollback-serialize'
 import '@fontsource/jetbrains-mono/400.css'
 import '@fontsource/jetbrains-mono/600.css'
 
@@ -84,6 +87,9 @@ const RECONNECT_BASE_MS = 1000
 const RECONNECT_MAX_MS = 16000
 const MAX_RECONNECT_ATTEMPTS = 5
 
+/** Number of scrollback lines to retain in the xterm.js buffer. */
+const SCROLLBACK_LINES = 10_000
+
 /**
  * Builds the WebSocket URL for a terminal connection.
  *
@@ -115,6 +121,7 @@ export function useTerminal({
   const containerRef = useRef<HTMLDivElement>(null)
   const terminalRef = useRef<Terminal | null>(null)
   const fitAddonRef = useRef<FitAddon | null>(null)
+  const serializeAddonRef = useRef<SerializeAddon | null>(null)
   const wsRef = useRef<WebSocket | null>(null)
   const reconnectAttemptRef = useRef(0)
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -313,15 +320,31 @@ export function useTerminal({
       wsRef.current = null
     }
 
+    // Serialize the scrollback buffer before disposing the terminal.
+    // Fire-and-forget — detach must be synchronous (React cleanup).
     const terminal = terminalRef.current
+    const serializeAddon = serializeAddonRef.current
+    if (terminal && serializeAddon) {
+      try {
+        const data = serializeTerminal(terminal, serializeAddon)
+        if (data) {
+          const key = scrollbackKey(projectId, worktreeId)
+          saveScrollback(key, projectId, worktreeId, data, terminal.cols, terminal.rows)
+        }
+      } catch {
+        // Serialization failure is not critical.
+      }
+    }
+
     if (terminal) {
       terminal.dispose()
       terminalRef.current = null
     }
 
     fitAddonRef.current = null
+    serializeAddonRef.current = null
     setStatus('disconnected')
-  }, [])
+  }, [projectId, worktreeId])
 
   // Switch flush strategy when focus changes.
   // Focused: cancel interval, let RAF handle it (scheduled per-message).
@@ -376,7 +399,7 @@ export function useTerminal({
       fontSize: 12,
       fontWeight: '400',
       fontWeightBold: '600',
-      scrollback: 2000,
+      scrollback: SCROLLBACK_LINES,
       smoothScrollDuration: 0,
       rescaleOverlappingGlyphs: false,
       theme: getTerminalTheme(),
@@ -386,12 +409,16 @@ export function useTerminal({
     terminal.loadAddon(fitAddon)
     terminal.loadAddon(new WebLinksAddon())
 
+    const serializeAddon = new SerializeAddon()
+    terminal.loadAddon(serializeAddon)
+
     const unicodeAddon = new Unicode11Addon()
     terminal.loadAddon(unicodeAddon)
     terminal.unicode.activeVersion = '11'
 
     terminalRef.current = terminal
     fitAddonRef.current = fitAddon
+    serializeAddonRef.current = serializeAddon
 
     // Wait for JetBrains Mono to load before opening, so xterm caches
     // correct glyph metrics on first render (no FOUT or misaligned text).
@@ -484,8 +511,18 @@ export function useTerminal({
         }
       })
 
-      // Connect WebSocket.
-      connect()
+      // Restore saved scrollback before connecting the WebSocket so
+      // abduco's visible-screen replay appends after the historical content.
+      const sbKey = scrollbackKey(projectId, worktreeId)
+      loadScrollback(sbKey)
+        .then((entry) => {
+          if (effectCancelled) return
+          if (entry) restoreScrollback(terminal, entry)
+          connect()
+        })
+        .catch(() => {
+          if (!effectCancelled) connect()
+        })
 
       // Observe container resizes to refit the terminal.
       const resizeObserver = new ResizeObserver(() => {
