@@ -16,7 +16,8 @@ set -euo pipefail
 
 EVENT_TYPE="${1:-}"
 WORKTREE_ID="${2:-}"
-DATA="${3:-{}}"
+DEFAULT_DATA='{}'
+DATA="${3:-$DEFAULT_DATA}"
 
 if [ -z "$EVENT_TYPE" ] || [ -z "$WORKTREE_ID" ]; then
   exit 0

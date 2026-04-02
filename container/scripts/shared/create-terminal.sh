@@ -92,17 +92,25 @@ case "$AGENT_TYPE" in
 esac
 
 # -------------------------------------------------------------------
-# Build the command to run inside abduco.
+# Build the inner script to run inside abduco.
 #
-# Launches the agent interactively. When the user exits, we write the
-# exit status and drop to a bash shell so the abduco session stays
-# alive for follow-up work (inspect output, run commands, etc).
+# Written to a file instead of a bash -c string to avoid nested
+# quoting issues (single quotes in the command break when placed
+# inside bash -c '...'). The script launches the agent interactively.
+# When the user exits, we capture the exit code, push a session_exit
+# event, and drop to a bash shell so the abduco session stays alive
+# for follow-up work (inspect output, run commands, etc).
 # -------------------------------------------------------------------
-INNER_CMD="cd '${WORK_DIR}' && ${AGENT_CMD}; \
-  EXIT_CODE=\$?; \
-  echo \$EXIT_CODE > '${TERMINAL_DIR}/exit_code'; \
-  /usr/local/bin/warden-push-event.sh session_exit '${WORKTREE_ID}' '{\"exitCode\":'\$EXIT_CODE'}'; \
-  exec bash"
+INNER_SCRIPT="${TERMINAL_DIR}/inner-cmd.sh"
+cat > "$INNER_SCRIPT" << EOF
+#!/usr/bin/env bash
+cd '${WORK_DIR}' && ${AGENT_CMD}
+EXIT_CODE=\$?
+echo \$EXIT_CODE > '${TERMINAL_DIR}/exit_code'
+/usr/local/bin/warden-push-event.sh session_exit '${WORKTREE_ID}' "{\"exitCode\":\$EXIT_CODE}"
+exec bash
+EOF
+chmod +x "$INNER_SCRIPT"
 
 # -------------------------------------------------------------------
 # Start abduco as a detached daemon (-n: create session, don't attach).
@@ -117,7 +125,7 @@ INNER_CMD="cd '${WORK_DIR}' && ${AGENT_CMD}; \
 # is always readable, read returns 0), causing a 100% CPU busy-wait.
 # Uses bash -l so the login environment (PATH, .docker_env) is loaded.
 # -------------------------------------------------------------------
-nohup bash -lc "exec abduco -n 'warden-${WORKTREE_ID}' bash -c '${INNER_CMD}'" \
+nohup bash -lc "exec abduco -n 'warden-${WORKTREE_ID}' bash '${INNER_SCRIPT}'" \
   > /dev/null 2>&1 &
 
 # Give abduco a moment to start the session
