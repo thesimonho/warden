@@ -191,7 +191,7 @@ const columns: ColumnDef<AuditLogEntry, unknown>[] = [
   },
   {
     accessorKey: 'containerName',
-    header: 'Project',
+    header: 'Name',
     size: 160,
     minSize: 100,
     sortUndefined: 'last',
@@ -274,7 +274,7 @@ const columns: ColumnDef<AuditLogEntry, unknown>[] = [
           e.stopPropagation()
           copyEntry(row.original)
         }}
-        title="Copy entry as JSON"
+        title="Copy as JSON"
       >
         <Copy className="h-4 w-4 cursor-pointer" />
       </button>
