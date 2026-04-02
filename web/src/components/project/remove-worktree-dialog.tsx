@@ -33,7 +33,7 @@ export default function RemoveWorktreeDialog({
     <AlertDialog open={open} onOpenChange={onOpenChange}>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>Remove worktree &quot;{label}&quot;?</AlertDialogTitle>
+          <AlertDialogTitle>Delete worktree &quot;{label}&quot;?</AlertDialogTitle>
           <AlertDialogDescription>
             This will run <code>git worktree remove</code> and delete the working directory. Any
             uncommitted changes in this worktree will be lost.
@@ -45,7 +45,7 @@ export default function RemoveWorktreeDialog({
             onClick={onConfirm}
             className="bg-error text-error-foreground hover:bg-error/90"
           >
-            Remove
+            Delete
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

@@ -21,7 +21,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { connectTerminal, disconnectTerminal, removeWorktree } from '@/lib/api'
+import { connectTerminal, disconnectTerminal, killWorktreeProcess, removeWorktree } from '@/lib/api'
 import { formatCost } from '@/lib/cost'
 import { buildPanelId } from '@/lib/canvas-store'
 import { deleteScrollback, scrollbackKey } from '@/lib/scrollback-db'
@@ -368,6 +368,22 @@ function ProjectWorktreeList({
     [projectId, agentType, onRemovePanel, refetch],
   )
 
+  /** Stops the agent process for a worktree (kills abduco + children). */
+  const handleStop = useCallback(
+    async (worktreeId: string) => {
+      try {
+        await killWorktreeProcess(projectId, agentType, worktreeId)
+        const panelId = buildPanelId(projectId, worktreeId)
+        onRemovePanel(panelId)
+        refetch()
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Unknown error'
+        toast.error('Failed to stop worktree', { description: message })
+      }
+    },
+    [projectId, agentType, onRemovePanel, refetch],
+  )
+
   /** Removes a worktree entirely (git worktree remove + cleanup). */
   const handleRemove = useCallback(
     async (worktreeId: string) => {
@@ -443,6 +459,7 @@ function ProjectWorktreeList({
         onAdd={handleAddPanel}
         onFocus={handleFocusOrReconnect}
         onDisconnect={handleDisconnect}
+        onStop={handleStop}
         onRemove={handleRemove}
         onReveal={handleReveal ?? undefined}
         newDialogOpen={isNewDialogOpen}

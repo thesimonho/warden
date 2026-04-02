@@ -1,11 +1,22 @@
 import { useCallback, useMemo, useState } from 'react'
-import { FolderOpen, GitBranch, Info, Plug, Plus, RefreshCw, Trash2, Unplug } from 'lucide-react'
+import {
+  FolderOpen,
+  GitBranch,
+  Info,
+  Plug,
+  Plus,
+  RefreshCw,
+  Square,
+  Trash2,
+  Unplug,
+} from 'lucide-react'
 import { toast } from 'sonner'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import {
   ContextMenu,
   ContextMenuContent,
   ContextMenuItem,
+  ContextMenuSeparator,
   ContextMenuTrigger,
 } from '@/components/ui/context-menu'
 import { cleanupWorktrees } from '@/lib/api'
@@ -47,6 +58,7 @@ interface WorktreeListProps {
   onAdd: (worktree: Worktree) => void
   onFocus: (worktree: Worktree) => void
   onDisconnect: (worktreeId: string) => void
+  onStop: (worktreeId: string) => void
   onRemove: (worktreeId: string) => void
   /** Opens a worktree's host directory in the system file manager. */
   onReveal?: (worktree: Worktree) => void
@@ -120,6 +132,7 @@ export default function WorktreeList({
   onAdd,
   onFocus,
   onDisconnect,
+  onStop,
   onRemove,
   onReveal,
   newDialogOpen,
@@ -174,6 +187,7 @@ export default function WorktreeList({
         onAdd={() => onAdd(wt)}
         onFocus={() => onFocus(wt)}
         onDisconnect={() => onDisconnect(wt.id)}
+        onStop={() => onStop(wt.id)}
         onRemove={() => onRemove(wt.id)}
         onReveal={onReveal ? () => onReveal(wt) : undefined}
       />
@@ -267,6 +281,7 @@ interface WorktreeRowProps {
   onAdd: () => void
   onFocus: () => void
   onDisconnect: () => void
+  onStop: () => void
   onRemove: () => void
   onReveal?: () => void
 }
@@ -286,6 +301,7 @@ function WorktreeRow({
   onAdd,
   onFocus,
   onDisconnect,
+  onStop,
   onRemove,
   onReveal,
 }: WorktreeRowProps) {
@@ -300,6 +316,7 @@ function WorktreeRow({
   const isActive = hasActiveTerminal(worktree)
   const isMain = worktree.id === 'main'
   const canDisconnect = isActive
+  const canStop = isActive
   const canRemove = !isMain && worktree.state !== 'connected'
 
   return (
@@ -346,30 +363,35 @@ function WorktreeRow({
             {isConnecting && (
               <span className="text-muted-foreground ml-auto text-sm">Connecting...</span>
             )}
-            {!isOnCanvas && !isConnecting && (
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <span className="ml-auto">
-                      <Plug className="text-muted-foreground h-3 w-3 shrink-0" />
-                    </span>
-                  </TooltipTrigger>
-                  <TooltipContent side="top">Connect</TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            )}
           </div>
         </ContextMenuTrigger>
         <ContextMenuContent>
           {onReveal && (
-            <ContextMenuItem onClick={onReveal}>
-              <FolderOpen className="h-4 w-4" />
-              Reveal in File Manager
-            </ContextMenuItem>
+            <>
+              <ContextMenuItem onClick={onReveal}>
+                <FolderOpen className="h-4 w-4" />
+                Reveal in File Manager
+              </ContextMenuItem>
+              <ContextMenuSeparator />
+            </>
           )}
           <ContextMenuItem disabled={!canDisconnect} onClick={onDisconnect}>
             <Unplug className="h-4 w-4" />
-            Disconnect
+            <div>
+              <div>Disconnect</div>
+              <div className="text-muted-foreground text-xs font-normal">
+                Close viewer, agent runs in background
+              </div>
+            </div>
+          </ContextMenuItem>
+          <ContextMenuItem disabled={!canStop} onClick={onStop}>
+            <Square className="h-4 w-4" />
+            <div>
+              <div>Stop</div>
+              <div className="text-muted-foreground text-xs font-normal">
+                Stop agent from running in the background
+              </div>
+            </div>
           </ContextMenuItem>
           <ContextMenuItem
             disabled={!canRemove}
@@ -377,7 +399,12 @@ function WorktreeRow({
             className="text-error focus:text-error"
           >
             <Trash2 className="h-4 w-4" />
-            Remove
+            <div>
+              <div>Delete</div>
+              <div className="text-muted-foreground text-xs font-normal">
+                Completely delete worktree from disk
+              </div>
+            </div>
           </ContextMenuItem>
         </ContextMenuContent>
       </ContextMenu>
