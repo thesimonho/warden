@@ -664,6 +664,30 @@ func (s *Store) MarkContainerStale(containerName string) {
 	}
 }
 
+// RemoveContainer clears all in-memory state for a container without
+// triggering the stale callback. Called when a container is deliberately
+// deleted — prevents the liveness checker from later finding a stale entry
+// for the old container name and inadvertently stopping a newly created
+// container's session watcher.
+func (s *Store) RemoveContainer(containerName string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	for key := range s.attention {
+		if key.containerName == containerName {
+			delete(s.attention, key)
+		}
+	}
+	for key := range s.terminals {
+		if key.containerName == containerName {
+			delete(s.terminals, key)
+		}
+	}
+	delete(s.costs, containerName)
+	delete(s.terminalContainers, containerName)
+	delete(s.lastEvents, containerName)
+}
+
 // BroadcastWorktreeListChanged sends a worktree_list_changed event to all
 // SSE clients so they can refresh the worktree list for the given container.
 func (s *Store) BroadcastWorktreeListChanged(containerName string) {

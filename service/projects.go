@@ -288,11 +288,14 @@ func (s *Service) HandleContainerStale(containerName string) {
 		}
 	}
 
-	// Stop session watcher — the container is no longer sending events.
-	// HandleContainerAlive will restart it when the container comes back.
-	if projectID != "" {
-		s.StopSessionWatcher(projectID)
-	}
+	// The session watcher is NOT stopped here. It tails host-side JSONL
+	// files which persist regardless of container state, and the 2s poll
+	// is essentially free when no new data arrives. Stopping it on stale
+	// creates a race: if the container is deleted and recreated quickly,
+	// the liveness checker fires the stale callback for the OLD container
+	// but looks up the NEW project by name, killing its watcher.
+	// Watchers are stopped only by explicit lifecycle events (delete,
+	// stop, shutdown).
 
 	s.audit.Write(db.Entry{
 		Source:        db.SourceBackend,

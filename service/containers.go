@@ -78,6 +78,12 @@ func (s *Service) DeleteContainer(ctx context.Context, projectID string) (*Conta
 	if s.eventWatcher != nil {
 		s.eventWatcher.CleanupContainerDir(containerName)
 	}
+	// Clear the container from the event store so the liveness checker
+	// doesn't find a stale entry for this name and inadvertently stop
+	// a newly created container's session watcher.
+	if s.store != nil {
+		s.store.RemoveContainer(containerName)
+	}
 
 	s.audit.Write(db.Entry{
 		Source:        db.SourceBackend,
@@ -176,6 +182,9 @@ func (s *Service) updateContainerSettings(ctx context.Context, project *db.Proje
 			s.eventWatcher.CleanupContainerDir(oldContainerName)
 			s.eventWatcher.WatchContainerDir(containerName)
 		}
+		if s.store != nil {
+			s.store.RemoveContainer(oldContainerName)
+		}
 		s.startProjectWatcher(project.ProjectID, containerName, project.AgentType)
 	}
 
@@ -221,6 +230,9 @@ func (s *Service) recreateContainer(ctx context.Context, project *db.ProjectRow,
 	s.StopSessionWatcher(project.ProjectID)
 	if s.eventWatcher != nil {
 		s.eventWatcher.CleanupContainerDir(oldContainerName)
+	}
+	if s.store != nil {
+		s.store.RemoveContainer(oldContainerName)
 	}
 
 	newID, err := s.docker.RecreateContainer(ctx, project.ContainerID, req)

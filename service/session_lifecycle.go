@@ -171,6 +171,7 @@ func (s *Service) ResumeSessionWatchers(ctx context.Context) {
 		slog.Warn("failed to list projects for session watcher resume", "err", err)
 		return
 	}
+
 	for _, p := range projects {
 		if p.State != "running" {
 			continue
