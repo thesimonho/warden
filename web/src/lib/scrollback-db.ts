@@ -55,7 +55,14 @@ function openDB(): Promise<IDBDatabase> {
       }
     }
 
-    request.onsuccess = () => resolve(request.result)
+    request.onsuccess = () => {
+      const db = request.result
+      // Re-open on next operation if the connection is closed externally.
+      db.onclose = () => {
+        dbPromise = null
+      }
+      resolve(db)
+    }
     request.onerror = () => {
       dbPromise = null
       reject(request.error)
@@ -138,20 +145,20 @@ export async function deleteProjectScrollback(projectId: string): Promise<void> 
     const index = tx.objectStore(STORE_NAME).index(PROJECT_INDEX)
     const request = index.openKeyCursor(IDBKeyRange.only(projectId))
 
+    const store = tx.objectStore(STORE_NAME)
     await new Promise<void>((resolve, reject) => {
       request.onsuccess = () => {
         const cursor = request.result
         if (cursor) {
-          tx.objectStore(STORE_NAME).delete(cursor.primaryKey)
+          store.delete(cursor.primaryKey)
           cursor.continue()
         } else {
           resolve()
         }
       }
       request.onerror = () => reject(request.error)
+      tx.onabort = () => reject(tx.error)
     })
-
-    await txComplete(tx)
   } catch (error) {
     logError('deleteProjectScrollback', error)
   }
@@ -180,9 +187,8 @@ export async function evictStaleScrollback(maxAgeMs: number): Promise<void> {
         }
       }
       request.onerror = () => reject(request.error)
+      tx.onabort = () => reject(tx.error)
     })
-
-    await txComplete(tx)
   } catch (error) {
     logError('evictStaleScrollback', error)
   }
@@ -193,6 +199,7 @@ function txComplete(tx: IDBTransaction): Promise<void> {
   return new Promise((resolve, reject) => {
     tx.oncomplete = () => resolve()
     tx.onerror = () => reject(tx.error)
+    tx.onabort = () => reject(tx.error ?? new DOMException('Transaction aborted', 'AbortError'))
   })
 }
 

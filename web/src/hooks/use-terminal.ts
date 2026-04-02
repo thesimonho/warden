@@ -551,8 +551,9 @@ export function useTerminal({
       effectCancelled = true
       detach()
     }
-    // We intentionally exclude `connect`, `fit`, and `detach` — they're stable
-    // callbacks that shouldn't trigger re-creation of the terminal.
+    // We exclude `connect`, `fit`, and `detach` from deps. `connect` and `fit`
+    // are stable (empty deps). `detach` depends on [projectId, worktreeId] which
+    // are already in this effect's deps, so changes are covered without listing it.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isActive, projectId, worktreeId])
 

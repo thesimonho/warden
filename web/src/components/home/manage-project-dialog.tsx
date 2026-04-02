@@ -109,7 +109,7 @@ export default function ManageProjectDialog({
     if (removeFromWarden) {
       try {
         await removeProject(project.projectId)
-        deleteProjectScrollback(project.projectId)
+        void deleteProjectScrollback(project.projectId)
       } catch {
         errors.push('remove project')
       }
