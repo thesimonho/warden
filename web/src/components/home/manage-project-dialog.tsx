@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react'
-import { AlertTriangle, FolderCog, Loader2 } from 'lucide-react'
+import { AlertTriangle, FolderCog, Loader2, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { deleteContainer, removeProject, resetProjectCosts, purgeProjectAudit } from '@/lib/api'
 import { deleteProjectScrollback } from '@/lib/scrollback-db'
@@ -229,10 +229,10 @@ export default function ManageProjectDialog({
             variant="error"
             onClick={handleConfirm}
             disabled={!hasAnyAction || !isPurgeConfirmed || isSubmitting}
-            icon={isSubmitting ? Loader2 : undefined}
+            icon={isSubmitting ? Loader2 : Trash2}
             loading={isSubmitting}
           >
-            {isSubmitting ? 'Processing…' : 'Confirm'}
+            {isSubmitting ? 'Processing…' : 'Delete'}
           </Button>
         </DialogFooter>
       </DialogContent>

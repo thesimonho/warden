@@ -784,7 +784,7 @@ export default function ProjectConfigForm({
               {isEditMode ? 'Saving...' : 'Creating...'}
             </>
           ) : isEditMode ? (
-            'Save Changes'
+            'Save'
           ) : (
             'Create'
           )}

@@ -55,9 +55,17 @@ export default function Layout() {
     <div className="bg-background text-foreground min-h-screen">
       <header className="bg-background/80 sticky top-0 z-10 border-b backdrop-blur-sm">
         <div className="flex items-center justify-between px-6 py-3">
-          <Link to="/" className="flex items-center gap-2.5 transition-opacity hover:opacity-75">
-            <img src="/logo.svg" alt="Warden" className="h-5 dark:invert" />
-          </Link>
+          <div className="flex items-center gap-2">
+            <Link to="/" className="flex items-center gap-2.5 transition-opacity hover:opacity-75">
+              <img src="/logo.svg" alt="Warden" className="h-5 dark:invert" />
+            </Link>
+            <Button size="sm" variant="ghost" className="dark:brightness-60" asChild>
+              <Link to="https://github.com/thesimonho/warden" target="_blank">
+                <img src="/github-icon.webp" alt="GitHub" className="h-5 dark:invert" />
+              </Link>
+            </Button>
+          </div>
+
           <div className="flex items-center gap-1">
             <Tooltip>
               <TooltipTrigger asChild>
