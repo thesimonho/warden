@@ -391,6 +391,18 @@ export function AuditLogTable({
     onFilteredCountChange?.(rows.length)
   }, [rows.length, onFilteredCountChange])
 
+  /** Track mousedown position to distinguish clicks from text-selection drags. */
+  const mouseDownPos = useRef<{ x: number; y: number } | null>(null)
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    mouseDownPos.current = { x: e.clientX, y: e.clientY }
+  }, [])
+  const isDrag = useCallback((e: React.MouseEvent) => {
+    if (!mouseDownPos.current) return false
+    const dx = e.clientX - mouseDownPos.current.x
+    const dy = e.clientY - mouseDownPos.current.y
+    return Math.abs(dx) > 4 || Math.abs(dy) > 4
+  }, [])
+
   const scrollContainerRef = useRef<HTMLDivElement>(null)
   const virtualizer = useVirtualizer({
     count: rows.length,
@@ -487,7 +499,15 @@ export function AuditLogTable({
                   'group border-border/30 hover:bg-muted/30 absolute flex w-full flex-wrap border-b',
                   row.getCanExpand() && 'cursor-pointer',
                 )}
-                onClick={row.getCanExpand() ? row.getToggleExpandedHandler() : undefined}
+                onMouseDown={handleMouseDown}
+                onClick={
+                  row.getCanExpand()
+                    ? (e) => {
+                        if (isDrag(e)) return
+                        row.toggleExpanded()
+                      }
+                    : undefined
+                }
                 style={{ transform: `translateY(${virtualRow.start}px)` }}
               >
                 {row.getVisibleCells().map((cell) => (
