@@ -45,7 +45,7 @@ The Dockerfile calls each install script as a separate `RUN` instruction for lay
 Accepts `<worktree-id> [--skip-permissions]`. Branches on `WARDEN_AGENT_TYPE` env var:
 
 - **claude-code** (default): launches `claude --worktree <id>` in `.claude/worktrees/<id>/` (Claude manages worktrees natively). Adds `--dangerously-skip-permissions` if requested.
-- **codex**: creates the git worktree manually (`git worktree add`) in `.warden/worktrees/<id>/` if it doesn't exist, with fallback to use existing branch if worktree creation fails, then launches `codex --no-alt-screen` in the worktree directory. Adds `--dangerously-bypass-approvals-and-sandbox` if skip-permissions is requested.
+- **codex**: creates the git worktree manually (`git worktree add`) in `.warden/worktrees/<id>/` if it doesn't exist, with fallback to use existing branch if worktree creation fails, then launches `codex --no-alt-screen` in the worktree directory (the `--no-alt-screen` flag disables alternate screen mode so terminal scrollback is preserved). Adds `--dangerously-bypass-approvals-and-sandbox` if skip-permissions is requested.
 
 When the agent exits: records exit code, pushes `session_exit` event, drops to `exec bash`.
 
