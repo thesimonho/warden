@@ -38,8 +38,8 @@ import { Unicode11Addon } from '@xterm/addon-unicode11'
 import { WebLinksAddon } from '@xterm/addon-web-links'
 import { toast } from 'sonner'
 import { getTerminalTheme } from '@/lib/terminal-themes'
-import { saveScrollback, loadScrollback } from '@/lib/scrollback-db'
-import { scrollbackKey, serializeTerminal, restoreScrollback } from '@/lib/scrollback-serialize'
+import { saveScrollback, loadScrollback, scrollbackKey } from '@/lib/scrollback-db'
+import { serializeTerminal } from '@/lib/scrollback-serialize'
 import '@fontsource/jetbrains-mono/400.css'
 import '@fontsource/jetbrains-mono/600.css'
 
@@ -87,7 +87,10 @@ const RECONNECT_BASE_MS = 1000
 const RECONNECT_MAX_MS = 16000
 const MAX_RECONNECT_ATTEMPTS = 5
 
-/** Number of scrollback lines to retain in the xterm.js buffer. */
+/**
+ * Scrollback lines to retain in the xterm.js buffer. 10k lines keeps serialized
+ * buffer sizes reasonable for IndexedDB (~1-5 MB) while capturing enough history.
+ */
 const SCROLLBACK_LINES = 10_000
 
 /**
@@ -328,8 +331,7 @@ export function useTerminal({
       try {
         const data = serializeTerminal(terminal, serializeAddon)
         if (data) {
-          const key = scrollbackKey(projectId, worktreeId)
-          saveScrollback(key, projectId, worktreeId, data, terminal.cols, terminal.rows)
+          saveScrollback(projectId, worktreeId, data, terminal.cols, terminal.rows)
         }
       } catch {
         // Serialization failure is not critical.
@@ -517,7 +519,7 @@ export function useTerminal({
       loadScrollback(sbKey)
         .then((entry) => {
           if (effectCancelled) return
-          if (entry) restoreScrollback(terminal, entry)
+          if (entry) terminal.write(entry.data)
           connect()
         })
         .catch(() => {

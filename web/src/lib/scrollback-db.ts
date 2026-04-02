@@ -15,9 +15,10 @@
 import { postAuditEvent } from '@/lib/api'
 
 const DB_NAME = 'warden-scrollback'
-const DB_VERSION = 1
+const DB_VERSION = 2
 const STORE_NAME = 'buffers'
 const PROJECT_INDEX = 'by-project'
+const SAVED_AT_INDEX = 'by-saved-at'
 
 /** Shape of a persisted scrollback entry. */
 export interface ScrollbackEntry {
@@ -37,6 +38,11 @@ export interface ScrollbackEntry {
   savedAt: number
 }
 
+/** Builds the IndexedDB key for a terminal's scrollback buffer. */
+export function scrollbackKey(projectId: string, worktreeId: string): string {
+  return `${projectId}:${worktreeId}`
+}
+
 /** Lazy singleton — opened once, reused for all operations. */
 let dbPromise: Promise<IDBDatabase> | null = null
 
@@ -52,6 +58,12 @@ function openDB(): Promise<IDBDatabase> {
       if (!db.objectStoreNames.contains(STORE_NAME)) {
         const store = db.createObjectStore(STORE_NAME, { keyPath: 'key' })
         store.createIndex(PROJECT_INDEX, 'projectId', { unique: false })
+        store.createIndex(SAVED_AT_INDEX, 'savedAt', { unique: false })
+      } else {
+        const store = request.transaction!.objectStore(STORE_NAME)
+        if (!store.indexNames.contains(SAVED_AT_INDEX)) {
+          store.createIndex(SAVED_AT_INDEX, 'savedAt', { unique: false })
+        }
       }
     }
 
@@ -77,7 +89,7 @@ function logError(operation: string, error: unknown): void {
   const message = error instanceof Error ? error.message : String(error)
   postAuditEvent({
     event: 'scrollback_db_error',
-    level: 'debug',
+    level: 'info',
     message: `${operation}: ${message}`,
   }).catch(() => {
     // Audit endpoint itself failed — nothing more we can do.
@@ -86,7 +98,6 @@ function logError(operation: string, error: unknown): void {
 
 /** Persists a scrollback buffer entry. */
 export async function saveScrollback(
-  key: string,
   projectId: string,
   worktreeId: string,
   data: string,
@@ -96,7 +107,7 @@ export async function saveScrollback(
   try {
     const db = await openDB()
     const entry: ScrollbackEntry = {
-      key,
+      key: scrollbackKey(projectId, worktreeId),
       projectId,
       worktreeId,
       data,
@@ -142,10 +153,9 @@ export async function deleteProjectScrollback(projectId: string): Promise<void> 
   try {
     const db = await openDB()
     const tx = db.transaction(STORE_NAME, 'readwrite')
-    const index = tx.objectStore(STORE_NAME).index(PROJECT_INDEX)
-    const request = index.openKeyCursor(IDBKeyRange.only(projectId))
-
     const store = tx.objectStore(STORE_NAME)
+    const request = store.index(PROJECT_INDEX).openKeyCursor(IDBKeyRange.only(projectId))
+
     await new Promise<void>((resolve, reject) => {
       request.onsuccess = () => {
         const cursor = request.result
@@ -164,23 +174,26 @@ export async function deleteProjectScrollback(projectId: string): Promise<void> 
   }
 }
 
-/** Deletes entries older than `maxAgeMs` milliseconds. */
+/**
+ * Deletes entries older than `maxAgeMs` milliseconds.
+ *
+ * Uses the `savedAt` index to scan only stale entries via a key range,
+ * and `openKeyCursor` to avoid deserializing the large `data` field.
+ */
 export async function evictStaleScrollback(maxAgeMs: number): Promise<void> {
   try {
     const cutoff = Date.now() - maxAgeMs
     const db = await openDB()
     const tx = db.transaction(STORE_NAME, 'readwrite')
     const store = tx.objectStore(STORE_NAME)
-    const request = store.openCursor()
+    const range = IDBKeyRange.upperBound(cutoff)
+    const request = store.index(SAVED_AT_INDEX).openKeyCursor(range)
 
     await new Promise<void>((resolve, reject) => {
       request.onsuccess = () => {
         const cursor = request.result
         if (cursor) {
-          const entry = cursor.value as ScrollbackEntry
-          if (entry.savedAt < cutoff) {
-            cursor.delete()
-          }
+          store.delete(cursor.primaryKey)
           cursor.continue()
         } else {
           resolve()

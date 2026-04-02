@@ -6,14 +6,27 @@ import {
   deleteScrollback,
   deleteProjectScrollback,
   evictStaleScrollback,
+  scrollbackKey,
 } from '@/lib/scrollback-db'
 
 // Tests share a single IndexedDB instance via the module's lazy singleton.
 // Each test uses unique keys to avoid interference.
 
+describe('scrollbackKey', () => {
+  it('produces projectId:worktreeId format', () => {
+    expect(scrollbackKey('abc123def456', 'main')).toBe('abc123def456:main')
+  })
+
+  it('handles worktree IDs with special characters', () => {
+    expect(scrollbackKey('abc123def456', 'feature-branch.v2')).toBe(
+      'abc123def456:feature-branch.v2',
+    )
+  })
+})
+
 describe('saveScrollback + loadScrollback', () => {
   it('round-trips a scrollback entry', async () => {
-    await saveScrollback('rt:main', 'rt', 'main', '\x1b[32mhello\x1b[0m', 80, 24)
+    await saveScrollback('rt', 'main', '\x1b[32mhello\x1b[0m', 80, 24)
 
     const entry = await loadScrollback('rt:main')
     expect(entry).toBeDefined()
@@ -32,8 +45,8 @@ describe('saveScrollback + loadScrollback', () => {
   })
 
   it('overwrites existing entry with same key', async () => {
-    await saveScrollback('ow:main', 'ow', 'main', 'first', 80, 24)
-    await saveScrollback('ow:main', 'ow', 'main', 'second', 120, 40)
+    await saveScrollback('ow', 'main', 'first', 80, 24)
+    await saveScrollback('ow', 'main', 'second', 120, 40)
 
     const entry = await loadScrollback('ow:main')
     expect(entry!.data).toBe('second')
@@ -43,7 +56,7 @@ describe('saveScrollback + loadScrollback', () => {
 
 describe('deleteScrollback', () => {
   it('removes a single entry by key', async () => {
-    await saveScrollback('del:main', 'del', 'main', 'data', 80, 24)
+    await saveScrollback('del', 'main', 'data', 80, 24)
     await deleteScrollback('del:main')
 
     const entry = await loadScrollback('del:main')
@@ -57,9 +70,9 @@ describe('deleteScrollback', () => {
 
 describe('deleteProjectScrollback', () => {
   it('removes all entries for a project', async () => {
-    await saveScrollback('dp:main', 'dp', 'main', 'a', 80, 24)
-    await saveScrollback('dp:feat', 'dp', 'feat', 'b', 80, 24)
-    await saveScrollback('other:main', 'other', 'main', 'c', 80, 24)
+    await saveScrollback('dp', 'main', 'a', 80, 24)
+    await saveScrollback('dp', 'feat', 'b', 80, 24)
+    await saveScrollback('other', 'main', 'c', 80, 24)
 
     await deleteProjectScrollback('dp')
 
@@ -72,10 +85,11 @@ describe('deleteProjectScrollback', () => {
 describe('evictStaleScrollback', () => {
   it('removes entries older than the TTL', async () => {
     // Save an entry, then manually backdate it via direct IndexedDB access.
-    await saveScrollback('ev:old', 'ev', 'old', 'stale', 80, 24)
+    await saveScrollback('ev', 'old', 'stale', 80, 24)
 
+    // DB_VERSION bumped to 2 for the savedAt index.
     const db = await new Promise<IDBDatabase>((resolve, reject) => {
-      const req = indexedDB.open('warden-scrollback', 1)
+      const req = indexedDB.open('warden-scrollback', 2)
       req.onsuccess = () => resolve(req.result)
       req.onerror = () => reject(req.error)
     })
@@ -94,7 +108,7 @@ describe('evictStaleScrollback', () => {
     db.close()
 
     // Save a fresh entry that should survive eviction.
-    await saveScrollback('ev:new', 'ev', 'new', 'fresh', 80, 24)
+    await saveScrollback('ev', 'new', 'fresh', 80, 24)
 
     const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000
     await evictStaleScrollback(SEVEN_DAYS_MS)
