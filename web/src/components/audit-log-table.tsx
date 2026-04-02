@@ -403,6 +403,11 @@ export function AuditLogTable({
         : undefined,
   })
 
+  /** Re-measure all rows when expansion state changes so positions update. */
+  useEffect(() => {
+    virtualizer.measure()
+  }, [expanded, virtualizer])
+
   if (isLoading) {
     return (
       <div className="text-muted-foreground flex flex-1 items-center justify-center py-12">
