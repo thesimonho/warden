@@ -4,7 +4,7 @@
 
 | File | Purpose |
 | --- | --- |
-| `components/layout.tsx` | App shell — header with nav title ("Warden"), theme toggle, access nav button (KeyRound icon, left of Audit), audit nav button |
+| `components/layout.tsx` | App shell — header with nav title ("Warden"), theme toggle, access nav button (KeyRound icon, left of Audit), audit nav button. On app startup (mount), evicts stale scrollback entries older than 14 days via `evictStaleScrollback()`. |
 | `components/settings-dialog.tsx` | Settings panel (runtime selection, notifications toggle, auditLogMode radio group [off/standard/detailed], default project budget input, budget enforcement action toggles: show warning, stop worktrees, stop container, prevent restart) |
 | `components/theme-toggle.tsx` | Light/dark theme switcher |
 | `components/project-filter.tsx` | Reusable project name filter dropdown (autocomplete from event log projects) |
@@ -23,7 +23,7 @@ Components for the home page and project management.
 | `components/home/claude-status-indicator.tsx` | Visual indicator for Claude's status (idle/working/needs permission/needs input/waiting for prompt) |
 | `components/home/status-badge.tsx` | Container state badge (running/stopped/etc.) |
 | `components/home/add-project-dialog.tsx` | Dialog: create new project, edit existing, or create container for no-container project via ProjectConfigForm. Includes `agentType` in create/update payloads. Uses `DEFAULT_AGENT_TYPE` for create-for-existing defaults. Exports `CreateForProject` type. |
-| `components/home/manage-project-dialog.tsx` | Management dialog with four independent destructive actions: remove from Warden, delete container, reset costs, purge audit. Type-to-confirm for audit purge. Keeps dialog open on partial failure. |
+| `components/home/manage-project-dialog.tsx` | Management dialog with four independent destructive actions: remove from Warden, delete container, reset costs, purge audit. Type-to-confirm for audit purge. Keeps dialog open on partial failure. Cleans up all scrollback entries via `deleteProjectScrollback()` when a project is removed. |
 | `components/home/recent-workspaces.tsx` | Recently visited workspace tabs |
 | `components/home/project-config-form.tsx` | Create/edit form with agent type selector at top (button-group: Claude Code / Codex), then fields: name, workspace path, image, permissions (agent-aware label), network mode, allowed domains, cost budget, and Advanced collapsible with bind mounts and environment variables. Access items are fetched from `/api/v1/access`, selected via checkboxes, and their resolved mounts/env vars are merged into form data on submit. `ProjectConfigFormData` includes `agentType: AgentType` and `enabledAccessItems: string[]`. Read-only in edit mode. |
 | `components/home/directory-browser.tsx` | Fuzzy-finder style filesystem picker. Supports `mode="directory"` (default, directory-only) and `mode="file"` (directories + files). Split input with browsable prefix and filter. |
@@ -35,7 +35,7 @@ Components for the project view, used by both `project-page.tsx` and `workspace-
 | File | Purpose |
 | --- | --- |
 | `components/project/project-view.tsx` | Core project UI — sidebar with view mode toggle + grid or canvas terminal display. Accepts `projectId` as a prop. Used standalone by `project-page.tsx` and embedded in `workspace-page.tsx`. Each instance has independent canvas/panel state. Callbacks use refs for volatile values to keep function identity stable across SSE-driven re-renders. |
-| `components/project/project-sidebar.tsx` | Project sidebar: view mode toggle (Grid/Canvas), controlled project dropdown (URL-driven), worktree list with right-click context menu (Reveal in File Manager + Disconnect + Remove actions) |
+| `components/project/project-sidebar.tsx` | Project sidebar: view mode toggle (Grid/Canvas), controlled project dropdown (URL-driven), worktree list with right-click context menu (Reveal in File Manager + Disconnect + Remove actions). Cleans up scrollback entry via `deleteScrollback()` when a worktree is removed. |
 | `components/project/canvas-view.tsx` | Draggable/resizable Rnd panel wrapping a `TerminalCard` on the canvas: position/size from store, selection ring, CSS transition animations, shift+click selection, `data-canvas-panel` attr for marquee hit detection. Custom memo comparison on data props only (callbacks are stable). |
 | `components/project/grid-view.tsx` | Grid display mode: renders `TerminalCard` instances in a responsive CSS grid layout (no pan/zoom/drag). Auto-sizes grid columns based on panel count. `GridCell` uses custom memo on data props only. |
 | `components/project/terminal-card.tsx` | Terminal with title bar chrome (status dot, project name, branch, attention indicator, action buttons) + xterm.js rendering via `useTerminal` hook. Tab toggle (Terminal / Changes) in title bar. Terminal div stays mounted but hidden when Changes tab is active to preserve xterm.js instance. Right-click context menu: Copy (Ctrl+Shift+C), Paste (Ctrl+Shift+V), Paste Image (Ctrl+V), Select All (Ctrl+Shift+A). Layout-agnostic — used by both canvas-view and grid-view. |

@@ -24,6 +24,7 @@ import {
 import { connectTerminal, disconnectTerminal, removeWorktree } from '@/lib/api'
 import { formatCost } from '@/lib/cost'
 import { buildPanelId } from '@/lib/canvas-store'
+import { deleteScrollback, scrollbackKey } from '@/lib/scrollback-db'
 import { useProjects } from '@/hooks/use-projects'
 import { useRevealInFileManager } from '@/hooks/use-reveal-in-file-manager'
 import { useWorktrees } from '@/hooks/use-worktrees'
@@ -344,6 +345,7 @@ function ProjectWorktreeList({
     async (worktreeId: string) => {
       try {
         await removeWorktree(projectId, worktreeId)
+        void deleteScrollback(scrollbackKey(projectId, worktreeId))
         const panelId = buildPanelId(projectId, worktreeId)
         onRemovePanel(panelId)
         refetch()

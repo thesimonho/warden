@@ -74,9 +74,9 @@ case "$AGENT_TYPE" in
       fi
     fi
 
-    AGENT_CMD="codex"
+    AGENT_CMD="codex --no-alt-screen"
     if [ "$SKIP_PERMISSIONS" = "--skip-permissions" ]; then
-      AGENT_CMD="codex --dangerously-bypass-approvals-and-sandbox"
+      AGENT_CMD="codex --no-alt-screen --dangerously-bypass-approvals-and-sandbox"
     fi
     ;;
 
