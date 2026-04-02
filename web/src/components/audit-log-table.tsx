@@ -380,6 +380,7 @@ export function AuditLogTable({
     [],
   )
 
+  // eslint-disable-next-line react-hooks/incompatible-library -- TanStack Table API is stable; false positive from React Compiler
   const table = useReactTable({
     data: entries,
     columns,

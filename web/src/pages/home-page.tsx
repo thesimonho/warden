@@ -12,6 +12,7 @@ import {
   restartProject,
   fetchProjects,
   fetchSettings,
+  fetchDefaults,
   addProject,
   createContainer,
 } from '@/lib/api'
@@ -226,6 +227,11 @@ export default function HomePage() {
     async (agentType: AgentType) => {
       if (!serverSettings?.workingDirectory) return
       try {
+        const defaults = await fetchDefaults()
+        const mounts = defaults.mounts
+          .filter((m) => !m.agentType || m.agentType === agentType)
+          .map(({ hostPath, containerPath, readOnly }) => ({ hostPath, containerPath, readOnly }))
+
         const result = await addProject('warden', serverSettings.workingDirectory, agentType)
         await createContainer(result.projectId, agentType, {
           name: `warden-${agentType}`,
@@ -233,6 +239,7 @@ export default function HomePage() {
           projectPath: serverSettings.workingDirectory,
           agentType,
           skipPermissions: true,
+          mounts,
         })
         toast.success(`${agentType} project created`)
         refetch()
