@@ -13,7 +13,7 @@ Each audit event has a source: JSONL parser (Go backend tails session files), ho
 | `tool_use`           | `assistant` → tool_use blocks                       | `response_item/{function_call,local_shell_call,web_search_call,tool_search_call}`          | agent          |
 | `tool_use_failure`   | `user` → tool_result with is_error                  | `response_item/function_call_output` (heuristic) + `event_msg/*_end` with error (extended) | agent          |
 | `stop` (cost)        | `assistant` → usage                                 | `event_msg/token_count`                                                                    | session        |
-| `user_prompt`        | `user` → text content                               | `event_msg/user_message`                                                                   | prompt         |
+| `user_prompt`        | `user` → text content, `queue-operation` → enqueue  | `event_msg/user_message`                                                                   | prompt         |
 | `stop_failure`       | `system/api_error`                                  | `event_msg/error` (extended) + `event_msg/turn_aborted`                                    | session        |
 | `turn_complete`      | `assistant` → stop_reason=end_turn                  | `event_msg/task_complete`                                                                  | session        |
 | `turn_duration`      | `system/turn_duration`                              | —                                                                                          | session        |

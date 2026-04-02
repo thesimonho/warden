@@ -63,6 +63,7 @@ Parsers are **stateful** — they accumulate token counts across lines within a 
 - **Token source:** `cacheCreationInputTokens`, `cacheReadInputTokens`, `inputTokens`, `outputTokens` in `usage` blocks
 - **Cost:** Estimated from token counts via per-model pricing table (`pricing.go`)
 - **Tool extraction:** From `tool_use` content blocks in assistant messages
+- **Queue operations:** `queue-operation` entries with `operation=enqueue` are parsed as `user_prompt` events (prompts submitted while Claude is still working)
 - **System subtypes:** All 14 parsed — turn_duration, api_error, agents_killed, api_metrics, permission_retry, compact_boundary, microcompact_boundary, and 7 informational subtypes mapped to `system_info`
 
 ### Codex (`agent/codex/`)
