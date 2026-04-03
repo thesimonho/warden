@@ -29,6 +29,13 @@ dev-tui:
 # Start Go + Vite dev servers
 dev:
     #!/usr/bin/env bash
+    # Fail fast if either port is already occupied.
+    for port in 8090 5173; do
+        if lsof -ti :"$port" >/dev/null 2>&1; then
+            echo "ERROR: port $port is already in use. Run 'just kill' first." >&2
+            exit 1
+        fi
+    done
     trap 'kill 0' EXIT
     just dev-api &
     just dev-web &
