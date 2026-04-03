@@ -56,7 +56,7 @@ Restricted mode uses [dnsmasq](https://dnsmasq.org/) as a local DNS forwarder co
 
 ## Limitations
 
-- **Domain IPs are resolved dynamically**, but if a domain's IP changes and DNS caching hasn't refreshed, there may be a brief interruption. Restart the container to force re-resolution.
+- **Domain IPs are resolved dynamically**, but if a domain's IP changes and DNS caching hasn't refreshed, there may be a brief interruption. Editing the allowed domains list triggers a full re-resolution; otherwise restart the container.
 - **Network mode changes** (e.g. `full` → `restricted`) still require container recreation since they involve different iptables rule sets and capabilities.
 
 ## For Developers
