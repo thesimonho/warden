@@ -77,7 +77,7 @@ func (ts *TerminalState) DeriveWorktreeState() engine.WorktreeState {
 		}
 		return engine.WorktreeStateConnected
 	}
-	return engine.WorktreeStateDisconnected
+	return engine.WorktreeStateStopped
 }
 
 // WorktreeStatePayload is the JSON shape sent over SSE for worktree_state events.
@@ -226,8 +226,10 @@ func (s *Store) HandleEvent(event ContainerEvent) {
 		// No state change — task completion is logged for audit.
 	case EventElicitation, EventElicitationResult:
 		// No state change — MCP elicitation events are logged for audit.
-	case EventTurnComplete, EventTurnDuration:
-		// No state change — turn lifecycle is logged for audit.
+	case EventTurnComplete:
+		broadcasts = s.handleTurnComplete(key, event)
+	case EventTurnDuration:
+		// No state change — turn duration is logged for audit.
 	case EventApiMetrics:
 		// No state change — API performance metrics are logged for audit.
 	case EventPermissionGrant:
@@ -426,6 +428,38 @@ func (s *Store) handleSessionEnd(key worktreeKey, event ContainerEvent) []pendin
 		broadcasts = append(broadcasts, s.buildProjectBroadcast(event.Ref()))
 	}
 	return broadcasts
+}
+
+// handleTurnComplete sets "waiting for input" attention state when an agent
+// turn ends. This signals that the agent is idle at the prompt, supplementing
+// the real-time Notification hook (which may not fire in all cases, e.g.
+// after --continue resume). Only sets attention if the session is active and
+// not already in an attention state, and the event is newer than the current
+// state (to avoid stale JSONL events overriding fresher hook events).
+func (s *Store) handleTurnComplete(key worktreeKey, event ContainerEvent) []pendingBroadcast {
+	existing := s.attention[key]
+	if existing == nil || !existing.SessionActive {
+		return nil
+	}
+	if existing.NeedsInput {
+		return nil // Already in an attention state — don't downgrade.
+	}
+	if !existing.UpdatedAt.IsZero() && existing.UpdatedAt.After(event.Timestamp) {
+		return nil // Stale turn_complete — a newer event already updated state.
+	}
+
+	att := &WorktreeState{
+		NeedsInput:       true,
+		NotificationType: engine.NotificationIdlePrompt,
+		SessionActive:    existing.SessionActive,
+		UpdatedAt:        event.Timestamp,
+	}
+	s.attention[key] = att
+
+	return []pendingBroadcast{
+		buildWorktreeBroadcast(event.Ref(), event.WorktreeID, att, s.terminals[key]),
+		s.buildProjectBroadcast(event.Ref()),
+	}
 }
 
 // handleCostUpdate processes a cost update event, updating in-memory cost
