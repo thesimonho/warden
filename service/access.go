@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 
 	"github.com/thesimonho/warden/access"
 	"github.com/thesimonho/warden/api"
@@ -173,7 +174,9 @@ func (s *Service) UpdateAccessItem(id string, req api.UpdateAccessItemRequest) (
 	oldLabel := row.Label
 	oldDescription := row.Description
 	var oldCreds []access.Credential
-	_ = json.Unmarshal(row.Credentials, &oldCreds)
+	if unmarshalErr := json.Unmarshal(row.Credentials, &oldCreds); unmarshalErr != nil {
+		slog.Warn("failed to unmarshal old credentials for audit diff", "accessItemId", id, "err", unmarshalErr)
+	}
 
 	if req.Label != nil {
 		row.Label = *req.Label
@@ -190,7 +193,9 @@ func (s *Service) UpdateAccessItem(id string, req api.UpdateAccessItemRequest) (
 	}
 
 	// Upsert: insert if new override, update if existing.
-	if existingRow, _ := s.db.GetAccessItem(id); existingRow != nil {
+	if existingRow, getErr := s.db.GetAccessItem(id); getErr != nil {
+		slog.Warn("failed to check existing access item for upsert", "accessItemId", id, "err", getErr)
+	} else if existingRow != nil {
 		if err := s.db.UpdateAccessItem(*row); err != nil {
 			return nil, err
 		}
@@ -238,7 +243,9 @@ func (s *Service) DeleteAccessItem(id string) error {
 
 	// Fetch label before deleting so the audit message is descriptive.
 	label := id
-	if row, _ := s.db.GetAccessItem(id); row != nil {
+	if row, getErr := s.db.GetAccessItem(id); getErr != nil {
+		slog.Warn("failed to fetch access item label for audit", "accessItemId", id, "err", getErr)
+	} else if row != nil {
 		label = row.Label
 	}
 
