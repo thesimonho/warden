@@ -31,13 +31,13 @@ container/scripts/
 
 The Dockerfile calls each install script as a separate `RUN` instruction for layer caching. The devcontainer feature path calls `install-tools.sh` which orchestrates all sub-scripts in order.
 
-| Script | Layer | Changes when... |
-|--------|-------|-----------------|
-| `install-system-deps.sh` | 1 | New system packages added |
-| `install-user.sh` | 2 | User setup or env forwarding changes |
-| `install-claude.sh` | 3 | Claude CLI releases or hook config changes |
-| `install-codex.sh` | 4 | Codex CLI releases |
-| `install-warden.sh` | 5 | Any Warden script changes (most frequent) |
+| Script                   | Layer | Changes when...                            |
+| ------------------------ | ----- | ------------------------------------------ |
+| `install-system-deps.sh` | 1     | New system packages added                  |
+| `install-user.sh`        | 2     | User setup or env forwarding changes       |
+| `install-claude.sh`      | 3     | Claude CLI releases or hook config changes |
+| `install-codex.sh`       | 4     | Codex CLI releases                         |
+| `install-warden.sh`      | 5     | Any Warden script changes (most frequent)  |
 
 ## Terminal Lifecycle
 
@@ -45,18 +45,19 @@ The Dockerfile calls each install script as a separate `RUN` instruction for lay
 
 Accepts `<worktree-id> [--skip-permissions]`. Branches on `WARDEN_AGENT_TYPE` env var:
 
+- **Auto-resume detection**: before building the agent command, checks if `exit_code` exists (from a prior session) and JSONL session files are present. If so, appends `--continue` (claude-code) or uses `codex resume --last` (codex) to resume the previous conversation.
 - **claude-code** (default): launches `claude --worktree <id>` in `.claude/worktrees/<id>/` (Claude manages worktrees natively). Adds `--dangerously-skip-permissions` if requested.
 - **codex**: creates the git worktree manually (`git worktree add`) in `.warden/worktrees/<id>/` if it doesn't exist, with fallback to use existing branch if worktree creation fails, then launches `codex --no-alt-screen` in the worktree directory (the `--no-alt-screen` flag disables alternate screen mode so terminal scrollback is preserved). Adds `--dangerously-bypass-approvals-and-sandbox` if skip-permissions is requested.
 
-When the agent exits: records exit code, pushes `session_exit` event, drops to `exec bash`.
+Unsets `TMUX` env var in the inner script so agents don't detect they're inside tmux. When the agent exits: records exit code, pushes `session_exit` event, drops to `exec bash`.
 
 ### disconnect-terminal.sh
 
-Pushes `terminal_disconnected` event. Removes terminal tracking state. Tmux session continues running.
+Pushes `terminal_disconnected` event. Tmux session continues running.
 
 ### kill-worktree.sh
 
-Kills the tmux session for a worktree. Pushes `process_killed` event. Removes all terminal tracking state.
+Writes `exit_code=137` if not already present (for auto-resume on reconnect), then kills the tmux session. Pushes `process_killed` event. Cleans up stale tracking files but preserves exit_code.
 
 ## Event Scripts
 
