@@ -367,7 +367,6 @@ export default function HomePage() {
         onProjectAdded={refetch}
         editProjectId={editTarget?.projectId}
         editAgentType={editTarget?.agentType}
-        editIsRunning={editTarget?.state === 'running'}
       />
 
       <AddProjectDialog
