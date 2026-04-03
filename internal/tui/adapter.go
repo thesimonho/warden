@@ -289,7 +289,7 @@ func (a *ServiceAdapter) AttachTerminal(ctx context.Context, projectID, worktree
 
 	sessionName := fmt.Sprintf("warden-%s", worktreeID)
 	execResp, err := dockerAPI.ContainerExecCreate(ctx, projectID, container.ExecOptions{
-		Cmd:          []string{"tmux", "attach-session", "-t", sessionName},
+		Cmd:          []string{"tmux", "-u", "attach-session", "-t", sessionName},
 		User:         containerUser,
 		Env:          []string{"TERM=xterm-256color"},
 		AttachStdin:  true,

@@ -156,7 +156,7 @@ chmod +x "$INNER_SCRIPT"
 # -------------------------------------------------------------------
 SESSION_NAME="warden-${WORKTREE_ID}"
 
-bash -lc "tmux new-session -d -s '${SESSION_NAME}' -x 200 -y 50 bash '${INNER_SCRIPT}'"
+bash -lc "tmux -u new-session -d -s '${SESSION_NAME}' -x 200 -y 50 bash '${INNER_SCRIPT}'"
 
 # Configure session for embedded use.
 # window-size=latest: resize to the most recently attached client's

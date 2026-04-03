@@ -97,7 +97,7 @@ func (p *Proxy) ServeWS(w http.ResponseWriter, r *http.Request, containerID, wor
 	// Create a docker exec with TTY that attaches to the tmux session.
 	// tmux attach-session is the viewer — killing it won't affect the server session.
 	execResp, err := p.api.ContainerExecCreate(ctx, containerID, container.ExecOptions{
-		Cmd:          []string{"tmux", "attach-session", "-t", sessionName},
+		Cmd:          []string{"tmux", "-u", "attach-session", "-t", sessionName},
 		User:         containerUser,
 		Env:          []string{"TERM=xterm-256color"},
 		AttachStdin:  true,
@@ -265,7 +265,7 @@ func (p *Proxy) captureScrollback(ctx context.Context, containerID, sessionName 
 	defer cancel()
 
 	execResp, err := p.api.ContainerExecCreate(ctx, containerID, container.ExecOptions{
-		Cmd:          []string{"tmux", "capture-pane", "-t", sessionName, "-p", "-S", "-50000"},
+		Cmd:          []string{"tmux", "-u", "capture-pane", "-t", sessionName, "-p", "-S", "-50000"},
 		User:         containerUser,
 		AttachStdout: true,
 		Tty:          true,
