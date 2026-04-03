@@ -169,6 +169,12 @@ func (s *Service) UpdateAccessItem(id string, req api.UpdateAccessItemRequest) (
 		}
 	}
 
+	// Capture pre-update state for audit diff.
+	oldLabel := row.Label
+	oldDescription := row.Description
+	var oldCreds []access.Credential
+	_ = json.Unmarshal(row.Credentials, &oldCreds)
+
 	if req.Label != nil {
 		row.Label = *req.Label
 	}
@@ -202,22 +208,22 @@ func (s *Service) UpdateAccessItem(id string, req api.UpdateAccessItemRequest) (
 		item.BuiltIn = true
 	}
 
-	var changedFields []string
+	changes := make(map[string]any)
 	if req.Label != nil {
-		changedFields = append(changedFields, "label")
+		changes["label"] = map[string]string{"old": oldLabel, "new": *req.Label}
 	}
 	if req.Description != nil {
-		changedFields = append(changedFields, "description")
+		changes["description"] = map[string]string{"old": oldDescription, "new": *req.Description}
 	}
 	if req.Credentials != nil {
-		changedFields = append(changedFields, "credentials")
+		changes["credentials"] = map[string]any{"old": oldCreds, "new": *req.Credentials}
 	}
 	s.audit.Write(db.Entry{
 		Source:  db.SourceBackend,
 		Level:   db.LevelInfo,
 		Event:   "access_item_updated",
 		Message: fmt.Sprintf("access item %q updated", row.Label),
-		Attrs:   map[string]any{"accessItemId": id, "builtIn": access.IsBuiltInID(id), "changedFields": changedFields},
+		Attrs:   map[string]any{"accessItemId": id, "builtIn": access.IsBuiltInID(id), "changes": changes},
 	})
 
 	return &item, nil

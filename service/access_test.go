@@ -353,7 +353,7 @@ func TestAccessItemCRUD_WritesAuditEntries(t *testing.T) {
 		t.Errorf("expected 2 access_item_updated events, got %d", eventCounts["access_item_updated"])
 	}
 
-	// Verify changedFields is populated on update events.
+	// Verify changes map is populated on update events with old/new values.
 	for _, e := range entries {
 		if e.Event == "access_item_updated" {
 			attrs := e.Attrs
@@ -361,8 +361,19 @@ func TestAccessItemCRUD_WritesAuditEntries(t *testing.T) {
 				t.Error("expected attrs on access_item_updated event")
 				continue
 			}
-			if _, ok := attrs["changedFields"]; !ok {
-				t.Error("expected changedFields in attrs")
+			changes, ok := attrs["changes"]
+			if !ok {
+				t.Error("expected changes in attrs")
+				continue
+			}
+			changesMap, ok := changes.(map[string]any)
+			if !ok {
+				t.Errorf("expected changes to be map, got %T", changes)
+				continue
+			}
+			// At least one field should have old/new values.
+			if len(changesMap) == 0 {
+				t.Error("expected at least one changed field in changes map")
 			}
 		}
 	}
