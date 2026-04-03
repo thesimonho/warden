@@ -3,7 +3,6 @@ import {
   FolderOpen,
   GitBranch,
   Info,
-  Plug,
   Plus,
   RefreshCw,
   Square,
@@ -11,7 +10,6 @@ import {
   Unplug,
 } from 'lucide-react'
 import { toast } from 'sonner'
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import {
   ContextMenu,
   ContextMenuContent,
