@@ -60,7 +60,7 @@ if [ -f "${TERMINAL_DIR}/exit_code" ]; then
       fi
       ;;
     codex)
-      if ls ~/.codex/sessions/*/*/*.jsonl 1>/dev/null 2>&1; then
+      if ls ~/.codex/sessions/*/*/*/*.jsonl 1>/dev/null 2>&1; then
         RESUME_FLAG="resume --last"
       fi
       ;;
