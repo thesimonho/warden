@@ -159,6 +159,7 @@ func (ec *EngineClient) isSessionAlive(ctx context.Context, containerID, worktre
 	sessionName := fmt.Sprintf("warden-%s", worktreeID)
 	output, err := ec.execAndCapture(ctx, containerID, container.ExecOptions{
 		Cmd:          []string{"sh", "-c", fmt.Sprintf(`tmux has-session -t "%s" 2>/dev/null && echo 1 || echo 0`, sessionName)},
+		User:         ContainerUser,
 		AttachStdout: true,
 		AttachStderr: true,
 	})
@@ -401,6 +402,7 @@ func (ec *EngineClient) enrichWorktreeState(ctx context.Context, containerID str
 
 	batchOutput, err := ec.execAndCapture(ctx, containerID, container.ExecOptions{
 		Cmd:          []string{"sh", "-c", strings.Join(cmdParts, " ; ")},
+		User:         ContainerUser,
 		AttachStdout: true,
 		AttachStderr: true,
 	})
@@ -612,6 +614,7 @@ func (ec *EngineClient) cleanupStaleTerminals(ctx context.Context, containerID s
 	)
 	output, err := ec.execAndCapture(ctx, containerID, container.ExecOptions{
 		Cmd:          []string{"sh", "-c", cmd},
+		User:         ContainerUser,
 		AttachStdout: true,
 		AttachStderr: true,
 	})
@@ -742,6 +745,7 @@ func (ec *EngineClient) KillWorktreeProcess(ctx context.Context, containerID, wo
 
 	_, err := ec.execAndCaptureStrict(ctx, containerID, container.ExecOptions{
 		Cmd:          []string{killWorktreeScript, worktreeID},
+		User:         ContainerUser,
 		AttachStdout: true,
 		AttachStderr: true,
 	})
