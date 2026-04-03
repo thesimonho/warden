@@ -1,7 +1,6 @@
 package engine
 
 import (
-	"archive/tar"
 	"bytes"
 	"context"
 	"fmt"
@@ -34,29 +33,25 @@ func ContainerWorkspaceDir(projectName string) string {
 	return ContainerHomeDir + "/" + projectName
 }
 
-// EngineClient wraps the Docker/Podman Engine SDK client for container operations.
+// EngineClient wraps the Docker Engine SDK client for container operations.
 type EngineClient struct {
 	api                client.APIClient
 	agentRegistry      *agent.Registry
-	runtimeName        string   // "docker" or "podman"
 	eventBaseDir       string   // host-side base directory for event files
-	seccompProfilePath string   // host-side path to the seccomp JSON profile file (Podman)
-	seccompProfileJSON string   // inline seccomp profile JSON (Docker)
+	seccompProfileJSON string   // inline seccomp profile JSON for SecurityOpt
 	gitRepoCache       sync.Map // containerID -> bool, cached per container lifetime
 	workspaceDirCache  sync.Map // containerID -> string, cached workspace dir
 	agentTypeCache     sync.Map // containerID -> string, cached agent type (immutable per container)
 }
 
 // NewClient creates an EngineClient using the given socket path.
-// The runtimeName ("docker" or "podman") determines runtime-specific
-// container configuration (e.g. --userns=keep-id for Podman).
 // The registry maps agent type names to StatusProvider implementations.
 // When socketPath is empty, falls back to client.FromEnv (default Docker behavior).
 //
 // The socketPath can be an absolute Unix path (/var/run/docker.sock),
 // a Windows named pipe (//./pipe/docker_engine), or a URI with scheme
 // (unix://, npipe://, tcp://).
-func NewClient(socketPath string, runtimeName string, registry *agent.Registry) (*EngineClient, error) {
+func NewClient(socketPath string, registry *agent.Registry) (*EngineClient, error) {
 	opts := []client.Opt{client.WithAPIVersionNegotiation()}
 	if socketPath != "" {
 		opts = append(opts, client.WithHost(cruntime.SocketHost(socketPath)))
@@ -71,11 +66,10 @@ func NewClient(socketPath string, runtimeName string, registry *agent.Registry) 
 	return &EngineClient{
 		api:           cli,
 		agentRegistry: registry,
-		runtimeName:   runtimeName,
 	}, nil
 }
 
-// APIClient returns the underlying Docker/Podman API client.
+// APIClient returns the underlying Docker API client.
 // Used by the terminal proxy to create exec sessions with TTY mode.
 func (ec *EngineClient) APIClient() client.APIClient {
 	return ec.api
@@ -98,11 +92,9 @@ func (ec *EngineClient) CleanupEventDir(containerName string) {
 	_ = os.RemoveAll(dir)
 }
 
-// SetSeccompProfile configures the seccomp profile for new containers.
-// Docker's API requires inline JSON in SecurityOpt, while Podman requires
-// a file path (inline JSON triggers "file name too long" errors).
-func (ec *EngineClient) SetSeccompProfile(filePath string, profileJSON string) {
-	ec.seccompProfilePath = filePath
+// SetSeccompProfile configures the inline seccomp profile JSON for new
+// containers. Docker's API applies it via SecurityOpt.
+func (ec *EngineClient) SetSeccompProfile(profileJSON string) {
 	ec.seccompProfileJSON = profileJSON
 }
 
@@ -259,8 +251,7 @@ func (ec *EngineClient) resolveWorkspaceDir(ctx context.Context, containerID str
 
 	// Fallback for discovered/legacy containers: find the workspace bind mount.
 	// Check for /home/warden/<name> pattern first, then /project.
-	// Checks both HostConfig.Binds (Docker) and Mounts (Podman) since
-	// Podman may populate only the Mounts field.
+	// Checks HostConfig.Binds first, then falls back to Mounts for legacy containers.
 	name := strings.TrimPrefix(info.Name, "/")
 	expectedPath := ContainerWorkspaceDir(name)
 
@@ -287,7 +278,7 @@ func (ec *EngineClient) resolveWorkspaceDir(ctx context.Context, containerID str
 		}
 	}
 
-	// Podman populates Mounts instead of HostConfig.Binds.
+	// Fallback: check Mounts field for legacy/discovered containers.
 	for _, m := range info.Mounts {
 		if m.Destination == expectedPath {
 			return expectedPath
@@ -485,29 +476,50 @@ func (ec *EngineClient) execAndCaptureStrict(ctx context.Context, containerID st
 	return stdout.String(), nil
 }
 
-// CopyFileToContainer writes a single file into a running container by creating
-// a tar archive and extracting it at destDir. Both Docker and Podman support
-// the container archive API used here.
-func (ec *EngineClient) CopyFileToContainer(ctx context.Context, containerID, destDir, filename string, content io.Reader, size int64) error {
-	var buf bytes.Buffer
-	tw := tar.NewWriter(&buf)
+// CopyFileToContainer writes a single file into a running container via exec.
+// Creates intermediate directories if needed. Runs as the container user so
+// file ownership is correct for the agent process.
+func (ec *EngineClient) CopyFileToContainer(ctx context.Context, containerID, destDir, filename string, content io.Reader, _ int64) error {
+	destPath := filepath.Join(destDir, filename)
 
-	header := &tar.Header{
-		Name: filename,
-		Mode: 0644,
-		Size: size,
-	}
-	if err := tw.WriteHeader(header); err != nil {
-		return fmt.Errorf("writing tar header: %w", err)
-	}
-	if _, err := io.Copy(tw, content); err != nil {
-		return fmt.Errorf("writing tar content: %w", err)
-	}
-	if err := tw.Close(); err != nil {
-		return fmt.Errorf("closing tar writer: %w", err)
+	// Pass the path via a positional parameter ($1) to avoid shell injection.
+	// The sh -c '...' _ "$destPath" idiom assigns $1 safely without interpolation.
+	resp, err := ec.api.ContainerExecCreate(ctx, containerID, container.ExecOptions{
+		Cmd:          []string{"sh", "-c", `mkdir -p "$(dirname "$1")" && cat > "$1"`, "_", destPath},
+		AttachStdin:  true,
+		AttachStdout: true,
+		AttachStderr: true,
+		User:         ContainerUser,
+	})
+	if err != nil {
+		return fmt.Errorf("creating exec for file copy: %w", err)
 	}
 
-	return ec.api.CopyToContainer(ctx, containerID, destDir, &buf, container.CopyToContainerOptions{})
+	hijacked, err := ec.api.ContainerExecAttach(ctx, resp.ID, container.ExecAttachOptions{})
+	if err != nil {
+		return fmt.Errorf("attaching to exec for file copy: %w", err)
+	}
+	defer hijacked.Close()
+
+	// Write content to stdin, then close to signal EOF.
+	if _, err := io.Copy(hijacked.Conn, content); err != nil {
+		return fmt.Errorf("writing file content to container: %w", err)
+	}
+	hijacked.CloseWrite()
+
+	// Drain output to allow the exec to finish.
+	_, _ = io.Copy(io.Discard, hijacked.Reader)
+
+	// Check exit code.
+	inspect, err := ec.api.ContainerExecInspect(ctx, resp.ID)
+	if err != nil {
+		return fmt.Errorf("inspecting exec result: %w", err)
+	}
+	if inspect.ExitCode != 0 {
+		return fmt.Errorf("file copy exec exited with status %d", inspect.ExitCode)
+	}
+
+	return nil
 }
 
 // requiredBinaries lists the executables that must be present inside a container
@@ -608,7 +620,6 @@ func (ec *EngineClient) validateMountSources(ctx context.Context, id string, ori
 	}
 
 	// Parse current binds into mounts for comparison.
-	// Check both HostConfig.Binds (Docker) and Mounts (Podman).
 	// Skip Warden-managed mounts (workspace dir, event dir) — these are
 	// created fresh by Warden and should not be compared against the
 	// user-configured original mounts stored in the DB.
@@ -638,7 +649,7 @@ func (ec *EngineClient) validateMountSources(ctx context.Context, id string, ori
 		}
 	}
 
-	// Podman populates Mounts instead of HostConfig.Binds.
+	// Fallback: check Mounts field for legacy/discovered containers.
 	if len(currentMounts) == 0 {
 		for _, m := range info.Mounts {
 			if isWardenManaged(m.Destination) {
@@ -702,7 +713,7 @@ func (ec *EngineClient) ContainerStartupHealth(ctx context.Context, containerNam
 	// StdCopy demuxes into a single buffer for clean log output.
 	var buf bytes.Buffer
 	if _, copyErr := stdcopy.StdCopy(&buf, &buf, logReader); copyErr != nil {
-		// Fallback: read raw (Podman doesn't always use the multiplexed format).
+		// Fallback: read raw if the multiplexed stream cannot be demuxed.
 		_, _ = io.Copy(&buf, logReader)
 	}
 	health.LogTail = buf.String()

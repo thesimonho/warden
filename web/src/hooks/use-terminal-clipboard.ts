@@ -23,6 +23,39 @@ import { uploadClipboardImage } from '@/lib/api'
 /** Shared encoder — avoids allocation per clipboard operation. */
 const textEncoder = new TextEncoder()
 
+/**
+ * Converts an image blob to PNG using an offscreen canvas. Both Claude Code
+ * and Codex request `image/png` from xclip, so all staged images must be PNG
+ * regardless of the source format (JPEG, WebP, GIF, BMP, etc.).
+ */
+function convertToPng(blob: Blob): Promise<Blob> {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(blob)
+    const img = new Image()
+    img.onload = () => {
+      URL.revokeObjectURL(url)
+      const canvas = document.createElement('canvas')
+      canvas.width = img.naturalWidth
+      canvas.height = img.naturalHeight
+      const ctx = canvas.getContext('2d')
+      if (!ctx) {
+        reject(new Error('Failed to get canvas context'))
+        return
+      }
+      ctx.drawImage(img, 0, 0)
+      canvas.toBlob(
+        (png) => (png ? resolve(png) : reject(new Error('PNG conversion failed'))),
+        'image/png',
+      )
+    }
+    img.onerror = () => {
+      URL.revokeObjectURL(url)
+      reject(new Error('Failed to load image for conversion'))
+    }
+    img.src = url
+  })
+}
+
 /** CSI u encoding for Ctrl+Shift+C (codepoint 99, modifier 6 = ctrl+shift+1). */
 const CSI_CTRL_SHIFT_C = '\x1b[99;6u'
 
@@ -128,23 +161,84 @@ export function useTerminalClipboard({
 
   /**
    * Uploads a clipboard image to the container's xclip staging directory,
-   * then sends Ctrl+V to the PTY so the agent reads it via the xclip shim.
+   * then triggers the agent to read it. Non-PNG images are converted to PNG
+   * first since both Claude Code and Codex expect PNG.
+   *
+   * Agent-specific behavior:
+   * - **Claude Code**: sends Ctrl+V so the agent reads via the xclip shim
+   * - **Codex**: pastes the staged file path as text, since Codex uses
+   *   arboard (native X11/Wayland) instead of xclip and the container has
+   *   no display server. Codex's `normalize_pasted_path` picks up the path.
    */
   const pasteImage = useCallback(
     async (blob: Blob) => {
       try {
-        await uploadClipboardImage(projectId, agentType, blob)
-        sendToPty(CTRL_V_BYTE)
+        const png = blob.type === 'image/png' ? blob : await convertToPng(blob)
+        const stagedPath = await uploadClipboardImage(projectId, agentType, png)
+        if (agentType === 'codex') {
+          terminalRef.current?.paste(stagedPath)
+        } else {
+          sendToPty(CTRL_V_BYTE)
+        }
       } catch {
         toast.error('Failed to upload image')
       }
     },
-    [projectId, agentType, sendToPty],
+    [projectId, agentType, sendToPty, terminalRef],
   )
 
   /**
-   * Reads image data from the browser clipboard and uploads it to the
-   * container. Used by both the Ctrl+V key handler and context menu.
+   * Handles a native paste event, checking clipboardData for image content.
+   * More reliable than `navigator.clipboard.read()` which fails to expose
+   * image types on Linux. Must be called synchronously from a paste event
+   * handler so `preventDefault` takes effect before the event is consumed.
+   */
+  const handlePasteEvent = useCallback(
+    (event: ClipboardEvent): void => {
+      const items = event.clipboardData?.items
+      if (!items) return
+
+      for (const item of items) {
+        if (item.type.startsWith('image/')) {
+          const blob = item.getAsFile()
+          if (blob) {
+            event.preventDefault()
+            event.stopPropagation()
+            pasteImage(blob).catch(() => {})
+            return
+          }
+        }
+      }
+    },
+    [pasteImage],
+  )
+
+  /**
+   * Handles a drop event, uploading the first image file found in the
+   * drag payload to the container's xclip staging directory.
+   */
+  const handleDropEvent = useCallback(
+    (event: DragEvent): void => {
+      const files = event.dataTransfer?.files
+      if (!files) return
+
+      for (const file of files) {
+        if (file.type.startsWith('image/')) {
+          event.preventDefault()
+          event.stopPropagation()
+          pasteImage(file).catch(() => {})
+          return
+        }
+      }
+    },
+    [pasteImage],
+  )
+
+  /**
+   * Reads image data from the browser clipboard via the async Clipboard API.
+   * Used by the context menu "Paste Image" action where no native paste event
+   * is available. Falls back to a toast suggesting Ctrl+V on failure, since
+   * `navigator.clipboard.read()` is unreliable on Linux.
    *
    * @returns true if an image was found and uploaded.
    */
@@ -159,8 +253,9 @@ export function useTerminalClipboard({
           return true
         }
       }
+      toast.error('No image found in clipboard. Try Ctrl+V instead.')
     } catch {
-      // Clipboard read denied or failed.
+      toast.error('Clipboard access denied. Try Ctrl+V instead.')
     }
     return false
   }, [pasteImage])
@@ -242,6 +337,8 @@ export function useTerminalClipboard({
   return {
     copySelection,
     pasteText,
+    handlePasteEvent,
+    handleDropEvent,
     pasteImageFromClipboard,
     selectAll,
     registerOsc52Handler,

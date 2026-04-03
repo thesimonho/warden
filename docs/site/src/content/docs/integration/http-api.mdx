@@ -40,6 +40,7 @@ The server exposes all endpoints under `/api/v1/`. See the [API Reference](../..
     response = requests.get("http://localhost:8090/api/v1/projects")
     projects = response.json()
     ```
+
   </TabItem>
   <TabItem label="Go">
     ```go
@@ -52,6 +53,7 @@ The server exposes all endpoints under `/api/v1/`. See the [API Reference](../..
     var projects []Project
     json.NewDecoder(resp.Body).Decode(&projects)
     ```
+
   </TabItem>
 </Tabs>
 
@@ -95,6 +97,7 @@ The request body accepts an optional `agentType` field (`"claude-code"` or `"cod
     )
     result = response.json()
     ```
+
   </TabItem>
   <TabItem label="Go">
     ```go
@@ -117,6 +120,7 @@ The request body accepts an optional `agentType` field (`"claude-code"` or `"cod
     var result ProjectResult
     json.NewDecoder(resp.Body).Decode(&result)
     ```
+
   </TabItem>
 </Tabs>
 
@@ -202,6 +206,7 @@ Subscribe to `GET /api/v1/events` for real-time updates:
       console.log(`Project ${data.projectId}: cost=${data.totalCost}, needsInput=${data.needsInput}`);
     });
     ```
+
   </TabItem>
   <TabItem label="Python">
     ```python
@@ -217,6 +222,7 @@ Subscribe to `GET /api/v1/events` for real-time updates:
     for event in client.events():
         print(f"{event.event}: {event.data}")
     ```
+
   </TabItem>
   <TabItem label="Go">
     ```go
@@ -233,6 +239,7 @@ Subscribe to `GET /api/v1/events` for real-time updates:
         fmt.Println(line)
     }
     ```
+
   </TabItem>
 </Tabs>
 
@@ -240,9 +247,9 @@ Events include `worktree_state` (attention/terminal state changes per worktree),
 
 ## Clipboard operations
 
-### Image paste
+### Image paste and drag-and-drop
 
-Upload an image to the container's clipboard staging directory for agent use:
+Upload an image to the container's clipboard staging directory for agent use. Images can be pasted (Ctrl+V) or dragged and dropped onto the terminal. Non-PNG images are auto-converted to PNG before staging (both Claude Code and Codex expect PNG).
 
 ```
 POST /api/v1/projects/{projectId}/{agentType}/clipboard
@@ -255,13 +262,16 @@ Returns:
 
 ```json
 {
-  "path": "/tmp/warden-clipboard/paste-1234567890.png"
+	"path": "/tmp/warden-clipboard/paste-1234567890.png"
 }
 ```
 
-The web terminal uses this for image paste (Ctrl+V) — it uploads the image, stages it in the container, then sends Ctrl+V to the terminal so the agent's clipboard read picks it up via the xclip shim. Maximum upload size is 10 MB.
+Image paste uses native paste events (not the async Clipboard API) for reliability on Linux. After uploading, the frontend triggers agent-specific behavior:
 
-**Note**: The xclip shim is transparently injected into containers for clipboard integration. When the agent reads the clipboard via `xclip`, the shim returns staged images. For non-image clipboard operations, the shim passes through to the real xclip binary.
+- **Claude Code** — sends Ctrl+V to the terminal. Claude calls `xclip` to read the clipboard, and the xclip shim (transparently injected into containers) returns the staged image.
+- **Codex** — sends the staged file path as text input to the terminal. Codex uses arboard for clipboard access, which requires X11 (not available in containers), so the file path is passed directly instead.
+
+Maximum upload size is 10 MB. The xclip shim passes through to the real xclip binary for non-image clipboard operations.
 
 ### OSC 52 clipboard
 
@@ -298,7 +308,7 @@ The terminal WebSocket at `/api/v1/projects/{projectId}/{agentType}/ws/{wid}` us
 - **Binary frames**: raw PTY data (stdin input / stdout output)
 - **Text frames**: JSON control messages — currently only resize:
   ```json
-  {"type": "resize", "cols": 80, "rows": 24}
+  { "type": "resize", "cols": 80, "rows": 24 }
   ```
 
 ## Error handling
@@ -328,6 +338,7 @@ All error responses include a machine-readable `code` field you can match on ins
       // error.code is a machine-readable string like "NAME_TAKEN"
     }
     ```
+
   </TabItem>
   <TabItem label="Python">
     ```python
@@ -341,6 +352,7 @@ All error responses include a machine-readable `code` field you can match on ins
         print(f"{error['code']}: {error['error']}")
         # error["code"] is a machine-readable string like "NAME_TAKEN"
     ```
+
   </TabItem>
   <TabItem label="Go">
     ```go
@@ -359,20 +371,20 @@ All error responses include a machine-readable `code` field you can match on ins
 
 ### Error codes
 
-| Code | HTTP Status | Meaning |
-| ---- | ----------- | ------- |
-| `INVALID_BODY` | 400 | Request body is invalid or malformed JSON |
-| `INVALID_CONTAINER_ID` | 400 | Container ID format is invalid |
-| `INVALID_CONTAINER_NAME` | 400 | Container name format is invalid |
-| `INVALID_WORKTREE_ID` | 400 | Worktree ID format is invalid |
-| `INVALID_WORKTREE_NAME` | 400 | Worktree name violates git branch naming rules |
-| `REQUIRED_FIELD` | 400 | A required field is missing |
-| `INVALID_PATH` | 400 | File path is invalid or unsafe |
-| `INVALID_NETWORK_CONFIG` | 400 | Network mode or domain configuration is invalid |
-| `NOT_A_DIRECTORY` | 400 | Expected a directory but got a file |
-| `NOT_FOUND` | 404 | Resource (container, worktree, project) does not exist |
-| `BUDGET_EXCEEDED` | 403 | Project cost budget exceeded (restart blocked) |
-| `NAME_TAKEN` | 409 | Container or project name is already in use |
-| `STALE_MOUNTS` | 409 | Container bind mounts reference missing host paths |
-| `NOT_CONFIGURED` | 503 | Required infrastructure is not available (Docker/Podman not running) |
-| `INTERNAL` | 500 | Unexpected server error |
+| Code                     | HTTP Status | Meaning                                                              |
+| ------------------------ | ----------- | -------------------------------------------------------------------- |
+| `INVALID_BODY`           | 400         | Request body is invalid or malformed JSON                            |
+| `INVALID_CONTAINER_ID`   | 400         | Container ID format is invalid                                       |
+| `INVALID_CONTAINER_NAME` | 400         | Container name format is invalid                                     |
+| `INVALID_WORKTREE_ID`    | 400         | Worktree ID format is invalid                                        |
+| `INVALID_WORKTREE_NAME`  | 400         | Worktree name violates git branch naming rules                       |
+| `REQUIRED_FIELD`         | 400         | A required field is missing                                          |
+| `INVALID_PATH`           | 400         | File path is invalid or unsafe                                       |
+| `INVALID_NETWORK_CONFIG` | 400         | Network mode or domain configuration is invalid                      |
+| `NOT_A_DIRECTORY`        | 400         | Expected a directory but got a file                                  |
+| `NOT_FOUND`              | 404         | Resource (container, worktree, project) does not exist               |
+| `BUDGET_EXCEEDED`        | 403         | Project cost budget exceeded (restart blocked)                       |
+| `NAME_TAKEN`             | 409         | Container or project name is already in use                          |
+| `STALE_MOUNTS`           | 409         | Container bind mounts reference missing host paths                   |
+| `NOT_CONFIGURED`         | 503         | Required infrastructure is not available (Docker/Podman not running) |
+| `INTERNAL`               | 500         | Unexpected server error                                              |

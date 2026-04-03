@@ -249,7 +249,7 @@ type Client interface {
 	ContainerStartupHealth(ctx context.Context, containerName string) (*ContainerHealth, error)
 
 	// CopyFileToContainer writes a single file into a running container.
-	// The file is packaged as a tar archive and extracted at destDir.
+	// Uses exec+stdin (sh -c 'cat > file') instead of the Docker tar archive API.
 	// Used by the clipboard upload feature to stage images for the xclip shim.
 	CopyFileToContainer(ctx context.Context, containerID, destDir, filename string, content io.Reader, size int64) error
 }
