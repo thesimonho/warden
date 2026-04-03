@@ -129,6 +129,15 @@ func (s *Service) CreateAccessItem(req api.CreateAccessItemRequest) (*access.Ite
 	if err != nil {
 		return nil, err
 	}
+
+	s.audit.Write(db.Entry{
+		Source:  db.SourceBackend,
+		Level:   db.LevelInfo,
+		Event:   "access_item_created",
+		Message: fmt.Sprintf("access item %q created", req.Label),
+		Attrs:   map[string]any{"accessItemId": id},
+	})
+
 	return &item, nil
 }
 
@@ -192,6 +201,15 @@ func (s *Service) UpdateAccessItem(id string, req api.UpdateAccessItemRequest) (
 	if access.IsBuiltInID(id) {
 		item.BuiltIn = true
 	}
+
+	s.audit.Write(db.Entry{
+		Source:  db.SourceBackend,
+		Level:   db.LevelInfo,
+		Event:   "access_item_updated",
+		Message: fmt.Sprintf("access item %q updated", row.Label),
+		Attrs:   map[string]any{"accessItemId": id, "builtIn": access.IsBuiltInID(id)},
+	})
+
 	return &item, nil
 }
 
@@ -201,7 +219,19 @@ func (s *Service) DeleteAccessItem(id string) error {
 	if access.IsBuiltInID(id) {
 		return fmt.Errorf("%w: cannot delete built-in access item (use reset instead)", ErrInvalidInput)
 	}
-	return s.db.DeleteAccessItem(id)
+	if err := s.db.DeleteAccessItem(id); err != nil {
+		return err
+	}
+
+	s.audit.Write(db.Entry{
+		Source:  db.SourceBackend,
+		Level:   db.LevelInfo,
+		Event:   "access_item_deleted",
+		Message: fmt.Sprintf("access item %q deleted", id),
+		Attrs:   map[string]any{"accessItemId": id},
+	})
+
+	return nil
 }
 
 // ResetAccessItem restores a built-in access item to its default by
@@ -217,6 +247,15 @@ func (s *Service) ResetAccessItem(id string) (*access.Item, error) {
 	}
 
 	builtIn := access.BuiltInItemByID(id)
+
+	s.audit.Write(db.Entry{
+		Source:  db.SourceBackend,
+		Level:   db.LevelInfo,
+		Event:   "access_item_reset",
+		Message: fmt.Sprintf("access item %q reset to default", builtIn.Label),
+		Attrs:   map[string]any{"accessItemId": id},
+	})
+
 	return builtIn, nil
 }
 

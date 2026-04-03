@@ -5,6 +5,7 @@ import (
 
 	"github.com/thesimonho/warden/access"
 	"github.com/thesimonho/warden/api"
+	"github.com/thesimonho/warden/db"
 )
 
 func TestListAccessItems_IncludesBuiltIns(t *testing.T) {
@@ -292,5 +293,69 @@ func TestResolveAccessItems_UserItem(t *testing.T) {
 	}
 	if cred.Injections[0].Value != "secret123" {
 		t.Errorf("expected 'secret123', got %q", cred.Injections[0].Value)
+	}
+}
+
+func TestAccessItemCRUD_WritesAuditEntries(t *testing.T) {
+	t.Parallel()
+
+	store := testDB(t)
+	audit := db.NewAuditWriter(store, db.AuditStandard, StandardAuditEvents())
+	svc := New(ServiceDeps{Engine: &mockEngine{}, DB: store, Audit: audit})
+
+	// Create — should write access_item_created.
+	item, err := svc.CreateAccessItem(api.CreateAccessItemRequest{
+		Label:       "Audit Test",
+		Credentials: []access.Credential{{Label: "t", Sources: []access.Source{{Type: access.SourceEnvVar, Value: "X"}}, Injections: []access.Injection{{Type: access.InjectionEnvVar, Key: "X"}}}},
+	})
+	if err != nil {
+		t.Fatalf("create error: %v", err)
+	}
+
+	// Update — should write access_item_updated.
+	newLabel := "Audit Test Updated"
+	_, err = svc.UpdateAccessItem(item.ID, api.UpdateAccessItemRequest{Label: &newLabel})
+	if err != nil {
+		t.Fatalf("update error: %v", err)
+	}
+
+	// Delete — should write access_item_deleted.
+	if err := svc.DeleteAccessItem(item.ID); err != nil {
+		t.Fatalf("delete error: %v", err)
+	}
+
+	// Reset built-in — should write access_item_reset.
+	newDesc := "Custom"
+	_, err = svc.UpdateAccessItem(access.BuiltInIDGit, api.UpdateAccessItemRequest{Description: &newDesc})
+	if err != nil {
+		t.Fatalf("update built-in error: %v", err)
+	}
+	_, err = svc.ResetAccessItem(access.BuiltInIDGit)
+	if err != nil {
+		t.Fatalf("reset error: %v", err)
+	}
+
+	// Query audit log for system events.
+	entries, err := svc.GetAuditLog(api.AuditFilters{Category: api.AuditCategorySystem})
+	if err != nil {
+		t.Fatalf("GetAuditLog error: %v", err)
+	}
+
+	eventCounts := make(map[string]int)
+	for _, e := range entries {
+		eventCounts[e.Event]++
+	}
+
+	if eventCounts["access_item_created"] != 1 {
+		t.Errorf("expected 1 access_item_created event, got %d", eventCounts["access_item_created"])
+	}
+	if eventCounts["access_item_updated"] != 2 { // user item + built-in override
+		t.Errorf("expected 2 access_item_updated events, got %d", eventCounts["access_item_updated"])
+	}
+	if eventCounts["access_item_deleted"] != 1 {
+		t.Errorf("expected 1 access_item_deleted event, got %d", eventCounts["access_item_deleted"])
+	}
+	if eventCounts["access_item_reset"] != 1 {
+		t.Errorf("expected 1 access_item_reset event, got %d", eventCounts["access_item_reset"])
 	}
 }
