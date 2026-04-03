@@ -284,7 +284,9 @@ export default function AuditPage() {
   )
   const [globalFilter, setGlobalFilter] = useState('')
   const [filteredCount, setFilteredCount] = useState(0)
-  const [since, setSince] = useState<string | undefined>()
+  const [since, setSince] = useState<string | undefined>(() =>
+    new Date(Date.now() - 7 * DAY).toISOString(),
+  )
   const [until, setUntil] = useState<string | undefined>()
   const [autoRefreshSeconds, setAutoRefreshSeconds] = useState<number | null>(null)
   const [isRefreshMenuOpen, setIsRefreshMenuOpen] = useState(false)
