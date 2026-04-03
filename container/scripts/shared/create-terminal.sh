@@ -96,12 +96,17 @@ case "$AGENT_TYPE" in
       fi
     fi
 
-    AGENT_CMD="codex --no-alt-screen"
-    if [ "$SKIP_PERMISSIONS" = "--skip-permissions" ]; then
-      AGENT_CMD="codex --no-alt-screen --dangerously-bypass-approvals-and-sandbox"
-    fi
     if [ -n "$RESUME_FLAG" ]; then
-      AGENT_CMD="${AGENT_CMD} ${RESUME_FLAG}"
+      # resume is a subcommand — flags must come after it
+      AGENT_CMD="codex ${RESUME_FLAG} --no-alt-screen"
+      if [ "$SKIP_PERMISSIONS" = "--skip-permissions" ]; then
+        AGENT_CMD="${AGENT_CMD} --dangerously-bypass-approvals-and-sandbox"
+      fi
+    else
+      AGENT_CMD="codex --no-alt-screen"
+      if [ "$SKIP_PERMISSIONS" = "--skip-permissions" ]; then
+        AGENT_CMD="${AGENT_CMD} --dangerously-bypass-approvals-and-sandbox"
+      fi
     fi
     ;;
 
