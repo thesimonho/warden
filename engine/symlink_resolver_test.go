@@ -666,6 +666,194 @@ func TestResolveSymlinks_CredentialsFileUntouched(t *testing.T) {
 	}
 }
 
+// --- Nix Home Manager: triple symlink chain (config → nix store → nix store → dotfiles) ---
+
+func TestResolveSymlinks_NixTripleSymlinkChain(t *testing.T) {
+	mountDir := t.TempDir()  // ~/.codex
+	nixStore1 := t.TempDir() // /nix/store/...-home-manager-files/.codex/
+	nixStore2 := t.TempDir() // /nix/store/...-hm_config.toml
+	dotfiles := t.TempDir()  // ~/dotfiles/AI/settings/codex/
+
+	// The real writable file in dotfiles.
+	writeFile(t, filepath.Join(dotfiles, "config.toml"), `model = "gpt-4"`)
+
+	// Nix store file 2 → dotfiles (symlink to the real file).
+	nixFile2 := filepath.Join(nixStore2, "hm_config.toml")
+	if err := os.Symlink(filepath.Join(dotfiles, "config.toml"), nixFile2); err != nil {
+		t.Fatal(err)
+	}
+
+	// Nix store file 1 → nix store file 2 (another symlink hop).
+	nixConfigDir := filepath.Join(nixStore1, ".codex")
+	if err := os.MkdirAll(nixConfigDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(nixFile2, filepath.Join(nixConfigDir, "config.toml")); err != nil {
+		t.Fatal(err)
+	}
+
+	// Mount dir → nix store file 1 (first symlink in the chain).
+	if err := os.Symlink(filepath.Join(nixConfigDir, "config.toml"), filepath.Join(mountDir, "config.toml")); err != nil {
+		t.Fatal(err)
+	}
+
+	mounts := []Mount{{HostPath: mountDir, ContainerPath: "/home/warden/.codex"}}
+
+	resolved, err := resolveSymlinksForMounts(mounts)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Should resolve through ALL hops to the real dotfiles path.
+	hasMount := false
+	for _, m := range resolved {
+		if m.HostPath == filepath.Join(dotfiles, "config.toml") {
+			hasMount = true
+			if m.ContainerPath != "/home/warden/.codex/config.toml" {
+				t.Errorf("expected container path /home/warden/.codex/config.toml, got %s", m.ContainerPath)
+			}
+		}
+	}
+	if !hasMount {
+		t.Errorf("expected mount resolving through triple symlink chain to dotfiles, got: %+v", resolved)
+	}
+}
+
+// --- Nix Home Manager: multiple config files + AGENTS.md split into subdirs ---
+
+func TestResolveSymlinks_NixMultipleConfigFilesAndDirs(t *testing.T) {
+	mountDir := t.TempDir()  // ~/.codex
+	dotfiles := t.TempDir()  // ~/dotfiles/AI/
+
+	// Real files in dotfiles.
+	writeFile(t, filepath.Join(dotfiles, "config.toml"), `model = "gpt-4"`)
+	writeFile(t, filepath.Join(dotfiles, "AGENTS.md"), "# Agent instructions")
+	writeFile(t, filepath.Join(dotfiles, "skills", "tdd", "skill.md"), "# TDD Skill")
+	writeFile(t, filepath.Join(dotfiles, "skills", "review", "skill.md"), "# Review Skill")
+
+	// Symlinks from mount dir to dotfiles.
+	if err := os.Symlink(filepath.Join(dotfiles, "config.toml"), filepath.Join(mountDir, "config.toml")); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(filepath.Join(dotfiles, "AGENTS.md"), filepath.Join(mountDir, "AGENTS.md")); err != nil {
+		t.Fatal(err)
+	}
+	// Directory symlink for skills.
+	if err := os.Symlink(filepath.Join(dotfiles, "skills"), filepath.Join(mountDir, "skills")); err != nil {
+		t.Fatal(err)
+	}
+
+	// Also some real (non-symlinked) content.
+	writeFile(t, filepath.Join(mountDir, "sessions", "2026", "04", "01", "rollout.jsonl"), "{}")
+
+	mounts := []Mount{{HostPath: mountDir, ContainerPath: "/home/warden/.codex"}}
+
+	resolved, err := resolveSymlinksForMounts(mounts)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Original + config.toml + AGENTS.md + skills/ = 4 mounts.
+	if len(resolved) != 4 {
+		t.Errorf("expected 4 mounts, got %d: %+v", len(resolved), resolved)
+	}
+
+	// Verify each external symlink is resolved.
+	paths := make(map[string]string)
+	for _, m := range resolved[1:] {
+		paths[m.ContainerPath] = m.HostPath
+	}
+
+	if paths["/home/warden/.codex/config.toml"] != filepath.Join(dotfiles, "config.toml") {
+		t.Errorf("config.toml not resolved correctly: %+v", paths)
+	}
+	if paths["/home/warden/.codex/AGENTS.md"] != filepath.Join(dotfiles, "AGENTS.md") {
+		t.Errorf("AGENTS.md not resolved correctly: %+v", paths)
+	}
+	if paths["/home/warden/.codex/skills"] != filepath.Join(dotfiles, "skills") {
+		t.Errorf("skills/ not resolved correctly: %+v", paths)
+	}
+}
+
+// --- GNU Stow: symlinks one level deep (no nix store intermediary) ---
+
+func TestResolveSymlinks_GNUStowPattern(t *testing.T) {
+	mountDir := t.TempDir()  // ~/.claude
+	dotfiles := t.TempDir()  // ~/dotfiles/.claude/
+
+	// Stow creates direct symlinks from ~ to dotfiles.
+	writeFile(t, filepath.Join(dotfiles, "settings.json"), `{"theme":"dark"}`)
+	writeFile(t, filepath.Join(dotfiles, "hooks", "Notification.sh"), "#!/bin/bash")
+
+	if err := os.Symlink(filepath.Join(dotfiles, "settings.json"), filepath.Join(mountDir, "settings.json")); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(filepath.Join(dotfiles, "hooks"), filepath.Join(mountDir, "hooks")); err != nil {
+		t.Fatal(err)
+	}
+
+	// Non-symlinked mutable data.
+	writeFile(t, filepath.Join(mountDir, "projects", "proj1", "session.jsonl"), "{}")
+
+	mounts := []Mount{{HostPath: mountDir, ContainerPath: "/home/warden/.claude"}}
+
+	resolved, err := resolveSymlinksForMounts(mounts)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Original + settings.json + hooks/ = 3.
+	if len(resolved) != 3 {
+		t.Errorf("expected 3 mounts, got %d: %+v", len(resolved), resolved)
+	}
+}
+
+// --- Top-level tmp/ and log/ directories are skipped ---
+
+func TestResolveSymlinks_TmpAndLogDirsSkipped(t *testing.T) {
+	mountDir := t.TempDir()
+	externalDir := t.TempDir()
+
+	// Create tmp/ with external symlinks (simulates Codex sandbox binaries).
+	tmpDir := filepath.Join(mountDir, "tmp", "path", "codex-arg0")
+	if err := os.MkdirAll(tmpDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, filepath.Join(externalDir, "codex-binary"), "binary")
+	if err := os.Symlink(filepath.Join(externalDir, "codex-binary"), filepath.Join(tmpDir, "apply_patch")); err != nil {
+		t.Fatal(err)
+	}
+
+	// Create log/ with some content.
+	logDir := filepath.Join(mountDir, "log")
+	writeFile(t, filepath.Join(logDir, "debug.log"), "log content")
+
+	// Create a real config symlink that SHOULD be resolved.
+	writeFile(t, filepath.Join(externalDir, "config.toml"), `model = "gpt-4"`)
+	if err := os.Symlink(filepath.Join(externalDir, "config.toml"), filepath.Join(mountDir, "config.toml")); err != nil {
+		t.Fatal(err)
+	}
+
+	mounts := []Mount{{HostPath: mountDir, ContainerPath: "/home/warden/.codex"}}
+
+	resolved, err := resolveSymlinksForMounts(mounts)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Should have original + config.toml only. tmp/ and its symlinks are skipped.
+	if len(resolved) != 2 {
+		t.Errorf("expected 2 mounts (original + config.toml), got %d: %+v", len(resolved), resolved)
+	}
+
+	// Verify the tmp symlink was NOT resolved.
+	for _, m := range resolved {
+		if m.HostPath == filepath.Join(externalDir, "codex-binary") {
+			t.Error("tmp/ directory symlinks should be skipped, but apply_patch was resolved")
+		}
+	}
+}
+
 // --- Ordering: original mount comes first, then extras ---
 
 func TestResolveSymlinks_OriginalMountFirstThenExtras(t *testing.T) {

@@ -48,6 +48,10 @@ The agent config directory (`~/.claude` or `~/.codex`) is always mounted and can
 
 Warden validates that host paths exist and resolves symlinks before creating the container. If a mount source is moved or deleted after creation, Warden detects the stale mount and blocks restarts until you fix it.
 
+:::note[Nix Home Manager / GNU Stow]
+If your config files are symlinks managed by Nix or Stow, Warden automatically dereferences them at container startup so agents can write config changes (e.g. model selection via `/model`). Changes made inside the container are container-local — your host's managed config is not modified. Recreate the container to pick up host config changes.
+:::
+
 :::caution
 Mount sensitive files (credentials, config) as read-only to prevent the container from modifying them. For credential injection, prefer [Access Items](/warden/features/access/) over raw bind mounts.
 :::
@@ -76,13 +80,13 @@ Skipping permissions gives the agent unrestricted access to the tools available 
 
 ## Container Lifecycle
 
-| Action | What happens |
-|--------|-------------|
-| **Create** | Pulls the image (if needed), resolves [Access Items](/warden/features/access/), starts the container with all configured settings |
-| **Stop** | Captures latest cost data, then stops the container gracefully. All worktree processes are terminated. |
+| Action      | What happens                                                                                                                                                     |
+| ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Create**  | Pulls the image (if needed), resolves [Access Items](/warden/features/access/), starts the container with all configured settings                                |
+| **Stop**    | Captures latest cost data, then stops the container gracefully. All worktree processes are terminated.                                                           |
 | **Restart** | Validates bind mount sources still exist and checks cost budget before restarting. Blocks if mounts are stale or budget is exceeded with `preventStart` enabled. |
-| **Delete** | Stops and removes the container. The project record remains — only the container is destroyed. |
-| **Update** | Recreates the container with new configuration. Worktree state on disk is preserved. |
+| **Delete**  | Stops and removes the container. The project record remains — only the container is destroyed.                                                                   |
+| **Update**  | Recreates the container with new configuration. Worktree state on disk is preserved.                                                                             |
 
 ## Process Hardening
 
@@ -97,18 +101,18 @@ Every container is automatically hardened — no configuration needed:
 
 ### HTTP API
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `GET` | `/api/v1/projects` | List all projects with status and cost |
-| `POST` | `/api/v1/projects` | Add a project |
-| `DELETE` | `/api/v1/projects/{projectId}` | Remove a project |
-| `POST` | `/api/v1/projects/{projectId}/stop` | Stop container |
-| `POST` | `/api/v1/projects/{projectId}/restart` | Restart container |
-| `POST` | `/api/v1/projects/{projectId}/container` | Create container with config |
-| `PUT` | `/api/v1/projects/{projectId}/container` | Update container config |
-| `DELETE` | `/api/v1/projects/{projectId}/container` | Delete container |
-| `GET` | `/api/v1/projects/{projectId}/container/config` | Inspect current config |
-| `GET` | `/api/v1/projects/{projectId}/container/validate` | Validate infrastructure |
+| Method   | Endpoint                                          | Description                            |
+| -------- | ------------------------------------------------- | -------------------------------------- |
+| `GET`    | `/api/v1/projects`                                | List all projects with status and cost |
+| `POST`   | `/api/v1/projects`                                | Add a project                          |
+| `DELETE` | `/api/v1/projects/{projectId}`                    | Remove a project                       |
+| `POST`   | `/api/v1/projects/{projectId}/stop`               | Stop container                         |
+| `POST`   | `/api/v1/projects/{projectId}/restart`            | Restart container                      |
+| `POST`   | `/api/v1/projects/{projectId}/container`          | Create container with config           |
+| `PUT`    | `/api/v1/projects/{projectId}/container`          | Update container config                |
+| `DELETE` | `/api/v1/projects/{projectId}/container`          | Delete container                       |
+| `GET`    | `/api/v1/projects/{projectId}/container/config`   | Inspect current config                 |
+| `GET`    | `/api/v1/projects/{projectId}/container/validate` | Validate infrastructure                |
 
 ### Go Client
 

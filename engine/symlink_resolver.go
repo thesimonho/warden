@@ -115,6 +115,18 @@ func walkForExternalSymlinks(parent Mount) ([]Mount, error) {
 			return nil
 		}
 
+		// Skip top-level ephemeral directories that contain host-specific
+		// runtime artifacts (e.g. Codex's tmp/path/ has hundreds of nix
+		// store symlinks to sandbox binaries that don't exist in containers).
+		if d.IsDir() {
+			rel, relErr := filepath.Rel(hostRoot, path)
+			if relErr == nil && !strings.Contains(rel, string(filepath.Separator)) {
+				if rel == "tmp" || rel == "log" {
+					return fs.SkipDir
+				}
+			}
+		}
+
 		// Only interested in symlinks.
 		if d.Type()&os.ModeSymlink == 0 {
 			return nil

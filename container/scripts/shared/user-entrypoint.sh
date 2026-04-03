@@ -77,6 +77,30 @@ if [ -f "$SSHCONFIG_HOST" ]; then
 fi
 
 # -------------------------------------------------------------------
+# Dereference symlinked config files so agents can write to them.
+#
+# Nix Home Manager (and similar tools) create symlinks to immutable
+# store paths. Inside the container, agents follow the symlink chain
+# and try to write atomically to the resolved target — which fails
+# because the target directory (/nix/store/...) is read-only and
+# temp file creation is blocked.
+#
+# Fix: replace symlinks with copies of their content. The Docker
+# bind mount already resolves the symlink target (verified via
+# /proc/mounts), but atomic writes need a writable parent directory.
+# Copying dereferences the symlink so writes go to the container's
+# writable layer. Host config changes require container recreation.
+# -------------------------------------------------------------------
+for config_dir in /home/warden/.claude /home/warden/.codex; do
+  [ -d "$config_dir" ] || continue
+  find "$config_dir" -maxdepth 1 -type l 2>/dev/null | while IFS= read -r link; do
+    target=$(readlink -f "$link" 2>/dev/null) || continue
+    [ -f "$target" ] || continue
+    cp --remove-destination "$target" "$link" 2>/dev/null || true
+  done
+done
+
+# -------------------------------------------------------------------
 # Terminal tracking directory — ephemeral, reset on every startup.
 # Each worktree with an active terminal gets a subdirectory containing
 # its port number and attention state. Stale entries are harmless and
