@@ -45,7 +45,7 @@ var auditEventsByCategory = map[api.AuditCategory][]string{
 	api.AuditCategoryBudget: {
 		"budget_exceeded", "budget_worktrees_stopped",
 		"budget_container_stopped", "budget_enforcement_failed",
-		"cost_reset",
+		"cost_reset", "cost_snapshot",
 	},
 	api.AuditCategorySystem: {
 		string(eventbus.EventProcessKilled), "restart_blocked_stale_mounts",
