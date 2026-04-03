@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/thesimonho/warden/agent"
@@ -20,6 +21,12 @@ type Parser struct {
 	lastModel string
 	// toolNames maps tool_use IDs to tool names for correlating tool_result errors.
 	toolNames map[string]string
+	// lastSessionID tracks the most recently seen session ID. When the ID
+	// changes, the parser synthesizes an EventSessionStart so the event store
+	// sets SessionActive=true (required for EventTurnComplete to take effect).
+	// Claude Code JSONL has no dedicated session_start entry — unlike Codex's
+	// session_meta — so this is the only JSONL-based path.
+	lastSessionID string
 }
 
 // NewParser creates a new Claude Code JSONL parser.
@@ -50,6 +57,22 @@ func (p *Parser) ParseLine(line []byte) []agent.ParsedEvent {
 	default:
 		// file-history-snapshot, last-prompt — no events.
 		return nil
+	}
+
+	// Synthesize EventSessionStart when the session ID changes. This sets
+	// SessionActive in the event store, which handleTurnComplete requires.
+	// Prepended so downstream sees session_start before any other events.
+	if entry.SessionID != "" && entry.SessionID != p.lastSessionID {
+		p.lastSessionID = entry.SessionID
+		p.cumulativeTokens = agent.TokenUsage{}
+		p.toolNames = make(map[string]string)
+
+		sessionStart := agent.ParsedEvent{
+			Type:      agent.EventSessionStart,
+			SessionID: entry.SessionID,
+			Timestamp: entry.Timestamp,
+		}
+		events = slices.Insert(events, 0, sessionStart)
 	}
 
 	// Inject worktree ID from the entry's CWD. Each JSONL entry carries

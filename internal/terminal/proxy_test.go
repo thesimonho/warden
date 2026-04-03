@@ -124,7 +124,7 @@ func (m *mockExecAPI) ContainerExecAttach(_ context.Context, _ string, _ contain
 	// First attach is scrollback capture — return an empty pipe that closes immediately.
 	if count == 1 {
 		r, w := io.Pipe()
-		w.Close()
+		_ = w.Close()
 		emptyConn := &pipeConn{Reader: r, Writer: io.Discard}
 		return dtypes.HijackedResponse{
 			Conn:   emptyConn,

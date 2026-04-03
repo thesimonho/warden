@@ -8,13 +8,14 @@ set -euo pipefail
 # settings JSON that registers Claude Code hooks for event tracking.
 #
 # The JSONL session parser is the primary data source for most events
-# (tool use, cost, prompts, errors). Hooks are used for two purposes:
+# (tool use, cost, prompts, errors, session start). Hooks are used for
+# two purposes:
 #
 # 1. Real-time attention state (not in JSONL):
 #    - Notification, PreToolUse, UserPromptSubmit
 #
 # 2. Audit events not available in JSONL:
-#    - SessionStart, SessionEnd, PermissionRequest, ConfigChange,
+#    - SessionEnd, PermissionRequest, ConfigChange,
 #      InstructionsLoaded, TaskCompleted, Elicitation, ElicitationResult,
 #      SubagentStart, SubagentStop
 #
@@ -111,17 +112,6 @@ cat > /etc/claude-code/managed-settings.json <<'MANAGED_EOF'
           {
             "type": "command",
             "command": "/usr/local/bin/warden-event-claude.sh task_completed"
-          }
-        ]
-      }
-    ],
-    "SessionStart": [
-      {
-        "matcher": "",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "/usr/local/bin/warden-event-claude.sh session_start"
           }
         ]
       }

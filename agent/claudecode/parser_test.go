@@ -8,6 +8,17 @@ import (
 	"github.com/thesimonho/warden/agent"
 )
 
+// filterOut returns events with the given type removed.
+func filterOut(events []agent.ParsedEvent, eventType agent.ParsedEventType) []agent.ParsedEvent {
+	var filtered []agent.ParsedEvent
+	for _, e := range events {
+		if e.Type != eventType {
+			filtered = append(filtered, e)
+		}
+	}
+	return filtered
+}
+
 // parseFixtureEvents reads the fixture and collects all parsed events.
 func parseFixtureEvents(t *testing.T) []agent.ParsedEvent {
 	t.Helper()
@@ -40,6 +51,7 @@ func TestParseFixture_EventCounts(t *testing.T) {
 	}
 
 	// Minimum events any valid Claude session must produce.
+	result.Require(agent.EventSessionStart, 1)
 	result.Require(agent.EventToolUse, 1)
 	result.Require(agent.EventTokenUpdate, 1)
 	if err := result.Check(); err != nil {
@@ -47,6 +59,9 @@ func TestParseFixture_EventCounts(t *testing.T) {
 	}
 
 	// Exact counts for this fixture.
+	if got := result.Counts[agent.EventSessionStart]; got != 1 {
+		t.Errorf("SessionStart events = %d, want 1", got)
+	}
 	if got := result.Counts[agent.EventToolUse]; got != 4 {
 		t.Errorf("ToolUse events = %d, want 4", got)
 	}
@@ -210,6 +225,96 @@ func TestParseFixture_SessionID(t *testing.T) {
 	}
 }
 
+func TestParseFixture_SessionStartIsFirstEvent(t *testing.T) {
+	t.Parallel()
+	events := parseFixtureEvents(t)
+
+	if len(events) == 0 {
+		t.Fatal("no events parsed")
+	}
+	if events[0].Type != agent.EventSessionStart {
+		t.Errorf("first event type = %s, want %s", events[0].Type, agent.EventSessionStart)
+	}
+	if events[0].SessionID != "test-session-001" {
+		t.Errorf("SessionStart sessionID = %q, want %q", events[0].SessionID, "test-session-001")
+	}
+}
+
+func TestParseLine_SessionStartEmittedOncePerSessionID(t *testing.T) {
+	t.Parallel()
+
+	parser := NewParser()
+
+	// First line with session ID — should produce SessionStart + UserPrompt.
+	events := parser.ParseLine([]byte(`{"type":"user","sessionId":"s1","timestamp":"2026-01-01T00:00:00Z","cwd":"/home/warden/project","message":{"content":"hello","role":"user"}}`))
+	var sessionStarts int
+	for _, e := range events {
+		if e.Type == agent.EventSessionStart {
+			sessionStarts++
+		}
+	}
+	if sessionStarts != 1 {
+		t.Errorf("first line: SessionStart count = %d, want 1", sessionStarts)
+	}
+
+	// Second line with same session ID — no SessionStart.
+	events = parser.ParseLine([]byte(`{"type":"user","sessionId":"s1","timestamp":"2026-01-01T00:00:01Z","cwd":"/home/warden/project","message":{"content":"world","role":"user"}}`))
+	for _, e := range events {
+		if e.Type == agent.EventSessionStart {
+			t.Error("second line with same sessionId should not emit SessionStart")
+		}
+	}
+}
+
+func TestParseLine_SessionStartOnSessionIDChange(t *testing.T) {
+	t.Parallel()
+
+	parser := NewParser()
+
+	// First session.
+	parser.ParseLine([]byte(`{"type":"user","sessionId":"s1","timestamp":"2026-01-01T00:00:00Z","cwd":"/home/warden/project","message":{"content":"hello","role":"user"}}`))
+
+	// New session ID — should emit SessionStart again.
+	events := parser.ParseLine([]byte(`{"type":"user","sessionId":"s2","timestamp":"2026-01-01T00:01:00Z","cwd":"/home/warden/project","message":{"content":"resumed","role":"user"}}`))
+	var found bool
+	for _, e := range events {
+		if e.Type == agent.EventSessionStart {
+			found = true
+			if e.SessionID != "s2" {
+				t.Errorf("SessionStart sessionID = %q, want %q", e.SessionID, "s2")
+			}
+		}
+	}
+	if !found {
+		t.Error("new sessionId should emit SessionStart")
+	}
+}
+
+func TestParseLine_SessionStartResetsTokenAccumulation(t *testing.T) {
+	t.Parallel()
+
+	parser := NewParser()
+
+	// First session — accumulate some tokens.
+	parser.ParseLine([]byte(`{"type":"assistant","sessionId":"s1","timestamp":"2026-01-01T00:00:00Z","cwd":"/home/warden/project","message":{"model":"claude-sonnet-4-6","role":"assistant","content":[{"type":"text","text":"hi"}],"usage":{"input_tokens":1000,"output_tokens":200}}}`))
+
+	// New session — tokens should reset.
+	events := parser.ParseLine([]byte(`{"type":"assistant","sessionId":"s2","timestamp":"2026-01-01T00:01:00Z","cwd":"/home/warden/project","message":{"model":"claude-sonnet-4-6","role":"assistant","content":[{"type":"text","text":"hi"}],"usage":{"input_tokens":500,"output_tokens":100}}}`))
+
+	for _, e := range events {
+		if e.Type == agent.EventTokenUpdate {
+			if e.Tokens.InputTokens != 500 {
+				t.Errorf("cumulative input tokens = %d, want 500 (reset for new session)", e.Tokens.InputTokens)
+			}
+			if e.Tokens.OutputTokens != 100 {
+				t.Errorf("cumulative output tokens = %d, want 100 (reset for new session)", e.Tokens.OutputTokens)
+			}
+			return
+		}
+	}
+	t.Error("no TokenUpdate event found")
+}
+
 func TestParseFixture_ToolUseFailure(t *testing.T) {
 	t.Parallel()
 	events := parseFixtureEvents(t)
@@ -353,6 +458,7 @@ func TestParseLine_WorktreeIDFromClaude(t *testing.T) {
 
 	// User prompt from a Claude Code worktree.
 	events := parser.ParseLine([]byte(`{"type":"user","cwd":"/home/warden/project/.claude/worktrees/fix-auth","sessionId":"s1","timestamp":"2026-01-01T00:00:00Z","message":{"content":"hello","role":"user"}}`))
+	events = filterOut(events, agent.EventSessionStart)
 	if len(events) != 1 {
 		t.Fatalf("expected 1 event, got %d", len(events))
 	}
@@ -368,6 +474,7 @@ func TestParseLine_WorktreeIDWithUnderscore(t *testing.T) {
 
 	// Worktree name with underscores — should be preserved exactly.
 	events := parser.ParseLine([]byte(`{"type":"user","cwd":"/home/warden/project/.claude/worktrees/tools_again","sessionId":"s1","timestamp":"2026-01-01T00:00:00Z","message":{"content":"hello","role":"user"}}`))
+	events = filterOut(events, agent.EventSessionStart)
 	if len(events) != 1 {
 		t.Fatalf("expected 1 event, got %d", len(events))
 	}
@@ -383,6 +490,7 @@ func TestParseLine_WorktreeIDFromSubdirectory(t *testing.T) {
 
 	// CWD is a subdirectory inside the worktree — should still extract the worktree ID.
 	events := parser.ParseLine([]byte(`{"type":"user","cwd":"/home/warden/project/.claude/worktrees/my-branch/src/lib","sessionId":"s1","timestamp":"2026-01-01T00:00:00Z","message":{"content":"hello","role":"user"}}`))
+	events = filterOut(events, agent.EventSessionStart)
 	if len(events) != 1 {
 		t.Fatalf("expected 1 event, got %d", len(events))
 	}
@@ -398,6 +506,7 @@ func TestParseLine_WorktreeIDNoCWD(t *testing.T) {
 
 	// No CWD field — WorktreeID should remain empty (callback defaults to "main").
 	events := parser.ParseLine([]byte(`{"type":"system","subtype":"turn_duration","durationMs":5000,"sessionId":"s1","timestamp":"2026-01-01T00:00:00Z"}`))
+	events = filterOut(events, agent.EventSessionStart)
 	if len(events) != 1 {
 		t.Fatalf("expected 1 event, got %d", len(events))
 	}
@@ -438,6 +547,7 @@ func TestParseLine_WorktreeIDFromWardenManaged(t *testing.T) {
 
 	// Warden-managed worktrees use .warden/worktrees/ prefix (Codex pattern).
 	events := parser.ParseLine([]byte(`{"type":"user","cwd":"/home/warden/project/.warden/worktrees/my-fix","sessionId":"s1","timestamp":"2026-01-01T00:00:00Z","message":{"content":"hello","role":"user"}}`))
+	events = filterOut(events, agent.EventSessionStart)
 	if len(events) != 1 {
 		t.Fatalf("expected 1 event, got %d", len(events))
 	}
@@ -451,6 +561,7 @@ func TestParseLine_QueueOperationEnqueue(t *testing.T) {
 
 	parser := NewParser()
 	events := parser.ParseLine([]byte(`{"type":"queue-operation","operation":"enqueue","timestamp":"2026-01-01T00:00:00Z","sessionId":"s1","content":"fix the tests","cwd":"/home/warden/project"}`))
+	events = filterOut(events, agent.EventSessionStart)
 	if len(events) != 1 {
 		t.Fatalf("expected 1 event, got %d", len(events))
 	}
@@ -470,6 +581,7 @@ func TestParseLine_QueueOperationRemove(t *testing.T) {
 
 	parser := NewParser()
 	events := parser.ParseLine([]byte(`{"type":"queue-operation","operation":"remove","timestamp":"2026-01-01T00:00:00Z","sessionId":"s1"}`))
+	events = filterOut(events, agent.EventSessionStart)
 	if len(events) != 0 {
 		t.Errorf("remove operation produced %d events, want 0", len(events))
 	}
@@ -480,6 +592,7 @@ func TestParseLine_QueueOperationEmptyContent(t *testing.T) {
 
 	parser := NewParser()
 	events := parser.ParseLine([]byte(`{"type":"queue-operation","operation":"enqueue","timestamp":"2026-01-01T00:00:00Z","sessionId":"s1","content":""}`))
+	events = filterOut(events, agent.EventSessionStart)
 	if len(events) != 0 {
 		t.Errorf("empty content enqueue produced %d events, want 0", len(events))
 	}
@@ -578,6 +691,7 @@ func TestValidateLive(t *testing.T) {
 		t.Fatalf("parsing live JSONL: %v", err)
 	}
 
+	result.Require(agent.EventSessionStart, 1)
 	result.Require(agent.EventToolUse, 1)
 	result.Require(agent.EventTokenUpdate, 1)
 	if err := result.Check(); err != nil {
