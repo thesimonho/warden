@@ -235,7 +235,7 @@ func (s *Service) RestartProject(ctx context.Context, projectID, agentType strin
 	}
 
 	// Read original mounts from DB for stale mount validation.
-	var originalMounts []engine.Mount
+	var originalMounts []api.Mount
 	if len(project.OriginalMounts) > 0 {
 		if unmarshalErr := json.Unmarshal(project.OriginalMounts, &originalMounts); unmarshalErr != nil {
 			slog.Warn("failed to decode original mounts", "name", containerName, "err", unmarshalErr)
@@ -270,7 +270,7 @@ func applyDBMetadata(p *engine.Project, row *db.ProjectRow, defaultBudget float6
 	p.AgentType = constants.AgentType(row.AgentType)
 	p.SkipPermissions = row.SkipPermissions
 	if row.NetworkMode != "" {
-		p.NetworkMode = engine.NetworkMode(row.NetworkMode)
+		p.NetworkMode = api.NetworkMode(row.NetworkMode)
 	}
 	if row.AllowedDomains != "" {
 		p.AllowedDomains = splitCSV(row.AllowedDomains)

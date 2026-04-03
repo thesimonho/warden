@@ -703,7 +703,7 @@ func (rt *routes) handleGetWorktreeDiff(w http.ResponseWriter, r *http.Request) 
 //	@Tags			containers
 //	@Accept			json
 //	@Param			projectId	path		string							true	"Project ID"
-//	@Param			body		body		engine.CreateContainerRequest	true	"Container configuration"
+//	@Param			body		body		api.CreateContainerRequest	true	"Container configuration"
 //	@Success		201			{object}	service.ContainerResult
 //	@Failure		400			{object}	apiError
 //	@Failure		404			{object}	apiError
@@ -715,7 +715,7 @@ func (rt *routes) handleCreateContainer(w http.ResponseWriter, r *http.Request) 
 
 	r.Body = http.MaxBytesReader(w, r.Body, 1<<16)
 
-	var req engine.CreateContainerRequest
+	var req api.CreateContainerRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeError(w, ErrCodeInvalidBody, "invalid request body", http.StatusBadRequest)
 		return
@@ -792,7 +792,7 @@ func (rt *routes) handleDeleteContainer(w http.ResponseWriter, r *http.Request) 
 //	@Description	project path, bind mounts, environment variables, and network settings.
 //	@Tags			containers
 //	@Param			projectId	path		string	true	"Project ID"
-//	@Success		200			{object}	engine.ContainerConfig
+//	@Success		200			{object}	api.ContainerConfig
 //	@Failure		400			{object}	apiError
 //	@Failure		404			{object}	apiError
 //	@Failure		500			{object}	apiError
@@ -859,7 +859,7 @@ func (rt *routes) handleValidateContainer(w http.ResponseWriter, r *http.Request
 //	@Tags			containers
 //	@Accept			json
 //	@Param			projectId	path		string							true	"Project ID"
-//	@Param			body		body		engine.CreateContainerRequest	true	"Updated container configuration"
+//	@Param			body		body		api.CreateContainerRequest	true	"Updated container configuration"
 //	@Success		200			{object}	service.ContainerResult
 //	@Failure		400			{object}	apiError
 //	@Failure		404			{object}	apiError
@@ -870,7 +870,7 @@ func (rt *routes) handleUpdateContainer(w http.ResponseWriter, r *http.Request) 
 
 	r.Body = http.MaxBytesReader(w, r.Body, 1<<16)
 
-	var req engine.CreateContainerRequest
+	var req api.CreateContainerRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeError(w, ErrCodeInvalidBody, "invalid request body", http.StatusBadRequest)
 		return
@@ -1709,11 +1709,11 @@ func isValidDomain(domain string) bool {
 
 // validateNetworkConfig checks network-related fields of a container
 // request. Returns a non-empty error message on failure.
-func validateNetworkConfig(req engine.CreateContainerRequest) string {
-	if req.NetworkMode != "" && !engine.IsValidNetworkMode(string(req.NetworkMode)) {
+func validateNetworkConfig(req api.CreateContainerRequest) string {
+	if req.NetworkMode != "" && !api.IsValidNetworkMode(string(req.NetworkMode)) {
 		return "invalid network mode: must be full, restricted, or none"
 	}
-	if req.NetworkMode == engine.NetworkModeRestricted && len(req.AllowedDomains) == 0 {
+	if req.NetworkMode == api.NetworkModeRestricted && len(req.AllowedDomains) == 0 {
 		return "restricted network mode requires at least one allowed domain"
 	}
 	if len(req.AllowedDomains) > 0 && !validateAllowedDomains(req.AllowedDomains) {

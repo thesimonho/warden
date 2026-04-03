@@ -139,7 +139,7 @@ func (a *ServiceAdapter) PurgeProjectAudit(_ context.Context, projectID, agentTy
 // CreateContainer delegates to Service.CreateContainer.
 // The projectID parameter is used by the HTTP client but ignored here —
 // the service computes the project ID from req.ProjectPath.
-func (a *ServiceAdapter) CreateContainer(_ context.Context, _, _ string, req engine.CreateContainerRequest) (*api.ContainerResult, error) {
+func (a *ServiceAdapter) CreateContainer(_ context.Context, _, _ string, req api.CreateContainerRequest) (*api.ContainerResult, error) {
 	return a.w.Service.CreateContainer(context.Background(), req)
 }
 
@@ -149,12 +149,12 @@ func (a *ServiceAdapter) DeleteContainer(ctx context.Context, projectID, agentTy
 }
 
 // InspectContainer delegates to Service.InspectContainer.
-func (a *ServiceAdapter) InspectContainer(ctx context.Context, projectID, agentType string) (*engine.ContainerConfig, error) {
+func (a *ServiceAdapter) InspectContainer(ctx context.Context, projectID, agentType string) (*api.ContainerConfig, error) {
 	return a.w.Service.InspectContainer(ctx, projectID, agentType)
 }
 
 // UpdateContainer delegates to Service.UpdateContainer.
-func (a *ServiceAdapter) UpdateContainer(ctx context.Context, projectID, agentType string, req engine.CreateContainerRequest) (*api.ContainerResult, error) {
+func (a *ServiceAdapter) UpdateContainer(ctx context.Context, projectID, agentType string, req api.CreateContainerRequest) (*api.ContainerResult, error) {
 	return a.w.Service.UpdateContainer(ctx, projectID, agentType, req)
 }
 

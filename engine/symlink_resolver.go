@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+
+	"github.com/thesimonho/warden/api"
 )
 
 // resolveSymlinksForMounts walks each mount's host path and finds symlinks
@@ -22,8 +24,8 @@ import (
 // Single-file mounts (host path is a file, not a directory) are resolved
 // in place — if the file is a symlink, its host path is replaced with the
 // resolved target. No extra mount is added.
-func resolveSymlinksForMounts(mounts []Mount) ([]Mount, error) {
-	result := make([]Mount, 0, len(mounts))
+func resolveSymlinksForMounts(mounts []api.Mount) ([]api.Mount, error) {
+	result := make([]api.Mount, 0, len(mounts))
 
 	for _, m := range mounts {
 		resolved, err := resolveMount(m)
@@ -42,12 +44,12 @@ func resolveSymlinksForMounts(mounts []Mount) ([]Mount, error) {
 //  3. Symlink to a directory: replace HostPath with resolved path, then walk
 //     for external symlinks inside the resolved directory.
 //  4. Real directory: walk for external symlinks inside it.
-func resolveMount(m Mount) ([]Mount, error) {
+func resolveMount(m api.Mount) ([]api.Mount, error) {
 	hostInfo, err := os.Lstat(m.HostPath)
 	if err != nil {
 		// Mount path doesn't exist or can't be read — pass through as-is
 		// and let Docker handle the error.
-		return []Mount{m}, nil
+		return []api.Mount{m}, nil
 	}
 
 	isSymlink := hostInfo.Mode()&os.ModeSymlink != 0
@@ -57,18 +59,18 @@ func resolveMount(m Mount) ([]Mount, error) {
 		resolved, err := filepath.EvalSymlinks(m.HostPath)
 		if err != nil {
 			// Broken or circular symlink — pass through as-is.
-			return []Mount{m}, nil
+			return []api.Mount{m}, nil
 		}
 
 		targetInfo, err := os.Stat(resolved)
 		if err != nil {
-			return []Mount{m}, nil
+			return []api.Mount{m}, nil
 		}
 
 		if !targetInfo.IsDir() {
 			// Symlink to a file — replace host path with resolved target.
 			m.HostPath = resolved
-			return []Mount{m}, nil
+			return []api.Mount{m}, nil
 		}
 
 		// Symlink to a directory — resolve the root path, then fall
@@ -78,7 +80,7 @@ func resolveMount(m Mount) ([]Mount, error) {
 
 	// Regular file (not a symlink, not a directory) — pass through.
 	if !hostInfo.IsDir() && !isSymlink {
-		return []Mount{m}, nil
+		return []api.Mount{m}, nil
 	}
 
 	// Directory mount (real or resolved from symlink): walk for external symlinks.
@@ -87,7 +89,7 @@ func resolveMount(m Mount) ([]Mount, error) {
 		return nil, err
 	}
 
-	result := make([]Mount, 0, 1+len(extras))
+	result := make([]api.Mount, 0, 1+len(extras))
 	result = append(result, m)
 	result = append(result, extras...)
 	return result, nil
@@ -99,8 +101,8 @@ func resolveMount(m Mount) ([]Mount, error) {
 // walked — external symlinked directories are not descended into (WalkDir
 // does not follow symlinks), so the walk is bounded to the real directory
 // tree under the mount root.
-func walkForExternalSymlinks(parent Mount) ([]Mount, error) {
-	var extras []Mount
+func walkForExternalSymlinks(parent api.Mount) ([]api.Mount, error) {
+	var extras []api.Mount
 	hostRoot := parent.HostPath
 
 	err := filepath.WalkDir(hostRoot, func(path string, d fs.DirEntry, walkErr error) error {
@@ -151,7 +153,7 @@ func walkForExternalSymlinks(parent Mount) ([]Mount, error) {
 		}
 		containerPath := filepath.Join(parent.ContainerPath, rel)
 
-		extras = append(extras, Mount{
+		extras = append(extras, api.Mount{
 			HostPath:      resolved,
 			ContainerPath: containerPath,
 			ReadOnly:      parent.ReadOnly,

@@ -10,7 +10,6 @@ import (
 	"github.com/thesimonho/warden/access"
 	"github.com/thesimonho/warden/api"
 	"github.com/thesimonho/warden/db"
-	"github.com/thesimonho/warden/engine"
 )
 
 // ListAccessItems returns all access items (built-in + user-created)
@@ -308,7 +307,7 @@ func (s *Service) ResolveAccessItems(items []access.Item) (*api.ResolveAccessIte
 // ResolveAccessItemsForContainer resolves the given access item IDs and
 // merges the resulting env vars and mounts into the container request.
 // Looks up items from the DB/built-ins by ID before resolving.
-func (s *Service) ResolveAccessItemsForContainer(req *engine.CreateContainerRequest) error {
+func (s *Service) ResolveAccessItemsForContainer(req *api.CreateContainerRequest) error {
 	if len(req.EnabledAccessItems) == 0 {
 		return nil
 	}
@@ -334,7 +333,7 @@ func (s *Service) ResolveAccessItemsForContainer(req *engine.CreateContainerRequ
 				case access.InjectionEnvVar:
 					req.EnvVars[inj.Key] = inj.Value
 				case access.InjectionMountFile, access.InjectionMountSocket:
-					req.Mounts = append(req.Mounts, engine.Mount{
+					req.Mounts = append(req.Mounts, api.Mount{
 						HostPath:      inj.Value,
 						ContainerPath: inj.Key,
 						ReadOnly:      inj.ReadOnly,

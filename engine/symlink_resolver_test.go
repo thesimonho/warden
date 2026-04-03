@@ -4,6 +4,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/thesimonho/warden/api"
 )
 
 // setupSymlinkTree creates a temporary directory tree with various symlink
@@ -40,7 +42,7 @@ func TestResolveSymlinks_RegularFilesPassThrough(t *testing.T) {
 	writeFile(t, filepath.Join(mountDir, "settings.json"), `{"key":"value"}`)
 	writeFile(t, filepath.Join(mountDir, "subdir", "config.toml"), "x = 1")
 
-	mounts := []Mount{{HostPath: mountDir, ContainerPath: "/home/warden/.claude"}}
+	mounts := []api.Mount{{HostPath: mountDir, ContainerPath: "/home/warden/.claude"}}
 
 	resolved, err := resolveSymlinksForMounts(mounts)
 	if err != nil {
@@ -65,7 +67,7 @@ func TestResolveSymlinks_InternalFileSymlinkIgnored(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	mounts := []Mount{{HostPath: mountDir, ContainerPath: "/home/warden/.claude"}}
+	mounts := []api.Mount{{HostPath: mountDir, ContainerPath: "/home/warden/.claude"}}
 
 	resolved, err := resolveSymlinksForMounts(mounts)
 	if err != nil {
@@ -90,7 +92,7 @@ func TestResolveSymlinks_ExternalFileSymlinkResolved(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	mounts := []Mount{{HostPath: mountDir, ContainerPath: "/home/warden/.claude"}}
+	mounts := []api.Mount{{HostPath: mountDir, ContainerPath: "/home/warden/.claude"}}
 
 	resolved, err := resolveSymlinksForMounts(mounts)
 	if err != nil {
@@ -122,7 +124,7 @@ func TestResolveSymlinks_InternalDirSymlinkIgnored(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	mounts := []Mount{{HostPath: mountDir, ContainerPath: "/home/warden/.claude"}}
+	mounts := []api.Mount{{HostPath: mountDir, ContainerPath: "/home/warden/.claude"}}
 
 	resolved, err := resolveSymlinksForMounts(mounts)
 	if err != nil {
@@ -145,7 +147,7 @@ func TestResolveSymlinks_ExternalDirSymlinkResolved(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	mounts := []Mount{{HostPath: mountDir, ContainerPath: "/home/warden/.claude"}}
+	mounts := []api.Mount{{HostPath: mountDir, ContainerPath: "/home/warden/.claude"}}
 
 	resolved, err := resolveSymlinksForMounts(mounts)
 	if err != nil {
@@ -189,7 +191,7 @@ func TestResolveSymlinks_NestedSymlinksFullyResolved(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	mounts := []Mount{{HostPath: mountDir, ContainerPath: "/home/warden/.claude"}}
+	mounts := []api.Mount{{HostPath: mountDir, ContainerPath: "/home/warden/.claude"}}
 
 	resolved, err := resolveSymlinksForMounts(mounts)
 	if err != nil {
@@ -216,7 +218,7 @@ func TestResolveSymlinks_BrokenSymlinkSkipped(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	mounts := []Mount{{HostPath: mountDir, ContainerPath: "/home/warden/.claude"}}
+	mounts := []api.Mount{{HostPath: mountDir, ContainerPath: "/home/warden/.claude"}}
 
 	resolved, err := resolveSymlinksForMounts(mounts)
 	if err != nil {
@@ -246,7 +248,7 @@ func TestResolveSymlinks_CircularSymlinkSkipped(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	mounts := []Mount{{HostPath: mountDir, ContainerPath: "/home/warden/.claude"}}
+	mounts := []api.Mount{{HostPath: mountDir, ContainerPath: "/home/warden/.claude"}}
 
 	resolved, err := resolveSymlinksForMounts(mounts)
 	// Should not hang or crash.
@@ -279,7 +281,7 @@ func TestResolveSymlinks_UnreadableSymlinkSkipped(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	mounts := []Mount{{HostPath: mountDir, ContainerPath: "/home/warden/.claude"}}
+	mounts := []api.Mount{{HostPath: mountDir, ContainerPath: "/home/warden/.claude"}}
 
 	resolved, err := resolveSymlinksForMounts(mounts)
 	if err != nil {
@@ -303,7 +305,7 @@ func TestResolveSymlinks_MountRootIsSymlink(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	mounts := []Mount{{HostPath: symlinkDir, ContainerPath: "/home/warden/.claude"}}
+	mounts := []api.Mount{{HostPath: symlinkDir, ContainerPath: "/home/warden/.claude"}}
 
 	resolved, err := resolveSymlinksForMounts(mounts)
 	if err != nil {
@@ -337,7 +339,7 @@ func TestResolveSymlinks_MountRootSymlinkWithExternalSymlinksInside(t *testing.T
 		t.Fatal(err)
 	}
 
-	mounts := []Mount{{HostPath: symlinkDir, ContainerPath: "/home/warden/.claude"}}
+	mounts := []api.Mount{{HostPath: symlinkDir, ContainerPath: "/home/warden/.claude"}}
 
 	resolved, err := resolveSymlinksForMounts(mounts)
 	if err != nil {
@@ -380,7 +382,7 @@ func TestResolveSymlinks_MixedSymlinksAndRegularFiles(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	mounts := []Mount{{HostPath: mountDir, ContainerPath: "/home/warden/.claude"}}
+	mounts := []api.Mount{{HostPath: mountDir, ContainerPath: "/home/warden/.claude"}}
 
 	resolved, err := resolveSymlinksForMounts(mounts)
 	if err != nil {
@@ -414,7 +416,7 @@ func TestResolveSymlinks_SymlinksInSubdirectories(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	mounts := []Mount{{HostPath: mountDir, ContainerPath: "/home/warden/.claude"}}
+	mounts := []api.Mount{{HostPath: mountDir, ContainerPath: "/home/warden/.claude"}}
 
 	resolved, err := resolveSymlinksForMounts(mounts)
 	if err != nil {
@@ -449,7 +451,7 @@ func TestResolveSymlinks_ReadOnlyPropagated(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	mounts := []Mount{{
+	mounts := []api.Mount{{
 		HostPath:      mountDir,
 		ContainerPath: "/home/warden/.claude",
 		ReadOnly:      true,
@@ -493,7 +495,7 @@ func TestResolveSymlinks_MultipleMountsIndependent(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	mounts := []Mount{
+	mounts := []api.Mount{
 		{HostPath: claudeDir, ContainerPath: "/home/warden/.claude"},
 		{HostPath: sshDir, ContainerPath: "/home/warden/.ssh", ReadOnly: true},
 	}
@@ -515,7 +517,7 @@ func TestResolveSymlinks_SingleFileMountNotWalked(t *testing.T) {
 	externalDir := t.TempDir()
 	writeFile(t, filepath.Join(externalDir, "gitconfig"), "[user]\nname = Test")
 
-	mounts := []Mount{{
+	mounts := []api.Mount{{
 		HostPath:      filepath.Join(externalDir, "gitconfig"),
 		ContainerPath: "/home/warden/.gitconfig",
 	}}
@@ -545,7 +547,7 @@ func TestResolveSymlinks_SingleFileSymlinkMountResolved(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	mounts := []Mount{{
+	mounts := []api.Mount{{
 		HostPath:      filepath.Join(linkDir, "gitconfig"),
 		ContainerPath: "/home/warden/.gitconfig",
 	}}
@@ -584,7 +586,7 @@ func TestResolveSymlinks_ExternalDirNotRecursivelyWalked(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	mounts := []Mount{{HostPath: mountDir, ContainerPath: "/home/warden/.claude"}}
+	mounts := []api.Mount{{HostPath: mountDir, ContainerPath: "/home/warden/.claude"}}
 
 	resolved, err := resolveSymlinksForMounts(mounts)
 	if err != nil {
@@ -616,7 +618,7 @@ func TestResolveSymlinks_EmptyExternalDirSymlink(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	mounts := []Mount{{HostPath: mountDir, ContainerPath: "/home/warden/.claude"}}
+	mounts := []api.Mount{{HostPath: mountDir, ContainerPath: "/home/warden/.claude"}}
 
 	resolved, err := resolveSymlinksForMounts(mounts)
 	if err != nil {
@@ -650,7 +652,7 @@ func TestResolveSymlinks_CredentialsFileUntouched(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	mounts := []Mount{{HostPath: mountDir, ContainerPath: "/home/warden/.claude"}}
+	mounts := []api.Mount{{HostPath: mountDir, ContainerPath: "/home/warden/.claude"}}
 
 	resolved, err := resolveSymlinksForMounts(mounts)
 	if err != nil {
@@ -697,7 +699,7 @@ func TestResolveSymlinks_NixTripleSymlinkChain(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	mounts := []Mount{{HostPath: mountDir, ContainerPath: "/home/warden/.codex"}}
+	mounts := []api.Mount{{HostPath: mountDir, ContainerPath: "/home/warden/.codex"}}
 
 	resolved, err := resolveSymlinksForMounts(mounts)
 	if err != nil {
@@ -746,7 +748,7 @@ func TestResolveSymlinks_NixMultipleConfigFilesAndDirs(t *testing.T) {
 	// Also some real (non-symlinked) content.
 	writeFile(t, filepath.Join(mountDir, "sessions", "2026", "04", "01", "rollout.jsonl"), "{}")
 
-	mounts := []Mount{{HostPath: mountDir, ContainerPath: "/home/warden/.codex"}}
+	mounts := []api.Mount{{HostPath: mountDir, ContainerPath: "/home/warden/.codex"}}
 
 	resolved, err := resolveSymlinksForMounts(mounts)
 	if err != nil {
@@ -795,7 +797,7 @@ func TestResolveSymlinks_GNUStowPattern(t *testing.T) {
 	// Non-symlinked mutable data.
 	writeFile(t, filepath.Join(mountDir, "projects", "proj1", "session.jsonl"), "{}")
 
-	mounts := []Mount{{HostPath: mountDir, ContainerPath: "/home/warden/.claude"}}
+	mounts := []api.Mount{{HostPath: mountDir, ContainerPath: "/home/warden/.claude"}}
 
 	resolved, err := resolveSymlinksForMounts(mounts)
 	if err != nil {
@@ -834,7 +836,7 @@ func TestResolveSymlinks_TmpAndLogDirsSkipped(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	mounts := []Mount{{HostPath: mountDir, ContainerPath: "/home/warden/.codex"}}
+	mounts := []api.Mount{{HostPath: mountDir, ContainerPath: "/home/warden/.codex"}}
 
 	resolved, err := resolveSymlinksForMounts(mounts)
 	if err != nil {
@@ -867,7 +869,7 @@ func TestResolveSymlinks_OriginalMountFirstThenExtras(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	mounts := []Mount{{HostPath: mountDir, ContainerPath: "/home/warden/.claude"}}
+	mounts := []api.Mount{{HostPath: mountDir, ContainerPath: "/home/warden/.claude"}}
 
 	resolved, err := resolveSymlinksForMounts(mounts)
 	if err != nil {

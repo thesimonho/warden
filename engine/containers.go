@@ -13,6 +13,7 @@ import (
 	"github.com/docker/docker/api/types/image"
 
 	"github.com/thesimonho/warden/agent"
+	"github.com/thesimonho/warden/api"
 	"github.com/thesimonho/warden/constants"
 )
 
@@ -63,7 +64,7 @@ func (ec *EngineClient) ensureImage(ctx context.Context, imageName string) error
 
 // CreateContainer creates and starts a new project container with the
 // given configuration. Returns the container ID (truncated to 12 chars).
-func (ec *EngineClient) CreateContainer(ctx context.Context, req CreateContainerRequest) (string, error) {
+func (ec *EngineClient) CreateContainer(ctx context.Context, req api.CreateContainerRequest) (string, error) {
 	if req.Name == "" {
 		return "", fmt.Errorf("container name is required")
 	}
@@ -104,7 +105,7 @@ func (ec *EngineClient) CreateContainer(ctx context.Context, req CreateContainer
 	// Default to full network access when unset
 	networkMode := req.NetworkMode
 	if networkMode == "" {
-		networkMode = NetworkModeFull
+		networkMode = api.NetworkModeFull
 	}
 
 	// All project metadata lives in the SQLite database — no Docker labels needed.
@@ -113,7 +114,7 @@ func (ec *EngineClient) CreateContainer(ctx context.Context, req CreateContainer
 	// Pass network mode to the container as env vars so the entrypoint
 	// can set up iptables rules for restricted/none modes.
 	envList = append(envList, fmt.Sprintf("WARDEN_NETWORK_MODE=%s", networkMode))
-	if networkMode == NetworkModeRestricted && len(req.AllowedDomains) > 0 {
+	if networkMode == api.NetworkModeRestricted && len(req.AllowedDomains) > 0 {
 		envList = append(envList, fmt.Sprintf("WARDEN_ALLOWED_DOMAINS=%s", strings.Join(req.AllowedDomains, ",")))
 	}
 
@@ -266,13 +267,13 @@ func (ec *EngineClient) DeleteContainer(ctx context.Context, id string) error {
 
 // InspectContainer returns the editable configuration of an existing container
 // by parsing its inspect data (binds, env vars, labels).
-func (ec *EngineClient) InspectContainer(ctx context.Context, id string) (*ContainerConfig, error) {
+func (ec *EngineClient) InspectContainer(ctx context.Context, id string) (*api.ContainerConfig, error) {
 	info, err := ec.api.ContainerInspect(ctx, id)
 	if err != nil {
 		return nil, fmt.Errorf("inspecting container %s: %w", id, err)
 	}
 
-	cfg := &ContainerConfig{
+	cfg := &api.ContainerConfig{
 		Name:  strings.TrimPrefix(info.Name, "/"),
 		Image: info.Config.Image,
 	}
@@ -307,7 +308,7 @@ func (ec *EngineClient) InspectContainer(ctx context.Context, id string) (*Conta
 			if containerPath == wsDir || containerPath == "/project" {
 				cfg.ProjectPath = hostPath
 			} else {
-				cfg.Mounts = append(cfg.Mounts, Mount{
+				cfg.Mounts = append(cfg.Mounts, api.Mount{
 					HostPath:      hostPath,
 					ContainerPath: containerPath,
 					ReadOnly:      readOnly,
@@ -322,7 +323,7 @@ func (ec *EngineClient) InspectContainer(ctx context.Context, id string) (*Conta
 			if m.Destination == wsDir || m.Destination == "/project" {
 				cfg.ProjectPath = m.Source
 			} else {
-				cfg.Mounts = append(cfg.Mounts, Mount{
+				cfg.Mounts = append(cfg.Mounts, api.Mount{
 					HostPath:      m.Source,
 					ContainerPath: m.Destination,
 					ReadOnly:      !m.RW,
@@ -365,7 +366,7 @@ func (ec *EngineClient) RenameContainer(ctx context.Context, id string, newName 
 // RecreateContainer replaces a stopped container with a new one using updated config.
 // The old container is renamed to a temporary name before creating the replacement,
 // so it can be restored if the create fails (atomic swap).
-func (ec *EngineClient) RecreateContainer(ctx context.Context, id string, req CreateContainerRequest) (string, error) {
+func (ec *EngineClient) RecreateContainer(ctx context.Context, id string, req api.CreateContainerRequest) (string, error) {
 	info, err := ec.api.ContainerInspect(ctx, id)
 	if err != nil {
 		return "", fmt.Errorf("inspecting container for recreate: %w", err)
@@ -443,13 +444,13 @@ var baseCapabilities = []string{
 //
 // The seccompValue is either inline JSON (Docker) or a host-side file path
 // (Podman). The caller resolves which form to pass based on the runtime.
-func buildSecurityConfig(networkMode NetworkMode, seccompValue string) (capDrop, capAdd []string, securityOpts []string) {
+func buildSecurityConfig(networkMode api.NetworkMode, seccompValue string) (capDrop, capAdd []string, securityOpts []string) {
 	capDrop = []string{"ALL"}
 
 	capAdd = make([]string, len(baseCapabilities))
 	copy(capAdd, baseCapabilities)
 
-	if networkMode == NetworkModeRestricted || networkMode == NetworkModeNone {
+	if networkMode == api.NetworkModeRestricted || networkMode == api.NetworkModeNone {
 		capAdd = append(capAdd, "NET_ADMIN")
 	}
 

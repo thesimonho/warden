@@ -20,4 +20,8 @@ type (
 	AuditFilters            = api.AuditFilters
 	AuditCategory           = api.AuditCategory
 	AuditSummary            = api.AuditSummary
+	CreateContainerRequest  = api.CreateContainerRequest
+	ContainerConfig         = api.ContainerConfig
+	Mount                   = api.Mount
+	NetworkMode             = api.NetworkMode
 )

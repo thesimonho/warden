@@ -18,7 +18,7 @@ type mockEngine struct {
 	containerID        string
 	containerErr       error
 	deleteContainerErr error
-	inspectConfig      *engine.ContainerConfig
+	inspectConfig      *api.ContainerConfig
 	inspectErr         error
 	renameErr          error
 	recreateID         string
@@ -51,11 +51,11 @@ func (m *mockEngine) StopProject(_ context.Context, _ string) error {
 	return m.stopErr
 }
 
-func (m *mockEngine) RestartProject(_ context.Context, _ string, _ []engine.Mount) error {
+func (m *mockEngine) RestartProject(_ context.Context, _ string, _ []api.Mount) error {
 	return m.restartErr
 }
 
-func (m *mockEngine) CreateContainer(_ context.Context, _ engine.CreateContainerRequest) (string, error) {
+func (m *mockEngine) CreateContainer(_ context.Context, _ api.CreateContainerRequest) (string, error) {
 	return m.containerID, m.containerErr
 }
 
@@ -65,7 +65,7 @@ func (m *mockEngine) DeleteContainer(_ context.Context, _ string) error {
 
 func (m *mockEngine) CleanupEventDir(_ string) {}
 
-func (m *mockEngine) InspectContainer(_ context.Context, _ string) (*engine.ContainerConfig, error) {
+func (m *mockEngine) InspectContainer(_ context.Context, _ string) (*api.ContainerConfig, error) {
 	return m.inspectConfig, m.inspectErr
 }
 
@@ -73,7 +73,7 @@ func (m *mockEngine) RenameContainer(_ context.Context, _ string, _ string) erro
 	return m.renameErr
 }
 
-func (m *mockEngine) RecreateContainer(_ context.Context, _ string, _ engine.CreateContainerRequest) (string, error) {
+func (m *mockEngine) RecreateContainer(_ context.Context, _ string, _ api.CreateContainerRequest) (string, error) {
 	return m.recreateID, m.recreateErr
 }
 

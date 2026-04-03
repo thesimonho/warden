@@ -126,10 +126,10 @@ projects, _ := c.ListProjects(ctx)
 result, _ := c.AddProject(ctx, "my-project", "/home/user/code/my-project")
 
 // Create container with configuration
-result, _ := c.CreateContainer(ctx, projectID, engine.CreateContainerRequest{
+result, _ := c.CreateContainer(ctx, projectID, api.CreateContainerRequest{
     Image:    "ghcr.io/thesimonho/warden:latest",
     EnvVars:  map[string]string{"ANTHROPIC_API_KEY": os.Getenv("ANTHROPIC_API_KEY")},
-    Mounts:   []engine.Mount{{HostPath: "/home/user/.claude", ContainerPath: "/home/warden/.claude"}},
+    Mounts:   []api.Mount{{HostPath: "/home/user/.claude", ContainerPath: "/home/warden/.claude"}},
     NetworkMode: "restricted",
     AllowedDomains: []string{"github.com", "npmjs.org"},
 })
@@ -151,7 +151,7 @@ w, _ := warden.New(warden.Options{})
 result, _ := w.Service.AddProject("my-project", "/home/user/code/my-project")
 
 // Create container (same CreateContainerRequest as the client)
-containerResult, _ := w.Service.CreateContainer(ctx, engine.CreateContainerRequest{...})
+containerResult, _ := w.Service.CreateContainer(ctx, api.CreateContainerRequest{...})
 ```
 
 See the [Go Packages](/warden/reference/go/) reference for full API documentation.

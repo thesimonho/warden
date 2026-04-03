@@ -25,10 +25,10 @@ Use this when you want Claude to have internet access but only to specific servi
 
 When selecting Restricted mode, you specify a list of domains. Both exact domains and wildcards are supported:
 
-| Entry | What it matches |
-|-------|----------------|
-| `github.com` | `github.com` and `*.github.com` |
-| `npmjs.org` | `npmjs.org` and `*.npmjs.org` |
+| Entry             | What it matches                           |
+| ----------------- | ----------------------------------------- |
+| `github.com`      | `github.com` and `*.github.com`           |
+| `npmjs.org`       | `npmjs.org` and `*.npmjs.org`             |
 | `api.example.com` | `api.example.com` and `*.api.example.com` |
 
 Each domain entry automatically includes all subdomains.
@@ -66,7 +66,7 @@ Valid values for `networkMode`: `"full"`, `"restricted"`, `"none"`.
 ```go
 c := client.New("http://localhost:8090")
 
-result, _ := c.CreateContainer(ctx, projectID, engine.CreateContainerRequest{
+result, _ := c.CreateContainer(ctx, projectID, api.CreateContainerRequest{
     NetworkMode:    "restricted",
     AllowedDomains: []string{"github.com", "npmjs.org"},
 })
@@ -77,7 +77,7 @@ result, _ := c.CreateContainer(ctx, projectID, engine.CreateContainerRequest{
 ```go
 w, _ := warden.New(warden.Options{})
 
-result, _ := w.Service.CreateContainer(ctx, engine.CreateContainerRequest{
+result, _ := w.Service.CreateContainer(ctx, api.CreateContainerRequest{
     NetworkMode:    "restricted",
     AllowedDomains: []string{"github.com", "npmjs.org"},
 })

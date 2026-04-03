@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/thesimonho/warden/engine"
+	"github.com/thesimonho/warden/api"
 )
 
 func TestFieldVisibility(t *testing.T) {
@@ -138,7 +138,7 @@ func TestMountSubCursorNavigation(t *testing.T) {
 	v := &ContainerFormView{}
 	v.initFields("", "", "", "full", "", false)
 	v.advancedOpen = true
-	v.mounts = []engine.Mount{
+	v.mounts = []api.Mount{
 		{HostPath: "/a", ContainerPath: "/b"},
 		{HostPath: "/c", ContainerPath: "/d"},
 	}
@@ -176,7 +176,7 @@ func TestRemoveMount(t *testing.T) {
 	v := &ContainerFormView{}
 	v.initFields("", "", "", "full", "", false)
 	v.advancedOpen = true
-	v.mounts = []engine.Mount{
+	v.mounts = []api.Mount{
 		{HostPath: "/a", ContainerPath: "/b"},
 		{HostPath: "/c", ContainerPath: "/d"},
 	}
@@ -199,7 +199,7 @@ func TestRemoveLastMount(t *testing.T) {
 	v := &ContainerFormView{}
 	v.initFields("", "", "", "full", "", false)
 	v.advancedOpen = true
-	v.mounts = []engine.Mount{
+	v.mounts = []api.Mount{
 		{HostPath: "/a", ContainerPath: "/b"},
 	}
 	v.cursor = fieldMounts

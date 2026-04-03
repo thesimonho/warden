@@ -21,20 +21,21 @@ All three binaries use the same engine under the hood. The `cmd/` entry points a
 
 All packages are importable via `go get github.com/thesimonho/warden`:
 
-| Package         | Purpose                                            |
-| --------------- | -------------------------------------------------- |
-| `warden` (root) | Engine entry point — `warden.New()` returns `*Warden` with `.Service` |
-| `access`        | Credential passthrough model (items, credentials, resolution) |
-| `api`           | API contract types (request/response/result)       |
-| `client`        | Typed HTTP client for the Warden API               |
-| `service`       | Business logic layer                               |
-| `engine`        | Container engine client + domain types             |
-| `eventbus`      | Event system (broker, store, listener)             |
-| `db`            | SQLite database store (projects, settings, events) |
-| `runtime`       | Container runtime detection                        |
-| `agent`         | Agent abstraction, registry, and session watcher |
-| `agent/claudecode` | Claude Code JSONL parser and status provider |
-| `agent/codex`   | Codex JSONL parser and status provider |
+| Package            | Purpose                                                               |
+| ------------------ | --------------------------------------------------------------------- |
+| `warden` (root)    | Engine entry point — `warden.New()` returns `*Warden` with `.Service` |
+| `access`           | Credential passthrough model (items, credentials, resolution)         |
+| `api`              | API contract types (request/response/result)                          |
+| `client`           | Typed HTTP client for the Warden API                                  |
+| `service`          | Business logic layer                                                  |
+| `engine`           | Container engine client + domain types                                |
+| `eventbus`         | Event system (broker, store, listener)                                |
+| `db`               | SQLite database store (projects, settings, events)                    |
+| `runtime`          | Container runtime detection                                           |
+| `agent`            | Agent abstraction, registry, and session watcher                      |
+| `agent/claudecode` | Claude Code JSONL parser and status provider                          |
+| `agent/codex`      | Codex JSONL parser and status provider                                |
+| `watcher`          | Generic file-tailing utilities (used by agent session watcher)        |
 
 See the [Go Packages](../../reference/go/) reference for full API documentation.
 

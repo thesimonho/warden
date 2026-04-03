@@ -2,12 +2,14 @@ package engine
 
 import (
 	"testing"
+
+	"github.com/thesimonho/warden/api"
 )
 
 const testSeccompValue = "/tmp/test-seccomp.json"
 
 func TestBuildSecurityConfig_FullMode(t *testing.T) {
-	capDrop, capAdd, secOpts := buildSecurityConfig(NetworkModeFull, testSeccompValue)
+	capDrop, capAdd, secOpts := buildSecurityConfig(api.NetworkModeFull, testSeccompValue)
 
 	assertContains(t, capDrop, "ALL", "capDrop")
 	assertNotContains(t, capAdd, "NET_ADMIN", "capAdd")
@@ -16,7 +18,7 @@ func TestBuildSecurityConfig_FullMode(t *testing.T) {
 }
 
 func TestBuildSecurityConfig_RestrictedMode(t *testing.T) {
-	capDrop, capAdd, secOpts := buildSecurityConfig(NetworkModeRestricted, testSeccompValue)
+	capDrop, capAdd, secOpts := buildSecurityConfig(api.NetworkModeRestricted, testSeccompValue)
 
 	assertContains(t, capDrop, "ALL", "capDrop")
 	assertContains(t, capAdd, "NET_ADMIN", "capAdd")
@@ -25,7 +27,7 @@ func TestBuildSecurityConfig_RestrictedMode(t *testing.T) {
 }
 
 func TestBuildSecurityConfig_NoneMode(t *testing.T) {
-	capDrop, capAdd, secOpts := buildSecurityConfig(NetworkModeNone, testSeccompValue)
+	capDrop, capAdd, secOpts := buildSecurityConfig(api.NetworkModeNone, testSeccompValue)
 
 	assertContains(t, capDrop, "ALL", "capDrop")
 	assertContains(t, capAdd, "NET_ADMIN", "capAdd")
@@ -34,7 +36,7 @@ func TestBuildSecurityConfig_NoneMode(t *testing.T) {
 }
 
 func TestBuildSecurityConfig_DropsUnnecessaryCaps(t *testing.T) {
-	_, capAdd, _ := buildSecurityConfig(NetworkModeFull, testSeccompValue)
+	_, capAdd, _ := buildSecurityConfig(api.NetworkModeFull, testSeccompValue)
 
 	// These capabilities from Docker's default set should NOT be re-added.
 	// AUDIT_WRITE was removed when the entrypoint switched from su (PAM) to gosu.

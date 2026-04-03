@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+
+	"github.com/thesimonho/warden/api"
 )
 
 // StaleMountsError is returned by RestartProject when the container's bind
@@ -46,7 +48,7 @@ func IsStaleMountsError(err error) bool {
 //
 // This detects ANY divergence — deleted targets, changed symlink targets,
 // new symlinks, or removed symlinks — not just missing files.
-func DetectStaleMounts(original, current []Mount) []string {
+func DetectStaleMounts(original, current []api.Mount) []string {
 	fresh, err := resolveSymlinksForMounts(original)
 	if err != nil {
 		return nil
@@ -78,7 +80,7 @@ func DetectStaleMounts(original, current []Mount) []string {
 }
 
 // mountHostIndex builds a map of containerPath → hostPath for quick lookup.
-func mountHostIndex(mounts []Mount) map[string]string {
+func mountHostIndex(mounts []api.Mount) map[string]string {
 	m := make(map[string]string, len(mounts))
 	for _, mount := range mounts {
 		m[mount.ContainerPath] = mount.HostPath

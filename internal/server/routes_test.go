@@ -31,7 +31,7 @@ type mockEngineClient struct {
 	containerID        string
 	containerErr       error
 	deleteContainerErr error
-	inspectConfig      *engine.ContainerConfig
+	inspectConfig      *api.ContainerConfig
 	inspectErr         error
 	recreateID         string
 	recreateErr        error
@@ -56,11 +56,11 @@ func (m *mockEngineClient) StopProject(_ context.Context, _ string) error {
 	return m.stopErr
 }
 
-func (m *mockEngineClient) RestartProject(_ context.Context, _ string, _ []engine.Mount) error {
+func (m *mockEngineClient) RestartProject(_ context.Context, _ string, _ []api.Mount) error {
 	return m.restartErr
 }
 
-func (m *mockEngineClient) CreateContainer(_ context.Context, _ engine.CreateContainerRequest) (string, error) {
+func (m *mockEngineClient) CreateContainer(_ context.Context, _ api.CreateContainerRequest) (string, error) {
 	return m.containerID, m.containerErr
 }
 
@@ -70,7 +70,7 @@ func (m *mockEngineClient) DeleteContainer(_ context.Context, _ string) error {
 
 func (m *mockEngineClient) CleanupEventDir(_ string) {}
 
-func (m *mockEngineClient) InspectContainer(_ context.Context, _ string) (*engine.ContainerConfig, error) {
+func (m *mockEngineClient) InspectContainer(_ context.Context, _ string) (*api.ContainerConfig, error) {
 	return m.inspectConfig, m.inspectErr
 }
 
@@ -78,7 +78,7 @@ func (m *mockEngineClient) RenameContainer(_ context.Context, _ string, _ string
 	return nil
 }
 
-func (m *mockEngineClient) RecreateContainer(_ context.Context, _ string, _ engine.CreateContainerRequest) (string, error) {
+func (m *mockEngineClient) RecreateContainer(_ context.Context, _ string, _ api.CreateContainerRequest) (string, error) {
 	return m.recreateID, m.recreateErr
 }
 
@@ -804,7 +804,7 @@ func TestHandleInspectContainer(t *testing.T) {
 	t.Parallel()
 
 	mock := &mockEngineClient{
-		inspectConfig: &engine.ContainerConfig{
+		inspectConfig: &api.ContainerConfig{
 			Name:        "my-project",
 			Image:       "ghcr.io/thesimonho/warden:latest",
 			ProjectPath: "/home/user/project",
@@ -823,7 +823,7 @@ func TestHandleInspectContainer(t *testing.T) {
 		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
 	}
 
-	var cfg engine.ContainerConfig
+	var cfg api.ContainerConfig
 	if err := json.NewDecoder(rec.Body).Decode(&cfg); err != nil {
 		t.Fatalf("decode error: %v", err)
 	}
@@ -1070,7 +1070,7 @@ func TestHandleListWorktrees_OverlaysAttentionFromStore(t *testing.T) {
 			{ID: "main", ProjectID: testContainerID, State: engine.WorktreeStateConnected},
 			{ID: "feature-x", ProjectID: testContainerID, State: engine.WorktreeStateStopped},
 		},
-		inspectConfig: &engine.ContainerConfig{Name: "test-project"},
+		inspectConfig: &api.ContainerConfig{Name: "test-project"},
 	}
 
 	store := eventbus.NewStore(nil, nil)
@@ -1131,7 +1131,7 @@ func TestHandleListWorktrees_AttentionClearOverlay(t *testing.T) {
 				NotificationType: "permission_prompt",
 			},
 		},
-		inspectConfig: &engine.ContainerConfig{Name: "test-project"},
+		inspectConfig: &api.ContainerConfig{Name: "test-project"},
 	}
 
 	store := eventbus.NewStore(nil, nil)
@@ -1221,7 +1221,7 @@ func TestHandleListWorktrees_SessionEndTransitionsToShell(t *testing.T) {
 		worktrees: []engine.Worktree{
 			{ID: "main", ProjectID: testContainerID, State: engine.WorktreeStateConnected},
 		},
-		inspectConfig: &engine.ContainerConfig{Name: "test-project"},
+		inspectConfig: &api.ContainerConfig{Name: "test-project"},
 	}
 
 	store := eventbus.NewStore(nil, nil)

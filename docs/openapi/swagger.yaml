@@ -295,6 +295,47 @@ components:
           description: Path is the absolute path of the staged file inside the container.
           type: string
       type: object
+    api.ContainerConfig:
+      properties:
+        agentType:
+          $ref: '#/components/schemas/constants.AgentType'
+        allowedDomains:
+          description: AllowedDomains lists domains accessible when NetworkMode is
+            "restricted".
+          items:
+            type: string
+          type: array
+          uniqueItems: false
+        costBudget:
+          description: CostBudget is the per-project cost limit in USD (0 = use global
+            default).
+          type: number
+        enabledAccessItems:
+          description: EnabledAccessItems lists active access item IDs (e.g. ["git","ssh"]).
+          items:
+            type: string
+          type: array
+          uniqueItems: false
+        envVars:
+          additionalProperties:
+            type: string
+          type: object
+        image:
+          type: string
+        mounts:
+          items:
+            $ref: '#/components/schemas/api.Mount'
+          type: array
+          uniqueItems: false
+        name:
+          type: string
+        networkMode:
+          $ref: '#/components/schemas/api.NetworkMode'
+        projectPath:
+          type: string
+        skipPermissions:
+          type: boolean
+      type: object
     api.CreateAccessItemRequest:
       properties:
         credentials:
@@ -306,6 +347,52 @@ components:
           type: string
         label:
           type: string
+      type: object
+    api.CreateContainerRequest:
+      properties:
+        agentType:
+          $ref: '#/components/schemas/constants.AgentType'
+        allowedDomains:
+          description: AllowedDomains lists domains accessible when NetworkMode is
+            "restricted".
+          items:
+            type: string
+          type: array
+          uniqueItems: false
+        costBudget:
+          description: CostBudget is the per-project cost limit in USD (0 = use global
+            default).
+          type: number
+        enabledAccessItems:
+          description: EnabledAccessItems lists active access item IDs (e.g. ["git","ssh"]).
+          items:
+            type: string
+          type: array
+          uniqueItems: false
+        envVars:
+          additionalProperties:
+            type: string
+          type: object
+        image:
+          type: string
+        mounts:
+          description: Mounts is a list of additional bind mounts from host into the
+            container.
+          items:
+            $ref: '#/components/schemas/api.Mount'
+          type: array
+          uniqueItems: false
+        name:
+          type: string
+        networkMode:
+          $ref: '#/components/schemas/api.NetworkMode'
+        projectPath:
+          type: string
+        skipPermissions:
+          description: |-
+            SkipPermissions controls whether terminals skip permission prompts.
+            Stored as a Docker label on the container.
+          type: boolean
       type: object
     api.DiffFileSummary:
       properties:
@@ -360,6 +447,29 @@ components:
         path:
           type: string
       type: object
+    api.Mount:
+      properties:
+        containerPath:
+          description: ContainerPath is the absolute path inside the container.
+          type: string
+        hostPath:
+          description: HostPath is the absolute path on the host.
+          type: string
+        readOnly:
+          description: ReadOnly mounts the path as read-only inside the container.
+          type: boolean
+      type: object
+    api.NetworkMode:
+      description: NetworkMode controls the container's network isolation level.
+      enum:
+      - full
+      - restricted
+      - none
+      type: string
+      x-enum-varnames:
+      - NetworkModeFull
+      - NetworkModeRestricted
+      - NetworkModeNone
     api.PostAuditEventRequest:
       properties:
         attrs:
@@ -507,116 +617,6 @@ components:
       - AgentStatusIdle
       - AgentStatusWorking
       - AgentStatusUnknown
-    engine.ContainerConfig:
-      properties:
-        agentType:
-          $ref: '#/components/schemas/constants.AgentType'
-        allowedDomains:
-          description: AllowedDomains lists domains accessible when NetworkMode is
-            "restricted".
-          items:
-            type: string
-          type: array
-          uniqueItems: false
-        costBudget:
-          description: CostBudget is the per-project cost limit in USD (0 = use global
-            default).
-          type: number
-        enabledAccessItems:
-          description: EnabledAccessItems lists active access item IDs (e.g. ["git","ssh"]).
-          items:
-            type: string
-          type: array
-          uniqueItems: false
-        envVars:
-          additionalProperties:
-            type: string
-          type: object
-        image:
-          type: string
-        mounts:
-          items:
-            $ref: '#/components/schemas/engine.Mount'
-          type: array
-          uniqueItems: false
-        name:
-          type: string
-        networkMode:
-          $ref: '#/components/schemas/engine.NetworkMode'
-        projectPath:
-          type: string
-        skipPermissions:
-          type: boolean
-      type: object
-    engine.CreateContainerRequest:
-      properties:
-        agentType:
-          $ref: '#/components/schemas/constants.AgentType'
-        allowedDomains:
-          description: AllowedDomains lists domains accessible when NetworkMode is
-            "restricted".
-          items:
-            type: string
-          type: array
-          uniqueItems: false
-        costBudget:
-          description: CostBudget is the per-project cost limit in USD (0 = use global
-            default).
-          type: number
-        enabledAccessItems:
-          description: EnabledAccessItems lists active access item IDs (e.g. ["git","ssh"]).
-          items:
-            type: string
-          type: array
-          uniqueItems: false
-        envVars:
-          additionalProperties:
-            type: string
-          type: object
-        image:
-          type: string
-        mounts:
-          description: Mounts is a list of additional bind mounts from host into the
-            container.
-          items:
-            $ref: '#/components/schemas/engine.Mount'
-          type: array
-          uniqueItems: false
-        name:
-          type: string
-        networkMode:
-          $ref: '#/components/schemas/engine.NetworkMode'
-        projectPath:
-          type: string
-        skipPermissions:
-          description: |-
-            SkipPermissions controls whether terminals skip permission prompts.
-            Stored as a Docker label on the container.
-          type: boolean
-      type: object
-    engine.Mount:
-      properties:
-        containerPath:
-          description: ContainerPath is the absolute path inside the container.
-          type: string
-        hostPath:
-          description: HostPath is the absolute path on the host.
-          type: string
-        readOnly:
-          description: ReadOnly mounts the path as read-only inside the container.
-          type: boolean
-      type: object
-    engine.NetworkMode:
-      description: NetworkMode controls the container's network isolation level.
-      enum:
-      - full
-      - restricted
-      - none
-      type: string
-      x-enum-varnames:
-      - NetworkModeFull
-      - NetworkModeRestricted
-      - NetworkModeNone
     engine.NotificationType:
       description: NotificationType indicates why Claude needs attention.
       enum:
@@ -684,7 +684,7 @@ components:
           description: NeedsInput is true when any worktree requires user attention.
           type: boolean
         networkMode:
-          $ref: '#/components/schemas/engine.NetworkMode'
+          $ref: '#/components/schemas/api.NetworkMode'
         notificationType:
           $ref: '#/components/schemas/engine.NotificationType'
         os:
@@ -1873,7 +1873,7 @@ paths:
             schema:
               oneOf:
               - type: object
-              - $ref: '#/components/schemas/engine.CreateContainerRequest'
+              - $ref: '#/components/schemas/api.CreateContainerRequest'
                 description: Container configuration
                 summary: body
         description: Container configuration
@@ -1929,7 +1929,7 @@ paths:
             schema:
               oneOf:
               - type: object
-              - $ref: '#/components/schemas/engine.CreateContainerRequest'
+              - $ref: '#/components/schemas/api.CreateContainerRequest'
                 description: Updated container configuration
                 summary: body
         description: Updated container configuration
@@ -1979,7 +1979,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/engine.ContainerConfig'
+                $ref: '#/components/schemas/api.ContainerConfig'
           description: OK
         "400":
           content:

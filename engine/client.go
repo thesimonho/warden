@@ -19,6 +19,7 @@ import (
 	"github.com/docker/docker/pkg/stdcopy"
 
 	"github.com/thesimonho/warden/agent"
+	"github.com/thesimonho/warden/api"
 	cruntime "github.com/thesimonho/warden/runtime"
 )
 
@@ -573,7 +574,7 @@ func (ec *EngineClient) StopProject(ctx context.Context, id string) error {
 //
 // originalMounts are the pre-symlink-resolution mount specs from the DB.
 // When nil, mount validation is skipped (container predates the migration).
-func (ec *EngineClient) RestartProject(ctx context.Context, id string, originalMounts []Mount) error {
+func (ec *EngineClient) RestartProject(ctx context.Context, id string, originalMounts []api.Mount) error {
 	if err := ec.validateMountSources(ctx, id, originalMounts); err != nil {
 		return err
 	}
@@ -596,7 +597,7 @@ func (ec *EngineClient) RestartProject(ctx context.Context, id string, originalM
 // returns a StaleMountsError to block the restart.
 //
 // originalMounts come from the DB. When nil, validation is skipped.
-func (ec *EngineClient) validateMountSources(ctx context.Context, id string, originalMounts []Mount) error {
+func (ec *EngineClient) validateMountSources(ctx context.Context, id string, originalMounts []api.Mount) error {
 	if len(originalMounts) == 0 {
 		return nil
 	}
@@ -616,7 +617,7 @@ func (ec *EngineClient) validateMountSources(ctx context.Context, id string, ori
 		return containerPath == wsDir || containerPath == containerEventDir
 	}
 
-	var currentMounts []Mount
+	var currentMounts []api.Mount
 	if info.HostConfig != nil {
 		for _, bind := range info.HostConfig.Binds {
 			parts := strings.SplitN(bind, ":", 2)
@@ -630,7 +631,7 @@ func (ec *EngineClient) validateMountSources(ctx context.Context, id string, ori
 			if isWardenManaged(containerPath) {
 				continue
 			}
-			currentMounts = append(currentMounts, Mount{
+			currentMounts = append(currentMounts, api.Mount{
 				HostPath:      hostPath,
 				ContainerPath: containerPath,
 			})
@@ -643,7 +644,7 @@ func (ec *EngineClient) validateMountSources(ctx context.Context, id string, ori
 			if isWardenManaged(m.Destination) {
 				continue
 			}
-			currentMounts = append(currentMounts, Mount{
+			currentMounts = append(currentMounts, api.Mount{
 				HostPath:      m.Source,
 				ContainerPath: m.Destination,
 			})

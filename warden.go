@@ -7,7 +7,7 @@
 //	defer w.Close()
 //
 //	projects, _ := w.Service.ListProjects(ctx)
-//	result, _ := w.Service.CreateContainer(ctx, engine.CreateContainerRequest{...})
+//	result, _ := w.Service.CreateContainer(ctx, api.CreateContainerRequest{...})
 //	_, _ = w.Service.StopProject(ctx, projectID)
 package warden
 
