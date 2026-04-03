@@ -24,6 +24,8 @@ export interface TestProjectInfo {
   name: string
   /** Active container runtime. */
   runtime: ApiRuntime
+  /** Agent type (defaults to claude-code, overridable via WARDEN_AGENT_TYPE). */
+  agentType: string
 }
 
 /**
@@ -67,6 +69,7 @@ export const test = base.extend<
 
   testProject: [async ({ runtime }, use) => {
     const name = generateProjectName()
+    const agentType = process.env.WARDEN_AGENT_TYPE ?? 'claude-code'
     let projectId: string | undefined
 
     /* Each worker needs a unique workspace directory so project IDs
@@ -90,6 +93,7 @@ export const test = base.extend<
       try {
         const result = await createTestProject(name, workerWorkspace, {
           skipPermissions: true,
+          agentType,
         })
         projectId = result.projectId
         break
@@ -108,11 +112,12 @@ export const test = base.extend<
         id: projectId!,
         name,
         runtime,
+        agentType,
       })
     } finally {
       /* Always clean up, even if the test fails. */
       if (projectId) {
-        await removeTestProject(projectId)
+        await removeTestProject(projectId, agentType)
       }
       /* Clean up worker-specific workspace. */
       if (existsSync(workerWorkspace)) {
@@ -136,17 +141,17 @@ export const test = base.extend<
        session would cause connectTerminal to skip create-terminal.sh,
        which means no terminal_connected event fires. */
     try {
-      const worktrees = await fetchWorktrees(testProject.id)
+      const worktrees = await fetchWorktrees(testProject.id, testProject.agentType)
       const active = worktrees.filter((wt) =>
         wt.state === 'connected' || wt.state === 'shell' || wt.state === 'background',
       )
       if (active.length > 0) {
         await Promise.all(
-          active.map((wt) => killWorktreeProcess(testProject.id, wt.id).catch(() => {})),
+          active.map((wt) => killWorktreeProcess(testProject.id, wt.id, testProject.agentType).catch(() => {})),
         )
         await Promise.all(
           active.map((wt) =>
-            waitForWorktreeState(testProject.id, wt.id, 'disconnected', 10_000).catch(() => {}),
+            waitForWorktreeState(testProject.id, wt.id, 'disconnected', 10_000, testProject.agentType).catch(() => {}),
           ),
         )
       }

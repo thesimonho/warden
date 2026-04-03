@@ -103,7 +103,9 @@ export default async function globalSetup() {
 
   buildTestImage(activeRuntime)
 
-  /* Clean up leftover E2E containers from previous interrupted runs. */
+  /* Clean up leftover E2E containers from previous interrupted runs.
+     Two-layer cleanup: API first (removes DB entries + containers), then
+     CLI fallback (catches orphaned containers the API missed). */
   try {
     const projects = await fetchProjects()
     const stale = projects.filter((p) => p.name.startsWith('warden-e2e-'))
@@ -112,6 +114,22 @@ export default async function globalSetup() {
 
     if (stale.length > 0) {
       console.log(`[E2E] Cleaned up ${stale.length} stale container(s)`)
+    }
+  } catch { /* non-fatal */ }
+
+  /* CLI fallback: force-remove any orphaned warden-e2e-* containers that
+     the API cleanup missed (e.g. server was down during previous teardown). */
+  try {
+    const containers = execSync(
+      `${activeRuntime} ps -a --filter "name=warden-e2e-" --format "{{.Names}}"`,
+      { stdio: 'pipe', timeout: 10_000 },
+    ).toString().trim()
+    if (containers) {
+      const names = containers.split('\n').filter(Boolean)
+      for (const name of names) {
+        execSync(`${activeRuntime} rm -f ${name}`, { stdio: 'pipe', timeout: 10_000 })
+      }
+      console.log(`[E2E] Force-removed ${names.length} orphaned container(s) via ${activeRuntime}`)
     }
   } catch { /* non-fatal */ }
 }

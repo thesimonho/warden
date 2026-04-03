@@ -1,3 +1,4 @@
+import { execSync } from 'child_process'
 import { rmSync, existsSync } from 'fs'
 import { TEST_WORKSPACE } from './global-setup'
 import { fetchProjects, removeTestProject } from './helpers/api'
@@ -6,7 +7,10 @@ import { fetchProjects, removeTestProject } from './helpers/api'
  * Runs once after all test files.
  *
  * Cleans up the test workspace and removes any leaked test containers.
+ * Uses a two-layer approach: API cleanup first, then CLI fallback for
+ * containers the API missed (e.g. server crashed during the run).
  */
+
 /** E2E database directory — matches the path in playwright.config.ts webServer. */
 const E2E_DB_DIR = '/tmp/warden-e2e-db'
 
@@ -21,7 +25,7 @@ export default async function globalTeardown() {
     rmSync(E2E_DB_DIR, { recursive: true, force: true })
   }
 
-  /* Auto-clean leaked test containers. */
+  /* Layer 1: API cleanup — removes DB entries + containers. */
   try {
     const projects = await fetchProjects()
     const leaked = projects.filter((p) => p.name.startsWith('warden-e2e-'))
@@ -35,6 +39,25 @@ export default async function globalTeardown() {
       console.warn(`[E2E] Cleaned up ${leaked.length} leaked container(s)`)
     }
   } catch {
-    /* Server may already be stopped — ignore. */
+    /* Server may already be stopped — fall through to CLI cleanup. */
+  }
+
+  /* Layer 2: CLI fallback — force-remove orphaned containers directly. */
+  for (const runtime of ['docker', 'podman']) {
+    try {
+      const containers = execSync(
+        `${runtime} ps -a --filter "name=warden-e2e-" --format "{{.Names}}"`,
+        { stdio: 'pipe', timeout: 10_000 },
+      ).toString().trim()
+      if (containers) {
+        const names = containers.split('\n').filter(Boolean)
+        for (const name of names) {
+          execSync(`${runtime} rm -f ${name}`, { stdio: 'pipe', timeout: 10_000 })
+        }
+        console.warn(`[E2E] Force-removed ${names.length} orphaned container(s) via ${runtime}`)
+      }
+    } catch {
+      /* Runtime not available or no containers — skip. */
+    }
   }
 }

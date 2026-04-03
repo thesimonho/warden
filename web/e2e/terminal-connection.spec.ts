@@ -80,8 +80,8 @@ test.describe('Terminal connection', () => {
     /* Disconnect via API — the backend should transition to background.
        The grid cell stays visible (background is still "alive") but the
        sidebar should reflect the state change. */
-    await disconnectTerminal(testProject.id, 'main')
+    await disconnectTerminal(testProject.id, 'main', testProject.agentType)
 
-    await waitForWorktreeState(testProject.id, 'main', ['background', 'shell'], 30_000)
+    await waitForWorktreeState(testProject.id, 'main', ['background', 'shell'], 30_000, testProject.agentType)
   })
 })
