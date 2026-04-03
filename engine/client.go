@@ -695,7 +695,7 @@ func (ec *EngineClient) ContainerStartupHealth(ctx context.Context, containerNam
 		slog.Warn("failed to read container logs for health check", "container", containerName, "error", logErr)
 		return health, nil
 	}
-	defer logReader.Close()
+	defer func() { _ = logReader.Close() }()
 
 	// Docker multiplexes stdout/stderr with an 8-byte header per frame.
 	// StdCopy demuxes into a single buffer for clean log output.
