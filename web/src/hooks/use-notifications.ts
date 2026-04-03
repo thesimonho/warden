@@ -9,11 +9,19 @@ import { getAttentionConfig } from '@/lib/notification-config'
  * - A project's `needsInput` becomes true (with type-specific messages)
  * - A running project's `activeWorktreeCount` drops to zero (all worktrees done)
  *
+ * Each notification fires at most once per attention cycle. The "already
+ * notified" flag is only cleared when the agent goes back to working
+ * (needsInput becomes false for a sustained period), so SSE event races
+ * (e.g. CostUpdate briefly clearing needsInput before TurnComplete
+ * restores it) don't trigger duplicate notifications.
+ *
  * @param projects - Current list of projects to monitor.
  * @param enabled - Whether notifications are enabled in settings.
  */
 export function useNotifications(projects: readonly Project[], enabled: boolean): void {
   const previousRef = useRef<Map<string, ProjectSnapshot>>(new Map())
+  /** Tracks whether we already notified for the current attention cycle. */
+  const notifiedRef = useRef<Set<string>>(new Set())
 
   useEffect(() => {
     if (!enabled) return
@@ -34,15 +42,22 @@ export function useNotifications(projects: readonly Project[], enabled: boolean)
       const prev = previous.get(project.projectId)
       if (!prev) continue
 
-      if (snapshot.needsInput && !prev.needsInput) {
+      // Clear the notified flag when the agent genuinely goes back to working.
+      if (!snapshot.needsInput && prev.needsInput) {
+        notifiedRef.current.delete(project.projectId)
+      }
+
+      if (snapshot.needsInput && !prev.needsInput && !notifiedRef.current.has(project.projectId)) {
         const config = getAttentionConfig(snapshot.notificationType)
         notify(`${project.name} needs attention`, config.message)
+        notifiedRef.current.add(project.projectId)
       }
 
       const wasRunning = prev.state === 'running' && prev.activeWorktreeCount > 0
       const allDone = snapshot.state === 'running' && snapshot.activeWorktreeCount === 0
-      if (wasRunning && allDone) {
+      if (wasRunning && allDone && !notifiedRef.current.has(project.projectId)) {
         notify(`${project.name} worktrees complete`, 'All worktrees have finished.')
+        notifiedRef.current.add(project.projectId)
       }
     }
 
