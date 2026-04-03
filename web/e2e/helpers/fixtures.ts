@@ -136,7 +136,7 @@ export const test = base.extend<
     await use()
 
     /* After the test: kill every active worktree process so the next test
-       starts from a clean "disconnected" state. Using kill instead of
+       starts from a clean "stopped" state. Using kill instead of
        disconnect ensures the tmux session is fully stopped — a background
        session would cause connectTerminal to skip create-terminal.sh,
        which means no terminal_connected event fires. */
@@ -151,7 +151,7 @@ export const test = base.extend<
         )
         await Promise.all(
           active.map((wt) =>
-            waitForWorktreeState(testProject.id, wt.id, 'disconnected', 10_000, testProject.agentType).catch(() => {}),
+            waitForWorktreeState(testProject.id, wt.id, 'stopped', 10_000, testProject.agentType).catch(() => {}),
           ),
         )
       }

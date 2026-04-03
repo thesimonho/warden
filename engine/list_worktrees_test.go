@@ -170,7 +170,7 @@ func TestEnrichWorktreeState_UsesTmuxListSessions(t *testing.T) {
 	ec := newTestClient(mock)
 
 	worktrees := []Worktree{
-		{ID: "feature-x", ProjectID: "ctr-tmux", State: WorktreeStateDisconnected},
+		{ID: "feature-x", ProjectID: "ctr-tmux", State: WorktreeStateStopped},
 	}
 
 	ec.enrichWorktreeState(context.Background(), "ctr-tmux", worktrees)

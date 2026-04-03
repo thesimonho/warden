@@ -164,12 +164,12 @@ A worktree is a unit of independent work. The user creates worktrees to have the
 
 ### Worktree States
 
-| State            | Meaning                                                    | What happens on click                                   |
-| ---------------- | ---------------------------------------------------------- | ------------------------------------------------------- |
-| **connected**    | Terminal running, agent active                             | Show the existing terminal                              |
-| **shell**        | Agent exited, bash shell still alive in tmux               | Show the terminal (with "Agent exited" indicator)       |
-| **background**   | tmux session alive, WebSocket closed (viewer disconnected) | Reconnect: reconnect WebSocket to existing tmux session |
-| **disconnected** | No processes running                                       | Connect: start new terminal, launch agent               |
+| State          | Meaning                                                    | What happens on click                                   |
+| -------------- | ---------------------------------------------------------- | ------------------------------------------------------- |
+| **connected**  | Terminal running, agent active                             | Show the existing terminal                              |
+| **shell**      | Agent exited, bash shell still alive in tmux               | Show the terminal (with "Agent exited" indicator)       |
+| **background** | tmux session alive, WebSocket closed (viewer disconnected) | Reconnect: reconnect WebSocket to existing tmux session |
+| **stopped**    | No processes running                                       | Connect: start new terminal, launch agent               |
 
 ### 6a. Create Worktree
 
@@ -259,7 +259,7 @@ A worktree is a unit of independent work. The user creates worktrees to have the
 1. `exit_code=137` is written for auto-resume on next connect.
 2. The tmux session is killed. The agent receives SIGHUP/SIGTERM.
 3. Stale tracking files are cleaned up (exit_code is preserved).
-4. Worktree transitions to "disconnected" state.
+4. Worktree transitions to "stopped" state.
 5. The worktree card shows a grey dot.
 6. The worktree remains in the sidebar — reconnecting triggers auto-resume.
 
@@ -278,8 +278,8 @@ A worktree is a unit of independent work. The user creates worktrees to have the
 
 | Container Event | Impact on Terminals                                     | Impact on Worktrees                                                                                  |
 | --------------- | ------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| Stop            | All tmux sessions killed. WebSocket connections closed. | Git worktrees preserved on bind mount. All become "disconnected". Auto-resume on reconnect.          |
-| Start / Restart | Entrypoint writes exit_code for orphaned terminals.     | Worktrees rediscovered from filesystem. All start as "disconnected". Auto-resume on reconnect.       |
+| Stop            | All tmux sessions killed. WebSocket connections closed. | Git worktrees preserved on bind mount. All become "stopped". Auto-resume on reconnect.               |
+| Start / Restart | Entrypoint writes exit_code for orphaned terminals.     | Worktrees rediscovered from filesystem. All start as "stopped". Auto-resume on reconnect.            |
 | Recreate (edit) | Old container removed.                                  | Worktrees preserved on bind mount. Reconnectable in new container.                                   |
 | Delete          | Container removed.                                      | Worktrees preserved on bind mount. Available when a new container mounts the same project directory. |
 

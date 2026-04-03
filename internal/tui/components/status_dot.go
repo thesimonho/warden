@@ -27,7 +27,7 @@ func WorktreeStateStyle(state engine.WorktreeState) lipgloss.Style {
 		return dotAmber
 	case engine.WorktreeStateBackground:
 		return dotPurple
-	case engine.WorktreeStateDisconnected:
+	case engine.WorktreeStateStopped:
 		return dotGray
 	default:
 		return dotGray
@@ -39,7 +39,7 @@ func WorktreeStateStyle(state engine.WorktreeState) lipgloss.Style {
 //   - connected → green ●
 //   - shell     → amber ●
 //   - background → purple ●
-//   - disconnected → gray ○
+//   - stopped → gray ○
 func WorktreeStateDot(state engine.WorktreeState) string {
 	switch state {
 	case engine.WorktreeStateConnected:
@@ -48,7 +48,7 @@ func WorktreeStateDot(state engine.WorktreeState) string {
 		return dotAmber.Render("●")
 	case engine.WorktreeStateBackground:
 		return dotPurple.Render("●")
-	case engine.WorktreeStateDisconnected:
+	case engine.WorktreeStateStopped:
 		return dotGray.Render("○")
 	default:
 		return dotGray.Render("○")

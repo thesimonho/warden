@@ -76,12 +76,12 @@ Auto-resume does NOT trigger when:
 
 ## Worktree states
 
-| State            | tmux                  | WebSocket | What user sees                          |
-| ---------------- | --------------------- | --------- | --------------------------------------- |
-| **connected**    | Running, agent active | Connected | Green dot, live terminal                |
-| **shell**        | Running, agent exited | Connected | Amber dot, bash prompt. Can `--resume`. |
-| **background**   | Running               | Closed    | Purple dot. Reconnectable.              |
-| **disconnected** | Dead                  | N/A       | Gray dot. Click to start fresh.         |
+| State          | tmux                  | WebSocket | What user sees                          |
+| -------------- | --------------------- | --------- | --------------------------------------- |
+| **connected**  | Running, agent active | Connected | Green dot, live terminal                |
+| **shell**      | Running, agent exited | Connected | Amber dot, bash prompt. Can `--resume`. |
+| **background** | Running               | Closed    | Purple dot. Reconnectable.              |
+| **stopped**    | Dead                  | N/A       | Gray dot. Click to start fresh.         |
 
 ## Agent activity (sub-states of connected)
 

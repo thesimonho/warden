@@ -17,7 +17,7 @@ describe('hasActiveTerminal', () => {
   })
 
   it('returns false for disconnected worktrees', () => {
-    expect(hasActiveTerminal({ state: 'disconnected' })).toBe(false)
+    expect(hasActiveTerminal({ state: 'stopped' })).toBe(false)
   })
 
   it('returns true for background worktrees', () => {
@@ -25,7 +25,7 @@ describe('hasActiveTerminal', () => {
   })
 
   it('returns false for all non-active states', () => {
-    const inactiveStates: WorktreeState[] = ['disconnected']
+    const inactiveStates: WorktreeState[] = ['stopped']
     for (const state of inactiveStates) {
       expect(hasActiveTerminal({ state })).toBe(false)
     }
@@ -42,7 +42,7 @@ describe('isConnectedWorktree', () => {
   })
 
   it('returns false for disconnected worktrees', () => {
-    expect(isConnectedWorktree({ state: 'disconnected' })).toBe(false)
+    expect(isConnectedWorktree({ state: 'stopped' })).toBe(false)
   })
 
   it('returns false for background worktrees', () => {
@@ -64,7 +64,7 @@ describe('isWorktreeAlive', () => {
   })
 
   it('returns false for disconnected worktrees', () => {
-    expect(isWorktreeAlive({ state: 'disconnected' })).toBe(false)
+    expect(isWorktreeAlive({ state: 'stopped' })).toBe(false)
   })
 })
 

@@ -121,8 +121,8 @@ branch refs/heads/fix/login
 	if worktrees[0].ProjectID != "container-123" {
 		t.Errorf("expected project ID 'container-123', got %q", worktrees[0].ProjectID)
 	}
-	if worktrees[0].State != WorktreeStateDisconnected {
-		t.Errorf("expected disconnected state, got %q", worktrees[0].State)
+	if worktrees[0].State != WorktreeStateStopped {
+		t.Errorf("expected stopped state, got %q", worktrees[0].State)
 	}
 
 	// Feature worktree

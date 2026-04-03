@@ -13,7 +13,7 @@ import { useEventSource, SSE_POLL_INTERVAL_MS } from '@/hooks/use-event-source'
 
 /** Display state for a canvas panel derived from its worktree. */
 export interface PanelWorktreeState {
-  /** The worktree's current state enum (connected, shell, background, disconnected). */
+  /** The worktree's current state enum (connected, shell, background, stopped). */
   worktreeState: WorktreeState
   /** Whether the terminal has an active connection (connected or shell state). */
   isActive: boolean
@@ -71,7 +71,7 @@ export function useCanvasWorktreeState(panels: CanvasPanel[]): Map<string, Panel
 
               if (!wt) {
                 nextMap.set(panel.id, {
-                  worktreeState: 'disconnected',
+                  worktreeState: 'stopped',
                   isActive: false,
                   needsInput: false,
                   stateDotClass: 'bg-muted-foreground/40',
@@ -103,7 +103,7 @@ export function useCanvasWorktreeState(panels: CanvasPanel[]): Map<string, Panel
           // Carry forward previous state for panels whose project fetch
           // failed. Without this, a transient API error would wipe the
           // panel's state and flip isActive to false (via the ?? false
-          // fallback), causing an active terminal to show "disconnected".
+          // fallback), causing an active terminal to show "stopped".
           for (const panel of currentPanels) {
             if (!nextMap.has(panel.id)) {
               const prevState = prev.get(panel.id)

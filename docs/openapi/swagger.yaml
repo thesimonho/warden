@@ -5,21 +5,22 @@ components:
         injections:
           description: Injections are the container-side delivery targets.
           items:
-            $ref: '#/components/schemas/access.Injection'
+            $ref: "#/components/schemas/access.Injection"
           type: array
           uniqueItems: false
         label:
-          description: Label is a human-readable name for this credential (e.g. "SSH
+          description:
+            Label is a human-readable name for this credential (e.g. "SSH
             Agent Socket").
           type: string
         sources:
           description: Sources are tried in order; the first detected value is used.
           items:
-            $ref: '#/components/schemas/access.Source'
+            $ref: "#/components/schemas/access.Source"
           type: array
           uniqueItems: false
         transform:
-          $ref: '#/components/schemas/access.Transform'
+          $ref: "#/components/schemas/access.Transform"
       type: object
     access.CredentialStatus:
       properties:
@@ -30,7 +31,8 @@ components:
           description: Label is the credential's human-readable name.
           type: string
         sourceMatched:
-          description: SourceMatched describes which source was detected (empty when
+          description:
+            SourceMatched describes which source was detected (empty when
             unavailable).
           type: string
       type: object
@@ -43,7 +45,7 @@ components:
         credentials:
           description: Credentials contains per-credential detection results.
           items:
-            $ref: '#/components/schemas/access.CredentialStatus'
+            $ref: "#/components/schemas/access.CredentialStatus"
           type: array
           uniqueItems: false
         id:
@@ -56,15 +58,17 @@ components:
     access.Injection:
       properties:
         key:
-          description: Key is the env var name or container path for the injection
+          description:
+            Key is the env var name or container path for the injection
             target.
           type: string
         readOnly:
-          description: ReadOnly applies to mount injections — when true the mount
+          description:
+            ReadOnly applies to mount injections — when true the mount
             is read-only.
           type: boolean
         type:
-          $ref: '#/components/schemas/access.InjectionType'
+          $ref: "#/components/schemas/access.InjectionType"
         value:
           description: |-
             Value is a static override for the resolved value. When set, this
@@ -76,14 +80,14 @@ components:
     access.InjectionType:
       description: Type is the injection kind (env, mount_file, mount_socket).
       enum:
-      - env
-      - mount_file
-      - mount_socket
+        - env
+        - mount_file
+        - mount_socket
       type: string
       x-enum-varnames:
-      - InjectionEnvVar
-      - InjectionMountFile
-      - InjectionMountSocket
+        - InjectionEnvVar
+        - InjectionMountFile
+        - InjectionMountSocket
     access.Item:
       properties:
         builtIn:
@@ -92,7 +96,7 @@ components:
         credentials:
           description: Credentials are the individual credential entries in this group.
           items:
-            $ref: '#/components/schemas/access.Credential'
+            $ref: "#/components/schemas/access.Credential"
           type: array
           uniqueItems: false
         description:
@@ -107,15 +111,15 @@ components:
           description: Label is the human-readable display name (e.g. "Git Config").
           type: string
         method:
-          $ref: '#/components/schemas/access.Method'
+          $ref: "#/components/schemas/access.Method"
       type: object
     access.Method:
       description: Method is the delivery strategy (only "transport" for now).
       enum:
-      - transport
+        - transport
       type: string
       x-enum-varnames:
-      - MethodTransport
+        - MethodTransport
     access.ResolvedCredential:
       properties:
         error:
@@ -124,7 +128,7 @@ components:
         injections:
           description: Injections are the resolved container-side deliveries.
           items:
-            $ref: '#/components/schemas/access.ResolvedInjection'
+            $ref: "#/components/schemas/access.ResolvedInjection"
           type: array
           uniqueItems: false
         label:
@@ -136,7 +140,8 @@ components:
             were produced.
           type: boolean
         sourceMatched:
-          description: SourceMatched describes which source was matched (empty when
+          description:
+            SourceMatched describes which source was matched (empty when
             unresolved).
           type: string
       type: object
@@ -149,7 +154,7 @@ components:
           description: ReadOnly applies to mount injections.
           type: boolean
         type:
-          $ref: '#/components/schemas/access.InjectionType'
+          $ref: "#/components/schemas/access.InjectionType"
         value:
           description: |-
             Value is the resolved content (env var value, host file path,
@@ -161,7 +166,7 @@ components:
         credentials:
           description: Credentials contains per-credential resolution results.
           items:
-            $ref: '#/components/schemas/access.ResolvedCredential'
+            $ref: "#/components/schemas/access.ResolvedCredential"
           type: array
           uniqueItems: false
         id:
@@ -174,52 +179,55 @@ components:
     access.Source:
       properties:
         type:
-          $ref: '#/components/schemas/access.SourceType'
+          $ref: "#/components/schemas/access.SourceType"
         value:
-          description: Value is the env var name, file path, socket path, or command
+          description:
+            Value is the env var name, file path, socket path, or command
             string.
           type: string
       type: object
     access.SourceType:
       description: Type is the kind of host source.
       enum:
-      - env
-      - file
-      - socket
-      - command
+        - env
+        - file
+        - socket
+        - command
       type: string
       x-enum-varnames:
-      - SourceEnvVar
-      - SourceFilePath
-      - SourceSocketPath
-      - SourceCommand
+        - SourceEnvVar
+        - SourceFilePath
+        - SourceSocketPath
+        - SourceCommand
     access.Transform:
-      description: Transform is an optional processing step applied to the resolved
+      description:
+        Transform is an optional processing step applied to the resolved
         value.
       properties:
         params:
           additionalProperties:
             type: string
-          description: Params holds type-specific configuration (e.g. "pattern" for
+          description:
+            Params holds type-specific configuration (e.g. "pattern" for
             strip_lines).
           type: object
         type:
-          $ref: '#/components/schemas/access.TransformType'
+          $ref: "#/components/schemas/access.TransformType"
       type: object
     access.TransformType:
       description: Type identifies the transformation.
       enum:
-      - strip_lines
-      - git_include
+        - strip_lines
+        - git_include
       type: string
       x-enum-varnames:
-      - TransformStripLines
-      - TransformGitInclude
+        - TransformStripLines
+        - TransformGitInclude
     api.AccessItemListResponse:
       properties:
         items:
           items:
-            $ref: '#/components/schemas/api.AccessItemResponse'
+            $ref: "#/components/schemas/api.AccessItemResponse"
           type: array
           uniqueItems: false
       type: object
@@ -231,14 +239,14 @@ components:
         credentials:
           description: Credentials are the individual credential entries in this group.
           items:
-            $ref: '#/components/schemas/access.Credential'
+            $ref: "#/components/schemas/access.Credential"
           type: array
           uniqueItems: false
         description:
           description: Description explains what this access item provides.
           type: string
         detection:
-          $ref: '#/components/schemas/access.DetectionResult'
+          $ref: "#/components/schemas/access.DetectionResult"
         id:
           description: |-
             ID is a stable identifier. Built-in items use well-known IDs
@@ -248,26 +256,26 @@ components:
           description: Label is the human-readable display name (e.g. "Git Config").
           type: string
         method:
-          $ref: '#/components/schemas/access.Method'
+          $ref: "#/components/schemas/access.Method"
       type: object
     api.AuditLogMode:
       enum:
-      - "off"
-      - standard
-      - detailed
+        - "off"
+        - standard
+        - detailed
       type: string
       x-enum-varnames:
-      - AuditLogOff
-      - AuditLogStandard
-      - AuditLogDetailed
+        - AuditLogOff
+        - AuditLogStandard
+        - AuditLogDetailed
     api.AuditSummary:
       properties:
         timeRange:
-          $ref: '#/components/schemas/api.TimeRange'
+          $ref: "#/components/schemas/api.TimeRange"
         topTools:
           description: TopTools lists the most frequently used tools with counts.
           items:
-            $ref: '#/components/schemas/api.ToolCount'
+            $ref: "#/components/schemas/api.ToolCount"
           type: array
           uniqueItems: false
         totalCostUsd:
@@ -299,7 +307,7 @@ components:
       properties:
         credentials:
           items:
-            $ref: '#/components/schemas/access.Credential'
+            $ref: "#/components/schemas/access.Credential"
           type: array
           uniqueItems: false
         description:
@@ -325,7 +333,8 @@ components:
           description: Path is the file path relative to the worktree root.
           type: string
         status:
-          description: 'Status is the change type: "added", "modified", "deleted",
+          description:
+            'Status is the change type: "added", "modified", "deleted",
             or "renamed".'
           type: string
       type: object
@@ -334,7 +343,7 @@ components:
         files:
           description: Files lists per-file change statistics.
           items:
-            $ref: '#/components/schemas/api.DiffFileSummary'
+            $ref: "#/components/schemas/api.DiffFileSummary"
           type: array
           uniqueItems: false
         rawDiff:
@@ -347,7 +356,8 @@ components:
           description: TotalDeletions is the sum of deletions across all files.
           type: integer
         truncated:
-          description: Truncated is true when the raw diff exceeded the size limit
+          description:
+            Truncated is true when the raw diff exceeded the size limit
             and was capped.
           type: boolean
       type: object
@@ -376,7 +386,7 @@ components:
       properties:
         items:
           items:
-            $ref: '#/components/schemas/access.Item'
+            $ref: "#/components/schemas/access.Item"
           type: array
           uniqueItems: false
       type: object
@@ -384,7 +394,7 @@ components:
       properties:
         items:
           items:
-            $ref: '#/components/schemas/access.ResolvedItem'
+            $ref: "#/components/schemas/access.ResolvedItem"
           type: array
           uniqueItems: false
       type: object
@@ -407,7 +417,7 @@ components:
       properties:
         credentials:
           items:
-            $ref: '#/components/schemas/access.Credential'
+            $ref: "#/components/schemas/access.Credential"
           type: array
           uniqueItems: false
         description:
@@ -418,18 +428,19 @@ components:
     constants.AgentType:
       description: AgentType identifies the CLI agent running in this project.
       enum:
-      - claude-code
-      - codex
-      - claude-code
+        - claude-code
+        - codex
+        - claude-code
       type: string
       x-enum-varnames:
-      - AgentClaudeCode
-      - AgentCodex
-      - DefaultAgentType
+        - AgentClaudeCode
+        - AgentCodex
+        - DefaultAgentType
     db.Entry:
       properties:
         agentType:
-          description: AgentType identifies the agent that produced this event (e.g.
+          description:
+            AgentType identifies the agent that produced this event (e.g.
             "claude-code", "codex").
           type: string
         attrs:
@@ -442,11 +453,13 @@ components:
             Computed at query time from the event name — not stored in the DB.
           type: string
         containerName:
-          description: ContainerName is a snapshot of the container name at the time
+          description:
+            ContainerName is a snapshot of the container name at the time
             of the event.
           type: string
         data:
-          description: Data carries the raw event payload (for agent events, preserves
+          description:
+            Data carries the raw event payload (for agent events, preserves
             hook JSON).
           items:
             type: integer
@@ -456,16 +469,17 @@ components:
           description: Event is a snake_case identifier for the event type (e.g. "session_start").
           type: string
         level:
-          $ref: '#/components/schemas/db.Level'
+          $ref: "#/components/schemas/db.Level"
         msg:
           description: Message is a human-readable description.
           type: string
         projectId:
-          description: ProjectID is the deterministic project identifier (sha256 of
+          description:
+            ProjectID is the deterministic project identifier (sha256 of
             host path, 12 hex chars).
           type: string
         source:
-          $ref: '#/components/schemas/db.Source'
+          $ref: "#/components/schemas/db.Source"
         ts:
           description: Timestamp is when the event occurred (ISO 8601 with milliseconds).
           type: string
@@ -476,50 +490,52 @@ components:
     db.Level:
       description: Level is the severity of the entry (info, warn, error).
       enum:
-      - info
-      - warn
-      - error
+        - info
+        - warn
+        - error
       type: string
       x-enum-varnames:
-      - LevelInfo
-      - LevelWarn
-      - LevelError
+        - LevelInfo
+        - LevelWarn
+        - LevelError
     db.Source:
       description: Source identifies the origin layer (agent, backend, frontend, container).
       enum:
-      - agent
-      - backend
-      - frontend
-      - container
+        - agent
+        - backend
+        - frontend
+        - container
       type: string
       x-enum-varnames:
-      - SourceAgent
-      - SourceBackend
-      - SourceFrontend
-      - SourceContainer
+        - SourceAgent
+        - SourceBackend
+        - SourceFrontend
+        - SourceContainer
     engine.AgentStatus:
       enum:
-      - idle
-      - working
-      - unknown
+        - idle
+        - working
+        - unknown
       type: string
       x-enum-varnames:
-      - AgentStatusIdle
-      - AgentStatusWorking
-      - AgentStatusUnknown
+        - AgentStatusIdle
+        - AgentStatusWorking
+        - AgentStatusUnknown
     engine.ContainerConfig:
       properties:
         agentType:
-          $ref: '#/components/schemas/constants.AgentType'
+          $ref: "#/components/schemas/constants.AgentType"
         allowedDomains:
-          description: AllowedDomains lists domains accessible when NetworkMode is
+          description:
+            AllowedDomains lists domains accessible when NetworkMode is
             "restricted".
           items:
             type: string
           type: array
           uniqueItems: false
         costBudget:
-          description: CostBudget is the per-project cost limit in USD (0 = use global
+          description:
+            CostBudget is the per-project cost limit in USD (0 = use global
             default).
           type: number
         enabledAccessItems:
@@ -536,13 +552,13 @@ components:
           type: string
         mounts:
           items:
-            $ref: '#/components/schemas/engine.Mount'
+            $ref: "#/components/schemas/engine.Mount"
           type: array
           uniqueItems: false
         name:
           type: string
         networkMode:
-          $ref: '#/components/schemas/engine.NetworkMode'
+          $ref: "#/components/schemas/engine.NetworkMode"
         projectPath:
           type: string
         skipPermissions:
@@ -551,16 +567,18 @@ components:
     engine.CreateContainerRequest:
       properties:
         agentType:
-          $ref: '#/components/schemas/constants.AgentType'
+          $ref: "#/components/schemas/constants.AgentType"
         allowedDomains:
-          description: AllowedDomains lists domains accessible when NetworkMode is
+          description:
+            AllowedDomains lists domains accessible when NetworkMode is
             "restricted".
           items:
             type: string
           type: array
           uniqueItems: false
         costBudget:
-          description: CostBudget is the per-project cost limit in USD (0 = use global
+          description:
+            CostBudget is the per-project cost limit in USD (0 = use global
             default).
           type: number
         enabledAccessItems:
@@ -576,16 +594,17 @@ components:
         image:
           type: string
         mounts:
-          description: Mounts is a list of additional bind mounts from host into the
+          description:
+            Mounts is a list of additional bind mounts from host into the
             container.
           items:
-            $ref: '#/components/schemas/engine.Mount'
+            $ref: "#/components/schemas/engine.Mount"
           type: array
           uniqueItems: false
         name:
           type: string
         networkMode:
-          $ref: '#/components/schemas/engine.NetworkMode'
+          $ref: "#/components/schemas/engine.NetworkMode"
         projectPath:
           type: string
         skipPermissions:
@@ -609,52 +628,56 @@ components:
     engine.NetworkMode:
       description: NetworkMode controls the container's network isolation level.
       enum:
-      - full
-      - restricted
-      - none
+        - full
+        - restricted
+        - none
       type: string
       x-enum-varnames:
-      - NetworkModeFull
-      - NetworkModeRestricted
-      - NetworkModeNone
+        - NetworkModeFull
+        - NetworkModeRestricted
+        - NetworkModeNone
     engine.NotificationType:
       description: NotificationType indicates why Claude needs attention.
       enum:
-      - permission_prompt
-      - idle_prompt
-      - auth_success
-      - elicitation_dialog
+        - permission_prompt
+        - idle_prompt
+        - auth_success
+        - elicitation_dialog
       type: string
       x-enum-varnames:
-      - NotificationPermissionPrompt
-      - NotificationIdlePrompt
-      - NotificationAuthSuccess
-      - NotificationElicitationDialog
+        - NotificationPermissionPrompt
+        - NotificationIdlePrompt
+        - NotificationAuthSuccess
+        - NotificationElicitationDialog
     engine.Project:
       properties:
         activeWorktreeCount:
-          description: ActiveWorktreeCount is the number of worktrees with connected
+          description:
+            ActiveWorktreeCount is the number of worktrees with connected
             terminals.
           type: integer
         agentStatus:
-          $ref: '#/components/schemas/engine.AgentStatus'
+          $ref: "#/components/schemas/engine.AgentStatus"
         agentType:
-          $ref: '#/components/schemas/constants.AgentType'
+          $ref: "#/components/schemas/constants.AgentType"
         allowedDomains:
-          description: AllowedDomains lists domains accessible when NetworkMode is
+          description:
+            AllowedDomains lists domains accessible when NetworkMode is
             "restricted".
           items:
             type: string
           type: array
           uniqueItems: false
         costBudget:
-          description: CostBudget is the per-project cost limit in USD (0 = use global
+          description:
+            CostBudget is the per-project cost limit in USD (0 = use global
             default).
           type: number
         createdAt:
           type: integer
         hasContainer:
-          description: HasContainer is true when a Docker container is associated
+          description:
+            HasContainer is true when a Docker container is associated
             with this project.
           type: boolean
         hostPath:
@@ -671,7 +694,8 @@ components:
             When false, the cost reflects actual API spend.
           type: boolean
         isGitRepo:
-          description: IsGitRepo indicates whether the container's /project is a git
+          description:
+            IsGitRepo indicates whether the container's /project is a git
             repository.
           type: boolean
         mountedDir:
@@ -684,17 +708,19 @@ components:
           description: NeedsInput is true when any worktree requires user attention.
           type: boolean
         networkMode:
-          $ref: '#/components/schemas/engine.NetworkMode'
+          $ref: "#/components/schemas/engine.NetworkMode"
         notificationType:
-          $ref: '#/components/schemas/engine.NotificationType'
+          $ref: "#/components/schemas/engine.NotificationType"
         os:
           type: string
         projectId:
-          description: ProjectID is the deterministic project identifier (sha256 of
+          description:
+            ProjectID is the deterministic project identifier (sha256 of
             host path, 12 hex chars).
           type: string
         skipPermissions:
-          description: SkipPermissions indicates whether terminals should skip permission
+          description:
+            SkipPermissions indicates whether terminals should skip permission
             prompts.
           type: boolean
         sshPort:
@@ -704,13 +730,15 @@ components:
         status:
           type: string
         totalCost:
-          description: TotalCost is the aggregate cost across all worktrees in USD
+          description:
+            TotalCost is the aggregate cost across all worktrees in USD
             (from agent status provider).
           type: number
         type:
           type: string
         workspaceDir:
-          description: WorkspaceDir is the container-side workspace directory (mount
+          description:
+            WorkspaceDir is the container-side workspace directory (mount
             destination).
           type: string
       type: object
@@ -725,15 +753,17 @@ components:
             Nil means the agent is still running (or no exit code captured).
           type: integer
         id:
-          description: ID is the worktree identifier — directory name for git worktrees,
+          description:
+            ID is the worktree identifier — directory name for git worktrees,
             "main" for project root.
           type: string
         needsInput:
-          description: NeedsInput is true when Claude is blocked waiting for user
+          description:
+            NeedsInput is true when Claude is blocked waiting for user
             attention.
           type: boolean
         notificationType:
-          $ref: '#/components/schemas/engine.NotificationType'
+          $ref: "#/components/schemas/engine.NotificationType"
         path:
           description: Path is the filesystem path inside the container.
           type: string
@@ -741,37 +771,37 @@ components:
           description: ProjectID is the container ID this worktree belongs to.
           type: string
         state:
-          $ref: '#/components/schemas/engine.WorktreeState'
+          $ref: "#/components/schemas/engine.WorktreeState"
       type: object
     engine.WorktreeState:
-      description: State is the terminal connection state (connected, shell, disconnected).
+      description: State is the terminal connection state (connected, shell, background, stopped).
       enum:
-      - connected
-      - shell
-      - background
-      - disconnected
+        - connected
+        - shell
+        - background
+        - stopped
       type: string
       x-enum-varnames:
-      - WorktreeStateConnected
-      - WorktreeStateShell
-      - WorktreeStateBackground
-      - WorktreeStateDisconnected
+        - WorktreeStateConnected
+        - WorktreeStateShell
+        - WorktreeStateBackground
+        - WorktreeStateStopped
     runtime.Runtime:
       description: Name is the runtime identifier ("docker" or "podman").
       enum:
-      - docker
-      - podman
+        - docker
+        - podman
       type: string
       x-enum-varnames:
-      - RuntimeDocker
-      - RuntimePodman
+        - RuntimeDocker
+        - RuntimePodman
     runtime.RuntimeInfo:
       properties:
         available:
           description: Available indicates whether the runtime's API socket is reachable.
           type: boolean
         name:
-          $ref: '#/components/schemas/runtime.Runtime'
+          $ref: "#/components/schemas/runtime.Runtime"
         socketPath:
           description: SocketPath is the filesystem path to the runtime's API socket.
           type: string
@@ -781,21 +811,21 @@ components:
       type: object
     server.ErrorCode:
       enum:
-      - INVALID_BODY
-      - INVALID_CONTAINER_ID
-      - INVALID_CONTAINER_NAME
-      - INVALID_WORKTREE_ID
-      - INVALID_WORKTREE_NAME
-      - REQUIRED_FIELD
-      - INVALID_PATH
-      - INVALID_NETWORK_CONFIG
-      - NOT_A_DIRECTORY
-      - NOT_FOUND
-      - NAME_TAKEN
-      - NOT_CONFIGURED
-      - STALE_MOUNTS
-      - BUDGET_EXCEEDED
-      - INTERNAL
+        - INVALID_BODY
+        - INVALID_CONTAINER_ID
+        - INVALID_CONTAINER_NAME
+        - INVALID_WORKTREE_ID
+        - INVALID_WORKTREE_NAME
+        - REQUIRED_FIELD
+        - INVALID_PATH
+        - INVALID_NETWORK_CONFIG
+        - NOT_A_DIRECTORY
+        - NOT_FOUND
+        - NAME_TAKEN
+        - NOT_CONFIGURED
+        - STALE_MOUNTS
+        - BUDGET_EXCEEDED
+        - INTERNAL
       type: string
       x-enum-comments:
         ErrCodeBudgetExceeded: "403"
@@ -805,21 +835,21 @@ components:
         ErrCodeNotFound: "404"
         ErrCodeStaleMounts: "409"
       x-enum-varnames:
-      - ErrCodeInvalidBody
-      - ErrCodeInvalidContainerID
-      - ErrCodeInvalidContainerName
-      - ErrCodeInvalidWorktreeID
-      - ErrCodeInvalidWorktreeName
-      - ErrCodeRequiredField
-      - ErrCodeInvalidPath
-      - ErrCodeInvalidNetworkConfig
-      - ErrCodeNotADirectory
-      - ErrCodeNotFound
-      - ErrCodeNameTaken
-      - ErrCodeNotConfigured
-      - ErrCodeStaleMounts
-      - ErrCodeBudgetExceeded
-      - ErrCodeInternal
+        - ErrCodeInvalidBody
+        - ErrCodeInvalidContainerID
+        - ErrCodeInvalidContainerName
+        - ErrCodeInvalidWorktreeID
+        - ErrCodeInvalidWorktreeName
+        - ErrCodeRequiredField
+        - ErrCodeInvalidPath
+        - ErrCodeInvalidNetworkConfig
+        - ErrCodeNotADirectory
+        - ErrCodeNotFound
+        - ErrCodeNameTaken
+        - ErrCodeNotConfigured
+        - ErrCodeStaleMounts
+        - ErrCodeBudgetExceeded
+        - ErrCodeInternal
     server.addProjectRequest:
       properties:
         name:
@@ -827,7 +857,8 @@ components:
           example: my-project
           type: string
         projectPath:
-          description: ProjectPath is the absolute host directory to register as a
+          description:
+            ProjectPath is the absolute host directory to register as a
             project.
           example: /home/user/my-project
           type: string
@@ -835,14 +866,15 @@ components:
     server.apiError:
       properties:
         code:
-          $ref: '#/components/schemas/server.ErrorCode'
+          $ref: "#/components/schemas/server.ErrorCode"
         error:
           type: string
       type: object
     server.cleanupWorktreesResponse:
       properties:
         removed:
-          description: Removed is the list of orphaned worktree IDs that were cleaned
+          description:
+            Removed is the list of orphaned worktree IDs that were cleaned
             up.
           items:
             type: string
@@ -873,7 +905,8 @@ components:
     server.updateSettingsResponse:
       properties:
         restartRequired:
-          description: RestartRequired is true when a setting change requires a server
+          description:
+            RestartRequired is true when a setting change requires a server
             restart.
           type: boolean
       type: object
@@ -907,7 +940,8 @@ components:
     service.ProjectResult:
       properties:
         agentType:
-          description: AgentType is the agent type for this project (e.g. "claude-code",
+          description:
+            AgentType is the agent type for this project (e.g. "claude-code",
             "codex").
           type: string
         containerId:
@@ -923,7 +957,7 @@ components:
     service.SettingsResponse:
       properties:
         auditLogMode:
-          $ref: '#/components/schemas/api.AuditLogMode'
+          $ref: "#/components/schemas/api.AuditLogMode"
         budgetActionPreventStart:
           type: boolean
         budgetActionStopContainer:
@@ -931,7 +965,8 @@ components:
         budgetActionStopWorktrees:
           type: boolean
         budgetActionWarn:
-          description: Budget enforcement actions — what happens when a project exceeds
+          description:
+            Budget enforcement actions — what happens when a project exceeds
             its budget.
           type: boolean
         defaultProjectBudget:
@@ -949,7 +984,7 @@ components:
     service.UpdateSettingsRequest:
       properties:
         auditLogMode:
-          $ref: '#/components/schemas/api.AuditLogMode'
+          $ref: "#/components/schemas/api.AuditLogMode"
         budgetActionPreventStart:
           type: boolean
         budgetActionStopContainer:
@@ -968,7 +1003,8 @@ components:
     service.WorktreeResult:
       properties:
         projectId:
-          description: ProjectID is the deterministic project identifier the worktree
+          description:
+            ProjectID is the deterministic project identifier the worktree
             belongs to.
           type: string
         worktreeId:
@@ -979,7 +1015,8 @@ externalDocs:
   description: Integration Paths
   url: https://thesimonho.github.io/warden/integration/paths/
 info:
-  description: Container engine and control plane for running multiple Claude Code
+  description:
+    Container engine and control plane for running multiple Claude Code
     agents in isolated containers.
   license:
     name: Apache-2.0
@@ -999,17 +1036,17 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/api.AccessItemListResponse'
+                $ref: "#/components/schemas/api.AccessItemListResponse"
           description: OK
         "500":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/server.apiError'
+                $ref: "#/components/schemas/server.apiError"
           description: Internal Server Error
       summary: List access items
       tags:
-      - access
+        - access
     post:
       description: |-
         Creates a new user-defined access item with the given label, description,
@@ -1019,10 +1056,10 @@ paths:
           application/json:
             schema:
               oneOf:
-              - type: object
-              - $ref: '#/components/schemas/api.CreateAccessItemRequest'
-                description: Access item configuration
-                summary: body
+                - type: object
+                - $ref: "#/components/schemas/api.CreateAccessItemRequest"
+                  description: Access item configuration
+                  summary: body
         description: Access item configuration
         required: true
       responses:
@@ -1030,35 +1067,35 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/access.Item'
+                $ref: "#/components/schemas/access.Item"
           description: Created
         "400":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/server.apiError'
+                $ref: "#/components/schemas/server.apiError"
           description: Invalid input (missing label or credentials)
         "500":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/server.apiError'
+                $ref: "#/components/schemas/server.apiError"
           description: Internal Server Error
       summary: Create access item
       tags:
-      - access
+        - access
   /api/v1/access/{id}:
     delete:
       description: |-
         Deletes a user-defined access item. Built-in items cannot be deleted —
         use the reset endpoint instead.
       parameters:
-      - description: Access item ID
-        in: path
-        name: id
-        required: true
-        schema:
-          type: string
+        - description: Access item ID
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
       responses:
         "204":
           description: No content
@@ -1066,71 +1103,71 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/server.apiError'
+                $ref: "#/components/schemas/server.apiError"
           description: Cannot delete built-in item
         "500":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/server.apiError'
+                $ref: "#/components/schemas/server.apiError"
           description: Internal Server Error
       summary: Delete access item
       tags:
-      - access
+        - access
     get:
       description: |-
         Returns a single access item with detection status. For built-in items,
         returns the DB override if one exists, otherwise the default configuration.
       parameters:
-      - description: Access item ID
-        in: path
-        name: id
-        required: true
-        schema:
-          type: string
+        - description: Access item ID
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
       responses:
         "200":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/api.AccessItemResponse'
+                $ref: "#/components/schemas/api.AccessItemResponse"
           description: OK
         "404":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/server.apiError'
+                $ref: "#/components/schemas/server.apiError"
           description: Item not found
         "500":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/server.apiError'
+                $ref: "#/components/schemas/server.apiError"
           description: Internal Server Error
       summary: Get access item
       tags:
-      - access
+        - access
     put:
       description: |-
         Updates an access item. For built-in items, saves a customized copy to the DB
         (overriding the default). For user items, updates the existing DB row.
         Only provided fields are changed.
       parameters:
-      - description: Access item ID
-        in: path
-        name: id
-        required: true
-        schema:
-          type: string
+        - description: Access item ID
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
       requestBody:
         content:
           application/json:
             schema:
               oneOf:
-              - type: object
-              - $ref: '#/components/schemas/api.UpdateAccessItemRequest'
-                description: Fields to update (all optional)
-                summary: body
+                - type: object
+                - $ref: "#/components/schemas/api.UpdateAccessItemRequest"
+                  description: Fields to update (all optional)
+                  summary: body
         description: Fields to update (all optional)
         required: true
       responses:
@@ -1138,63 +1175,63 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/access.Item'
+                $ref: "#/components/schemas/access.Item"
           description: OK
         "400":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/server.apiError'
+                $ref: "#/components/schemas/server.apiError"
           description: Invalid input
         "404":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/server.apiError'
+                $ref: "#/components/schemas/server.apiError"
           description: Item not found
         "500":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/server.apiError'
+                $ref: "#/components/schemas/server.apiError"
           description: Internal Server Error
       summary: Update access item
       tags:
-      - access
+        - access
   /api/v1/access/{id}/reset:
     post:
       description: |-
         Restores a built-in access item to its default configuration by removing
         any DB override. Only works for built-in items (git, ssh).
       parameters:
-      - description: Built-in access item ID
-        in: path
-        name: id
-        required: true
-        schema:
-          type: string
+        - description: Built-in access item ID
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
       responses:
         "200":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/access.Item'
+                $ref: "#/components/schemas/access.Item"
           description: OK
         "400":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/server.apiError'
+                $ref: "#/components/schemas/server.apiError"
           description: Not a built-in item
         "500":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/server.apiError'
+                $ref: "#/components/schemas/server.apiError"
           description: Internal Server Error
       summary: Reset access item
       tags:
-      - access
+        - access
   /api/v1/access/resolve:
     post:
       description: |-
@@ -1206,10 +1243,10 @@ paths:
           application/json:
             schema:
               oneOf:
-              - type: object
-              - $ref: '#/components/schemas/api.ResolveAccessItemsRequest'
-                description: Item IDs to resolve
-                summary: body
+                - type: object
+                - $ref: "#/components/schemas/api.ResolveAccessItemsRequest"
+                  description: Item IDs to resolve
+                  summary: body
         description: Item IDs to resolve
         required: true
       responses:
@@ -1217,55 +1254,55 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/api.ResolveAccessItemsResponse'
+                $ref: "#/components/schemas/api.ResolveAccessItemsResponse"
           description: OK
         "400":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/server.apiError'
+                $ref: "#/components/schemas/server.apiError"
           description: Invalid request body
         "404":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/server.apiError'
+                $ref: "#/components/schemas/server.apiError"
           description: Item not found
         "500":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/server.apiError'
+                $ref: "#/components/schemas/server.apiError"
           description: Internal Server Error
       summary: Resolve access items
       tags:
-      - access
+        - access
   /api/v1/audit:
     delete:
       description: |-
         Removes audit events matching the given filters. Supports scoping by
         project, worktree, and time range.
       parameters:
-      - description: Filter by project ID
-        in: query
-        name: projectId
-        schema:
-          type: string
-      - description: Filter by worktree ID
-        in: query
-        name: worktree
-        schema:
-          type: string
-      - description: Delete entries after this timestamp (RFC3339)
-        in: query
-        name: since
-        schema:
-          type: string
-      - description: Delete entries before this timestamp (RFC3339)
-        in: query
-        name: until
-        schema:
-          type: string
+        - description: Filter by project ID
+          in: query
+          name: projectId
+          schema:
+            type: string
+        - description: Filter by worktree ID
+          in: query
+          name: worktree
+          schema:
+            type: string
+        - description: Delete entries after this timestamp (RFC3339)
+          in: query
+          name: since
+          schema:
+            type: string
+        - description: Delete entries before this timestamp (RFC3339)
+          in: query
+          name: until
+          schema:
+            type: string
       responses:
         "200":
           content:
@@ -1280,80 +1317,81 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/server.apiError'
+                $ref: "#/components/schemas/server.apiError"
           description: Internal Server Error
       summary: Delete audit events
       tags:
-      - audit
+        - audit
     get:
       description: |-
         Returns audit-relevant events (sessions, tool uses, prompts, lifecycle)
         with optional filtering by project, worktree, category, and time range.
       parameters:
-      - description: Filter by project ID
-        in: query
-        name: projectId
-        schema:
-          type: string
-      - description: Filter by worktree ID
-        in: query
-        name: worktree
-        schema:
-          type: string
-      - description: Filter by category (session, agent, prompt, config, budget, system,
-          debug)
-        in: query
-        name: category
-        schema:
-          type: string
-      - description: Filter by source (agent, backend, frontend, container)
-        in: query
-        name: source
-        schema:
-          type: string
-      - description: Filter by level (info, warning, error)
-        in: query
-        name: level
-        schema:
-          type: string
-      - description: Filter entries after this timestamp (RFC3339)
-        in: query
-        name: since
-        schema:
-          type: string
-      - description: Filter entries before this timestamp (RFC3339)
-        in: query
-        name: until
-        schema:
-          type: string
-      - description: Maximum entries to return (default 10000)
-        in: query
-        name: limit
-        schema:
-          type: integer
-      - description: Number of entries to skip
-        in: query
-        name: offset
-        schema:
-          type: integer
+        - description: Filter by project ID
+          in: query
+          name: projectId
+          schema:
+            type: string
+        - description: Filter by worktree ID
+          in: query
+          name: worktree
+          schema:
+            type: string
+        - description:
+            Filter by category (session, agent, prompt, config, budget, system,
+            debug)
+          in: query
+          name: category
+          schema:
+            type: string
+        - description: Filter by source (agent, backend, frontend, container)
+          in: query
+          name: source
+          schema:
+            type: string
+        - description: Filter by level (info, warning, error)
+          in: query
+          name: level
+          schema:
+            type: string
+        - description: Filter entries after this timestamp (RFC3339)
+          in: query
+          name: since
+          schema:
+            type: string
+        - description: Filter entries before this timestamp (RFC3339)
+          in: query
+          name: until
+          schema:
+            type: string
+        - description: Maximum entries to return (default 10000)
+          in: query
+          name: limit
+          schema:
+            type: integer
+        - description: Number of entries to skip
+          in: query
+          name: offset
+          schema:
+            type: integer
       responses:
         "200":
           content:
             application/json:
               schema:
                 items:
-                  $ref: '#/components/schemas/db.Entry'
+                  $ref: "#/components/schemas/db.Entry"
                 type: array
           description: OK
         "500":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/server.apiError'
+                $ref: "#/components/schemas/server.apiError"
           description: Internal Server Error
       summary: Get audit log
       tags:
-      - audit
+        - audit
     post:
       description: Writes a custom audit event from the frontend or an external consumer.
       requestBody:
@@ -1361,10 +1399,10 @@ paths:
           application/json:
             schema:
               oneOf:
-              - type: object
-              - $ref: '#/components/schemas/api.PostAuditEventRequest'
-                description: Audit event to record
-                summary: body
+                - type: object
+                - $ref: "#/components/schemas/api.PostAuditEventRequest"
+                  description: Audit event to record
+                  summary: body
         description: Audit event to record
         required: true
       responses:
@@ -1374,52 +1412,53 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/server.apiError'
+                $ref: "#/components/schemas/server.apiError"
           description: Bad Request
         "500":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/server.apiError'
+                $ref: "#/components/schemas/server.apiError"
           description: Internal Server Error
       summary: Post audit event
       tags:
-      - audit
+        - audit
   /api/v1/audit/export:
     get:
       description: Downloads audit events as CSV or JSON for compliance review.
       parameters:
-      - description: 'Export format: csv or json (default json)'
-        in: query
-        name: format
-        schema:
-          type: string
-      - description: Filter by project ID
-        in: query
-        name: projectId
-        schema:
-          type: string
-      - description: Filter by worktree ID
-        in: query
-        name: worktree
-        schema:
-          type: string
-      - description: Filter by category (session, agent, prompt, config, budget, system,
-          debug)
-        in: query
-        name: category
-        schema:
-          type: string
-      - description: Filter entries after this timestamp (RFC3339)
-        in: query
-        name: since
-        schema:
-          type: string
-      - description: Filter entries before this timestamp (RFC3339)
-        in: query
-        name: until
-        schema:
-          type: string
+        - description: "Export format: csv or json (default json)"
+          in: query
+          name: format
+          schema:
+            type: string
+        - description: Filter by project ID
+          in: query
+          name: projectId
+          schema:
+            type: string
+        - description: Filter by worktree ID
+          in: query
+          name: worktree
+          schema:
+            type: string
+        - description:
+            Filter by category (session, agent, prompt, config, budget, system,
+            debug)
+          in: query
+          name: category
+          schema:
+            type: string
+        - description: Filter entries after this timestamp (RFC3339)
+          in: query
+          name: since
+          schema:
+            type: string
+        - description: Filter entries before this timestamp (RFC3339)
+          in: query
+          name: until
+          schema:
+            type: string
       responses:
         "200":
           content:
@@ -1431,11 +1470,11 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/server.apiError'
+                $ref: "#/components/schemas/server.apiError"
           description: Internal Server Error
       summary: Export audit log
       tags:
-      - audit
+        - audit
   /api/v1/audit/projects:
     get:
       description: Returns distinct project IDs that have audit events recorded.
@@ -1452,53 +1491,53 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/server.apiError'
+                $ref: "#/components/schemas/server.apiError"
           description: Internal Server Error
       summary: List audit projects
       tags:
-      - audit
+        - audit
   /api/v1/audit/summary:
     get:
       description: |-
         Returns aggregate statistics for audit events including session counts,
         tool usage, cost totals, and top tools.
       parameters:
-      - description: Filter by project ID
-        in: query
-        name: projectId
-        schema:
-          type: string
-      - description: Filter by worktree ID
-        in: query
-        name: worktree
-        schema:
-          type: string
-      - description: Filter entries after this timestamp (RFC3339)
-        in: query
-        name: since
-        schema:
-          type: string
-      - description: Filter entries before this timestamp (RFC3339)
-        in: query
-        name: until
-        schema:
-          type: string
+        - description: Filter by project ID
+          in: query
+          name: projectId
+          schema:
+            type: string
+        - description: Filter by worktree ID
+          in: query
+          name: worktree
+          schema:
+            type: string
+        - description: Filter entries after this timestamp (RFC3339)
+          in: query
+          name: since
+          schema:
+            type: string
+        - description: Filter entries before this timestamp (RFC3339)
+          in: query
+          name: until
+          schema:
+            type: string
       responses:
         "200":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/api.AuditSummary'
+                $ref: "#/components/schemas/api.AuditSummary"
           description: OK
         "500":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/server.apiError'
+                $ref: "#/components/schemas/server.apiError"
           description: Internal Server Error
       summary: Get audit summary
       tags:
-      - audit
+        - audit
   /api/v1/events:
     get:
       description: |-
@@ -1516,72 +1555,74 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/server.apiError'
+                $ref: "#/components/schemas/server.apiError"
           description: Internal Server Error
         "503":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/server.apiError'
+                $ref: "#/components/schemas/server.apiError"
           description: Event streaming not configured
       summary: Subscribe to events (SSE)
       tags:
-      - streaming
+        - streaming
   /api/v1/filesystem/directories:
     get:
       description: |-
         Returns filesystem entries at the given path. By default only directories
         are returned. Pass mode=file to include files alongside directories.
       parameters:
-      - description: Absolute path to list entries in
-        in: query
-        name: path
-        required: true
-        schema:
-          type: string
-      - description: 'Browse mode: omit for directories only, ''file'' for directories
-          and files'
-        in: query
-        name: mode
-        schema:
-          type: string
+        - description: Absolute path to list entries in
+          in: query
+          name: path
+          required: true
+          schema:
+            type: string
+        - description:
+            "Browse mode: omit for directories only, 'file' for directories
+            and files"
+          in: query
+          name: mode
+          schema:
+            type: string
       responses:
         "200":
           content:
             application/json:
               schema:
                 items:
-                  $ref: '#/components/schemas/api.DirEntry'
+                  $ref: "#/components/schemas/api.DirEntry"
                 type: array
           description: OK
         "400":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/server.apiError'
+                $ref: "#/components/schemas/server.apiError"
           description: Bad Request
         "500":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/server.apiError'
+                $ref: "#/components/schemas/server.apiError"
           description: Internal Server Error
       summary: List filesystem entries
       tags:
-      - host
+        - host
   /api/v1/filesystem/reveal:
     post:
-      description: Opens the given host directory in the system file manager (Finder,
+      description:
+        Opens the given host directory in the system file manager (Finder,
         Nautilus, Explorer).
       requestBody:
         content:
           application/json:
             schema:
               oneOf:
-              - type: object
-              - $ref: '#/components/schemas/server.revealRequest'
-                description: Directory path to reveal
-                summary: body
+                - type: object
+                - $ref: "#/components/schemas/server.revealRequest"
+                  description: Directory path to reveal
+                  summary: body
         description: Directory path to reveal
         required: true
       responses:
@@ -1591,37 +1632,38 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/server.apiError'
+                $ref: "#/components/schemas/server.apiError"
           description: Bad Request
         "404":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/server.apiError'
+                $ref: "#/components/schemas/server.apiError"
           description: Path not found
         "500":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/server.apiError'
+                $ref: "#/components/schemas/server.apiError"
           description: Internal Server Error
       summary: Reveal in file manager
       tags:
-      - host
+        - host
   /api/v1/health:
     get:
-      description: Returns a simple health check response indicating the server is
+      description:
+        Returns a simple health check response indicating the server is
         running.
       responses:
         "200":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/server.healthResponse'
+                $ref: "#/components/schemas/server.healthResponse"
           description: OK
       summary: Health check
       tags:
-      - health
+        - health
   /api/v1/projects:
     get:
       description: |-
@@ -1633,18 +1675,18 @@ paths:
             application/json:
               schema:
                 items:
-                  $ref: '#/components/schemas/engine.Project'
+                  $ref: "#/components/schemas/engine.Project"
                 type: array
           description: OK
         "500":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/server.apiError'
+                $ref: "#/components/schemas/server.apiError"
           description: Internal Server Error
       summary: List projects
       tags:
-      - projects
+        - projects
     post:
       description: Registers a host directory as a Warden project.
       requestBody:
@@ -1652,10 +1694,10 @@ paths:
           application/json:
             schema:
               oneOf:
-              - type: object
-              - $ref: '#/components/schemas/server.addProjectRequest'
-                description: Project details
-                summary: body
+                - type: object
+                - $ref: "#/components/schemas/server.addProjectRequest"
+                  description: Project details
+                  summary: body
         description: Project details
         required: true
       responses:
@@ -1663,71 +1705,71 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/service.ProjectResult'
+                $ref: "#/components/schemas/service.ProjectResult"
           description: Created
         "400":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/server.apiError'
+                $ref: "#/components/schemas/server.apiError"
           description: Bad Request
         "500":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/server.apiError'
+                $ref: "#/components/schemas/server.apiError"
           description: Internal Server Error
       summary: Add project
       tags:
-      - projects
+        - projects
   /api/v1/projects/{projectId}/{agentType}:
     delete:
       description: Removes a project by its ID. Does not stop or delete the container.
       parameters:
-      - description: Project ID
-        in: path
-        name: projectId
-        required: true
-        schema:
-          type: string
+        - description: Project ID
+          in: path
+          name: projectId
+          required: true
+          schema:
+            type: string
       responses:
         "200":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/service.ProjectResult'
+                $ref: "#/components/schemas/service.ProjectResult"
           description: OK
         "400":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/server.apiError'
+                $ref: "#/components/schemas/server.apiError"
           description: Bad Request
         "404":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/server.apiError'
+                $ref: "#/components/schemas/server.apiError"
           description: Not Found
         "500":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/server.apiError'
+                $ref: "#/components/schemas/server.apiError"
           description: Internal Server Error
       summary: Remove project
       tags:
-      - projects
+        - projects
   /api/v1/projects/{projectId}/{agentType}/audit:
     delete:
       description: Removes all audit events for the given project.
       parameters:
-      - description: Project ID
-        in: path
-        name: projectId
-        required: true
-        schema:
-          type: string
+        - description: Project ID
+          in: path
+          name: projectId
+          required: true
+          schema:
+            type: string
       responses:
         "200":
           content:
@@ -1741,23 +1783,23 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/server.apiError'
+                $ref: "#/components/schemas/server.apiError"
           description: Bad Request
         "404":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/server.apiError'
+                $ref: "#/components/schemas/server.apiError"
           description: Not Found
         "500":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/server.apiError'
+                $ref: "#/components/schemas/server.apiError"
           description: Internal Server Error
       summary: Purge project audit
       tags:
-      - projects
+        - projects
   /api/v1/projects/{projectId}/{agentType}/clipboard:
     post:
       description: |-
@@ -1765,12 +1807,12 @@ paths:
         shim serves it when the agent reads the clipboard. Used by the web
         frontend for image paste support.
       parameters:
-      - description: Project ID
-        in: path
-        name: projectId
-        required: true
-        schema:
-          type: string
+        - description: Project ID
+          in: path
+          name: projectId
+          required: true
+          schema:
+            type: string
       requestBody:
         content:
           application/x-www-form-urlencoded:
@@ -1787,94 +1829,95 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/api.ClipboardUploadResponse'
+                $ref: "#/components/schemas/api.ClipboardUploadResponse"
           description: OK
         "400":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/server.apiError'
+                $ref: "#/components/schemas/server.apiError"
           description: Bad Request
         "404":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/server.apiError'
+                $ref: "#/components/schemas/server.apiError"
           description: Not Found
         "413":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/server.apiError'
+                $ref: "#/components/schemas/server.apiError"
           description: Request Entity Too Large
         "500":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/server.apiError'
+                $ref: "#/components/schemas/server.apiError"
           description: Internal Server Error
       summary: Upload clipboard image
       tags:
-      - clipboard
+        - clipboard
   /api/v1/projects/{projectId}/{agentType}/container:
     delete:
-      description: Stops and removes the container for the given project. The container
+      description:
+        Stops and removes the container for the given project. The container
         is permanently deleted.
       parameters:
-      - description: Project ID
-        in: path
-        name: projectId
-        required: true
-        schema:
-          type: string
+        - description: Project ID
+          in: path
+          name: projectId
+          required: true
+          schema:
+            type: string
       responses:
         "200":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/service.ContainerResult'
+                $ref: "#/components/schemas/service.ContainerResult"
           description: OK
         "400":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/server.apiError'
+                $ref: "#/components/schemas/server.apiError"
           description: Bad Request
         "404":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/server.apiError'
+                $ref: "#/components/schemas/server.apiError"
           description: Not Found
         "500":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/server.apiError'
+                $ref: "#/components/schemas/server.apiError"
           description: Internal Server Error
       summary: Delete container
       tags:
-      - containers
+        - containers
     post:
       description: |-
         Creates a new container for the given project with the provided configuration.
         Supports network isolation modes and custom bind mounts.
       parameters:
-      - description: Project ID
-        in: path
-        name: projectId
-        required: true
-        schema:
-          type: string
+        - description: Project ID
+          in: path
+          name: projectId
+          required: true
+          schema:
+            type: string
       requestBody:
         content:
           application/json:
             schema:
               oneOf:
-              - type: object
-              - $ref: '#/components/schemas/engine.CreateContainerRequest'
-                description: Container configuration
-                summary: body
+                - type: object
+                - $ref: "#/components/schemas/engine.CreateContainerRequest"
+                  description: Container configuration
+                  summary: body
         description: Container configuration
         required: true
       responses:
@@ -1882,55 +1925,55 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/service.ContainerResult'
+                $ref: "#/components/schemas/service.ContainerResult"
           description: Created
         "400":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/server.apiError'
+                $ref: "#/components/schemas/server.apiError"
           description: Bad Request
         "404":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/server.apiError'
+                $ref: "#/components/schemas/server.apiError"
           description: Not Found
         "409":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/server.apiError'
+                $ref: "#/components/schemas/server.apiError"
           description: Container name already in use
         "500":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/server.apiError'
+                $ref: "#/components/schemas/server.apiError"
           description: Internal Server Error
       summary: Create container
       tags:
-      - containers
+        - containers
     put:
       description: |-
         Recreates the project's container with updated configuration. The old container is stopped
         and removed, then a new one is created with the provided settings.
       parameters:
-      - description: Project ID
-        in: path
-        name: projectId
-        required: true
-        schema:
-          type: string
+        - description: Project ID
+          in: path
+          name: projectId
+          required: true
+          schema:
+            type: string
       requestBody:
         content:
           application/json:
             schema:
               oneOf:
-              - type: object
-              - $ref: '#/components/schemas/engine.CreateContainerRequest'
-                description: Updated container configuration
-                summary: body
+                - type: object
+                - $ref: "#/components/schemas/engine.CreateContainerRequest"
+                  description: Updated container configuration
+                  summary: body
         description: Updated container configuration
         required: true
       responses:
@@ -1938,119 +1981,119 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/service.ContainerResult'
+                $ref: "#/components/schemas/service.ContainerResult"
           description: OK
         "400":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/server.apiError'
+                $ref: "#/components/schemas/server.apiError"
           description: Bad Request
         "404":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/server.apiError'
+                $ref: "#/components/schemas/server.apiError"
           description: Not Found
         "500":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/server.apiError'
+                $ref: "#/components/schemas/server.apiError"
           description: Internal Server Error
       summary: Update container
       tags:
-      - containers
+        - containers
   /api/v1/projects/{projectId}/{agentType}/container/config:
     get:
       description: |-
         Returns the editable configuration of the project's container, including name, image,
         project path, bind mounts, environment variables, and network settings.
       parameters:
-      - description: Project ID
-        in: path
-        name: projectId
-        required: true
-        schema:
-          type: string
+        - description: Project ID
+          in: path
+          name: projectId
+          required: true
+          schema:
+            type: string
       responses:
         "200":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/engine.ContainerConfig'
+                $ref: "#/components/schemas/engine.ContainerConfig"
           description: OK
         "400":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/server.apiError'
+                $ref: "#/components/schemas/server.apiError"
           description: Bad Request
         "404":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/server.apiError'
+                $ref: "#/components/schemas/server.apiError"
           description: Not Found
         "500":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/server.apiError'
+                $ref: "#/components/schemas/server.apiError"
           description: Internal Server Error
       summary: Get container config
       tags:
-      - containers
+        - containers
   /api/v1/projects/{projectId}/{agentType}/container/validate:
     get:
       description: |-
         Checks whether the project's running container has the required Warden terminal
         infrastructure installed (tmux, create-terminal.sh).
       parameters:
-      - description: Project ID
-        in: path
-        name: projectId
-        required: true
-        schema:
-          type: string
+        - description: Project ID
+          in: path
+          name: projectId
+          required: true
+          schema:
+            type: string
       responses:
         "200":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/server.validateContainerResponse'
+                $ref: "#/components/schemas/server.validateContainerResponse"
           description: OK
         "400":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/server.apiError'
+                $ref: "#/components/schemas/server.apiError"
           description: Bad Request
         "404":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/server.apiError'
+                $ref: "#/components/schemas/server.apiError"
           description: Not Found
         "500":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/server.apiError'
+                $ref: "#/components/schemas/server.apiError"
           description: Internal Server Error
       summary: Validate container infrastructure
       tags:
-      - containers
+        - containers
   /api/v1/projects/{projectId}/{agentType}/costs:
     delete:
       description: Removes all cost history for the given project.
       parameters:
-      - description: Project ID
-        in: path
-        name: projectId
-        required: true
-        schema:
-          type: string
+        - description: Project ID
+          in: path
+          name: projectId
+          required: true
+          schema:
+            type: string
       responses:
         "204":
           description: No Content
@@ -2058,167 +2101,169 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/server.apiError'
+                $ref: "#/components/schemas/server.apiError"
           description: Bad Request
         "404":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/server.apiError'
+                $ref: "#/components/schemas/server.apiError"
           description: Not Found
         "500":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/server.apiError'
+                $ref: "#/components/schemas/server.apiError"
           description: Internal Server Error
       summary: Reset project costs
       tags:
-      - projects
+        - projects
   /api/v1/projects/{projectId}/{agentType}/restart:
     post:
-      description: Restarts the container for the given project. Fails with STALE_MOUNTS
+      description:
+        Restarts the container for the given project. Fails with STALE_MOUNTS
         if bind mounts reference missing host paths.
       parameters:
-      - description: Project ID
-        in: path
-        name: projectId
-        required: true
-        schema:
-          type: string
+        - description: Project ID
+          in: path
+          name: projectId
+          required: true
+          schema:
+            type: string
       responses:
         "200":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/service.ProjectResult'
+                $ref: "#/components/schemas/service.ProjectResult"
           description: OK
         "400":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/server.apiError'
+                $ref: "#/components/schemas/server.apiError"
           description: Bad Request
         "404":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/server.apiError'
+                $ref: "#/components/schemas/server.apiError"
           description: Not Found
         "409":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/server.apiError'
+                $ref: "#/components/schemas/server.apiError"
           description: Stale mounts prevent restart
         "500":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/server.apiError'
+                $ref: "#/components/schemas/server.apiError"
           description: Internal Server Error
       summary: Restart project
       tags:
-      - projects
+        - projects
   /api/v1/projects/{projectId}/{agentType}/stop:
     post:
       description: Gracefully stops the container for the given project.
       parameters:
-      - description: Project ID
-        in: path
-        name: projectId
-        required: true
-        schema:
-          type: string
+        - description: Project ID
+          in: path
+          name: projectId
+          required: true
+          schema:
+            type: string
       responses:
         "200":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/service.ProjectResult'
+                $ref: "#/components/schemas/service.ProjectResult"
           description: OK
         "400":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/server.apiError'
+                $ref: "#/components/schemas/server.apiError"
           description: Bad Request
         "404":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/server.apiError'
+                $ref: "#/components/schemas/server.apiError"
           description: Not Found
         "500":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/server.apiError'
+                $ref: "#/components/schemas/server.apiError"
           description: Internal Server Error
       summary: Stop project
       tags:
-      - projects
+        - projects
   /api/v1/projects/{projectId}/{agentType}/worktrees:
     get:
       description: |-
         Returns all worktrees for the given project, including terminal connection state,
         Claude attention status, and git branch information.
       parameters:
-      - description: Project ID
-        in: path
-        name: projectId
-        required: true
-        schema:
-          type: string
+        - description: Project ID
+          in: path
+          name: projectId
+          required: true
+          schema:
+            type: string
       responses:
         "200":
           content:
             application/json:
               schema:
                 items:
-                  $ref: '#/components/schemas/engine.Worktree'
+                  $ref: "#/components/schemas/engine.Worktree"
                 type: array
           description: OK
         "400":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/server.apiError'
+                $ref: "#/components/schemas/server.apiError"
           description: Bad Request
         "404":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/server.apiError'
+                $ref: "#/components/schemas/server.apiError"
           description: Not Found
         "500":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/server.apiError'
+                $ref: "#/components/schemas/server.apiError"
           description: Internal Server Error
       summary: List worktrees
       tags:
-      - worktrees
+        - worktrees
     post:
-      description: Creates a new git worktree inside the container and automatically
+      description:
+        Creates a new git worktree inside the container and automatically
         connects a terminal.
       parameters:
-      - description: Project ID
-        in: path
-        name: projectId
-        required: true
-        schema:
-          type: string
+        - description: Project ID
+          in: path
+          name: projectId
+          required: true
+          schema:
+            type: string
       requestBody:
         content:
           application/json:
             schema:
               oneOf:
-              - type: object
-              - $ref: '#/components/schemas/server.createWorktreeRequest'
-                description: Worktree name (must be a valid git branch name)
-                summary: body
+                - type: object
+                - $ref: "#/components/schemas/server.createWorktreeRequest"
+                  description: Worktree name (must be a valid git branch name)
+                  summary: body
         description: Worktree name (must be a valid git branch name)
         required: true
       responses:
@@ -2226,213 +2271,213 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/service.WorktreeResult'
+                $ref: "#/components/schemas/service.WorktreeResult"
           description: Created
         "400":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/server.apiError'
+                $ref: "#/components/schemas/server.apiError"
           description: Bad Request
         "404":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/server.apiError'
+                $ref: "#/components/schemas/server.apiError"
           description: Not Found
         "500":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/server.apiError'
+                $ref: "#/components/schemas/server.apiError"
           description: Internal Server Error
       summary: Create worktree
       tags:
-      - worktrees
+        - worktrees
   /api/v1/projects/{projectId}/{agentType}/worktrees/{wid}:
     delete:
       description: |-
         Fully removes a worktree: kills any running processes, runs `git worktree remove`,
         and cleans up tracking state. Cannot remove the "main" worktree.
       parameters:
-      - description: Project ID
-        in: path
-        name: projectId
-        required: true
-        schema:
-          type: string
-      - description: Worktree ID
-        in: path
-        name: wid
-        required: true
-        schema:
-          type: string
+        - description: Project ID
+          in: path
+          name: projectId
+          required: true
+          schema:
+            type: string
+        - description: Worktree ID
+          in: path
+          name: wid
+          required: true
+          schema:
+            type: string
       responses:
         "200":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/service.WorktreeResult'
+                $ref: "#/components/schemas/service.WorktreeResult"
           description: OK
         "400":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/server.apiError'
+                $ref: "#/components/schemas/server.apiError"
           description: Bad Request
         "404":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/server.apiError'
+                $ref: "#/components/schemas/server.apiError"
           description: Not Found
         "500":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/server.apiError'
+                $ref: "#/components/schemas/server.apiError"
           description: Internal Server Error
       summary: Remove worktree
       tags:
-      - worktrees
+        - worktrees
   /api/v1/projects/{projectId}/{agentType}/worktrees/{wid}/connect:
     post:
       description: |-
         Starts a tmux terminal session for the given worktree. If a background session
         already exists, reconnects to it instead of creating a new one.
       parameters:
-      - description: Project ID
-        in: path
-        name: projectId
-        required: true
-        schema:
-          type: string
-      - description: Worktree ID
-        in: path
-        name: wid
-        required: true
-        schema:
-          type: string
+        - description: Project ID
+          in: path
+          name: projectId
+          required: true
+          schema:
+            type: string
+        - description: Worktree ID
+          in: path
+          name: wid
+          required: true
+          schema:
+            type: string
       responses:
         "201":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/service.WorktreeResult'
+                $ref: "#/components/schemas/service.WorktreeResult"
           description: Created
         "400":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/server.apiError'
+                $ref: "#/components/schemas/server.apiError"
           description: Bad Request
         "404":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/server.apiError'
+                $ref: "#/components/schemas/server.apiError"
           description: Not Found
         "500":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/server.apiError'
+                $ref: "#/components/schemas/server.apiError"
           description: Internal Server Error
       summary: Connect terminal
       tags:
-      - worktrees
+        - worktrees
   /api/v1/projects/{projectId}/{agentType}/worktrees/{wid}/diff:
     get:
       description: |-
         Returns uncommitted changes (tracked and untracked files) for a worktree
         as a unified diff with per-file statistics.
       parameters:
-      - description: Project ID
-        in: path
-        name: projectId
-        required: true
-        schema:
-          type: string
-      - description: Worktree ID
-        in: path
-        name: wid
-        required: true
-        schema:
-          type: string
+        - description: Project ID
+          in: path
+          name: projectId
+          required: true
+          schema:
+            type: string
+        - description: Worktree ID
+          in: path
+          name: wid
+          required: true
+          schema:
+            type: string
       responses:
         "200":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/api.DiffResponse'
+                $ref: "#/components/schemas/api.DiffResponse"
           description: OK
         "400":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/server.apiError'
+                $ref: "#/components/schemas/server.apiError"
           description: Bad Request
         "404":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/server.apiError'
+                $ref: "#/components/schemas/server.apiError"
           description: Not Found
         "500":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/server.apiError'
+                $ref: "#/components/schemas/server.apiError"
           description: Internal Server Error
       summary: Get worktree diff
       tags:
-      - worktrees
+        - worktrees
   /api/v1/projects/{projectId}/{agentType}/worktrees/{wid}/disconnect:
     post:
       description: |-
         Closes the terminal viewer WebSocket. The tmux session (and Claude/bash)
         continues running in the background.
       parameters:
-      - description: Project ID
-        in: path
-        name: projectId
-        required: true
-        schema:
-          type: string
-      - description: Worktree ID
-        in: path
-        name: wid
-        required: true
-        schema:
-          type: string
+        - description: Project ID
+          in: path
+          name: projectId
+          required: true
+          schema:
+            type: string
+        - description: Worktree ID
+          in: path
+          name: wid
+          required: true
+          schema:
+            type: string
       responses:
         "200":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/service.WorktreeResult'
+                $ref: "#/components/schemas/service.WorktreeResult"
           description: OK
         "400":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/server.apiError'
+                $ref: "#/components/schemas/server.apiError"
           description: Bad Request
         "404":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/server.apiError'
+                $ref: "#/components/schemas/server.apiError"
           description: Not Found
         "500":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/server.apiError'
+                $ref: "#/components/schemas/server.apiError"
           description: Internal Server Error
       summary: Disconnect terminal
       tags:
-      - worktrees
+        - worktrees
   /api/v1/projects/{projectId}/{agentType}/worktrees/{wid}/kill:
     post:
       description: |-
@@ -2440,86 +2485,86 @@ paths:
         The git worktree directory on disk is preserved. This is destructive —
         any running Claude session is terminated immediately.
       parameters:
-      - description: Project ID
-        in: path
-        name: projectId
-        required: true
-        schema:
-          type: string
-      - description: Worktree ID
-        in: path
-        name: wid
-        required: true
-        schema:
-          type: string
+        - description: Project ID
+          in: path
+          name: projectId
+          required: true
+          schema:
+            type: string
+        - description: Worktree ID
+          in: path
+          name: wid
+          required: true
+          schema:
+            type: string
       responses:
         "200":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/service.WorktreeResult'
+                $ref: "#/components/schemas/service.WorktreeResult"
           description: OK
         "400":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/server.apiError'
+                $ref: "#/components/schemas/server.apiError"
           description: Bad Request
         "404":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/server.apiError'
+                $ref: "#/components/schemas/server.apiError"
           description: Not Found
         "500":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/server.apiError'
+                $ref: "#/components/schemas/server.apiError"
           description: Internal Server Error
       summary: Kill worktree process
       tags:
-      - worktrees
+        - worktrees
   /api/v1/projects/{projectId}/{agentType}/worktrees/cleanup:
     post:
       description: |-
         Removes worktree directories that are not tracked by git, kills orphaned tmux
         sessions, and prunes stale git worktree metadata.
       parameters:
-      - description: Project ID
-        in: path
-        name: projectId
-        required: true
-        schema:
-          type: string
+        - description: Project ID
+          in: path
+          name: projectId
+          required: true
+          schema:
+            type: string
       responses:
         "200":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/server.cleanupWorktreesResponse'
+                $ref: "#/components/schemas/server.cleanupWorktreesResponse"
           description: OK
         "400":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/server.apiError'
+                $ref: "#/components/schemas/server.apiError"
           description: Bad Request
         "404":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/server.apiError'
+                $ref: "#/components/schemas/server.apiError"
           description: Not Found
         "500":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/server.apiError'
+                $ref: "#/components/schemas/server.apiError"
           description: Internal Server Error
       summary: Cleanup orphaned worktrees
       tags:
-      - worktrees
+        - worktrees
   /api/v1/projects/{projectId}/{agentType}/ws/{wid}:
     get:
       description: |-
@@ -2527,18 +2572,18 @@ paths:
         inside the container via docker exec. Binary frames carry raw PTY data;
         text frames carry JSON control messages (e.g. {"type":"resize","cols":80,"rows":24}).
       parameters:
-      - description: Project ID
-        in: path
-        name: projectId
-        required: true
-        schema:
-          type: string
-      - description: Worktree ID
-        in: path
-        name: wid
-        required: true
-        schema:
-          type: string
+        - description: Project ID
+          in: path
+          name: projectId
+          required: true
+          schema:
+            type: string
+        - description: Worktree ID
+          in: path
+          name: wid
+          required: true
+          schema:
+            type: string
       responses:
         "101":
           description: WebSocket upgrade
@@ -2546,23 +2591,23 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/server.apiError'
+                $ref: "#/components/schemas/server.apiError"
           description: Bad Request
         "404":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/server.apiError'
+                $ref: "#/components/schemas/server.apiError"
           description: Not Found
         "503":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/server.apiError'
+                $ref: "#/components/schemas/server.apiError"
           description: Terminal proxy not configured
       summary: Terminal WebSocket
       tags:
-      - streaming
+        - streaming
   /api/v1/runtimes:
     get:
       description: |-
@@ -2574,26 +2619,27 @@ paths:
             application/json:
               schema:
                 items:
-                  $ref: '#/components/schemas/runtime.RuntimeInfo'
+                  $ref: "#/components/schemas/runtime.RuntimeInfo"
                 type: array
           description: OK
       summary: List runtimes
       tags:
-      - host
+        - host
   /api/v1/settings:
     get:
-      description: Returns the current server-side settings including runtime, audit
+      description:
+        Returns the current server-side settings including runtime, audit
         log state, and disconnect key.
       responses:
         "200":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/service.SettingsResponse'
+                $ref: "#/components/schemas/service.SettingsResponse"
           description: OK
       summary: Get settings
       tags:
-      - settings
+        - settings
     put:
       description: |-
         Updates server-side settings. Only provided fields are changed. Changing the
@@ -2603,10 +2649,10 @@ paths:
           application/json:
             schema:
               oneOf:
-              - type: object
-              - $ref: '#/components/schemas/service.UpdateSettingsRequest'
-                description: Settings to update (all fields optional)
-                summary: body
+                - type: object
+                - $ref: "#/components/schemas/service.UpdateSettingsRequest"
+                  description: Settings to update (all fields optional)
+                  summary: body
         description: Settings to update (all fields optional)
         required: true
       responses:
@@ -2614,23 +2660,23 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/server.updateSettingsResponse'
+                $ref: "#/components/schemas/server.updateSettingsResponse"
           description: OK
         "400":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/server.apiError'
+                $ref: "#/components/schemas/server.apiError"
           description: Bad Request
         "500":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/server.apiError'
+                $ref: "#/components/schemas/server.apiError"
           description: Internal Server Error
       summary: Update settings
       tags:
-      - settings
+        - settings
 servers:
-- description: Local development server
-  url: http://localhost:8090
+  - description: Local development server
+    url: http://localhost:8090

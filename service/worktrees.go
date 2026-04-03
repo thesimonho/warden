@@ -322,7 +322,7 @@ func (s *Service) overlayStoreState(containerName string, worktrees []engine.Wor
 	for i := range worktrees {
 		ws := s.store.GetWorktreeState(containerName, worktrees[i].ID)
 
-		if !ws.UpdatedAt.IsZero() && worktrees[i].State != engine.WorktreeStateDisconnected {
+		if !ws.UpdatedAt.IsZero() && worktrees[i].State != engine.WorktreeStateStopped {
 			worktrees[i].NeedsInput = ws.NeedsInput
 			if ws.NeedsInput {
 				worktrees[i].NotificationType = ws.NotificationType

@@ -14,7 +14,7 @@
 // Methods return types from the [engine] and [service] packages:
 //
 //   - [engine.Project]: ID, Name, State ("running"/"exited"), NeedsInput, NotificationType, ActiveWorktreeCount, TotalCost, NetworkMode
-//   - [engine.Worktree]: ID, State ("connected"/"shell"/"background"/"disconnected"), Branch, ExitCode, NotificationType
+//   - [engine.Worktree]: ID, State ("connected"/"shell"/"background"/"stopped"), Branch, ExitCode, NotificationType
 //   - [api.ContainerResult]: ContainerID, Name (output of create/update)
 //   - [api.SettingsResponse]: Runtime, AuditLogMode
 //
