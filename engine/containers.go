@@ -36,7 +36,7 @@ func (ec *EngineClient) checkNameAvailable(ctx context.Context, name string) err
 	if err != nil {
 		return nil // container doesn't exist, name is available
 	}
-	return fmt.Errorf("%w: %q — remove or rename the existing container first", ErrNameTaken, name)
+	return fmt.Errorf("%w: %q — remove the existing container first, or choose a different name", ErrNameTaken, name)
 }
 
 // ensureImage pulls the container image if it is not already available locally.
