@@ -784,7 +784,7 @@ export default function ProjectConfigForm({
 
       <div className="flex justify-end">
         <Button onClick={handleSubmit} disabled={isSubmitting || !isValid}>
-          {isSubmitting && !disabled ? (
+          {isSubmitting ? (
             <>
               <Loader2 className="animate-spin" />
               {isEditMode ? 'Saving...' : 'Creating...'}
