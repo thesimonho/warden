@@ -84,7 +84,12 @@ fi
 # -------------------------------------------------------------------
 mkdir -p "${WORKSPACE_DIR}/.warden"
 echo '*' > "${WORKSPACE_DIR}/.warden/.gitignore"
-rm -rf "${WORKSPACE_DIR}/.warden/terminals"
+# Clean up stale terminal state but preserve exit_code files so
+# auto-resume can recover sessions after container restart.
+if [ -d "${WORKSPACE_DIR}/.warden/terminals" ]; then
+  find "${WORKSPACE_DIR}/.warden/terminals" -name "inner-cmd.sh" -delete 2>/dev/null || true
+  find "${WORKSPACE_DIR}/.warden/terminals" -name "port" -delete 2>/dev/null || true
+fi
 mkdir -p "${WORKSPACE_DIR}/.warden/terminals"
 
 # -------------------------------------------------------------------
