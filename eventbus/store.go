@@ -92,13 +92,14 @@ type WorktreeStatePayload struct {
 	ExitCode         int                     `json:"exitCode,omitempty"`
 }
 
-// StopCallbackFunc is called on every stop event with any cost data
-// parsed from the event payload. sessionID and cost are zero when the
-// event carried no cost data. Set via [Store.SetStopCallback].
+// CostUpdateCallbackFunc is called on every cost update event with
+// cumulative cost data parsed from the event payload. sessionID and
+// cost are zero when the event carried no cost data. Set via
+// [Store.SetCostUpdateCallback].
 // projectID is the deterministic project identifier (from WARDEN_PROJECT_ID).
 // agentType is the agent type identifier (from WARDEN_AGENT_TYPE).
 // containerName is the Docker container name (from WARDEN_CONTAINER_NAME).
-type StopCallbackFunc func(projectID, agentType, containerName, sessionID string, cost float64, isEstimated bool)
+type CostUpdateCallbackFunc func(projectID, agentType, containerName, sessionID string, cost float64, isEstimated bool)
 
 // StaleCallbackFunc is called when a container stops sending heartbeats
 // and is marked stale. The service layer uses this to write an audit
@@ -126,7 +127,7 @@ type Store struct {
 	lastEvents         map[string]time.Time // keyed by containerName
 	broker             *Broker
 	auditWriter        *db.AuditWriter
-	onStop             StopCallbackFunc
+	onCostUpdate       CostUpdateCallbackFunc
 	onStale            StaleCallbackFunc
 	onAlive            AliveCallbackFunc
 }
@@ -146,15 +147,15 @@ func NewStore(broker *Broker, auditWriter *db.AuditWriter) *Store {
 	}
 }
 
-// SetStopCallback registers a function called on every stop event.
-// The callback receives any cost data from the event (which may be
-// zero/empty) and is responsible for both persistence and budget
+// SetCostUpdateCallback registers a function called on every cost
+// update event. The callback receives cumulative cost data (which may
+// be zero/empty) and is responsible for both persistence and budget
 // enforcement. This is the single integration point between the
 // event bus and the service layer's cost/budget system.
-func (s *Store) SetStopCallback(fn StopCallbackFunc) {
+func (s *Store) SetCostUpdateCallback(fn CostUpdateCallbackFunc) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.onStop = fn
+	s.onCostUpdate = fn
 }
 
 // SetStaleCallback registers a function called when a container's
@@ -192,7 +193,7 @@ func (s *Store) HandleEvent(event ContainerEvent) {
 	s.lastEvents[event.ContainerName] = event.Timestamp
 
 	var broadcasts []pendingBroadcast
-	var stopCost CostData // populated by handleStop, reused by onStop callback
+	var costData CostData // populated by handleCostUpdate, reused by onCostUpdate callback
 
 	switch event.Type {
 	case EventAttention:
@@ -205,8 +206,8 @@ func (s *Store) HandleEvent(event ContainerEvent) {
 		broadcasts = s.handleSessionStart(key, event)
 	case EventSessionEnd:
 		broadcasts = s.handleSessionEnd(key, event)
-	case EventStop:
-		broadcasts, stopCost = s.handleStop(key, event)
+	case EventCostUpdate:
+		broadcasts, costData = s.handleCostUpdate(key, event)
 	case EventHeartbeat:
 		// No-op — lastEvents is already updated above for all event types.
 	case EventUserPrompt:
@@ -248,7 +249,7 @@ func (s *Store) HandleEvent(event ContainerEvent) {
 	}
 
 	writer := s.auditWriter
-	onStop := s.onStop
+	onCostUpdate := s.onCostUpdate
 	onAlive := s.onAlive
 	s.mu.Unlock()
 
@@ -259,11 +260,11 @@ func (s *Store) HandleEvent(event ContainerEvent) {
 	// Write to the audit log (outside the lock).
 	s.writeToAuditLog(writer, event)
 
-	// On every stop event, invoke the callback for cost persistence and
-	// budget enforcement. Uses cost data already parsed by handleStop.
+	// On every cost update, invoke the callback for cost persistence and
+	// budget enforcement. Uses cost data already parsed by handleCostUpdate.
 	// Runs outside the lock because enforcement may call back into docker.
-	if event.Type == EventStop && onStop != nil {
-		onStop(event.ProjectID, event.AgentType, event.ContainerName, stopCost.SessionID, stopCost.TotalCost, stopCost.IsEstimated)
+	if event.Type == EventCostUpdate && onCostUpdate != nil {
+		onCostUpdate(event.ProjectID, event.AgentType, event.ContainerName, costData.SessionID, costData.TotalCost, costData.IsEstimated)
 	}
 
 	// Fire alive callback when a container appears for the first time
@@ -427,10 +428,10 @@ func (s *Store) handleSessionEnd(key worktreeKey, event ContainerEvent) []pendin
 	return broadcasts
 }
 
-// handleStop processes a stop event, updating cost data if present.
-// Returns the parsed CostData so HandleEvent can pass it to the onStop
-// callback without re-parsing the same JSON.
-func (s *Store) handleStop(key worktreeKey, event ContainerEvent) ([]pendingBroadcast, CostData) {
+// handleCostUpdate processes a cost update event, updating in-memory cost
+// state if present. Returns the parsed CostData so HandleEvent can pass
+// it to the onCostUpdate callback without re-parsing the same JSON.
+func (s *Store) handleCostUpdate(key worktreeKey, event ContainerEvent) ([]pendingBroadcast, CostData) {
 	var broadcasts []pendingBroadcast
 	var parsed CostData
 
@@ -816,10 +817,10 @@ func (s *Store) aggregateContainerAttention(containerName string) (needsInput bo
 //   - heartbeat: fires every 30s per container
 //   - attention_clear: fires on every user prompt (user_prompt captures this)
 //   - stop: fires on every assistant message with token usage; cost data is
-//     already persisted via handleStop → PersistSessionCost, so the audit
-//     entry adds noise without value
+//     already persisted via handleCostUpdate → PersistSessionCost, so the
+//     audit entry adds noise without value
 func (s *Store) writeToAuditLog(writer *db.AuditWriter, event ContainerEvent) {
-	if writer == nil || event.Type == EventHeartbeat || event.Type == EventAttentionClear || event.Type == EventStop {
+	if writer == nil || event.Type == EventHeartbeat || event.Type == EventAttentionClear || event.Type == EventCostUpdate {
 		return
 	}
 

@@ -195,11 +195,11 @@ func TestStore_SessionActive_PreservedAcrossAttentionEvents(t *testing.T) {
 	}
 }
 
-func TestStore_HandleStop_UpdatesCost(t *testing.T) {
+func TestStore_HandleCostUpdate_UpdatesCost(t *testing.T) {
 	store := NewStore(nil, nil)
 
 	store.HandleEvent(ContainerEvent{
-		Type:          EventStop,
+		Type:          EventCostUpdate,
 		ContainerName: "proj-1",
 		WorktreeID:    "main",
 		Data:          mustMarshal(t, CostData{TotalCost: 1.50, MessageCount: 42}),
@@ -215,7 +215,7 @@ func TestStore_HandleStop_UpdatesCost(t *testing.T) {
 	}
 }
 
-func TestStore_HandleStop_ClearsAttention(t *testing.T) {
+func TestStore_HandleCostUpdate_ClearsAttention(t *testing.T) {
 	store := NewStore(nil, nil)
 
 	store.HandleEvent(ContainerEvent{
@@ -227,7 +227,7 @@ func TestStore_HandleStop_ClearsAttention(t *testing.T) {
 	})
 
 	store.HandleEvent(ContainerEvent{
-		Type:          EventStop,
+		Type:          EventCostUpdate,
 		ContainerName: "proj-1",
 		WorktreeID:    "main",
 		Data:          mustMarshal(t, CostData{TotalCost: 0.5, MessageCount: 1}),
@@ -866,7 +866,7 @@ func TestBuildWorktreeBroadcast_NilTerminalState(t *testing.T) {
 	}
 }
 
-func TestStore_HandleStop_CallbackWithValidCost(t *testing.T) {
+func TestStore_HandleCostUpdate_CallbackWithValidCost(t *testing.T) {
 	var called struct {
 		containerName string
 		sessionID     string
@@ -874,14 +874,14 @@ func TestStore_HandleStop_CallbackWithValidCost(t *testing.T) {
 	}
 
 	store := NewStore(nil, nil)
-	store.SetStopCallback(func(projectID, agentType, containerName, sessionID string, cost float64, isEstimated bool) {
+	store.SetCostUpdateCallback(func(projectID, agentType, containerName, sessionID string, cost float64, isEstimated bool) {
 		called.containerName = containerName
 		called.sessionID = sessionID
 		called.cost = cost
 	})
 
 	store.HandleEvent(ContainerEvent{
-		Type:          EventStop,
+		Type:          EventCostUpdate,
 		ContainerName: "proj-1",
 		WorktreeID:    "main",
 		Data:          mustMarshal(t, CostData{TotalCost: 1.50, SessionID: "sess-1", MessageCount: 1}),
@@ -899,18 +899,18 @@ func TestStore_HandleStop_CallbackWithValidCost(t *testing.T) {
 	}
 }
 
-func TestStore_HandleStop_CallbackWithZeroCost(t *testing.T) {
+func TestStore_HandleCostUpdate_CallbackWithZeroCost(t *testing.T) {
 	var called bool
 	var receivedCost float64
 
 	store := NewStore(nil, nil)
-	store.SetStopCallback(func(projectID, agentType, containerName, sessionID string, cost float64, isEstimated bool) {
+	store.SetCostUpdateCallback(func(projectID, agentType, containerName, sessionID string, cost float64, isEstimated bool) {
 		called = true
 		receivedCost = cost
 	})
 
 	store.HandleEvent(ContainerEvent{
-		Type:          EventStop,
+		Type:          EventCostUpdate,
 		ContainerName: "proj-1",
 		WorktreeID:    "main",
 		Data:          mustMarshal(t, CostData{TotalCost: 0, MessageCount: 0}),
@@ -918,23 +918,23 @@ func TestStore_HandleStop_CallbackWithZeroCost(t *testing.T) {
 	})
 
 	if !called {
-		t.Error("stop callback must be called even with zero cost")
+		t.Error("cost update callback must be called even with zero cost")
 	}
 	if receivedCost != 0 {
 		t.Errorf("expected cost 0, got %f", receivedCost)
 	}
 }
 
-func TestStore_HandleStop_CallbackWithNilData(t *testing.T) {
+func TestStore_HandleCostUpdate_CallbackWithNilData(t *testing.T) {
 	var called bool
 
 	store := NewStore(nil, nil)
-	store.SetStopCallback(func(projectID, agentType, containerName, sessionID string, cost float64, isEstimated bool) {
+	store.SetCostUpdateCallback(func(projectID, agentType, containerName, sessionID string, cost float64, isEstimated bool) {
 		called = true
 	})
 
 	store.HandleEvent(ContainerEvent{
-		Type:          EventStop,
+		Type:          EventCostUpdate,
 		ContainerName: "proj-1",
 		WorktreeID:    "main",
 		Data:          nil,
@@ -942,7 +942,7 @@ func TestStore_HandleStop_CallbackWithNilData(t *testing.T) {
 	})
 
 	if !called {
-		t.Error("stop callback must be called even with nil data")
+		t.Error("cost update callback must be called even with nil data")
 	}
 }
 
@@ -1117,7 +1117,7 @@ func TestStore_ProjectAttentionIncludesCost(t *testing.T) {
 
 	// Record a cost first via a stop event.
 	store.HandleEvent(ContainerEvent{
-		Type:          EventStop,
+		Type:          EventCostUpdate,
 		ContainerName: "proj-1",
 		ProjectID:     "project-1",
 		WorktreeID:    "main",

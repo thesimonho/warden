@@ -113,9 +113,9 @@ func mapEventType(parsed agent.ParsedEventType) eventbus.ContainerEventType {
 	case agent.EventUserPrompt:
 		return eventbus.EventUserPrompt
 	case agent.EventTokenUpdate:
-		// Token updates carry cost data and are mapped to stop events so
-		// they flow through the existing cost persistence pipeline.
-		return eventbus.EventStop
+		// Token updates carry cumulative cost data and are mapped to cost
+		// update events for the cost persistence + budget enforcement pipeline.
+		return eventbus.EventCostUpdate
 	case agent.EventToolUseFailure:
 		return eventbus.EventToolUseFailure
 	case agent.EventStopFailure:

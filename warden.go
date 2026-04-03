@@ -167,7 +167,7 @@ func New(opts Options) (*Warden, error) {
 	// Wire cost persistence and budget enforcement: on every stop event,
 	// funnel through the single gateway that persists cost and enforces
 	// budget limits. See [service.Service.PersistSessionCost].
-	store.SetStopCallback(svc.PersistSessionCost)
+	store.SetCostUpdateCallback(svc.PersistSessionCost)
 	store.SetStaleCallback(svc.HandleContainerStale)
 	store.SetAliveCallback(svc.HandleContainerAlive)
 

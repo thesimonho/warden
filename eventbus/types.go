@@ -23,8 +23,8 @@ const (
 	EventSessionStart ContainerEventType = "session_start"
 	// EventSessionEnd means a Claude session ended.
 	EventSessionEnd ContainerEventType = "session_end"
-	// EventStop means Claude finished a response (fires after each turn).
-	EventStop ContainerEventType = "stop"
+	// EventCostUpdate carries cumulative cost data parsed from agent JSONL token usage.
+	EventCostUpdate ContainerEventType = "cost_update"
 	// EventNeedsAnswer means Claude is asking the user a question (AskUserQuestion tool).
 	EventNeedsAnswer ContainerEventType = "needs_answer"
 	// EventUserPrompt logs the user's prompt text (from UserPromptSubmit hook).

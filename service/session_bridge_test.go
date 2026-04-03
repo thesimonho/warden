@@ -125,9 +125,9 @@ func TestSessionEventToContainerEvent_TokenUpdatePayload(t *testing.T) {
 	if result == nil {
 		t.Fatal("expected non-nil result")
 	}
-	// TokenUpdate maps to EventStop for cost pipeline compatibility.
-	if result.Type != eventbus.EventStop {
-		t.Errorf("Type = %q, want %q (TokenUpdate maps to Stop)", result.Type, eventbus.EventStop)
+	// TokenUpdate maps to EventCostUpdate for the cost persistence pipeline.
+	if result.Type != eventbus.EventCostUpdate {
+		t.Errorf("Type = %q, want %q (TokenUpdate maps to CostUpdate)", result.Type, eventbus.EventCostUpdate)
 	}
 
 	var data eventbus.CostData
