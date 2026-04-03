@@ -287,7 +287,7 @@ func (a *ServiceAdapter) SubscribeEvents(_ context.Context) (<-chan eventbus.SSE
 func (a *ServiceAdapter) AttachTerminal(ctx context.Context, projectID, worktreeID string) (client.TerminalConnection, error) {
 	dockerAPI := a.w.Engine.APIClient()
 
-	sessionName := fmt.Sprintf("warden-%s", worktreeID)
+	sessionName := engine.TmuxSessionName(worktreeID)
 	execResp, err := dockerAPI.ContainerExecCreate(ctx, projectID, container.ExecOptions{
 		Cmd:          []string{"tmux", "-u", "attach-session", "-t", sessionName},
 		User:         containerUser,

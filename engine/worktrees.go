@@ -20,6 +20,9 @@ const ContainerUser = constants.ContainerUser
 // ContainerHomeDir is the home directory for [ContainerUser] inside containers.
 const ContainerHomeDir = constants.ContainerHomeDir
 
+// TmuxSessionName returns the tmux session name for a worktree.
+var TmuxSessionName = constants.TmuxSessionName
+
 // createTerminalScript is the path to the terminal creator inside the container.
 const createTerminalScript = "/usr/local/bin/create-terminal.sh"
 
@@ -156,7 +159,7 @@ func (ec *EngineClient) isGitWorktreeKnown(ctx context.Context, containerID, wor
 // isSessionAlive checks if a tmux session for the worktree is running.
 // Uses `tmux has-session` which returns exit code 0 if the session exists.
 func (ec *EngineClient) isSessionAlive(ctx context.Context, containerID, worktreeID string) bool {
-	sessionName := fmt.Sprintf("warden-%s", worktreeID)
+	sessionName := TmuxSessionName(worktreeID)
 	output, err := ec.execAndCapture(ctx, containerID, container.ExecOptions{
 		Cmd:          []string{"sh", "-c", fmt.Sprintf(`tmux has-session -t "%s" 2>/dev/null && echo 1 || echo 0`, sessionName)},
 		User:         ContainerUser,

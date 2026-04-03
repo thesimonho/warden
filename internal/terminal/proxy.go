@@ -86,7 +86,7 @@ func (p *Proxy) ServeWS(w http.ResponseWriter, r *http.Request, containerID, wor
 	// Capture tmux scrollback and send it before attaching the live stream.
 	// For fresh sessions this returns empty; for reconnects it replays output
 	// the user missed while disconnected.
-	sessionName := fmt.Sprintf("warden-%s", worktreeID)
+	sessionName := engine.TmuxSessionName(worktreeID)
 	scrollback, scrollErr := p.captureScrollback(ctx, containerID, sessionName)
 	if scrollErr != nil {
 		slog.Warn("scrollback capture failed", "container", containerID, "worktree", worktreeID, "err", scrollErr)
@@ -265,7 +265,7 @@ func (p *Proxy) captureScrollback(ctx context.Context, containerID, sessionName 
 	defer cancel()
 
 	execResp, err := p.api.ContainerExecCreate(ctx, containerID, container.ExecOptions{
-		Cmd:          []string{"tmux", "-u", "capture-pane", "-t", sessionName, "-p", "-S", "-50000"},
+		Cmd:          []string{"tmux", "-u", "capture-pane", "-t", sessionName, "-p", "-S", "-5000"},
 		User:         containerUser,
 		AttachStdout: true,
 		Tty:          true,

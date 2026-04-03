@@ -8,3 +8,11 @@ const ContainerUser = "warden"
 
 // ContainerHomeDir is the home directory for [ContainerUser] inside containers.
 const ContainerHomeDir = "/home/" + ContainerUser
+
+// TmuxSessionPrefix is prepended to worktree IDs to form tmux session names.
+const TmuxSessionPrefix = "warden-"
+
+// TmuxSessionName returns the tmux session name for a worktree.
+func TmuxSessionName(worktreeID string) string {
+	return TmuxSessionPrefix + worktreeID
+}

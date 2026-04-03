@@ -55,12 +55,12 @@ RESUME_FLAG=""
 if [ -f "${TERMINAL_DIR}/exit_code" ]; then
   case "$AGENT_TYPE" in
     claude-code)
-      if ls ~/.claude/projects/*/*.jsonl 1>/dev/null 2>&1; then
+      if find ~/.claude/projects -maxdepth 2 -name '*.jsonl' -print -quit 2>/dev/null | grep -q .; then
         RESUME_FLAG="--continue"
       fi
       ;;
     codex)
-      if ls ~/.codex/sessions/*/*/*/*.jsonl 1>/dev/null 2>&1; then
+      if find ~/.codex/sessions -maxdepth 4 -name '*.jsonl' -print -quit 2>/dev/null | grep -q .; then
         RESUME_FLAG="resume --last"
       fi
       ;;
@@ -96,17 +96,14 @@ case "$AGENT_TYPE" in
       fi
     fi
 
+    # resume is a subcommand — must come before flags
     if [ -n "$RESUME_FLAG" ]; then
-      # resume is a subcommand — flags must come after it
       AGENT_CMD="codex ${RESUME_FLAG} --no-alt-screen"
-      if [ "$SKIP_PERMISSIONS" = "--skip-permissions" ]; then
-        AGENT_CMD="${AGENT_CMD} --dangerously-bypass-approvals-and-sandbox"
-      fi
     else
       AGENT_CMD="codex --no-alt-screen"
-      if [ "$SKIP_PERMISSIONS" = "--skip-permissions" ]; then
-        AGENT_CMD="${AGENT_CMD} --dangerously-bypass-approvals-and-sandbox"
-      fi
+    fi
+    if [ "$SKIP_PERMISSIONS" = "--skip-permissions" ]; then
+      AGENT_CMD="${AGENT_CMD} --dangerously-bypass-approvals-and-sandbox"
     fi
     ;;
 
