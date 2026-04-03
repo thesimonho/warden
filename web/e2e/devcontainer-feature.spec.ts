@@ -148,9 +148,9 @@ test.describe('Devcontainer feature', () => {
     expect(result).toContain('tmux')
   })
 
-  test('should have dev user created', () => {
-    const result = execInContainer('id dev')
-    expect(result).toContain('dev')
+  test('should have warden user created', () => {
+    const result = execInContainer('id warden')
+    expect(result).toContain('warden')
   })
 
   test('should have WARDEN_MANAGED env var set', () => {
