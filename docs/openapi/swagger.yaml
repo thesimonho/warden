@@ -289,6 +289,12 @@ components:
           description: UniqueWorktrees is the number of distinct worktrees with events.
           type: integer
       type: object
+    api.ClipboardUploadResponse:
+      properties:
+        path:
+          description: Path is the absolute path of the staged file inside the container.
+          type: string
+      type: object
     api.CreateAccessItemRequest:
       properties:
         credentials:
@@ -409,8 +415,23 @@ components:
         label:
           type: string
       type: object
+    constants.AgentType:
+      description: AgentType identifies the CLI agent running in this project.
+      enum:
+      - claude-code
+      - codex
+      - claude-code
+      type: string
+      x-enum-varnames:
+      - AgentClaudeCode
+      - AgentCodex
+      - DefaultAgentType
     db.Entry:
       properties:
+        agentType:
+          description: AgentType identifies the agent that produced this event (e.g.
+            "claude-code", "codex").
+          type: string
         attrs:
           additionalProperties: {}
           description: Attrs carries structured key-value metadata.
@@ -489,8 +510,7 @@ components:
     engine.ContainerConfig:
       properties:
         agentType:
-          description: AgentType identifies the CLI agent running in this project.
-          type: string
+          $ref: '#/components/schemas/constants.AgentType'
         allowedDomains:
           description: AllowedDomains lists domains accessible when NetworkMode is
             "restricted".
@@ -531,9 +551,7 @@ components:
     engine.CreateContainerRequest:
       properties:
         agentType:
-          description: AgentType selects the CLI agent to run (e.g. "claude-code",
-            "codex"). Defaults to "claude-code".
-          type: string
+          $ref: '#/components/schemas/constants.AgentType'
         allowedDomains:
           description: AllowedDomains lists domains accessible when NetworkMode is
             "restricted".
@@ -621,9 +639,7 @@ components:
         agentStatus:
           $ref: '#/components/schemas/engine.AgentStatus'
         agentType:
-          description: AgentType identifies the CLI agent running in this project
-            (e.g. "claude-code", "codex").
-          type: string
+          $ref: '#/components/schemas/constants.AgentType'
         allowedDomains:
           description: AllowedDomains lists domains accessible when NetworkMode is
             "restricted".
@@ -704,7 +720,9 @@ components:
           description: Branch is the git branch checked out in this worktree.
           type: string
         exitCode:
-          description: ExitCode is Claude's exit code when in shell state.
+          description: |-
+            ExitCode is the agent's exit code when in shell state.
+            Nil means the agent is still running (or no exit code captured).
           type: integer
         id:
           description: ID is the worktree identifier — directory name for git worktrees,
@@ -873,6 +891,9 @@ components:
       type: object
     service.ContainerResult:
       properties:
+        agentType:
+          description: AgentType is the agent type for this container.
+          type: string
         containerId:
           description: ContainerID is the Docker container ID.
           type: string
@@ -885,6 +906,10 @@ components:
       type: object
     service.ProjectResult:
       properties:
+        agentType:
+          description: AgentType is the agent type for this project (e.g. "claude-code",
+            "codex").
+          type: string
         containerId:
           description: ContainerID is the Docker container ID, when available.
           type: string
@@ -914,6 +939,11 @@ components:
         disconnectKey:
           type: string
         runtime:
+          type: string
+        workingDirectory:
+          description: |-
+            WorkingDirectory is the server process's working directory. Used by
+            development tooling to auto-create projects without manual path entry.
           type: string
       type: object
     service.UpdateSettingsRequest:
@@ -1650,7 +1680,7 @@ paths:
       summary: Add project
       tags:
       - projects
-  /api/v1/projects/{projectId}:
+  /api/v1/projects/{projectId}/{agentType}:
     delete:
       description: Removes a project by its ID. Does not stop or delete the container.
       parameters:
@@ -1688,7 +1718,7 @@ paths:
       summary: Remove project
       tags:
       - projects
-  /api/v1/projects/{projectId}/audit:
+  /api/v1/projects/{projectId}/{agentType}/audit:
     delete:
       description: Removes all audit events for the given project.
       parameters:
@@ -1728,7 +1758,65 @@ paths:
       summary: Purge project audit
       tags:
       - projects
-  /api/v1/projects/{projectId}/container:
+  /api/v1/projects/{projectId}/{agentType}/clipboard:
+    post:
+      description: |-
+        Stages an image file in the container's clipboard directory. The xclip
+        shim serves it when the agent reads the clipboard. Used by the web
+        frontend for image paste support.
+      parameters:
+      - description: Project ID
+        in: path
+        name: projectId
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              title: file
+              type: file
+          multipart/form-data:
+            schema:
+              type: object
+        description: Image file
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/api.ClipboardUploadResponse'
+          description: OK
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/server.apiError'
+          description: Bad Request
+        "404":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/server.apiError'
+          description: Not Found
+        "413":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/server.apiError'
+          description: Request Entity Too Large
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/server.apiError'
+          description: Internal Server Error
+      summary: Upload clipboard image
+      tags:
+      - clipboard
+  /api/v1/projects/{projectId}/{agentType}/container:
     delete:
       description: Stops and removes the container for the given project. The container
         is permanently deleted.
@@ -1873,7 +1961,7 @@ paths:
       summary: Update container
       tags:
       - containers
-  /api/v1/projects/{projectId}/container/config:
+  /api/v1/projects/{projectId}/{agentType}/container/config:
     get:
       description: |-
         Returns the editable configuration of the project's container, including name, image,
@@ -1913,7 +2001,7 @@ paths:
       summary: Get container config
       tags:
       - containers
-  /api/v1/projects/{projectId}/container/validate:
+  /api/v1/projects/{projectId}/{agentType}/container/validate:
     get:
       description: |-
         Checks whether the project's running container has the required Warden terminal
@@ -1953,7 +2041,7 @@ paths:
       summary: Validate container infrastructure
       tags:
       - containers
-  /api/v1/projects/{projectId}/costs:
+  /api/v1/projects/{projectId}/{agentType}/costs:
     delete:
       description: Removes all cost history for the given project.
       parameters:
@@ -1987,7 +2075,7 @@ paths:
       summary: Reset project costs
       tags:
       - projects
-  /api/v1/projects/{projectId}/restart:
+  /api/v1/projects/{projectId}/{agentType}/restart:
     post:
       description: Restarts the container for the given project. Fails with STALE_MOUNTS
         if bind mounts reference missing host paths.
@@ -2032,7 +2120,7 @@ paths:
       summary: Restart project
       tags:
       - projects
-  /api/v1/projects/{projectId}/stop:
+  /api/v1/projects/{projectId}/{agentType}/stop:
     post:
       description: Gracefully stops the container for the given project.
       parameters:
@@ -2070,7 +2158,7 @@ paths:
       summary: Stop project
       tags:
       - projects
-  /api/v1/projects/{projectId}/worktrees:
+  /api/v1/projects/{projectId}/{agentType}/worktrees:
     get:
       description: |-
         Returns all worktrees for the given project, including terminal connection state,
@@ -2161,7 +2249,7 @@ paths:
       summary: Create worktree
       tags:
       - worktrees
-  /api/v1/projects/{projectId}/worktrees/{wid}:
+  /api/v1/projects/{projectId}/{agentType}/worktrees/{wid}:
     delete:
       description: |-
         Fully removes a worktree: kills any running processes, runs `git worktree remove`,
@@ -2207,7 +2295,7 @@ paths:
       summary: Remove worktree
       tags:
       - worktrees
-  /api/v1/projects/{projectId}/worktrees/{wid}/connect:
+  /api/v1/projects/{projectId}/{agentType}/worktrees/{wid}/connect:
     post:
       description: |-
         Starts an abduco terminal session for the given worktree. If a background session
@@ -2253,7 +2341,7 @@ paths:
       summary: Connect terminal
       tags:
       - worktrees
-  /api/v1/projects/{projectId}/worktrees/{wid}/diff:
+  /api/v1/projects/{projectId}/{agentType}/worktrees/{wid}/diff:
     get:
       description: |-
         Returns uncommitted changes (tracked and untracked files) for a worktree
@@ -2299,7 +2387,7 @@ paths:
       summary: Get worktree diff
       tags:
       - worktrees
-  /api/v1/projects/{projectId}/worktrees/{wid}/disconnect:
+  /api/v1/projects/{projectId}/{agentType}/worktrees/{wid}/disconnect:
     post:
       description: |-
         Closes the terminal viewer WebSocket. The abduco session (and Claude/bash)
@@ -2345,7 +2433,7 @@ paths:
       summary: Disconnect terminal
       tags:
       - worktrees
-  /api/v1/projects/{projectId}/worktrees/{wid}/kill:
+  /api/v1/projects/{projectId}/{agentType}/worktrees/{wid}/kill:
     post:
       description: |-
         Kills the abduco session and all child processes for the worktree.
@@ -2392,7 +2480,7 @@ paths:
       summary: Kill worktree process
       tags:
       - worktrees
-  /api/v1/projects/{projectId}/worktrees/cleanup:
+  /api/v1/projects/{projectId}/{agentType}/worktrees/cleanup:
     post:
       description: |-
         Removes worktree directories that are not tracked by git, kills orphaned abduco
@@ -2432,7 +2520,7 @@ paths:
       summary: Cleanup orphaned worktrees
       tags:
       - worktrees
-  /api/v1/projects/{projectId}/ws/{wid}:
+  /api/v1/projects/{projectId}/{agentType}/ws/{wid}:
     get:
       description: |-
         Upgrades to a WebSocket connection and bridges it to an abduco terminal session
