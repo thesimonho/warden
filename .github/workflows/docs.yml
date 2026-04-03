@@ -3,7 +3,7 @@ on:
   push:
     branches: [main]
     paths:
-      - 'CHANGELOG.md'
+      - "CHANGELOG.md"
   workflow_dispatch:
 
 permissions:
@@ -30,31 +30,30 @@ jobs:
         run: go install github.com/princjef/gomarkdoc/cmd/gomarkdoc@latest
 
       - name: Generate Go reference docs
-        run: ./docs_site/generate-go-docs.sh
+        run: ./docs/site/generate-go-docs.sh
 
       - name: Generate changelog page
-        run: ./docs_site/generate-changelog.sh
+        run: ./docs/site/generate-changelog.sh
 
       - name: Generate contributing page
-        run: ./docs_site/generate-contributing.sh
-
+        run: ./docs/site/generate-contributing.sh
 
       - uses: actions/setup-node@v6
         with:
-          node-version: '24'
-          cache: 'npm'
-          cache-dependency-path: docs_site/package-lock.json
+          node-version: "24"
+          cache: "npm"
+          cache-dependency-path: docs/site/package-lock.json
 
       - name: Install dependencies
-        run: npm --prefix docs_site install
+        run: npm --prefix docs/site install
 
       - name: Build docs site
-        run: npm --prefix docs_site run build
+        run: npm --prefix docs/site run build
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: docs_site/dist/
+          path: docs/site/dist/
 
   deploy:
     needs: build

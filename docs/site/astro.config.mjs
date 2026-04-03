@@ -24,14 +24,14 @@ export default defineConfig({
 				},
 			],
 			editLink: {
-				baseUrl: "https://github.com/thesimonho/warden/edit/main/docs_site/",
+				baseUrl: "https://github.com/thesimonho/warden/edit/main/docs/site/",
 			},
 			plugins: [
 				starlightOpenAPI([
 					{
 						base: "reference/api",
 						sidebar: { label: "HTTP API" },
-						schema: "../docs/openapi/swagger.yaml",
+						schema: "../openapi/swagger.yaml",
 					},
 				]),
 				starlightLlmsTxt(),

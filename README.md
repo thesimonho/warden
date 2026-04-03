@@ -46,8 +46,8 @@ You can easily use it from Day 1 as its own agent orchestrator, running as a web
 ## ✅ What you get
 
 <div align="center">
-  <a href="docs_site/public/hero-light.webp" target="_blank"><img width="400" alt="light" src="docs_site/public/hero-light.webp" /></a>
-  <a href="docs_site/public/hero-dark.webp" target="_blank"><img width="400" alt="dark" src="docs_site/public/hero-dark.webp" /></a>
+  <a href="docs/site/public/hero-light.webp" target="_blank"><img width="400" alt="light" src="docs/site/public/hero-light.webp" /></a>
+  <a href="docs/site/public/hero-dark.webp" target="_blank"><img width="400" alt="dark" src="docs/site/public/hero-dark.webp" /></a>
 </div>
 
 ### Security model
@@ -81,8 +81,8 @@ You can easily use it from Day 1 as its own agent orchestrator, running as a web
 - **Audit system** — unified event logging with activity timeline visualization, summary dashboard, category filtering (sessions, tools, prompts, config, system), and compliance-ready export (CSV/JSON). Configurable logging modes (off/standard/detailed) to balance detail with volume.
 
 <div align="center">
-  <a href="docs_site/public/audit.webp" target="_blank"><img width="400" src="docs_site/public/audit.webp" /></a>
-  <a href="docs_site/public/access.webp" target="_blank"><img width="127" src="docs_site/public/access.webp" /></a>
+  <a href="docs/site/public/audit.webp" target="_blank"><img width="400" src="docs/site/public/audit.webp" /></a>
+  <a href="docs/site/public/access.webp" target="_blank"><img width="127" src="docs/site/public/access.webp" /></a>
 </div>
 
 ## 🚀 Quick Start
