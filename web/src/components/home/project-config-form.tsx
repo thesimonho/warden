@@ -536,7 +536,7 @@ export default function ProjectConfigForm({
               placeholder="*.anthropic.com&#10;*.github.com&#10;registry.npmjs.org"
             />
             <p className="text-muted-foreground text-sm">
-              Wildcard patterns (e.g. *.github.com) resolve the base domain at container start.
+              Wildcard patterns (e.g. *.github.com) match all subdomains dynamically.
             </p>
           </div>
         )}
