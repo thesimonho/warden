@@ -30,6 +30,7 @@ export default function Layout() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
   const [auditLogMode, setAuditLogMode] = useState<AuditLogMode>('off')
   const [budgetActionPreventStart, setBudgetActionPreventStart] = useState(false)
+  const [serverVersion, setServerVersion] = useState('')
 
   /** Seed server-derived state without requiring settings dialog to be opened. */
   useEffect(() => {
@@ -37,9 +38,9 @@ export default function Layout() {
       .then((serverSettings) => {
         setAuditLogMode(serverSettings.auditLogMode)
         setBudgetActionPreventStart(serverSettings.budgetActionPreventStart)
+        setServerVersion(serverSettings.version)
       })
       .catch(() => {})
-
   }, [])
 
   const handleSettingsChange = useCallback((updated: DashboardSettings) => {
@@ -60,6 +61,9 @@ export default function Layout() {
                 <img src="/github-icon.webp" alt="GitHub" className="h-5 dark:invert" />
               </Link>
             </Button>
+            {serverVersion && (
+              <span className="text-muted-foreground text-xs">{serverVersion}</span>
+            )}
           </div>
 
           <div className="flex items-center gap-1">

@@ -11,6 +11,7 @@ import (
 	warden "github.com/thesimonho/warden"
 	"github.com/thesimonho/warden/internal/server"
 	"github.com/thesimonho/warden/internal/terminal"
+	"github.com/thesimonho/warden/version"
 )
 
 // healthPath is the API endpoint used for instance detection and readiness polling.
@@ -38,7 +39,9 @@ func main() {
 		os.Exit(1)
 	}
 	settings := w.Service.GetSettings()
-	slog.Info("container runtime", "runtime", settings.Runtime)
+	slog.Info("container runtime", "runtime", settings.Runtime, "version", version.Version)
+
+	go version.CheckAndPrint()
 
 	termProxy := terminal.NewProxy(w.Engine.APIClient())
 	srv := server.New(addr, w.Service, w.Broker, termProxy)

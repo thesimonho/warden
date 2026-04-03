@@ -24,6 +24,7 @@ import (
 	warden "github.com/thesimonho/warden"
 	"github.com/thesimonho/warden/internal/server"
 	"github.com/thesimonho/warden/internal/terminal"
+	"github.com/thesimonho/warden/version"
 )
 
 func main() {
@@ -43,8 +44,10 @@ func main() {
 
 	settings := w.Service.GetSettings()
 	url := formatURL(addr)
-	slog.Info("starting warden server", "url", url, "runtime", settings.Runtime)
+	slog.Info("starting warden server", "url", url, "runtime", settings.Runtime, "version", version.Version)
 	fmt.Fprintf(os.Stderr, "\n  Warden API → %s\n\n", url)
+
+	go version.CheckAndPrint()
 
 	// Start the HTTP server in a goroutine.
 	go func() {

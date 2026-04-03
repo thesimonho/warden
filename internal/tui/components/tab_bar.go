@@ -48,10 +48,15 @@ var (
 			Foreground(ColorAccent)
 )
 
+// versionStyle renders the version string in a subtle color on the tab bar.
+var versionStyle = lipgloss.NewStyle().
+	Foreground(ColorSubtle)
+
 // RenderTabBar renders a horizontal tab bar with numbered labels
 // and the active tab highlighted. Labels are prefixed with [1], [2], etc.
 // The active tab has an open bottom border to connect to the content below.
-func RenderTabBar(labels []string, activeIndex int, width int) string {
+// The version string is rendered right-aligned in the gap fill area.
+func RenderTabBar(labels []string, activeIndex int, width int, versionStr string) string {
 	var tabs []string
 	for i, label := range labels {
 		numbered := fmt.Sprintf("[%d] %s", i+1, label)
@@ -64,11 +69,24 @@ func RenderTabBar(labels []string, activeIndex int, width int) string {
 
 	row := lipgloss.JoinHorizontal(lipgloss.Bottom, tabs...)
 
-	// Fill remaining width with a bottom border to complete the tab bar line.
+	// Fill remaining width with a bottom border, placing the version
+	// string right-aligned before the trailing edge.
 	rowWidth := lipgloss.Width(row)
 	if gap := width - rowWidth; gap > 0 {
-		fill := tabGapStyle.Render(strings.Repeat("─", gap))
-		// Append the fill to the last line of the row (the bottom border line).
+		versionRendered := ""
+		versionWidth := 0
+		if versionStr != "" {
+			versionRendered = versionStyle.Render(versionStr)
+			versionWidth = lipgloss.Width(versionRendered)
+		}
+
+		fillWidth := gap - versionWidth
+		if fillWidth < 0 {
+			fillWidth = 0
+			versionRendered = ""
+		}
+
+		fill := tabGapStyle.Render(strings.Repeat("─", fillWidth)) + versionRendered
 		lines := strings.Split(row, "\n")
 		lines[len(lines)-1] += fill
 		row = strings.Join(lines, "\n")

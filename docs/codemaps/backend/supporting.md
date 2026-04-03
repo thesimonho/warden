@@ -13,6 +13,15 @@ Smaller backend packages that don't warrant individual files.
 | `warden-desktop` | `cmd/warden-desktop/run.go`  | Server lifecycle: start, wait for ready, open browser, signal handling, graceful shutdown               |
 | `warden-tui`     | `cmd/warden-tui/main.go`     | TUI binary: creates `*Warden`, wraps in `ServiceAdapter`, runs Bubble Tea program                       |
 
+## version/
+
+Build-time version embedding and update checking. Zero internal dependencies.
+
+| File              | Purpose                                                                                                                                                                         |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `version.go`      | `Version` var (set via ldflags), `CheckLatest(ctx)` (queries GitHub releases API), `IsNewer(current, latest)` (semver comparison), `CheckAndPrint()` (startup goroutine helper) |
+| `version_test.go` | Tests: semver comparison, HTTP mock for CheckLatest, network error handling                                                                                                     |
+
 ## access/
 
 Public Go package for general-purpose access item management. Pure library — no dependencies on service/db/engine.

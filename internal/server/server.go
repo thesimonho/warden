@@ -10,6 +10,7 @@ import (
 	"github.com/thesimonho/warden/eventbus"
 	"github.com/thesimonho/warden/internal/terminal"
 	"github.com/thesimonho/warden/service"
+	"github.com/thesimonho/warden/version"
 )
 
 //go:embed all:ui
@@ -95,7 +96,6 @@ func spaHandler(fileServer http.Handler, fsys fs.FS) http.Handler {
 //	@Success		200	{object}	healthResponse
 //	@Router			/api/v1/health [get]
 func handleHealth(w http.ResponseWriter, _ *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("X-Warden", "1")
-	w.Write([]byte(`{"status":"ok"}`)) //nolint:errcheck
+	writeJSON(w, healthResponse{Status: "ok", Version: version.Version})
 }

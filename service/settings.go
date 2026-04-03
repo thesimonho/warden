@@ -8,6 +8,7 @@ import (
 	"github.com/thesimonho/warden/api"
 	"github.com/thesimonho/warden/db"
 	"github.com/thesimonho/warden/engine"
+	"github.com/thesimonho/warden/version"
 )
 
 // parseFloat parses a string to float64, returning 0 on failure.
@@ -48,6 +49,7 @@ func (s *Service) GetSettings() SettingsResponse {
 		BudgetActionPreventStart:  s.db.GetSetting(settingBudgetActionPreventStart, "false") == "true",
 
 		WorkingDirectory: s.workingDir,
+		Version:          version.Version,
 	}
 }
 

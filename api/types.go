@@ -79,6 +79,9 @@ type SettingsResponse struct {
 	// WorkingDirectory is the server process's working directory. Used by
 	// development tooling to auto-create projects without manual path entry.
 	WorkingDirectory string `json:"workingDirectory"`
+
+	// Version is the server build version (e.g. "v0.5.2", "dev").
+	Version string `json:"version"`
 }
 
 // UpdateSettingsRequest holds the fields that can be updated.
@@ -313,12 +316,12 @@ type Mount struct {
 
 // CreateContainerRequest is the JSON body for creating a new project container.
 type CreateContainerRequest struct {
-	Name        string            `json:"name"`
-	Image       string            `json:"image"`
-	ProjectPath string            `json:"projectPath"`
+	Name        string `json:"name"`
+	Image       string `json:"image"`
+	ProjectPath string `json:"projectPath"`
 	// AgentType selects the CLI agent to run (e.g. "claude-code", "codex"). Defaults to "claude-code".
 	AgentType constants.AgentType `json:"agentType,omitempty"`
-	EnvVars   map[string]string `json:"envVars,omitempty"`
+	EnvVars   map[string]string   `json:"envVars,omitempty"`
 	// Mounts is a list of additional bind mounts from host into the container.
 	Mounts []Mount `json:"mounts,omitempty"`
 	// SkipPermissions controls whether terminals skip permission prompts.
@@ -337,14 +340,14 @@ type CreateContainerRequest struct {
 // ContainerConfig holds the editable configuration of an existing container.
 // Returned by InspectContainer for populating the edit form.
 type ContainerConfig struct {
-	Name            string            `json:"name"`
-	Image           string            `json:"image"`
-	ProjectPath     string            `json:"projectPath"`
+	Name        string `json:"name"`
+	Image       string `json:"image"`
+	ProjectPath string `json:"projectPath"`
 	// AgentType identifies the CLI agent running in this project.
 	AgentType       constants.AgentType `json:"agentType"`
-	EnvVars         map[string]string `json:"envVars,omitempty"`
-	Mounts          []Mount           `json:"mounts,omitempty"`
-	SkipPermissions bool              `json:"skipPermissions"`
+	EnvVars         map[string]string   `json:"envVars,omitempty"`
+	Mounts          []Mount             `json:"mounts,omitempty"`
+	SkipPermissions bool                `json:"skipPermissions"`
 	// NetworkMode controls the container's network isolation level.
 	NetworkMode NetworkMode `json:"networkMode"`
 	// AllowedDomains lists domains accessible when NetworkMode is "restricted".
