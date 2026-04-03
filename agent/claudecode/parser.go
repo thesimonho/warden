@@ -2,6 +2,7 @@ package claudecode
 
 import (
 	"encoding/json"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
@@ -90,7 +91,10 @@ func (p *Parser) FindSessionFiles(homeDir string, project agent.ProjectInfo) []s
 
 	// Scan worktree session directories (siblings with matching prefix).
 	worktreePattern := projectDir + "--claude-worktrees-*"
-	worktreeDirs, _ := filepath.Glob(worktreePattern)
+	worktreeDirs, err := filepath.Glob(worktreePattern)
+	if err != nil {
+		slog.Warn("failed to glob worktree session dirs", "pattern", worktreePattern, "err", err)
+	}
 	for _, wtDir := range worktreeDirs {
 		files = append(files, scanJSONLFiles(wtDir)...)
 	}

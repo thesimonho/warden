@@ -647,8 +647,11 @@ func (ec *EngineClient) cleanupStaleTerminals(ctx context.Context, containerID s
 
 	// Kill tmux sessions for orphaned worktrees (live session, no directory).
 	for _, name := range orphans {
-		_ = ec.KillWorktreeProcess(ctx, containerID, name)
-		slog.Info("killed orphaned worktree process", "container", containerID, "worktree", name)
+		if killErr := ec.KillWorktreeProcess(ctx, containerID, name); killErr != nil {
+			slog.Warn("failed to kill orphaned worktree process", "container", containerID, "worktree", name, "err", killErr)
+		} else {
+			slog.Info("killed orphaned worktree process", "container", containerID, "worktree", name)
+		}
 	}
 
 	all := append(stale, orphans...)
@@ -705,8 +708,10 @@ func (ec *EngineClient) RemoveWorktree(ctx context.Context, containerID, worktre
 		return fmt.Errorf("cannot remove the main worktree")
 	}
 
-	// Kill tmux session unconditionally (ignore errors — it may already be dead).
-	_ = ec.KillWorktreeProcess(ctx, containerID, worktreeID)
+	// Kill tmux session unconditionally — may already be dead.
+	if killErr := ec.KillWorktreeProcess(ctx, containerID, worktreeID); killErr != nil {
+		slog.Debug("kill before remove failed (session may already be dead)", "container", containerID, "worktree", worktreeID, "err", killErr)
+	}
 
 	// Prune stale git metadata first — if Claude already removed the worktree
 	// directory, this marks it as gone so the subsequent remove doesn't fail.
@@ -728,11 +733,13 @@ func (ec *EngineClient) RemoveWorktree(ctx context.Context, containerID, worktre
 
 	// Clean up tracking directory (may already be gone from KillWorktreeProcess).
 	termDir := wsDir + terminalsDirSuffix
-	_, _ = ec.execAndCapture(ctx, containerID, container.ExecOptions{
+	if _, rmErr := ec.execAndCapture(ctx, containerID, container.ExecOptions{
 		Cmd:          []string{"rm", "-rf", fmt.Sprintf("%s/%s", termDir, worktreeID)},
 		AttachStdout: true,
 		AttachStderr: true,
-	})
+	}); rmErr != nil {
+		slog.Warn("failed to clean up worktree tracking dir", "container", containerID, "worktree", worktreeID, "err", rmErr)
+	}
 
 	slog.Info("removed worktree", "container", containerID, "worktree", worktreeID)
 	return nil
