@@ -83,6 +83,11 @@ func (s *Service) StartSessionWatcher(projectID, containerName, agentType, works
 		}
 	}
 
+	// Seed a baseline timestamp for the main worktree so historical JSONL
+	// events (replayed during catch-up) don't set stale attention state.
+	// The store's handleTurnComplete rejects events older than UpdatedAt.
+	s.store.SeedWorktreeBaseline(containerName, "main")
+
 	sw := agent.NewSessionWatcher(parser, s.homeDir, projectInfo, callback)
 	if err := sw.Start(context.Background()); err != nil {
 		slog.Warn("failed to start session watcher", "project", projectID, "err", err)

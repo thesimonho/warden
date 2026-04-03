@@ -316,6 +316,58 @@ func TestStore_HandleTurnComplete_SkipsStaleEvent(t *testing.T) {
 	}
 }
 
+func TestStore_SeedWorktreeBaseline_RejectsHistoricalTurnComplete(t *testing.T) {
+	store := NewStore(nil, nil)
+
+	// Seed baseline with current time (simulates session watcher startup).
+	store.SeedWorktreeBaseline("proj-1", "main")
+
+	// Historical session_start from old JSONL — sets SessionActive.
+	store.HandleEvent(ContainerEvent{
+		Type:          EventSessionStart,
+		ContainerName: "proj-1",
+		WorktreeID:    "main",
+		Timestamp:     time.Now().Add(-1 * time.Hour),
+	})
+
+	// Historical turn_complete from old JSONL — should be rejected
+	// because its timestamp is before the seeded baseline.
+	store.HandleEvent(ContainerEvent{
+		Type:          EventTurnComplete,
+		ContainerName: "proj-1",
+		WorktreeID:    "main",
+		Timestamp:     time.Now().Add(-30 * time.Minute),
+	})
+
+	ws := store.GetWorktreeState("proj-1", "main")
+	if ws.NeedsInput {
+		t.Error("expected NeedsInput to be false — historical turn_complete should be rejected by baseline")
+	}
+	if !ws.SessionActive {
+		t.Error("expected SessionActive to be true — session_start should still be processed")
+	}
+}
+
+func TestStore_SeedWorktreeBaseline_NoopWhenStateExists(t *testing.T) {
+	store := NewStore(nil, nil)
+
+	// Set up existing state via session_start.
+	store.HandleEvent(ContainerEvent{
+		Type:          EventSessionStart,
+		ContainerName: "proj-1",
+		WorktreeID:    "main",
+		Timestamp:     time.Now(),
+	})
+
+	// Seed should be a no-op — existing state is preserved.
+	store.SeedWorktreeBaseline("proj-1", "main")
+
+	ws := store.GetWorktreeState("proj-1", "main")
+	if !ws.SessionActive {
+		t.Error("expected SessionActive to be preserved after no-op seed")
+	}
+}
+
 func TestStore_HandleCostUpdate_UpdatesCost(t *testing.T) {
 	store := NewStore(nil, nil)
 

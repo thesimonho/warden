@@ -305,6 +305,22 @@ func (s *Store) GetContainerWorktreeStates(containerName string) map[string]Work
 	return result
 }
 
+// SeedWorktreeBaseline initializes the attention state for a worktree
+// with UpdatedAt set to the current time. This prevents historical JSONL
+// events (replayed during session watcher catch-up) from setting stale
+// attention state — handleTurnComplete's timestamp check rejects events
+// older than UpdatedAt. No-op if state already exists for this worktree.
+func (s *Store) SeedWorktreeBaseline(containerName, worktreeID string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	key := worktreeKey{containerName: containerName, worktreeID: worktreeID}
+	if _, exists := s.attention[key]; exists {
+		return
+	}
+	s.attention[key] = &WorktreeState{UpdatedAt: time.Now()}
+}
+
 // GetProjectCost returns the cost state for a container.
 // Returns zero value if no cost data exists.
 func (s *Store) GetProjectCost(containerName string) ProjectCost {
@@ -400,7 +416,16 @@ func (s *Store) handleSessionStart(key worktreeKey, event ContainerEvent) []pend
 	}
 
 	hadAttention := existing != nil && existing.NeedsInput
-	state := &WorktreeState{SessionActive: true, UpdatedAt: event.Timestamp}
+
+	// Preserve the more recent UpdatedAt so a seeded baseline (from
+	// SeedWorktreeBaseline) isn't overwritten by a historical session_start
+	// replayed during JSONL catch-up.
+	updatedAt := event.Timestamp
+	if existing != nil && existing.UpdatedAt.After(updatedAt) {
+		updatedAt = existing.UpdatedAt
+	}
+
+	state := &WorktreeState{SessionActive: true, UpdatedAt: updatedAt}
 	s.attention[key] = state
 
 	broadcasts := []pendingBroadcast{buildWorktreeBroadcast(event.Ref(), event.WorktreeID, state, s.terminals[key])}
