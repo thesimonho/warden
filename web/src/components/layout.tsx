@@ -5,7 +5,6 @@ import { Box, KeyRound, Settings, ShieldCheck } from 'lucide-react'
 import { useTheme } from '@/hooks/use-theme'
 import { loadSettings, saveSettings, type Settings as DashboardSettings } from '@/lib/settings'
 import { fetchSettings } from '@/lib/api'
-import { evictStaleScrollback } from '@/lib/scrollback-db'
 import ThemeToggle from '@/components/theme-toggle'
 import SettingsDialog from '@/components/settings-dialog'
 import { Button } from '@/components/ui/button'
@@ -41,9 +40,6 @@ export default function Layout() {
       })
       .catch(() => {})
 
-    // Evict scrollback entries older than 14 days to prevent unbounded growth.
-    const TWO_WEEKS_MS = 14 * 24 * 60 * 60 * 1000
-    evictStaleScrollback(TWO_WEEKS_MS)
   }, [])
 
   const handleSettingsChange = useCallback((updated: DashboardSettings) => {

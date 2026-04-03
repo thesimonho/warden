@@ -33,19 +33,10 @@
 import { useEffect, useRef, useCallback, useState } from 'react'
 import { Terminal } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
-import { SerializeAddon } from '@xterm/addon-serialize'
 import { Unicode11Addon } from '@xterm/addon-unicode11'
 import { WebLinksAddon } from '@xterm/addon-web-links'
 import { getTerminalTheme } from '@/lib/terminal-themes'
 import { useTerminalClipboard } from '@/hooks/use-terminal-clipboard'
-import {
-  saveScrollback,
-  loadScrollback,
-  deleteScrollback,
-  scrollbackKey,
-} from '@/lib/scrollback-db'
-import { fetchWorktrees } from '@/lib/api'
-import { serializeTerminal } from '@/lib/scrollback-serialize'
 import '@fontsource/jetbrains-mono/400.css'
 import '@fontsource/jetbrains-mono/600.css'
 
@@ -133,7 +124,6 @@ export function useTerminal({
   const containerRef = useRef<HTMLDivElement>(null)
   const terminalRef = useRef<Terminal | null>(null)
   const fitAddonRef = useRef<FitAddon | null>(null)
-  const serializeAddonRef = useRef<SerializeAddon | null>(null)
   const wsRef = useRef<WebSocket | null>(null)
   const reconnectAttemptRef = useRef(0)
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -334,30 +324,15 @@ export function useTerminal({
       wsRef.current = null
     }
 
-    // Serialize the scrollback buffer before disposing the terminal.
-    // Fire-and-forget — detach must be synchronous (React cleanup).
     const terminal = terminalRef.current
-    const serializeAddon = serializeAddonRef.current
-    if (terminal && serializeAddon) {
-      try {
-        const data = serializeTerminal(terminal, serializeAddon)
-        if (data) {
-          saveScrollback(projectId, agentType, worktreeId, data, terminal.cols, terminal.rows)
-        }
-      } catch {
-        // Serialization failure is not critical.
-      }
-    }
-
     if (terminal) {
       terminal.dispose()
       terminalRef.current = null
     }
 
     fitAddonRef.current = null
-    serializeAddonRef.current = null
     setStatus('disconnected')
-  }, [projectId, agentType, worktreeId])
+  }, [])
 
   // Switch flush strategy when focus changes.
   // Focused: cancel interval, let RAF handle it (scheduled per-message).
@@ -427,16 +402,12 @@ export function useTerminal({
     terminal.loadAddon(fitAddon)
     terminal.loadAddon(new WebLinksAddon())
 
-    const serializeAddon = new SerializeAddon()
-    terminal.loadAddon(serializeAddon)
-
     const unicodeAddon = new Unicode11Addon()
     terminal.loadAddon(unicodeAddon)
     terminal.unicode.activeVersion = '11'
 
     terminalRef.current = terminal
     fitAddonRef.current = fitAddon
-    serializeAddonRef.current = serializeAddon
 
     // Wait for JetBrains Mono to load before opening, so xterm caches
     // correct glyph metrics on first render (no FOUT or misaligned text).
@@ -543,26 +514,9 @@ export function useTerminal({
         }
       })
 
-      // Restore saved scrollback before connecting the WebSocket so
-      // tmux's visible-screen replay appends after the historical content.
-      // Fetch worktree state in parallel to check if the agent has exited —
-      // stale scrollback from a finished session should not be restored.
-      const sbKey = scrollbackKey(projectId, agentType, worktreeId)
-      Promise.all([loadScrollback(sbKey), fetchWorktrees(projectId, agentType).catch(() => [])])
-        .then(([entry, worktrees]) => {
-          if (effectCancelled) return
-          const wt = worktrees.find((w) => w.id === worktreeId)
-          const hasAgentExited = wt != null && wt.exitCode != null
-          if (entry && !hasAgentExited) {
-            terminal.write(entry.data)
-          } else if (entry) {
-            deleteScrollback(sbKey)
-          }
-          connect()
-        })
-        .catch(() => {
-          if (!effectCancelled) connect()
-        })
+      // Connect immediately — tmux scrollback replay handles history
+      // server-side via capture-pane before the live stream attaches.
+      connect()
 
       // Observe container resizes to refit the terminal.
       const resizeObserver = new ResizeObserver(() => {
