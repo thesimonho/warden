@@ -3,12 +3,14 @@ package engine
 import (
 	"fmt"
 	"path/filepath"
+
+	"github.com/thesimonho/warden/api"
 )
 
 // buildBindMounts constructs the bind mount strings for container creation.
 // The project directory is mounted at containerWorkspaceDir (typically
 // /home/warden/<name>). Additional mounts are appended with optional :ro suffix.
-func buildBindMounts(projectPath, containerWorkspaceDir string, mounts []Mount) ([]string, error) {
+func buildBindMounts(projectPath, containerWorkspaceDir string, mounts []api.Mount) ([]string, error) {
 	binds := []string{fmt.Sprintf("%s:%s", projectPath, containerWorkspaceDir)}
 
 	for _, m := range mounts {

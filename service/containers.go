@@ -9,13 +9,14 @@ import (
 	"time"
 
 	"github.com/thesimonho/warden/agent"
+	"github.com/thesimonho/warden/api"
 	"github.com/thesimonho/warden/db"
 	"github.com/thesimonho/warden/engine"
 )
 
 // CreateContainer creates a new project container and saves full
 // project metadata to the database.
-func (s *Service) CreateContainer(ctx context.Context, req engine.CreateContainerRequest) (*ContainerResult, error) {
+func (s *Service) CreateContainer(ctx context.Context, req api.CreateContainerRequest) (*ContainerResult, error) {
 	row, err := projectRowFromRequest(req)
 	if err != nil {
 		return nil, err
@@ -101,7 +102,7 @@ func (s *Service) DeleteContainer(ctx context.Context, projectID, agentType stri
 // InspectContainer returns the editable configuration of a container.
 // Docker-derived fields come from the engine; DB metadata is overlaid
 // directly from the project row.
-func (s *Service) InspectContainer(ctx context.Context, projectID, agentType string) (*engine.ContainerConfig, error) {
+func (s *Service) InspectContainer(ctx context.Context, projectID, agentType string) (*api.ContainerConfig, error) {
 	project, err := s.resolveProject(projectID, agentType)
 	if err != nil {
 		return nil, err
@@ -119,7 +120,7 @@ func (s *Service) InspectContainer(ctx context.Context, projectID, agentType str
 	// when the user saves — the resolver re-expands on create).
 	cfg.SkipPermissions = project.SkipPermissions
 	if project.NetworkMode != "" {
-		cfg.NetworkMode = engine.NetworkMode(project.NetworkMode)
+		cfg.NetworkMode = api.NetworkMode(project.NetworkMode)
 	}
 	if project.AllowedDomains != "" {
 		cfg.AllowedDomains = splitCSV(project.AllowedDomains)
@@ -133,7 +134,7 @@ func (s *Service) InspectContainer(ctx context.Context, projectID, agentType str
 		cfg.EnvVars = nil
 	}
 	if len(project.Mounts) > 0 {
-		var mounts []engine.Mount
+		var mounts []api.Mount
 		if err := json.Unmarshal(project.Mounts, &mounts); err == nil {
 			cfg.Mounts = mounts
 		}
@@ -152,7 +153,7 @@ func (s *Service) InspectContainer(ctx context.Context, projectID, agentType str
 // lightweight settings changed (name, skipPermissions, costBudget), the
 // container is updated in-place without recreation. Otherwise the container
 // is fully recreated with the new configuration.
-func (s *Service) UpdateContainer(ctx context.Context, projectID, agentType string, req engine.CreateContainerRequest) (*ContainerResult, error) {
+func (s *Service) UpdateContainer(ctx context.Context, projectID, agentType string, req api.CreateContainerRequest) (*ContainerResult, error) {
 	project, err := s.resolveProject(projectID, agentType)
 	if err != nil {
 		return nil, err
@@ -166,7 +167,7 @@ func (s *Service) UpdateContainer(ctx context.Context, projectID, agentType stri
 
 // updateContainerSettings applies lightweight setting changes (name,
 // skipPermissions, costBudget) without recreating the container.
-func (s *Service) updateContainerSettings(ctx context.Context, project *db.ProjectRow, req engine.CreateContainerRequest) (*ContainerResult, error) {
+func (s *Service) updateContainerSettings(ctx context.Context, project *db.ProjectRow, req api.CreateContainerRequest) (*ContainerResult, error) {
 	containerName := effectiveContainerName(project)
 
 	// Rename the Docker container if the name changed.
@@ -209,7 +210,7 @@ func (s *Service) updateContainerSettings(ctx context.Context, project *db.Proje
 
 // recreateContainer replaces the container with a new one using the full
 // updated configuration.
-func (s *Service) recreateContainer(ctx context.Context, project *db.ProjectRow, req engine.CreateContainerRequest) (*ContainerResult, error) {
+func (s *Service) recreateContainer(ctx context.Context, project *db.ProjectRow, req api.CreateContainerRequest) (*ContainerResult, error) {
 	row, err := projectRowFromRequest(req)
 	if err != nil {
 		return nil, err
@@ -261,7 +262,7 @@ func (s *Service) recreateContainer(ctx context.Context, project *db.ProjectRow,
 // needsRecreation reports whether the requested configuration differs from
 // the current project in ways that require container recreation. Lightweight
 // fields (Name, SkipPermissions, CostBudget) can be updated in-place.
-func needsRecreation(project *db.ProjectRow, req engine.CreateContainerRequest) bool {
+func needsRecreation(project *db.ProjectRow, req api.CreateContainerRequest) bool {
 	if req.Image != "" && req.Image != project.Image {
 		return true
 	}
@@ -283,11 +284,11 @@ func needsRecreation(project *db.ProjectRow, req engine.CreateContainerRequest) 
 
 	reqNetwork := req.NetworkMode
 	if reqNetwork == "" {
-		reqNetwork = engine.NetworkModeFull
+		reqNetwork = api.NetworkModeFull
 	}
-	existingNetwork := engine.NetworkMode(project.NetworkMode)
+	existingNetwork := api.NetworkMode(project.NetworkMode)
 	if existingNetwork == "" {
-		existingNetwork = engine.NetworkModeFull
+		existingNetwork = api.NetworkModeFull
 	}
 	if reqNetwork != existingNetwork {
 		return true
@@ -336,8 +337,8 @@ func envVarsEqual(reqVars map[string]string, dbVars json.RawMessage) bool {
 }
 
 // mountsEqual compares requested mounts against the JSON-encoded DB value.
-func mountsEqual(reqMounts []engine.Mount, dbMounts json.RawMessage) bool {
-	var existing []engine.Mount
+func mountsEqual(reqMounts []api.Mount, dbMounts json.RawMessage) bool {
+	var existing []api.Mount
 	if len(dbMounts) > 0 {
 		if err := json.Unmarshal(dbMounts, &existing); err != nil {
 			return false
@@ -392,7 +393,7 @@ func (s *Service) ValidateContainer(ctx context.Context, projectID, agentType st
 // projectRowFromRequest converts a CreateContainerRequest to a ProjectRow
 // for database persistence. Computes the deterministic ProjectID from the
 // host path.
-func projectRowFromRequest(req engine.CreateContainerRequest) (db.ProjectRow, error) {
+func projectRowFromRequest(req api.CreateContainerRequest) (db.ProjectRow, error) {
 	projectID, err := engine.ProjectID(req.ProjectPath)
 	if err != nil {
 		return db.ProjectRow{}, fmt.Errorf("computing project ID: %w", err)

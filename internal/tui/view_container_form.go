@@ -13,7 +13,6 @@ import (
 	"github.com/thesimonho/warden/agent"
 	"github.com/thesimonho/warden/api"
 	"github.com/thesimonho/warden/constants"
-	"github.com/thesimonho/warden/engine"
 	"github.com/thesimonho/warden/internal/tui/components"
 )
 
@@ -101,7 +100,7 @@ type ContainerFormView struct {
 	accessCursor  int // sub-cursor within access items (-1 = header)
 
 	// Bind mounts.
-	mounts       []engine.Mount
+	mounts       []api.Mount
 	mountCursor  int // sub-cursor within the mounts list (-1 = header/add)
 	editingMount bool
 	mountIsNew   bool               // true when editing a newly added mount
@@ -130,7 +129,7 @@ type envVarEntry struct {
 
 // containerConfigLoadedMsg carries the container config for editing.
 type containerConfigLoadedMsg struct {
-	Config *engine.ContainerConfig
+	Config *api.ContainerConfig
 	Err    error
 }
 
@@ -263,7 +262,7 @@ func (v *ContainerFormView) Update(msg tea.Msg) (View, tea.Cmd) {
 				if !isMountForAgent(dm, selected) {
 					continue
 				}
-				v.mounts = append(v.mounts, engine.Mount{
+				v.mounts = append(v.mounts, api.Mount{
 					HostPath:      dm.HostPath,
 					ContainerPath: dm.ContainerPath,
 					ReadOnly:      dm.ReadOnly,
@@ -678,7 +677,7 @@ func (v *ContainerFormView) activateField() (View, tea.Cmd) {
 
 func (v *ContainerFormView) activateMountField() (View, tea.Cmd) {
 	if v.mountCursor == -1 {
-		v.mounts = append(v.mounts, engine.Mount{ReadOnly: true})
+		v.mounts = append(v.mounts, api.Mount{ReadOnly: true})
 		v.mountCursor = len(v.mounts) - 1
 		v.mountIsNew = true
 		return v.startMountEdit()
@@ -846,7 +845,7 @@ func (v *ContainerFormView) submit() tea.Cmd {
 	}
 
 	// Collect valid user mounts.
-	var validMounts []engine.Mount
+	var validMounts []api.Mount
 	for _, m := range v.mounts {
 		if strings.TrimSpace(m.HostPath) == "" || strings.TrimSpace(m.ContainerPath) == "" {
 			continue
@@ -854,12 +853,12 @@ func (v *ContainerFormView) submit() tea.Cmd {
 		validMounts = append(validMounts, m)
 	}
 
-	req := engine.CreateContainerRequest{
+	req := api.CreateContainerRequest{
 		Name:            name,
 		ProjectPath:     path,
 		Image:           v.inputs[2].Value(),
 		AgentType:       agentTypes[v.agentType],
-		NetworkMode:     engine.NetworkMode(networkModes[v.network]),
+		NetworkMode:     api.NetworkMode(networkModes[v.network]),
 		AllowedDomains:  domains,
 		SkipPermissions: v.skipPerm,
 	}
@@ -921,7 +920,7 @@ func (v *ContainerFormView) refilterDefaultMounts() {
 		if !isMountForAgent(dm, selected) {
 			continue
 		}
-		v.mounts = append(v.mounts, engine.Mount{
+		v.mounts = append(v.mounts, api.Mount{
 			HostPath:      dm.HostPath,
 			ContainerPath: dm.ContainerPath,
 			ReadOnly:      dm.ReadOnly,
@@ -978,7 +977,7 @@ func (v *ContainerFormView) ensureRequiredMount() {
 	selected := agentTypes[v.agentType]
 	for _, dm := range v.defaults.Mounts {
 		if dm.Required && isMountForAgent(dm, selected) {
-			v.mounts = append([]engine.Mount{{
+			v.mounts = append([]api.Mount{{
 				HostPath:      dm.HostPath,
 				ContainerPath: dm.ContainerPath,
 				ReadOnly:      dm.ReadOnly,

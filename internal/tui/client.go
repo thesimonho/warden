@@ -77,7 +77,7 @@ type Client interface {
 
 	// CreateContainer creates a new container for the given project.
 	// API: POST /api/v1/projects/{projectId}/{agentType}/container
-	CreateContainer(ctx context.Context, projectID, agentType string, req engine.CreateContainerRequest) (*api.ContainerResult, error)
+	CreateContainer(ctx context.Context, projectID, agentType string, req api.CreateContainerRequest) (*api.ContainerResult, error)
 
 	// ResetProjectCosts removes all cost history for a project.
 	// API: DELETE /api/v1/projects/{projectId}/{agentType}/costs
@@ -93,11 +93,11 @@ type Client interface {
 
 	// InspectContainer returns the editable configuration of the project's container.
 	// API: GET /api/v1/projects/{projectId}/{agentType}/container/config
-	InspectContainer(ctx context.Context, projectID, agentType string) (*engine.ContainerConfig, error)
+	InspectContainer(ctx context.Context, projectID, agentType string) (*api.ContainerConfig, error)
 
 	// UpdateContainer recreates the project's container with updated configuration.
 	// API: PUT /api/v1/projects/{projectId}/{agentType}/container
-	UpdateContainer(ctx context.Context, projectID, agentType string, req engine.CreateContainerRequest) (*api.ContainerResult, error)
+	UpdateContainer(ctx context.Context, projectID, agentType string, req api.CreateContainerRequest) (*api.ContainerResult, error)
 
 	// ValidateContainer checks whether the project's container has Warden infrastructure.
 	// API: GET /api/v1/projects/{projectId}/{agentType}/container/validate

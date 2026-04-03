@@ -67,28 +67,6 @@ const (
 	WorktreeStateStopped WorktreeState = "stopped"
 )
 
-// NetworkMode controls the container's network isolation level.
-type NetworkMode string
-
-const (
-	// NetworkModeFull allows unrestricted internet access (default).
-	NetworkModeFull NetworkMode = "full"
-	// NetworkModeRestricted allows access only to explicitly allowed domains.
-	NetworkModeRestricted NetworkMode = "restricted"
-	// NetworkModeNone blocks all outbound network access (air-gapped).
-	NetworkModeNone NetworkMode = "none"
-)
-
-// IsValidNetworkMode reports whether the given string is a valid network mode.
-func IsValidNetworkMode(mode string) bool {
-	switch NetworkMode(mode) {
-	case NetworkModeFull, NetworkModeRestricted, NetworkModeNone:
-		return true
-	default:
-		return false
-	}
-}
-
 // Project represents a project tracked by Warden, optionally backed by a Docker container.
 // ProjectID is the stable identity (deterministic hash of host path).
 // ID is the Docker container ID (empty when HasContainer is false).
@@ -135,7 +113,7 @@ type Project struct {
 	// WorkspaceDir is the container-side workspace directory (mount destination).
 	WorkspaceDir string `json:"workspaceDir,omitempty"`
 	// NetworkMode controls the container's network isolation level.
-	NetworkMode NetworkMode `json:"networkMode"`
+	NetworkMode api.NetworkMode `json:"networkMode"`
 	// AllowedDomains lists domains accessible when NetworkMode is "restricted".
 	AllowedDomains []string `json:"allowedDomains,omitempty"`
 }
@@ -159,60 +137,6 @@ type Worktree struct {
 	NeedsInput bool `json:"needsInput,omitempty"`
 	// NotificationType indicates why Claude needs attention.
 	NotificationType NotificationType `json:"notificationType,omitempty"`
-}
-
-// Mount describes a bind mount from the host into the container.
-type Mount struct {
-	// HostPath is the absolute path on the host.
-	HostPath string `json:"hostPath"`
-	// ContainerPath is the absolute path inside the container.
-	ContainerPath string `json:"containerPath"`
-	// ReadOnly mounts the path as read-only inside the container.
-	ReadOnly bool `json:"readOnly"`
-}
-
-// CreateContainerRequest is the JSON body for creating a new project container.
-type CreateContainerRequest struct {
-	Name        string            `json:"name"`
-	Image       string            `json:"image"`
-	ProjectPath string            `json:"projectPath"`
-	// AgentType selects the CLI agent to run (e.g. "claude-code", "codex"). Defaults to "claude-code".
-	AgentType constants.AgentType `json:"agentType,omitempty"`
-	EnvVars   map[string]string `json:"envVars,omitempty"`
-	// Mounts is a list of additional bind mounts from host into the container.
-	Mounts []Mount `json:"mounts,omitempty"`
-	// SkipPermissions controls whether terminals skip permission prompts.
-	// Stored as a Docker label on the container.
-	SkipPermissions bool `json:"skipPermissions,omitempty"`
-	// NetworkMode controls the container's network isolation level.
-	NetworkMode NetworkMode `json:"networkMode,omitempty"`
-	// AllowedDomains lists domains accessible when NetworkMode is "restricted".
-	AllowedDomains []string `json:"allowedDomains,omitempty"`
-	// CostBudget is the per-project cost limit in USD (0 = use global default).
-	CostBudget float64 `json:"costBudget,omitempty"`
-	// EnabledAccessItems lists active access item IDs (e.g. ["git","ssh"]).
-	EnabledAccessItems []string `json:"enabledAccessItems,omitempty"`
-}
-
-// ContainerConfig holds the editable configuration of an existing container.
-// Returned by InspectContainer for populating the edit form.
-type ContainerConfig struct {
-	Name            string            `json:"name"`
-	Image           string            `json:"image"`
-	ProjectPath     string            `json:"projectPath"`
-	// AgentType identifies the CLI agent running in this project.
-	AgentType       constants.AgentType `json:"agentType"`
-	EnvVars         map[string]string `json:"envVars,omitempty"`
-	Mounts          []Mount           `json:"mounts,omitempty"`
-	SkipPermissions bool              `json:"skipPermissions"`
-	// NetworkMode controls the container's network isolation level.
-	NetworkMode NetworkMode `json:"networkMode"`
-	// AllowedDomains lists domains accessible when NetworkMode is "restricted".
-	AllowedDomains []string `json:"allowedDomains,omitempty"`
-	// CostBudget is the per-project cost limit in USD (0 = use global default).
-	CostBudget float64 `json:"costBudget"`
-	// EnabledAccessItems lists active access item IDs (e.g. ["git","ssh"]).
-	EnabledAccessItems []string `json:"enabledAccessItems,omitempty"`
 }
 
 // ContainerHealth describes a container's startup health state.
@@ -243,10 +167,10 @@ type Client interface {
 	// RestartProject restarts the container with the given ID.
 	// originalMounts are the pre-symlink-resolution mount specs from the DB,
 	// used to detect stale bind mounts before restarting.
-	RestartProject(ctx context.Context, id string, originalMounts []Mount) error
+	RestartProject(ctx context.Context, id string, originalMounts []api.Mount) error
 
 	// CreateContainer creates and starts a new project container.
-	CreateContainer(ctx context.Context, req CreateContainerRequest) (string, error)
+	CreateContainer(ctx context.Context, req api.CreateContainerRequest) (string, error)
 
 	// DeleteContainer stops and removes a container.
 	DeleteContainer(ctx context.Context, id string) error
@@ -255,14 +179,14 @@ type Client interface {
 	CleanupEventDir(containerName string)
 
 	// InspectContainer returns the editable configuration of a container.
-	InspectContainer(ctx context.Context, id string) (*ContainerConfig, error)
+	InspectContainer(ctx context.Context, id string) (*api.ContainerConfig, error)
 
 	// RenameContainer changes the name of an existing container without recreation.
 	RenameContainer(ctx context.Context, id string, newName string) error
 
 	// RecreateContainer replaces a stopped container with a new one using updated config.
 	// Returns the new container ID.
-	RecreateContainer(ctx context.Context, id string, req CreateContainerRequest) (string, error)
+	RecreateContainer(ctx context.Context, id string, req api.CreateContainerRequest) (string, error)
 
 	// ListWorktrees returns all worktrees for the given container with their terminal state.
 	// When skipEnrich is true, the expensive batch docker exec for terminal state is skipped

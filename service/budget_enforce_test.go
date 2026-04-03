@@ -5,6 +5,7 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/thesimonho/warden/api"
 	"github.com/thesimonho/warden/db"
 	"github.com/thesimonho/warden/engine"
 )
@@ -224,7 +225,7 @@ func TestRestartProject_BlockedByBudget(t *testing.T) {
 		projects: []engine.Project{
 			{ID: "ctr123", Name: "proj"},
 		},
-		inspectConfig: &engine.ContainerConfig{Name: "proj"},
+		inspectConfig: &api.ContainerConfig{Name: "proj"},
 	}
 	svc := New(ServiceDeps{Engine: mock, DB: store})
 
@@ -337,7 +338,7 @@ func TestRestartProject_AllowedWhenPreventStartOff(t *testing.T) {
 		projects: []engine.Project{
 			{ID: "ctr123", Name: "proj"},
 		},
-		inspectConfig: &engine.ContainerConfig{Name: "proj"},
+		inspectConfig: &api.ContainerConfig{Name: "proj"},
 	}
 	svc := New(ServiceDeps{Engine: mock, DB: store})
 

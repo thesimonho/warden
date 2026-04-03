@@ -5,6 +5,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/thesimonho/warden/api"
 )
 
 // --- DetectStaleMounts ---
@@ -13,7 +15,7 @@ func TestDetectStaleMounts_NoChanges(t *testing.T) {
 	dir := t.TempDir()
 	writeFile(t, filepath.Join(dir, "settings.json"), `{"hooks":{}}`)
 
-	original := []Mount{{HostPath: dir, ContainerPath: "/home/warden/.claude"}}
+	original := []api.Mount{{HostPath: dir, ContainerPath: "/home/warden/.claude"}}
 
 	// Resolve once (simulates container creation).
 	current, err := resolveSymlinksForMounts(original)
@@ -47,7 +49,7 @@ func TestDetectStaleMounts_SymlinkTargetChanged(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	original := []Mount{{HostPath: mountDir, ContainerPath: "/home/warden/.claude"}}
+	original := []api.Mount{{HostPath: mountDir, ContainerPath: "/home/warden/.claude"}}
 
 	// Resolve at "creation time" — points to oldTarget.
 	creationResolved, err := resolveSymlinksForMounts(original)
@@ -88,7 +90,7 @@ func TestDetectStaleMounts_SymlinkTargetDeleted(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	original := []Mount{{HostPath: mountDir, ContainerPath: "/home/warden/.claude"}}
+	original := []api.Mount{{HostPath: mountDir, ContainerPath: "/home/warden/.claude"}}
 	creationResolved, err := resolveSymlinksForMounts(original)
 	if err != nil {
 		t.Fatal(err)
@@ -113,7 +115,7 @@ func TestDetectStaleMounts_NewSymlinkAppeared(t *testing.T) {
 	mountDir := t.TempDir()
 	writeFile(t, filepath.Join(mountDir, "settings.json"), `{"local":true}`)
 
-	original := []Mount{{HostPath: mountDir, ContainerPath: "/home/warden/.claude"}}
+	original := []api.Mount{{HostPath: mountDir, ContainerPath: "/home/warden/.claude"}}
 	creationResolved, err := resolveSymlinksForMounts(original)
 	if err != nil {
 		t.Fatal(err)
@@ -161,7 +163,7 @@ func TestDetectStaleMounts_MultipleMountsPartialStale(t *testing.T) {
 	sshDir := t.TempDir()
 	writeFile(t, filepath.Join(sshDir, "config"), "Host *")
 
-	original := []Mount{
+	original := []api.Mount{
 		{HostPath: claudeDir, ContainerPath: "/home/warden/.claude"},
 		{HostPath: sshDir, ContainerPath: "/home/warden/.ssh", ReadOnly: true},
 	}
@@ -214,7 +216,7 @@ func TestDetectStaleMounts_DoubleSymlinkChain(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	original := []Mount{{HostPath: mountDir, ContainerPath: "/home/warden/.claude"}}
+	original := []api.Mount{{HostPath: mountDir, ContainerPath: "/home/warden/.claude"}}
 	creationResolved, err := resolveSymlinksForMounts(original)
 	if err != nil {
 		t.Fatal(err)

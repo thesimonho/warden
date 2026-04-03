@@ -2,6 +2,8 @@ package engine
 
 import (
 	"testing"
+
+	"github.com/thesimonho/warden/api"
 )
 
 func TestBuildBindMounts(t *testing.T) {
@@ -19,7 +21,7 @@ func TestBuildBindMounts(t *testing.T) {
 	})
 
 	t.Run("project mount with additional mounts", func(t *testing.T) {
-		mounts := []Mount{
+		mounts := []api.Mount{
 			{HostPath: "/home/user/.claude", ContainerPath: "/home/warden/.claude", ReadOnly: true},
 			{HostPath: "/home/user/.ssh", ContainerPath: "/home/warden/.ssh", ReadOnly: true},
 		}
@@ -39,7 +41,7 @@ func TestBuildBindMounts(t *testing.T) {
 	})
 
 	t.Run("relative host path returns error", func(t *testing.T) {
-		mounts := []Mount{
+		mounts := []api.Mount{
 			{HostPath: "relative/.claude", ContainerPath: "/home/warden/.claude"},
 		}
 		_, err := buildBindMounts("/home/user/project", "/home/warden/my-project", mounts)
@@ -49,7 +51,7 @@ func TestBuildBindMounts(t *testing.T) {
 	})
 
 	t.Run("relative container path returns error", func(t *testing.T) {
-		mounts := []Mount{
+		mounts := []api.Mount{
 			{HostPath: "/home/user/.claude", ContainerPath: "relative/.claude"},
 		}
 		_, err := buildBindMounts("/home/user/project", "/home/warden/my-project", mounts)
@@ -59,7 +61,7 @@ func TestBuildBindMounts(t *testing.T) {
 	})
 
 	t.Run("empty mounts list", func(t *testing.T) {
-		binds, err := buildBindMounts("/home/user/project", "/home/warden/my-project", []Mount{})
+		binds, err := buildBindMounts("/home/user/project", "/home/warden/my-project", []api.Mount{})
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}

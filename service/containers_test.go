@@ -5,6 +5,7 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/thesimonho/warden/api"
 	"github.com/thesimonho/warden/db"
 	"github.com/thesimonho/warden/engine"
 )
@@ -16,7 +17,7 @@ func TestCreateContainer(t *testing.T) {
 	mock := &mockEngine{containerID: "new123container"}
 	svc := New(ServiceDeps{Engine: mock, DB: database})
 
-	result, err := svc.CreateContainer(context.Background(), engine.CreateContainerRequest{
+	result, err := svc.CreateContainer(context.Background(), api.CreateContainerRequest{
 		Name:        "my-project",
 		ProjectPath: "/home/user/project",
 	})
@@ -48,7 +49,7 @@ func TestCreateContainer_NameTaken(t *testing.T) {
 	mock := &mockEngine{containerErr: engine.ErrNameTaken}
 	svc := New(ServiceDeps{Engine: mock, DB: testDB(t)})
 
-	_, err := svc.CreateContainer(context.Background(), engine.CreateContainerRequest{
+	_, err := svc.CreateContainer(context.Background(), api.CreateContainerRequest{
 		Name:        "existing",
 		ProjectPath: "/home/user/project",
 	})
@@ -87,7 +88,7 @@ func TestInspectContainer(t *testing.T) {
 	}
 
 	mock := &mockEngine{
-		inspectConfig: &engine.ContainerConfig{Name: "my-project"},
+		inspectConfig: &api.ContainerConfig{Name: "my-project"},
 	}
 	database := testDB(t)
 	insertTestProject(t, database, row)
@@ -104,7 +105,7 @@ func TestInspectContainer(t *testing.T) {
 	if !cfg.SkipPermissions {
 		t.Error("expected skipPermissions=true from project row overlay")
 	}
-	if cfg.NetworkMode != engine.NetworkModeRestricted {
+	if cfg.NetworkMode != api.NetworkModeRestricted {
 		t.Errorf("expected networkMode 'restricted', got %q", cfg.NetworkMode)
 	}
 	if len(cfg.AllowedDomains) != 2 {
@@ -121,7 +122,7 @@ func TestUpdateContainer(t *testing.T) {
 
 	row := &db.ProjectRow{ProjectID: "proj-1", ContainerID: "old123container", ContainerName: "my-project", Name: "my-project", HostPath: "/test/my-project"}
 	insertTestProject(t, database, row)
-	result, err := svc.UpdateContainer(context.Background(), row.ProjectID, "claude-code", engine.CreateContainerRequest{
+	result, err := svc.UpdateContainer(context.Background(), row.ProjectID, "claude-code", api.CreateContainerRequest{
 		Name:        "my-project",
 		ProjectPath: "/home/user/project",
 	})
@@ -142,7 +143,7 @@ func TestUpdateContainer_LightUpdate(t *testing.T) {
 	svc := New(ServiceDeps{Engine: mock, DB: database})
 
 	// Create the project first so the DB row exists.
-	_, err := svc.CreateContainer(context.Background(), engine.CreateContainerRequest{
+	_, err := svc.CreateContainer(context.Background(), api.CreateContainerRequest{
 		Name:        "my-project",
 		ProjectPath: "/home/user/project",
 		Image:       "ghcr.io/test:latest",
@@ -155,7 +156,7 @@ func TestUpdateContainer_LightUpdate(t *testing.T) {
 	row, _ := database.GetProject(projectID, "claude-code")
 
 	// Update only lightweight fields (name, skipPermissions, costBudget).
-	result, err := svc.UpdateContainer(context.Background(), row.ProjectID, "claude-code", engine.CreateContainerRequest{
+	result, err := svc.UpdateContainer(context.Background(), row.ProjectID, "claude-code", api.CreateContainerRequest{
 		Name:            "renamed-project",
 		ProjectPath:     "/home/user/project",
 		Image:           "ghcr.io/test:latest",
@@ -197,7 +198,7 @@ func TestUpdateContainer_LightUpdate_RenameError(t *testing.T) {
 	}
 	svc := New(ServiceDeps{Engine: mock, DB: database})
 
-	_, err := svc.CreateContainer(context.Background(), engine.CreateContainerRequest{
+	_, err := svc.CreateContainer(context.Background(), api.CreateContainerRequest{
 		Name:        "my-project",
 		ProjectPath: "/home/user/project",
 		Image:       "ghcr.io/test:latest",
@@ -210,7 +211,7 @@ func TestUpdateContainer_LightUpdate_RenameError(t *testing.T) {
 	row, _ := database.GetProject(projectID, "claude-code")
 
 	// Rename should fail and propagate.
-	_, err = svc.UpdateContainer(context.Background(), row.ProjectID, "claude-code", engine.CreateContainerRequest{
+	_, err = svc.UpdateContainer(context.Background(), row.ProjectID, "claude-code", api.CreateContainerRequest{
 		Name:        "new-name",
 		ProjectPath: "/home/user/project",
 		Image:       "ghcr.io/test:latest",
@@ -232,12 +233,12 @@ func TestNeedsRecreation(t *testing.T) {
 
 	tests := []struct {
 		name   string
-		req    engine.CreateContainerRequest
+		req    api.CreateContainerRequest
 		expect bool
 	}{
 		{
 			name: "only name changed",
-			req: engine.CreateContainerRequest{
+			req: api.CreateContainerRequest{
 				Name:        "new-name",
 				ProjectPath: "/home/user/project",
 				Image:       "ghcr.io/test:latest",
@@ -246,7 +247,7 @@ func TestNeedsRecreation(t *testing.T) {
 		},
 		{
 			name: "only skipPermissions changed",
-			req: engine.CreateContainerRequest{
+			req: api.CreateContainerRequest{
 				ProjectPath:     "/home/user/project",
 				Image:           "ghcr.io/test:latest",
 				SkipPermissions: true,
@@ -255,7 +256,7 @@ func TestNeedsRecreation(t *testing.T) {
 		},
 		{
 			name: "only costBudget changed",
-			req: engine.CreateContainerRequest{
+			req: api.CreateContainerRequest{
 				ProjectPath: "/home/user/project",
 				Image:       "ghcr.io/test:latest",
 				CostBudget:  50.0,
@@ -264,7 +265,7 @@ func TestNeedsRecreation(t *testing.T) {
 		},
 		{
 			name: "image changed",
-			req: engine.CreateContainerRequest{
+			req: api.CreateContainerRequest{
 				ProjectPath: "/home/user/project",
 				Image:       "ghcr.io/test:v2",
 			},
@@ -272,7 +273,7 @@ func TestNeedsRecreation(t *testing.T) {
 		},
 		{
 			name: "project path changed",
-			req: engine.CreateContainerRequest{
+			req: api.CreateContainerRequest{
 				ProjectPath: "/home/user/other",
 				Image:       "ghcr.io/test:latest",
 			},
@@ -280,7 +281,7 @@ func TestNeedsRecreation(t *testing.T) {
 		},
 		{
 			name: "agent type changed",
-			req: engine.CreateContainerRequest{
+			req: api.CreateContainerRequest{
 				ProjectPath: "/home/user/project",
 				Image:       "ghcr.io/test:latest",
 				AgentType:   "codex",
@@ -289,16 +290,16 @@ func TestNeedsRecreation(t *testing.T) {
 		},
 		{
 			name: "network mode changed",
-			req: engine.CreateContainerRequest{
+			req: api.CreateContainerRequest{
 				ProjectPath: "/home/user/project",
 				Image:       "ghcr.io/test:latest",
-				NetworkMode: engine.NetworkModeRestricted,
+				NetworkMode: api.NetworkModeRestricted,
 			},
 			expect: true,
 		},
 		{
 			name: "env vars added",
-			req: engine.CreateContainerRequest{
+			req: api.CreateContainerRequest{
 				ProjectPath: "/home/user/project",
 				Image:       "ghcr.io/test:latest",
 				EnvVars:     map[string]string{"FOO": "bar"},
@@ -307,10 +308,10 @@ func TestNeedsRecreation(t *testing.T) {
 		},
 		{
 			name: "mounts added",
-			req: engine.CreateContainerRequest{
+			req: api.CreateContainerRequest{
 				ProjectPath: "/home/user/project",
 				Image:       "ghcr.io/test:latest",
-				Mounts:      []engine.Mount{{HostPath: "/a", ContainerPath: "/b"}},
+				Mounts:      []api.Mount{{HostPath: "/a", ContainerPath: "/b"}},
 			},
 			expect: true,
 		},
