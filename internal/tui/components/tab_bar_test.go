@@ -48,7 +48,7 @@ func TestRenderTabBar(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			got := RenderTabBar(tt.labels, tt.activeIndex, tt.width)
+			got := RenderTabBar(tt.labels, tt.activeIndex, tt.width, "")
 			plain := stripANSI(got)
 			for _, label := range tt.wantLabels {
 				if !strings.Contains(plain, label) {
@@ -62,7 +62,7 @@ func TestRenderTabBar(t *testing.T) {
 func TestRenderTabBarEmpty(t *testing.T) {
 	t.Parallel()
 
-	got := RenderTabBar([]string{}, 0, 60)
+	got := RenderTabBar([]string{}, 0, 60, "")
 	plain := stripANSI(got)
 	// Should only contain border fill, no tab labels.
 	if strings.Contains(plain, "[") {
@@ -73,17 +73,27 @@ func TestRenderTabBarEmpty(t *testing.T) {
 func TestRenderTabBarHasThreeLines(t *testing.T) {
 	t.Parallel()
 
-	got := RenderTabBar([]string{"Projects", "Settings"}, 0, 60)
+	got := RenderTabBar([]string{"Projects", "Settings"}, 0, 60, "")
 	lines := strings.Split(got, "\n")
 	if len(lines) != 3 {
 		t.Errorf("expected 3 lines (top border, content, bottom border), got %d:\n%s", len(lines), got)
 	}
 }
 
+func TestRenderTabBarShowsVersion(t *testing.T) {
+	t.Parallel()
+
+	got := RenderTabBar([]string{"Projects", "Settings"}, 0, 80, "v0.5.2")
+	plain := stripANSI(got)
+	if !strings.Contains(plain, "v0.5.2") {
+		t.Errorf("expected version string in tab bar, got:\n%s", plain)
+	}
+}
+
 func TestRenderTabBarActiveHasOpenBottom(t *testing.T) {
 	t.Parallel()
 
-	got := RenderTabBar([]string{"A", "B"}, 0, 40)
+	got := RenderTabBar([]string{"A", "B"}, 0, 40, "")
 	plain := stripANSI(got)
 	lines := strings.Split(plain, "\n")
 	if len(lines) < 3 {

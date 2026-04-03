@@ -27,18 +27,19 @@ just docs-preview          # Build and preview locally
 
 When you change features, APIs, packages, or behavior, update the relevant docs site pages:
 
-| Page              | Path                          | Update when...                                                             |
-| ----------------- | ----------------------------- | -------------------------------------------------------------------------- |
-| Architecture      | `integration/architecture.md` | Layered system, infrastructure layout changes                              |
-| Integration Paths | `integration/paths.md`        | New binary, package added/removed/renamed, new integration approach        |
-| HTTP API          | `integration/http-api.mdx`    | Endpoints added/removed, error codes change, SSE events change             |
-| Go Client         | `integration/go-client.md`    | Client API changes                                                         |
-| Go Library        | `integration/go-library.md`   | `warden.New()` options, `App` methods, service methods, event types change |
-| FAQ               | `faq.md`                      | New common questions arise, behavior changes affect existing answers       |
-| Comparison        | `comparison.md`               | New features that affect competitive positioning                           |
-| Contributing      | `contributing.md`             | Dev setup, testing commands, architecture rules, PR process changes        |
-| Go Packages index | `reference/go/index.md`       | Public Go packages added or removed                                        |
-| Go docs generator | `generate-go-docs.sh`         | Public Go packages added or removed (update `PACKAGES` array)              |
+| Page              | Path                                 | Update when...                                                             |
+| ----------------- | ------------------------------------ | -------------------------------------------------------------------------- |
+| Architecture      | `integration/architecture.md`        | Layered system, infrastructure layout changes                              |
+| Integration Paths | `integration/paths.md`               | New binary, package added/removed/renamed, new integration approach        |
+| HTTP API          | `integration/http-api.mdx`           | Endpoints added/removed, error codes change, SSE events change             |
+| Go Client         | `integration/go-client.md`           | Client API changes                                                         |
+| Go Library        | `integration/go-library.md`          | `warden.New()` options, `App` methods, service methods, event types change |
+| FAQ               | `faq.md`                             | New common questions arise, behavior changes affect existing answers       |
+| Comparison        | `comparison.md`                      | New features that affect competitive positioning                           |
+| Contributing      | `contributing.md`                    | Dev setup, testing commands, architecture rules, PR process changes        |
+| Go Packages index | `reference/go/index.md`              | Public Go packages added or removed                                        |
+| Env Variables     | `reference/environment-variables.md` | New env vars added, defaults change, vars removed                          |
+| Go docs generator | `generate-go-docs.sh`                | Public Go packages added or removed (update `PACKAGES` array)              |
 
 ## Link rules
 

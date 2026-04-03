@@ -758,7 +758,7 @@ func TestDeriveWorktreeState(t *testing.T) {
 			name: "viewer connected and session alive, no exit code",
 			ts: &TerminalState{
 				ViewerConnected: true,
-				SessionAlive:     true,
+				SessionAlive:    true,
 				ExitCode:        -1,
 				UpdatedAt:       time.Now(),
 			},
@@ -768,7 +768,7 @@ func TestDeriveWorktreeState(t *testing.T) {
 			name: "viewer connected and session alive, Claude exited",
 			ts: &TerminalState{
 				ViewerConnected: true,
-				SessionAlive:     true,
+				SessionAlive:    true,
 				ExitCode:        0,
 				UpdatedAt:       time.Now(),
 			},
@@ -778,7 +778,7 @@ func TestDeriveWorktreeState(t *testing.T) {
 			name: "only session alive (background)",
 			ts: &TerminalState{
 				ViewerConnected: false,
-				SessionAlive:     true,
+				SessionAlive:    true,
 				ExitCode:        -1,
 				UpdatedAt:       time.Now(),
 			},
@@ -788,7 +788,7 @@ func TestDeriveWorktreeState(t *testing.T) {
 			name: "both dead",
 			ts: &TerminalState{
 				ViewerConnected: false,
-				SessionAlive:     false,
+				SessionAlive:    false,
 				ExitCode:        -1,
 				UpdatedAt:       time.Now(),
 			},
@@ -818,7 +818,7 @@ func TestBuildWorktreeBroadcast_IncludesTerminalState(t *testing.T) {
 	}
 	ts := &TerminalState{
 		ViewerConnected: true,
-		SessionAlive:     true,
+		SessionAlive:    true,
 		ExitCode:        -1,
 		UpdatedAt:       time.Now(),
 	}

@@ -5,7 +5,7 @@ on:
     branches:
       - main
     paths-ignore:
-      - 'docs/**'
+      - "docs/**"
 permissions:
   actions: write
   contents: write
@@ -59,8 +59,8 @@ jobs:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
         with:
-          node-version: '24'
-          cache: 'npm'
+          node-version: "24"
+          cache: "npm"
           cache-dependency-path: web/package-lock.json
       - run: npm --prefix web install
       - run: npm --prefix web run build
@@ -97,10 +97,10 @@ jobs:
         env:
           GOOS: ${{ matrix.goos }}
           GOARCH: ${{ matrix.goarch }}
-          CGO_ENABLED: '0'
+          CGO_ENABLED: "0"
         run: |
           go build \
-            -ldflags="-s -w" \
+            -ldflags="-s -w -X github.com/thesimonho/warden/version.Version=${{ needs.release-please.outputs.tag_name }}" \
             -o warden-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.ext }} \
             ./cmd/warden
       - name: Upload to release
@@ -138,10 +138,10 @@ jobs:
         env:
           GOOS: ${{ matrix.goos }}
           GOARCH: ${{ matrix.goarch }}
-          CGO_ENABLED: '0'
+          CGO_ENABLED: "0"
         run: |
           go build \
-            -ldflags="-s -w" \
+            -ldflags="-s -w -X github.com/thesimonho/warden/version.Version=${{ needs.release-please.outputs.tag_name }}" \
             -o warden-tui-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.ext }} \
             ./cmd/warden-tui
       - name: Upload to release
@@ -176,10 +176,10 @@ jobs:
         env:
           GOOS: ${{ matrix.goos }}
           GOARCH: ${{ matrix.goarch }}
-          CGO_ENABLED: '0'
+          CGO_ENABLED: "0"
         run: |
           go build \
-            -ldflags="-s -w" \
+            -ldflags="-s -w -X github.com/thesimonho/warden/version.Version=${{ needs.release-please.outputs.tag_name }}" \
             -o warden-desktop-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.ext }} \
             ./cmd/warden-desktop
       - name: Upload to release
@@ -214,10 +214,10 @@ jobs:
         env:
           GOOS: darwin
           GOARCH: ${{ matrix.goarch }}
-          CGO_ENABLED: '0'
+          CGO_ENABLED: "0"
         run: |
           go build \
-            -ldflags="-s -w" \
+            -ldflags="-s -w -X github.com/thesimonho/warden/version.Version=${{ needs.release-please.outputs.tag_name }}" \
             -o bin/warden-desktop \
             ./cmd/warden-desktop
       - name: Create .app bundle
@@ -257,7 +257,7 @@ jobs:
         shell: bash
         run: |
           CGO_ENABLED=0 go build \
-            -ldflags="-s -w -H windowsgui" \
+            -ldflags="-s -w -H windowsgui -X github.com/thesimonho/warden/version.Version=${{ needs.release-please.outputs.tag_name }}" \
             -o warden-desktop-windows-amd64.exe \
             ./cmd/warden-desktop
       - name: Upload to release

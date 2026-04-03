@@ -10,15 +10,15 @@ Find the topic you need below and read that specific file. Avoid reading files o
 
 Go packages that make up the server, engine, and supporting infrastructure.
 
-| File                                   | Covers                                                                                           | Key packages                                                                        |
-| -------------------------------------- | ------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------- |
-| [supporting.md](backend/supporting.md) | Entry points, binaries, access items, agent provider, watcher, runtime detection, terminal proxy | `warden`, `cmd/`, `access/`, `watcher/`, `agent/`, `runtime/`, `internal/terminal/` |
-| [api-types.md](backend/api-types.md)   | API contract types, Go HTTP client                                                               | `api/`, `client/`                                                                   |
-| [api-server.md](backend/api-server.md) | HTTP handlers, routes, middleware, full endpoint table                                           | `internal/server/`                                                                  |
-| [service.md](backend/service.md)       | Business logic: projects, worktrees, containers, budget, audit, settings                         | `service/`                                                                          |
-| [engine.md](backend/engine.md)         | Container engine API, worktree management, container creation                                    | `engine/`                                                                           |
-| [events.md](backend/events.md)         | Event log storage, event bus watcher, SSE broker, liveness                                       | `eventlog/`, `eventbus/`                                                            |
-| [database.md](backend/database.md)     | SQLite schema, store operations, audit writer                                                    | `db/`                                                                               |
+| File                                   | Covers                                                                                                          | Key packages                                                                                    |
+| -------------------------------------- | --------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| [supporting.md](backend/supporting.md) | Entry points, binaries, version check, access items, agent provider, watcher, runtime detection, terminal proxy | `warden`, `cmd/`, `version/`, `access/`, `watcher/`, `agent/`, `runtime/`, `internal/terminal/` |
+| [api-types.md](backend/api-types.md)   | API contract types, Go HTTP client                                                                              | `api/`, `client/`                                                                               |
+| [api-server.md](backend/api-server.md) | HTTP handlers, routes, middleware, full endpoint table                                                          | `internal/server/`                                                                              |
+| [service.md](backend/service.md)       | Business logic: projects, worktrees, containers, budget, audit, settings                                        | `service/`                                                                                      |
+| [engine.md](backend/engine.md)         | Container engine API, worktree management, container creation                                                   | `engine/`                                                                                       |
+| [events.md](backend/events.md)         | Event log storage, event bus watcher, SSE broker, liveness                                                      | `eventlog/`, `eventbus/`                                                                        |
+| [database.md](backend/database.md)     | SQLite schema, store operations, audit writer                                                                   | `db/`                                                                                           |
 
 ## Frontend (`frontend/`)
 

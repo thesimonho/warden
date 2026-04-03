@@ -64,6 +64,7 @@ export default defineConfig({
 					label: "Reference",
 					items: [
 						...openAPISidebarGroups,
+						{ slug: "reference/environment-variables" },
 						{
 							label: "Go Packages",
 							collapsed: true,

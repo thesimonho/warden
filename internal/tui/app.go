@@ -11,6 +11,7 @@ import (
 	"github.com/thesimonho/warden/engine"
 	"github.com/thesimonho/warden/eventbus"
 	"github.com/thesimonho/warden/internal/tui/components"
+	"github.com/thesimonho/warden/version"
 )
 
 // View is the interface that all TUI views implement.
@@ -264,7 +265,7 @@ func (a App) View() tea.View {
 	cw := a.contentWidth()
 
 	// Header.
-	header := components.RenderTabBar(a.tabLabels, int(a.activeTab), max(cw, 20))
+	header := components.RenderTabBar(a.tabLabels, int(a.activeTab), max(cw, 20), version.Version)
 
 	// Help bar — merges view bindings with global bindings.
 	a.help.SetWidth(cw)
@@ -376,7 +377,6 @@ func (a App) contentWidth() int {
 	}
 	return w
 }
-
 
 // mergedKeyMap combines a view's keybindings with global keybindings.
 // ShortHelp shows only the view's bindings; FullHelp appends global

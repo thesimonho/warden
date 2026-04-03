@@ -122,10 +122,7 @@ export default function ProjectCard({
   return (
     <Card
       data-testid={`project-card-${project.name}`}
-      className={cn(
-        'cursor-pointer rounded transition-all',
-        isSelected && 'ring-primary ring-2',
-      )}
+      className={cn('cursor-pointer rounded transition-all', isSelected && 'ring-primary ring-2')}
       onClick={handleCardClick}
     >
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -190,7 +187,6 @@ export default function ProjectCard({
           )}
 
           <StatusBadge data-testid="status-badge" state={project.state} />
-
         </div>
       </CardHeader>
 
@@ -254,44 +250,44 @@ export default function ProjectCard({
       </CardContent>
 
       <CardFooter className="gap-2">
-          <Button
-            data-testid="view-button"
-            size="sm"
-            variant="default"
-            onClick={() => navigate(`/projects/${project.projectId}/${project.agentType}`)}
-            disabled={!isRunning || isOverBudget}
-          >
-            View
-          </Button>
+        <Button
+          data-testid="view-button"
+          size="sm"
+          variant="default"
+          onClick={() => navigate(`/projects/${project.projectId}/${project.agentType}`)}
+          disabled={!isRunning || isOverBudget}
+        >
+          View
+        </Button>
 
-          <div className="ml-auto flex items-center gap-1">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  data-testid="edit-button"
-                  size="sm"
-                  variant="ghost"
-                  color="warning"
-                  onClick={() => onEdit(project)}
-                  icon={Pencil}
-                />
-              </TooltipTrigger>
-              <TooltipContent>Edit</TooltipContent>
-            </Tooltip>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  data-testid="manage-button"
-                  size="sm"
-                  variant="ghost"
-                  color="error"
-                  onClick={() => onRemove(project)}
-                  icon={FolderCog}
-                />
-              </TooltipTrigger>
-              <TooltipContent>Manage</TooltipContent>
-            </Tooltip>
-          </div>
+        <div className="ml-auto flex items-center gap-1">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                data-testid="edit-button"
+                size="sm"
+                variant="ghost"
+                color="warning"
+                onClick={() => onEdit(project)}
+                icon={Pencil}
+              />
+            </TooltipTrigger>
+            <TooltipContent>Edit</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                data-testid="manage-button"
+                size="sm"
+                variant="ghost"
+                color="error"
+                onClick={() => onRemove(project)}
+                icon={FolderCog}
+              />
+            </TooltipTrigger>
+            <TooltipContent>Manage</TooltipContent>
+          </Tooltip>
+        </div>
       </CardFooter>
     </Card>
   )

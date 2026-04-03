@@ -80,15 +80,15 @@ type Project struct {
 	// HostPath is the absolute host directory mounted into the container.
 	HostPath string `json:"hostPath,omitempty"`
 	// HasContainer is true when a Docker container is associated with this project.
-	HasContainer bool         `json:"hasContainer"`
-	Type         string       `json:"type"`
-	Image        string       `json:"image"`
-	OS           string       `json:"os"`
-	CreatedAt    int64        `json:"createdAt"`
-	SSHPort      string       `json:"sshPort"`
-	State        string       `json:"state"`
-	Status       string       `json:"status"`
-	AgentStatus AgentStatus `json:"agentStatus"`
+	HasContainer bool        `json:"hasContainer"`
+	Type         string      `json:"type"`
+	Image        string      `json:"image"`
+	OS           string      `json:"os"`
+	CreatedAt    int64       `json:"createdAt"`
+	SSHPort      string      `json:"sshPort"`
+	State        string      `json:"state"`
+	Status       string      `json:"status"`
+	AgentStatus  AgentStatus `json:"agentStatus"`
 	// NeedsInput is true when any worktree requires user attention.
 	NeedsInput bool `json:"needsInput,omitempty"`
 	// NotificationType indicates why Claude needs attention (e.g. permission_prompt, idle_prompt).

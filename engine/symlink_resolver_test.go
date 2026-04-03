@@ -724,8 +724,8 @@ func TestResolveSymlinks_NixTripleSymlinkChain(t *testing.T) {
 // --- Nix Home Manager: multiple config files + AGENTS.md split into subdirs ---
 
 func TestResolveSymlinks_NixMultipleConfigFilesAndDirs(t *testing.T) {
-	mountDir := t.TempDir()  // ~/.codex
-	dotfiles := t.TempDir()  // ~/dotfiles/AI/
+	mountDir := t.TempDir() // ~/.codex
+	dotfiles := t.TempDir() // ~/dotfiles/AI/
 
 	// Real files in dotfiles.
 	writeFile(t, filepath.Join(dotfiles, "config.toml"), `model = "gpt-4"`)
@@ -780,8 +780,8 @@ func TestResolveSymlinks_NixMultipleConfigFilesAndDirs(t *testing.T) {
 // --- GNU Stow: symlinks one level deep (no nix store intermediary) ---
 
 func TestResolveSymlinks_GNUStowPattern(t *testing.T) {
-	mountDir := t.TempDir()  // ~/.claude
-	dotfiles := t.TempDir()  // ~/dotfiles/.claude/
+	mountDir := t.TempDir() // ~/.claude
+	dotfiles := t.TempDir() // ~/dotfiles/.claude/
 
 	// Stow creates direct symlinks from ~ to dotfiles.
 	writeFile(t, filepath.Join(dotfiles, "settings.json"), `{"theme":"dark"}`)

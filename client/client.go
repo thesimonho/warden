@@ -236,12 +236,12 @@ func (c *Client) CreateContainer(ctx context.Context, projectID, agentType strin
 
 // ResetProjectCosts removes all cost history for a project.
 func (c *Client) ResetProjectCosts(ctx context.Context, projectID, agentType string) error {
-	return c.delete(ctx, projectPath(projectID, agentType) + "/costs")
+	return c.delete(ctx, projectPath(projectID, agentType)+"/costs")
 }
 
 // PurgeProjectAudit removes all audit events for a project.
 func (c *Client) PurgeProjectAudit(ctx context.Context, projectID, agentType string) error {
-	return c.delete(ctx, projectPath(projectID, agentType) + "/audit")
+	return c.delete(ctx, projectPath(projectID, agentType)+"/audit")
 }
 
 // DeleteContainer stops and removes the container for the given project.

@@ -44,11 +44,11 @@ type AccessFormView struct {
 	editing bool // true when a text field is focused
 
 	// Credential sub-navigation.
-	credCursor    int  // index into credentials (-1 = section header/add)
-	editingCred   bool // true when editing a credential inline
-	credFieldIdx  int  // index into credField* constants
-	credIsNew     bool // true when editing a newly added credential
-	credLabelInput textinput.Model
+	credCursor      int  // index into credentials (-1 = section header/add)
+	editingCred     bool // true when editing a credential inline
+	credFieldIdx    int  // index into credField* constants
+	credIsNew       bool // true when editing a newly added credential
+	credLabelInput  textinput.Model
 	credSourceInput textinput.Model
 	credInjInput    textinput.Model
 
@@ -61,11 +61,11 @@ type AccessFormView struct {
 // (matching the most common use case). Users needing complex
 // multi-source/multi-injection setups should use the web UI.
 type formCredential struct {
-	label     string
-	sourceType access.SourceType
+	label       string
+	sourceType  access.SourceType
 	sourceValue string
-	injType    access.InjectionType
-	injKey     string
+	injType     access.InjectionType
+	injKey      string
 }
 
 // sourceTypes lists the available source types for cycling.
@@ -78,10 +78,10 @@ var sourceTypes = []access.SourceType{
 
 // sourceTypeLabels provides display names for source types.
 var sourceTypeLabels = map[access.SourceType]string{
-	access.SourceEnvVar:      "env",
-	access.SourceFilePath:    "file",
-	access.SourceSocketPath:  "socket",
-	access.SourceCommand:     "command",
+	access.SourceEnvVar:     "env",
+	access.SourceFilePath:   "file",
+	access.SourceSocketPath: "socket",
+	access.SourceCommand:    "command",
 }
 
 // injectionTypes lists the available injection types for cycling.
@@ -648,4 +648,3 @@ func (v *AccessFormView) HelpKeyMap() help.KeyMap {
 	}
 	return v.keys
 }
-

@@ -12,11 +12,11 @@ type mockProvider struct {
 	name string
 }
 
-func (m *mockProvider) Name() string                                    { return m.name }
-func (m *mockProvider) ProcessName() string                             { return m.name }
-func (m *mockProvider) ConfigFilePath() string                          { return "" }
-func (m *mockProvider) ExtractStatus([]byte) map[string]*Status         { return nil }
-func (m *mockProvider) NewSessionParser() SessionParser                 { return nil }
+func (m *mockProvider) Name() string                            { return m.name }
+func (m *mockProvider) ProcessName() string                     { return m.name }
+func (m *mockProvider) ConfigFilePath() string                  { return "" }
+func (m *mockProvider) ExtractStatus([]byte) map[string]*Status { return nil }
+func (m *mockProvider) NewSessionParser() SessionParser         { return nil }
 
 func TestNewRegistry_Empty(t *testing.T) {
 	t.Parallel()

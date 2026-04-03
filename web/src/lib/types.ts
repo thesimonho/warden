@@ -463,6 +463,8 @@ export interface ServerSettings {
   budgetActionStopContainer: boolean
   /** Block starting/restarting a project that has exceeded its budget. */
   budgetActionPreventStart: boolean
+  /** Server build version (e.g. "v0.5.2", "dev"). */
+  version: string
 }
 
 /** Shared payload shape for budget enforcement SSE events. */

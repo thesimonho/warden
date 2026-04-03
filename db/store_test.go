@@ -922,7 +922,7 @@ func TestUpdateProjectContainer(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := store.UpdateProjectContainer("aabbccddee01", "claude-code","docker-id-123", "my-container"); err != nil {
+	if err := store.UpdateProjectContainer("aabbccddee01", "claude-code", "docker-id-123", "my-container"); err != nil {
 		t.Fatalf("UpdateProjectContainer() error: %v", err)
 	}
 
@@ -935,7 +935,7 @@ func TestUpdateProjectContainer(t *testing.T) {
 	}
 
 	// Clear container.
-	if err := store.UpdateProjectContainer("aabbccddee01", "claude-code","", ""); err != nil {
+	if err := store.UpdateProjectContainer("aabbccddee01", "claude-code", "", ""); err != nil {
 		t.Fatal(err)
 	}
 	got, _ = store.GetProject("aabbccddee01", "claude-code")
@@ -954,10 +954,10 @@ func TestUpsertSessionCost(t *testing.T) {
 	}
 	defer store.Close() //nolint:errcheck
 
-	if err := store.UpsertSessionCost("aabbccddee01", "claude-code","sess1", 1.50, false); err != nil {
+	if err := store.UpsertSessionCost("aabbccddee01", "claude-code", "sess1", 1.50, false); err != nil {
 		t.Fatal(err)
 	}
-	if err := store.UpsertSessionCost("aabbccddee01", "claude-code","sess2", 0.50, false); err != nil {
+	if err := store.UpsertSessionCost("aabbccddee01", "claude-code", "sess2", 0.50, false); err != nil {
 		t.Fatal(err)
 	}
 
@@ -970,7 +970,7 @@ func TestUpsertSessionCost(t *testing.T) {
 	}
 
 	// Upsert with higher cost — should update.
-	if err := store.UpsertSessionCost("aabbccddee01", "claude-code","sess1", 3.00, false); err != nil {
+	if err := store.UpsertSessionCost("aabbccddee01", "claude-code", "sess1", 3.00, false); err != nil {
 		t.Fatal(err)
 	}
 	cost, _ = store.GetProjectTotalCost("aabbccddee01", "claude-code")
@@ -987,8 +987,8 @@ func TestGetAllProjectTotalCosts(t *testing.T) {
 	}
 	defer store.Close() //nolint:errcheck
 
-	_ = store.UpsertSessionCost("aabbccddee01", "claude-code","s1", 1.0, false)
-	_ = store.UpsertSessionCost("112233445566", "claude-code","s2", 2.0, true)
+	_ = store.UpsertSessionCost("aabbccddee01", "claude-code", "s1", 1.0, false)
+	_ = store.UpsertSessionCost("112233445566", "claude-code", "s2", 2.0, true)
 
 	costs, err := store.GetAllProjectTotalCosts()
 	if err != nil {
@@ -1015,8 +1015,8 @@ func TestDeleteProjectCosts(t *testing.T) {
 	}
 	defer store.Close() //nolint:errcheck
 
-	_ = store.UpsertSessionCost("aabbccddee01", "claude-code","s1", 5.0, false)
-	_ = store.UpsertSessionCost("aabbccddee01", "claude-code","s2", 3.0, false)
+	_ = store.UpsertSessionCost("aabbccddee01", "claude-code", "s1", 5.0, false)
+	_ = store.UpsertSessionCost("aabbccddee01", "claude-code", "s2", 3.0, false)
 
 	if err := store.DeleteProjectCosts("aabbccddee01", "claude-code"); err != nil {
 		t.Fatal(err)

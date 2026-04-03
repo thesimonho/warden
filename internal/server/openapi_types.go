@@ -46,7 +46,9 @@ type updateSettingsResponse struct {
 }
 
 // healthResponse is the response from the health check endpoint.
-type healthResponse struct { //nolint:unused
+type healthResponse struct {
 	// Status is always "ok" when the server is running.
 	Status string `json:"status" example:"ok"`
+	// Version is the server build version.
+	Version string `json:"version" example:"v0.5.2"`
 }

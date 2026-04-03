@@ -48,8 +48,8 @@ type Service struct {
 	agentRegistry *agent.Registry
 	eventWatcher  *eventbus.Watcher
 	eventHandler  func(eventbus.ContainerEvent)
-	homeDir    string
-	workingDir string
+	homeDir       string
+	workingDir    string
 
 	// Session watcher state — one watcher per project+agent, keyed by compound key.
 	sessionWatchers         map[db.ProjectAgentKey]*agent.SessionWatcher

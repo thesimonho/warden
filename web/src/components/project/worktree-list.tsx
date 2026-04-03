@@ -1,14 +1,5 @@
 import { useCallback, useMemo, useState } from 'react'
-import {
-  FolderOpen,
-  GitBranch,
-  Info,
-  Plus,
-  RefreshCw,
-  Square,
-  Trash2,
-  Unplug,
-} from 'lucide-react'
+import { FolderOpen, GitBranch, Info, Plus, RefreshCw, Square, Trash2, Unplug } from 'lucide-react'
 import { toast } from 'sonner'
 import {
   ContextMenu,

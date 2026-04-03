@@ -114,9 +114,9 @@ func openDB(path string) (*sql.DB, error) {
 	var pkCount int
 	row := db.QueryRow(`SELECT COUNT(*) FROM pragma_table_info('projects') WHERE pk > 0`)
 	if err := row.Scan(&pkCount); err == nil && pkCount == 1 {
-		db.Exec("DROP TABLE IF EXISTS projects")    //nolint:errcheck
+		db.Exec("DROP TABLE IF EXISTS projects")      //nolint:errcheck
 		db.Exec("DROP TABLE IF EXISTS session_costs") //nolint:errcheck
-		db.Exec("DROP TABLE IF EXISTS events")       //nolint:errcheck
+		db.Exec("DROP TABLE IF EXISTS events")        //nolint:errcheck
 	}
 
 	if _, err := db.Exec(schema); err != nil {

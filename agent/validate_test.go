@@ -19,7 +19,7 @@ func (s *stubParser) ParseLine(line []byte) []ParsedEvent {
 	}
 }
 
-func (s *stubParser) SessionDir(string, ProjectInfo) string        { return "" }
+func (s *stubParser) SessionDir(string, ProjectInfo) string         { return "" }
 func (s *stubParser) FindSessionFiles(string, ProjectInfo) []string { return nil }
 
 func TestValidateJSONL_CountsEvents(t *testing.T) {
@@ -48,7 +48,7 @@ func TestValidationResult_Require(t *testing.T) {
 	result := &ValidationResult{
 		TotalEvents: 5,
 		Counts: map[ParsedEventType]int{
-			EventToolUse:    3,
+			EventToolUse:     3,
 			EventTokenUpdate: 2,
 		},
 	}

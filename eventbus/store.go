@@ -501,7 +501,7 @@ func (s *Store) handleCostUpdate(key worktreeKey, event ContainerEvent) ([]pendi
 // handleTerminalConnected sets terminal state when a tmux session starts.
 func (s *Store) handleTerminalConnected(key worktreeKey, event ContainerEvent) []pendingBroadcast {
 	ts := &TerminalState{
-		SessionAlive:     true,
+		SessionAlive:    true,
 		ViewerConnected: true,
 		ExitCode:        -1,
 		UpdatedAt:       event.Timestamp,
@@ -519,8 +519,8 @@ func (s *Store) handleTerminalDisconnected(key worktreeKey, event ContainerEvent
 
 	ts := &TerminalState{
 		SessionAlive: true,
-		ExitCode:    -1,
-		UpdatedAt:   event.Timestamp,
+		ExitCode:     -1,
+		UpdatedAt:    event.Timestamp,
 	}
 	// Preserve session alive and exit code from existing state if available.
 	if existing != nil {
@@ -558,7 +558,7 @@ func (s *Store) handleSessionExit(key worktreeKey, event ContainerEvent) []pendi
 
 	existing := s.terminals[key]
 	ts := &TerminalState{
-		SessionAlive:     true,
+		SessionAlive:    true,
 		ViewerConnected: true,
 		ExitCode:        data.ExitCode,
 		UpdatedAt:       event.Timestamp,

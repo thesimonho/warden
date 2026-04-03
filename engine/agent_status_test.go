@@ -68,8 +68,8 @@ func TestProjectCostFromContainerStatuses(t *testing.T) {
 		{name: "filters out non-matching paths", statuses: map[string]*agent.Status{
 			"/home/warden/my-app":                        {CostUSD: 1.00},
 			"/home/warden/my-app/.claude/worktrees/feat": {CostUSD: 0.50},
-			"/home/user/other-project":                {CostUSD: 5.00},
-			"/run/media/Projects/Services/myapp":      {CostUSD: 3.77},
+			"/home/user/other-project":                   {CostUSD: 5.00},
+			"/run/media/Projects/Services/myapp":         {CostUSD: 3.77},
 		}, prefix: "/home/warden/my-app", want: 1.50},
 		{name: "empty prefix defaults to /project", statuses: map[string]*agent.Status{
 			"/project":                        {CostUSD: 2.00},

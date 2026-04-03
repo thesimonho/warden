@@ -12,7 +12,7 @@ import (
 
 // cachedHomeDir caches the result of os.UserHomeDir to avoid repeated syscalls.
 var (
-	cachedHomeDir  string
+	cachedHomeDir     string
 	cachedHomeDirOnce sync.Once
 )
 
