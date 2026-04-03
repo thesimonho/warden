@@ -12,8 +12,8 @@ interface CostDashboardProps {
 /**
  * Displays aggregate worktree and cost statistics across all projects.
  *
- * Only renders when there are running projects with active worktrees or costs.
- * Shows total active worktrees, running projects count, and aggregate cost.
+ * Shows running project count, active worktrees, and aggregate cost.
+ * Always visible so the dashboard layout is consistent.
  *
  * @param props.projects - All projects to aggregate stats from.
  */
@@ -21,18 +21,13 @@ export default function CostDashboard({ projects }: CostDashboardProps) {
   const stats = useMemo(() => {
     const runningProjects = projects.filter((p) => p.state === 'running')
     const totalActiveWorktrees = runningProjects.reduce((sum, p) => sum + p.activeWorktreeCount, 0)
-    const totalCost = runningProjects.reduce((sum, p) => sum + p.totalCost, 0)
+    const totalCost = projects.reduce((sum, p) => sum + p.totalCost, 0)
     return {
       runningCount: runningProjects.length,
       totalActiveWorktrees,
       totalCost,
     }
   }, [projects])
-
-  const hasContent =
-    stats.runningCount > 0 && (stats.totalActiveWorktrees > 0 || stats.totalCost > 0)
-
-  if (!hasContent) return null
 
   return (
     <div className="grid grid-cols-3 gap-4">
