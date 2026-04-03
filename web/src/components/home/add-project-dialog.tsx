@@ -189,7 +189,7 @@ export default function AddProjectDialog({
             <>
               {isEditMode && !editIsRunning && (
                 <p className="text-muted-foreground mb-4 text-sm">
-                  The container will be recreated with the updated configuration.
+                  Some changes may require the container to be recreated.
                 </p>
               )}
               <ProjectConfigForm

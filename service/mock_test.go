@@ -21,6 +21,7 @@ type mockEngine struct {
 	inspectConfig      *api.ContainerConfig
 	inspectErr         error
 	renameErr          error
+	reloadDomainsErr   error
 	recreateID         string
 	recreateErr        error
 	worktrees          []engine.Worktree
@@ -71,6 +72,10 @@ func (m *mockEngine) InspectContainer(_ context.Context, _ string) (*api.Contain
 
 func (m *mockEngine) RenameContainer(_ context.Context, _ string, _ string) error {
 	return m.renameErr
+}
+
+func (m *mockEngine) ReloadAllowedDomains(_ context.Context, _ string, _ []string) error {
+	return m.reloadDomainsErr
 }
 
 func (m *mockEngine) RecreateContainer(_ context.Context, _ string, _ api.CreateContainerRequest) (string, error) {
