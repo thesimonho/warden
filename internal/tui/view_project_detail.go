@@ -260,6 +260,14 @@ func (v *ProjectDetailView) updateNewWorktreeInput(msg tea.Msg) (View, tea.Cmd) 
 
 	var cmd tea.Cmd
 	v.newWorktreeInput, cmd = v.newWorktreeInput.Update(msg)
+
+	// Sanitize as the user types so invalid characters are replaced inline.
+	if current := v.newWorktreeInput.Value(); current != "" {
+		if sanitized := SanitizeWorktreeName(current); sanitized != current {
+			v.newWorktreeInput.SetValue(sanitized)
+		}
+	}
+
 	return v, cmd
 }
 

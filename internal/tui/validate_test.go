@@ -2,6 +2,43 @@ package tui
 
 import "testing"
 
+func TestSanitizeWorktreeName(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name  string
+		input string
+		want  string
+	}{
+		{"simple valid", "feature-auth", "feature-auth"},
+		{"spaces to hyphens", "my branch", "my-branch"},
+		{"tabs to hyphens", "my\tbranch", "my-branch"},
+		{"leading hyphen stripped", "-feature", "feature"},
+		{"leading dot stripped", ".hidden", "hidden"},
+		{"consecutive dots collapsed", "my..branch", "my.branch"},
+		{"tilde replaced", "my~branch", "my-branch"},
+		{"colon replaced", "my:branch", "my-branch"},
+		{"multiple invalid collapsed", "my~~^branch", "my-branch"},
+		{"brackets replaced", "my[branch]", "my-branch-"},
+		{"backslash replaced", "my\\branch", "my-branch"},
+		{"leading dots and hyphens stripped", ".--.feature", "feature"},
+		{"all invalid", "~^:?*", ""},
+		{"already clean", "fix-login-bug", "fix-login-bug"},
+		{"underscores preserved", "my_branch", "my_branch"},
+		{"dots preserved", "fix.login", "fix.login"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			got := SanitizeWorktreeName(tt.input)
+			if got != tt.want {
+				t.Errorf("SanitizeWorktreeName(%q) = %q, want %q", tt.input, got, tt.want)
+			}
+		})
+	}
+}
+
 func TestValidateWorktreeName(t *testing.T) {
 	t.Parallel()
 
@@ -15,19 +52,6 @@ func TestValidateWorktreeName(t *testing.T) {
 		{"valid with dots", "fix.login", false, ""},
 		{"valid with underscores", "my_branch", false, ""},
 		{"empty", "", true, "worktree name is required"},
-		{"has space", "my branch", true, "cannot contain spaces"},
-		{"has tab", "my\tbranch", true, "cannot contain spaces"},
-		{"starts with hyphen", "-feature", true, "cannot start with a hyphen"},
-		{"starts with dot", ".hidden", true, "cannot start with a dot"},
-		{"consecutive dots", "my..branch", true, "cannot contain consecutive dots"},
-		{"tilde", "my~branch", true, "contains invalid characters"},
-		{"caret", "my^branch", true, "contains invalid characters"},
-		{"colon", "my:branch", true, "contains invalid characters"},
-		{"question mark", "my?branch", true, "contains invalid characters"},
-		{"asterisk", "my*branch", true, "contains invalid characters"},
-		{"bracket", "my[branch", true, "contains invalid characters"},
-		{"backslash", "my\\branch", true, "contains invalid characters"},
-		{"at brace", "my@{branch", true, "contains invalid characters"},
 		{"ends with .lock", "branch.lock", true, "cannot end with .lock"},
 		{"ends with dot", "branch.", true, "cannot end with .lock or a dot"},
 	}
