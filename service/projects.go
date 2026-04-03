@@ -491,7 +491,6 @@ func (s *Service) writeCostSnapshot(projectID, agentType, containerName string, 
 	if totalCost <= 0 {
 		return
 	}
-
 	s.audit.Write(db.Entry{
 		Source:        db.SourceBackend,
 		Level:         db.LevelInfo,
