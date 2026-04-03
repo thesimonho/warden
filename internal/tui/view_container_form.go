@@ -72,9 +72,9 @@ type ContainerFormView struct {
 	client        Client
 	editID        string
 	editAgentType string
-	defaults *api.DefaultsResponse
-	loading  bool
-	err      error
+	defaults      *api.DefaultsResponse
+	loading       bool
+	err           error
 
 	// Field state.
 	cursor   int
@@ -986,4 +986,3 @@ func (v *ContainerFormView) ensureRequiredMount() {
 		}
 	}
 }
-

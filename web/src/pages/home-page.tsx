@@ -288,13 +288,13 @@ export default function HomePage() {
             </>
           )}
           <Button
-              data-testid="add-project-button"
-              size="sm"
-              onClick={() => setIsAddDialogOpen(true)}
-              icon={Plus}
-            >
-              Add Project
-            </Button>
+            data-testid="add-project-button"
+            size="sm"
+            onClick={() => setIsAddDialogOpen(true)}
+            icon={Plus}
+          >
+            Add Project
+          </Button>
         </div>
       </div>
 
