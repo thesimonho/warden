@@ -193,6 +193,8 @@ func (s *Service) updateContainerSettings(ctx context.Context, project *db.Proje
 	}
 
 	// Hot-reload allowed domains if they changed on a restricted-mode container.
+	// Best-effort: if the exec fails (e.g. container stopped), the DB is still
+	// updated so the correct domains apply on next container start/recreation.
 	newDomains := strings.Join(req.AllowedDomains, ",")
 	existingMode := api.NetworkMode(project.NetworkMode)
 	if existingMode == "" {

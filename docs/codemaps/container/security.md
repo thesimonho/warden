@@ -48,11 +48,13 @@ Container network modes are passed as environment variables to enforce isolation
 For `restricted` mode, allowed domains are passed as `WARDEN_ALLOWED_DOMAINS=domain1.com,domain2.com`. The `setup-network-isolation.sh` script runs in the entrypoint (before user code executes) and configures iptables OUTPUT rules based on the network mode:
 
 - **full**: No rules applied
-- **restricted**: DNS server IP and resolved domain IPs are whitelisted; all other outbound traffic blocked
+- **restricted**: dnsmasq + ipset for dynamic domain-based filtering; all other outbound traffic blocked
 - **none**: All outbound traffic blocked except loopback
 
-Wildcard domains (e.g. `*.github.com`) are supported — the base domain is resolved and its IPs are whitelisted.
+Wildcard domains (e.g. `*.github.com`) are supported — dnsmasq's `/domain/` syntax matches all subdomains and adds resolved IPs to the ipset automatically.
 
-Note: Domain IPs are resolved once at container start. CDN IP rotation or dynamic IP changes require container restart.
+The script supports hot-reload: when re-run via `docker exec` on a container where dnsmasq is already running, it regenerates the dnsmasq config, flushes and re-seeds the ipset, and signals dnsmasq with SIGHUP — without touching iptables rules or resolv.conf. The engine's `ReloadAllowedDomains` method triggers this by running the script as root with env var overrides.
+
+Default allowed domains are agent-scoped (defined in `service/host.go`): Claude Code gets `*.anthropic.com`, Codex gets `*.openai.com` + `*.chatgpt.com`, both share GitHub and package registry domains. Served via `/api/v1/defaults` → `RestrictedDomains`.
 
 NET_ADMIN capability is added only for `restricted` and `none` modes.
