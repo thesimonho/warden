@@ -132,6 +132,10 @@ esac
 INNER_SCRIPT="${TERMINAL_DIR}/inner-cmd.sh"
 cat > "$INNER_SCRIPT" << EOF
 #!/usr/bin/env bash
+# Unset TMUX so agents don't detect they're inside tmux. This prevents
+# Claude Code from showing tmux-specific hints and ensures agents
+# behave identically to when they ran under abduco (no TMUX env var).
+unset TMUX
 cd '${WORK_DIR}' && ${AGENT_CMD}
 EXIT_CODE=\$?
 echo \$EXIT_CODE > '${TERMINAL_DIR}/exit_code'
