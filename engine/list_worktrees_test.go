@@ -4,13 +4,16 @@ import (
 	"context"
 	"strings"
 	"testing"
+
+	"github.com/thesimonho/warden/agent"
 )
 
-// newTestClient creates a DockerClient backed by the exec mock API.
-func newTestClient(api *execMockAPI) *DockerClient {
-	return &DockerClient{
-		api:         api,
-		runtimeName: "podman",
+// newTestClient creates an EngineClient backed by the exec mock API.
+func newTestClient(mockAPI *execMockAPI) *EngineClient {
+	return &EngineClient{
+		api:           mockAPI,
+		agentRegistry: agent.NewRegistry(),
+		runtimeName:   "podman",
 	}
 }
 
@@ -22,7 +25,7 @@ func TestListWorktrees_GitRepo_NoSuCommand(t *testing.T) {
 HEAD abc123
 branch refs/heads/main
 
-worktree /project/.worktrees/feature-x
+worktree /project/.claude/worktrees/feature-x
 HEAD def456
 branch refs/heads/feature-x
 `)
@@ -33,9 +36,9 @@ branch refs/heads/feature-x
 	// pgrep for abduco check (returns 0 = not alive)
 	mock.onCmd("pgrep", "0\n")
 
-	dc := newTestClient(mock)
+	ec := newTestClient(mock)
 
-	worktrees, err := dc.listWorktreesWithHint(context.Background(), "ctr-123", true, false)
+	worktrees, err := ec.listWorktreesWithHint(context.Background(), "ctr-123", true, false)
 	if err != nil {
 		t.Fatalf("ListWorktrees failed: %v", err)
 	}
@@ -66,9 +69,9 @@ func TestListWorktrees_NonGitRepo_ReturnsSingleWorktree(t *testing.T) {
 	mock.onCmd("ls", "")
 	mock.onCmd("echo", "")
 
-	dc := newTestClient(mock)
+	ec := newTestClient(mock)
 
-	worktrees, err := dc.listWorktreesWithHint(context.Background(), "ctr-456", false, false)
+	worktrees, err := ec.listWorktreesWithHint(context.Background(), "ctr-456", false, false)
 	if err != nil {
 		t.Fatalf("ListWorktrees failed: %v", err)
 	}
@@ -96,9 +99,9 @@ branch refs/heads/main
 	mock.onCmd("ls", "")
 	mock.onCmd("echo", "")
 
-	dc := newTestClient(mock)
+	ec := newTestClient(mock)
 
-	_, err := dc.listWorktreesWithHint(context.Background(), "ctr-789", true, false)
+	_, err := ec.listWorktreesWithHint(context.Background(), "ctr-789", true, false)
 	if err != nil {
 		t.Fatalf("ListWorktrees failed: %v", err)
 	}
@@ -142,9 +145,9 @@ branch refs/heads/main
 	mock.onCmd("ls", "pending-feature\n")
 	mock.onCmd("echo", "")
 
-	dc := newTestClient(mock)
+	ec := newTestClient(mock)
 
-	worktrees, err := dc.listWorktreesWithHint(context.Background(), "ctr-merge", true, false)
+	worktrees, err := ec.listWorktreesWithHint(context.Background(), "ctr-merge", true, false)
 	if err != nil {
 		t.Fatalf("ListWorktrees failed: %v", err)
 	}
@@ -164,13 +167,13 @@ func TestEnrichWorktreeState_PgrepUsesCharClassTrick(t *testing.T) {
 	mock := newExecMockAPI()
 	mock.onCmd("echo", "")
 
-	dc := newTestClient(mock)
+	ec := newTestClient(mock)
 
 	worktrees := []Worktree{
 		{ID: "feature-x", ProjectID: "ctr-pgrep", State: WorktreeStateDisconnected},
 	}
 
-	dc.enrichWorktreeState(context.Background(), "ctr-pgrep", worktrees)
+	ec.enrichWorktreeState(context.Background(), "ctr-pgrep", worktrees)
 
 	// Verify the batch command uses [a]bduco, not abduco.
 	for _, call := range mock.getCalls() {
@@ -189,9 +192,9 @@ func TestIsAbducoSessionAlive_PgrepUsesCharClassTrick(t *testing.T) {
 	mock := newExecMockAPI()
 	mock.onCmd("pgrep", "0\n")
 
-	dc := newTestClient(mock)
+	ec := newTestClient(mock)
 
-	dc.isAbducoSessionAlive(context.Background(), "ctr-abduco", "test-wt")
+	ec.isAbducoSessionAlive(context.Background(), "ctr-abduco", "test-wt")
 
 	for _, call := range mock.getCalls() {
 		if len(call.Cmd) >= 3 && call.Cmd[0] == "sh" && call.Cmd[1] == "-c" {

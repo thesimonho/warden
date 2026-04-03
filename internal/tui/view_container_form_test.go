@@ -118,10 +118,10 @@ func TestMoveCursorStaysInBounds(t *testing.T) {
 	v.initFields("", "", "", "full", "", false)
 
 	// At first field, moving up should stay.
-	v.cursor = fieldName
+	v.cursor = fieldAgentType
 	v.moveCursor(-1)
-	if v.cursor != fieldName {
-		t.Errorf("at top, after move up: cursor=%d, want %d", v.cursor, fieldName)
+	if v.cursor != fieldAgentType {
+		t.Errorf("at top, after move up: cursor=%d, want %d", v.cursor, fieldAgentType)
 	}
 
 	// At submit, moving down should stay.
@@ -308,6 +308,24 @@ func TestIsSensitiveKey(t *testing.T) {
 				t.Errorf("isSensitiveKey(%q) = %v, want %v", tt.key, got, tt.want)
 			}
 		})
+	}
+}
+
+func TestFieldViewAgentType(t *testing.T) {
+	t.Parallel()
+
+	v := &ContainerFormView{}
+	v.initFields("", "", "", "full", "", false)
+
+	view := v.fieldView(fieldAgentType)
+	if !strings.Contains(view, "[Claude Code]") {
+		t.Errorf("default agent type: view=%q, want to contain [Claude Code]", view)
+	}
+
+	v.agentType = 1
+	view = v.fieldView(fieldAgentType)
+	if !strings.Contains(view, "[OpenAI Codex]") {
+		t.Errorf("codex agent type: view=%q, want to contain [OpenAI Codex]", view)
 	}
 }
 

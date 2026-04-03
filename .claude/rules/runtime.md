@@ -17,7 +17,7 @@ How it's structured:
 
 - **`runtime/`** — detects available runtimes by probing socket paths and binaries. Platform-specific socket candidates are in build-tagged files (`sockets_linux.go`, `sockets_darwin.go`, `sockets_windows.go`). The selected runtime name (`"docker"` or `"podman"`) is stored in config and passed to `engine.NewClient()`.
 - **`engine/`** — the container engine client. Handles both Docker and Podman runtimes, plus Windows named pipes. Runtime-specific logic is gated on `dc.runtimeName` and kept minimal (currently just `--userns=keep-id` for Podman in `containers.go`). All containers get a bind mount for the event directory at `/var/warden/events` so container scripts can write events to the shared mount.
-- **Container scripts** (`container/scripts/`) — the entrypoint uses the gosu pattern (root for privileged setup, then `exec gosu dev` to drop privileges permanently). Under rootless Podman (`--userns=keep-id`), the entrypoint detects non-root via `$(id -u)` and skips straight to the user-phase entrypoint. Use `WARDEN_EVENT_DIR` env var (set by Warden) to write events to the bind-mounted directory.
+- **Container scripts** (`container/scripts/`) — the entrypoint uses the gosu pattern (root for privileged setup, then `exec gosu warden` to drop privileges permanently). Under rootless Podman (`--userns=keep-id`), the entrypoint detects non-root via `$(id -u)` and skips straight to the user-phase entrypoint. Use `WARDEN_EVENT_DIR` env var (set by Warden) to write events to the bind-mounted directory.
 
 When adding runtime-specific behavior:
 

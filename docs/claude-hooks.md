@@ -1,5 +1,7 @@
 # Claude Code Hooks — Findings & Limitations
 
+> **Context:** With the JSONL session file parser as the primary data source for agent events (session lifecycle, tool use, cost, prompts), Claude Code hooks are now a **supplementary channel** used only for attention/notification state. Only three hooks remain active: `Notification`, `PreToolUse` (for attention state only), and `UserPromptSubmit` (for attention clearing). All other data is parsed from the JSONL session file by the Go backend. Codex does not support hooks — attention tracking for Codex is a known upstream gap.
+
 Documented during event bus validation testing on 2026-03-18.
 
 ## Hook Compatibility Matrix
@@ -46,12 +48,12 @@ Claude Code's attention states must be detected through different hooks:
 When Claude exits a `--worktree` session, it removes the worktree directory before `SessionEnd` fires. The `cwd` falls back to `/project`, so the worktree ID resolves to `"main"`. To identify the original worktree:
 
 ```
-transcript_path: "/home/dev/.claude/projects/-project--claude-worktrees-hooktest3/..."
+transcript_path: "/home/warden/.claude/projects/-project--claude-worktrees-hooktest3/..."
                                                                   ^^^^^^^^^^
                                                            extract from here
 ```
 
-Pattern: `/home/dev/.claude/projects/-project--claude-worktrees-{WORKTREE_ID}/`
+Pattern: `/home/warden/.claude/projects/-project--claude-worktrees-{WORKTREE_ID}/`
 
 ## Event Frequency
 

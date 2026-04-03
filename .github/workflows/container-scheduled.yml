@@ -1,0 +1,230 @@
+name: Scheduled Container Validation
+
+# Builds the container image, runs both CLIs with a test prompt, validates the
+# JSONL output with the Go parsers, and pushes only if validation succeeds.
+# Opens a GitHub issue on failure.
+
+on:
+  schedule:
+    - cron: "0 6 1,15 * *" # 1st and 15th of each month at 06:00 UTC
+  workflow_dispatch: # Manual trigger for testing
+
+permissions:
+  packages: write
+  contents: read
+  issues: write
+
+env:
+  IMAGE_NAME: warden
+  FEATURE_NAME: session-tools
+  TEST_PROMPT: "Read the file README.md, then create a file called /tmp/warden-test.txt with hello, then delete it"
+
+jobs:
+  # ── Build image for testing (single platform, no push) ───────────────
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+      - name: Build image for testing
+        uses: docker/build-push-action@v6
+        with:
+          context: ./container
+          push: false
+          load: true
+          platforms: linux/amd64
+          tags: warden:test
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - name: Save image artifact
+        run: docker save warden:test | gzip > "$RUNNER_TEMP/warden-test.tar.gz"
+      - name: Upload image artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: warden-test-image
+          path: ${{ runner.temp }}/warden-test.tar.gz
+          retention-days: 1
+
+  # ── Run CLIs and validate JSONL output ───────────────────────────────
+  validate:
+    needs: build
+    runs-on: ubuntu-latest
+    outputs:
+      passed: ${{ steps.result.outputs.passed }}
+      claude_failed: ${{ steps.result.outputs.claude_failed }}
+      codex_failed: ${{ steps.result.outputs.codex_failed }}
+      claude_version: ${{ steps.versions.outputs.claude }}
+      codex_version: ${{ steps.versions.outputs.codex }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+      - name: Download image artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: warden-test-image
+          path: ${{ runner.temp }}
+      - name: Load image
+        run: gunzip -c "$RUNNER_TEMP/warden-test.tar.gz" | docker load
+
+      # Capture CLI versions for issue reporting.
+      - name: Get CLI versions
+        id: versions
+        run: |
+          CLAUDE_VER=$(docker run --rm warden:test bash -lc "claude --version 2>/dev/null || echo unknown" | tail -1)
+          CODEX_VER=$(docker run --rm warden:test bash -lc "codex --version 2>/dev/null || echo unknown" | tail -1)
+          echo "claude=$CLAUDE_VER" >> "$GITHUB_OUTPUT"
+          echo "codex=$CODEX_VER" >> "$GITHUB_OUTPUT"
+
+      # Claude Code CLI test
+      - name: Run Claude Code CLI
+        if: ${{ env.ANTHROPIC_API_KEY != '' }}
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/claude-output"
+          docker run --rm \
+            -e ANTHROPIC_API_KEY="$ANTHROPIC_API_KEY" \
+            -e WARDEN_AGENT_TYPE=claude-code \
+            -v "$RUNNER_TEMP/claude-output:/output" \
+            warden:test \
+            bash -lc "claude --dangerously-skip-permissions -p '${{ env.TEST_PROMPT }}' && cp ~/.claude/projects/*/*.jsonl /output/ 2>/dev/null || true"
+
+      - name: Validate Claude JSONL
+        id: validate-claude
+        if: ${{ env.ANTHROPIC_API_KEY != '' }}
+        continue-on-error: true
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          VALIDATE_JSONL: ${{ runner.temp }}/claude-output
+        run: |
+          JSONL_FILE=$(find "$RUNNER_TEMP/claude-output" -name '*.jsonl' | head -1)
+          if [ -z "$JSONL_FILE" ]; then
+            echo "::error::No Claude JSONL file found"
+            exit 1
+          fi
+          echo "Validating: $JSONL_FILE"
+          VALIDATE_JSONL="$JSONL_FILE" go test ./agent/claudecode/ -run TestValidateLive -v
+
+      # Codex CLI test
+      - name: Run Codex CLI
+        if: ${{ env.OPENAI_API_KEY != '' }}
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/codex-output"
+          docker run --rm \
+            -e OPENAI_API_KEY="$OPENAI_API_KEY" \
+            -e WARDEN_AGENT_TYPE=codex \
+            -v "$RUNNER_TEMP/codex-output:/output" \
+            warden:test \
+            bash -lc "codex --dangerously-bypass-approvals-and-sandbox --no-alt-screen -q '${{ env.TEST_PROMPT }}' && cp ~/.codex/sessions/*/*/*.jsonl /output/ 2>/dev/null || true"
+
+      - name: Validate Codex JSONL
+        id: validate-codex
+        if: ${{ env.OPENAI_API_KEY != '' }}
+        continue-on-error: true
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          JSONL_FILE=$(find "$RUNNER_TEMP/codex-output" -name '*.jsonl' | head -1)
+          if [ -z "$JSONL_FILE" ]; then
+            echo "::error::No Codex JSONL file found"
+            exit 1
+          fi
+          echo "Validating: $JSONL_FILE"
+          VALIDATE_JSONL="$JSONL_FILE" go test ./agent/codex/ -run TestValidateLive -v
+
+      - name: Set result
+        id: result
+        run: |
+          CLAUDE_OK="${{ steps.validate-claude.outcome != 'failure' }}"
+          CODEX_OK="${{ steps.validate-codex.outcome != 'failure' }}"
+          if [ "$CLAUDE_OK" = "true" ] && [ "$CODEX_OK" = "true" ]; then
+            echo "passed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "passed=false" >> "$GITHUB_OUTPUT"
+            echo "claude_failed=${{ steps.validate-claude.outcome == 'failure' }}" >> "$GITHUB_OUTPUT"
+            echo "codex_failed=${{ steps.validate-codex.outcome == 'failure' }}" >> "$GITHUB_OUTPUT"
+            exit 1
+          fi
+
+  # ── Push image if validation passed ──────────────────────────────────
+  push:
+    needs: validate
+    if: needs.validate.outputs.passed == 'true'
+    uses: ./.github/workflows/container-build.yml
+    with:
+      push: true
+      tags: |
+        type=raw,value=latest
+        type=sha,prefix=sha-,format=short
+
+  push-feature:
+    needs: validate
+    if: needs.validate.outputs.passed == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Install oras
+        uses: oras-project/setup-oras@v1
+      - name: Log in to GHCR
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | oras login ghcr.io -u ${{ github.actor }} --password-stdin
+      - name: Stage and push feature
+        run: |
+          mkdir -p _staging/session-tools
+          cp container/devcontainer-feature/* _staging/session-tools/
+          cp container/scripts/*.sh _staging/session-tools/
+          cp container/scripts/shared/*.sh _staging/session-tools/
+          cp container/scripts/claude/*.sh _staging/session-tools/
+          cp container/scripts/codex/*.sh _staging/session-tools/
+          cd _staging/session-tools
+          tar cf feature.tar *
+          oras push \
+            ghcr.io/${{ github.repository_owner }}/warden/${{ env.FEATURE_NAME }}:latest \
+            --config /dev/null:application/vnd.devcontainers \
+            feature.tar:application/vnd.devcontainers.layer.v1+tar
+
+  # ── Open issue on failure ────────────────────────────────────────────
+  open-issue:
+    needs: validate
+    if: needs.validate.result == 'failure'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Create issue
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CLAUDE_FAILED: ${{ needs.validate.outputs.claude_failed }}
+          CODEX_FAILED: ${{ needs.validate.outputs.codex_failed }}
+          CLAUDE_VERSION: ${{ needs.validate.outputs.claude_version }}
+          CODEX_VERSION: ${{ needs.validate.outputs.codex_version }}
+        run: |
+          # Build label list and title based on which CLI(s) failed.
+          LABELS=""
+          FAILED_AGENTS=""
+          VERSION_LINES=""
+
+          if [ "$CLAUDE_FAILED" = "true" ]; then
+            LABELS="claude-code"
+            FAILED_AGENTS="Claude Code"
+            VERSION_LINES="- Claude Code: \`${CLAUDE_VERSION}\`"
+          fi
+          if [ "$CODEX_FAILED" = "true" ]; then
+            [ -n "$LABELS" ] && LABELS="${LABELS},"
+            LABELS="${LABELS}codex"
+            [ -n "$FAILED_AGENTS" ] && FAILED_AGENTS="${FAILED_AGENTS} + "
+            FAILED_AGENTS="${FAILED_AGENTS}Codex"
+            [ -n "$VERSION_LINES" ] && VERSION_LINES="${VERSION_LINES}\n"
+            VERSION_LINES="${VERSION_LINES}- Codex: \`${CODEX_VERSION}\`"
+          fi
+
+          gh issue create \
+            --title "${FAILED_AGENTS} JSONL validation failed ($(date +%Y-%m-%d))" \
+            --body "$(printf 'The scheduled container validation failed for **%s**.\nThe image was **not** pushed to GHCR.\n\n**CLI versions:**\n%b\n\n**Workflow run:** %s' \
+              "$FAILED_AGENTS" \
+              "$VERSION_LINES" \
+              "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}")" \
+            --label "$LABELS"

@@ -37,7 +37,7 @@ const (
 	EventTerminalDisconnected ContainerEventType = "terminal_disconnected"
 	// EventProcessKilled means abduco was killed — the worktree is fully dead.
 	EventProcessKilled ContainerEventType = "process_killed"
-	// EventSessionExit means Claude exited inside a terminal (exit code available).
+	// EventSessionExit means the agent exited inside a terminal (exit code available).
 	EventSessionExit ContainerEventType = "session_exit"
 	// EventToolUse is logged for every PreToolUse hook event, capturing the tool name and input.
 	EventToolUse ContainerEventType = "tool_use"
@@ -61,6 +61,18 @@ const (
 	EventElicitation ContainerEventType = "elicitation"
 	// EventElicitationResult is logged after a user responds to an MCP elicitation.
 	EventElicitationResult ContainerEventType = "elicitation_result"
+	// EventTurnComplete is logged when an agent turn ends (stop_reason: end_turn).
+	EventTurnComplete ContainerEventType = "turn_complete"
+	// EventTurnDuration is logged with the wall-clock duration of an agent turn.
+	EventTurnDuration ContainerEventType = "turn_duration"
+	// EventApiMetrics records API performance metrics (TTFT, output tokens/sec).
+	EventApiMetrics ContainerEventType = "api_metrics"
+	// EventPermissionGrant is logged when a permission request is granted.
+	EventPermissionGrant ContainerEventType = "permission_grant"
+	// EventContextCompact is logged when context window compaction occurs.
+	EventContextCompact ContainerEventType = "context_compact"
+	// EventSystemInfo is logged for informational system messages from the agent.
+	EventSystemInfo ContainerEventType = "system_info"
 )
 
 // ContainerEvent is the JSON payload written by container hook scripts
@@ -72,12 +84,28 @@ type ContainerEvent struct {
 	ContainerName string `json:"containerName"`
 	// ProjectID is the deterministic project identifier (set via WARDEN_PROJECT_ID env).
 	ProjectID string `json:"projectId,omitempty"`
+	// AgentType identifies the agent that produced this event (set via WARDEN_AGENT_TYPE env).
+	AgentType string `json:"agentType,omitempty"`
 	// WorktreeID is the worktree this event pertains to (e.g. "main", "feature-x").
 	WorktreeID string `json:"worktreeId"`
 	// Data carries event-specific payload (e.g. notificationType, cost fields).
 	Data json.RawMessage `json:"data,omitempty"`
 	// Timestamp is when the event was created (set by the container hook script).
 	Timestamp time.Time `json:"timestamp"`
+	// SourceLine is the raw JSONL line bytes for dedup hashing.
+	// Only set for events sourced from JSONL session files.
+	SourceLine []byte `json:"-"`
+	// SourceIndex disambiguates multiple events parsed from the same JSONL line.
+	SourceIndex int `json:"-"`
+}
+
+// Ref returns a [ProjectRef] from this event's identity fields.
+func (e ContainerEvent) Ref() ProjectRef {
+	return ProjectRef{
+		ProjectID:     e.ProjectID,
+		AgentType:     e.AgentType,
+		ContainerName: e.ContainerName,
+	}
 }
 
 // AttentionData carries notification details for attention events.
@@ -155,6 +183,34 @@ type ElicitationData struct {
 	Action        string `json:"action,omitempty"`
 }
 
+// TurnDurationData carries the wall-clock duration of an agent turn.
+type TurnDurationData struct {
+	DurationMs int64 `json:"durationMs"`
+}
+
+// ApiMetricsData carries API performance metrics from the agent.
+type ApiMetricsData struct {
+	TTFTMs             float64 `json:"ttftMs"`
+	OutputTokensPerSec float64 `json:"outputTokensPerSec"`
+}
+
+// PermissionGrantData carries details about a granted permission.
+type PermissionGrantData struct {
+	Commands []string `json:"commands,omitempty"`
+}
+
+// ContextCompactData carries details about context window compaction.
+type ContextCompactData struct {
+	Trigger   string `json:"trigger,omitempty"`
+	PreTokens int64  `json:"preTokens,omitempty"`
+}
+
+// SystemInfoData carries details for informational system messages.
+type SystemInfoData struct {
+	Subtype string `json:"subtype"`
+	Content string `json:"content,omitempty"`
+}
+
 // SSEEventType identifies the kind of event sent to frontend clients.
 type SSEEventType string
 
@@ -173,13 +229,22 @@ const (
 	SSEHeartbeat SSEEventType = "heartbeat"
 )
 
+// ProjectRef identifies a project in SSE event payloads. Embedded by all
+// broadcast payload structs so the frontend can match events to the correct
+// (projectId, agentType) pair. ContainerName is included for display and
+// legacy matching.
+type ProjectRef struct {
+	ProjectID     string `json:"projectId,omitempty"`
+	AgentType     string `json:"agentType,omitempty"`
+	ContainerName string `json:"containerName"`
+}
+
 // BudgetEventPayload is the shared JSON payload for budget enforcement SSE
 // events (budget_exceeded and budget_container_stopped).
 type BudgetEventPayload struct {
-	ProjectID     string  `json:"projectId,omitempty"`
-	ContainerName string  `json:"containerName"`
-	TotalCost     float64 `json:"totalCost"`
-	Budget        float64 `json:"budget"`
+	ProjectRef
+	TotalCost float64 `json:"totalCost"`
+	Budget    float64 `json:"budget"`
 }
 
 // BudgetContainerStoppedPayload extends [BudgetEventPayload] with the

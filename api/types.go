@@ -10,6 +10,8 @@ package api
 type ProjectResult struct {
 	// ProjectID is the deterministic project identifier.
 	ProjectID string `json:"projectId"`
+	// AgentType is the agent type for this project (e.g. "claude-code", "codex").
+	AgentType string `json:"agentType"`
 	// Name is the user-chosen project display name.
 	Name string `json:"name"`
 	// ContainerID is the Docker container ID, when available.
@@ -35,6 +37,8 @@ type ContainerResult struct {
 	Name string `json:"name"`
 	// ProjectID is the deterministic project identifier.
 	ProjectID string `json:"projectId"`
+	// AgentType is the agent type for this container.
+	AgentType string `json:"agentType"`
 }
 
 // ValidateContainerResult holds the output of infrastructure validation.
@@ -69,6 +73,10 @@ type SettingsResponse struct {
 	BudgetActionStopWorktrees bool `json:"budgetActionStopWorktrees"`
 	BudgetActionStopContainer bool `json:"budgetActionStopContainer"`
 	BudgetActionPreventStart  bool `json:"budgetActionPreventStart"`
+
+	// WorkingDirectory is the server process's working directory. Used by
+	// development tooling to auto-create projects without manual path entry.
+	WorkingDirectory string `json:"workingDirectory"`
 }
 
 // UpdateSettingsRequest holds the fields that can be updated.
@@ -104,6 +112,12 @@ type DefaultMount struct {
 	HostPath      string `json:"hostPath"`
 	ContainerPath string `json:"containerPath"`
 	ReadOnly      bool   `json:"readOnly"`
+	// AgentType restricts this mount to a specific agent type.
+	// Empty means the mount applies to all agent types.
+	AgentType string `json:"agentType,omitempty"`
+	// Required marks this mount as mandatory for the agent to function.
+	// Clients must not allow users to remove or change the container path of required mounts.
+	Required bool `json:"required,omitempty"`
 }
 
 // DefaultEnvVar represents an auto-detected environment variable for the
@@ -248,4 +262,13 @@ type ToolCount struct {
 type TimeRange struct {
 	Earliest string `json:"earliest,omitempty"`
 	Latest   string `json:"latest,omitempty"`
+}
+
+// --- Clipboard ---
+
+// ClipboardUploadResponse is the result of uploading a file to a container's
+// clipboard staging directory for the xclip shim to serve.
+type ClipboardUploadResponse struct {
+	// Path is the absolute path of the staged file inside the container.
+	Path string `json:"path"`
 }

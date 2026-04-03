@@ -46,6 +46,8 @@ func (s *Service) GetSettings() SettingsResponse {
 		BudgetActionStopWorktrees: s.db.GetSetting(settingBudgetActionStopWorktrees, "false") == "true",
 		BudgetActionStopContainer: s.db.GetSetting(settingBudgetActionStopContainer, "false") == "true",
 		BudgetActionPreventStart:  s.db.GetSetting(settingBudgetActionPreventStart, "false") == "true",
+
+		WorkingDirectory: s.workingDir,
 	}
 }
 

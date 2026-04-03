@@ -1,8 +1,26 @@
+/**
+ * CLI agent type running inside a project container.
+ * String values must match the constants in agent/registry.go.
+ */
+export type AgentType = 'claude-code' | 'codex'
+
+/** Default agent type for new projects. */
+export const DEFAULT_AGENT_TYPE: AgentType = 'claude-code'
+
+/** All supported agent types in display order. */
+export const agentTypeOptions: AgentType[] = ['claude-code', 'codex']
+
+/** Human-readable display labels for each agent type. */
+export const agentTypeLabels: Record<AgentType, string> = {
+  'claude-code': 'Claude Code',
+  codex: 'OpenAI Codex',
+}
+
 /** Network isolation level for a container. */
 export type NetworkMode = 'full' | 'restricted' | 'none'
 
-/** Whether Claude Code is actively running inside a container. */
-export type ClaudeStatus = 'idle' | 'working' | 'unknown'
+/** Whether the agent CLI is actively running inside a container. */
+export type AgentStatus = 'idle' | 'working' | 'unknown'
 
 /** The kind of attention Claude Code needs from the user. */
 export type NotificationType =
@@ -20,7 +38,7 @@ export const worktreeStateIndicator: Record<
   { dotClass: string; textClass: string; label: string }
 > = {
   connected: { dotClass: 'bg-success', textClass: 'text-success', label: 'Connected' },
-  shell: { dotClass: 'bg-warning', textClass: 'text-warning', label: 'Claude exited' },
+  shell: { dotClass: 'bg-warning', textClass: 'text-warning', label: 'Agent exited' },
   background: {
     dotClass: 'bg-active animate-pulse',
     textClass: 'text-active',
@@ -43,7 +61,7 @@ export function hasActiveTerminal(worktree: { state: WorktreeState }): boolean {
 /** Derives a human-readable label for the worktree state. */
 export function deriveStateLabel(state: WorktreeState, exitCode?: number): string | undefined {
   if (state === 'shell') {
-    return exitCode != null && exitCode !== 0 ? `Exited (${exitCode})` : 'Claude exited'
+    return exitCode != null && exitCode !== 0 ? `Exited (${exitCode})` : 'Agent exited'
   }
   if (state === 'background') return 'Background'
   return undefined
@@ -68,6 +86,8 @@ export interface Project {
   name: string
   /** Absolute path on the host for the project directory. */
   hostPath: string
+  /** The CLI agent type running in this project. */
+  agentType: AgentType
   type: string
   /** Docker image the container was built from. */
   image: string
@@ -81,8 +101,8 @@ export interface Project {
   state: string
   /** Docker status string, e.g. "Up 2 hours". */
   status: string
-  /** Whether Claude Code is currently active in this container. */
-  claudeStatus: ClaudeStatus
+  /** Whether the agent CLI is currently active in this container. */
+  agentStatus: AgentStatus
   /** True when any worktree requires user attention. */
   needsInput?: boolean
   /** Why Claude needs attention (permission_prompt, idle_prompt, elicitation_dialog). */
@@ -158,6 +178,7 @@ export function worktreeDisplayName(worktreeId: string, projectName: string): st
 /** Payload for `worktree_state` SSE events. */
 export interface WorktreeStateEvent {
   projectId: string
+  agentType?: AgentType
   containerName: string
   worktreeId: string
   needsInput: boolean
@@ -192,6 +213,7 @@ export function deriveWorktreeStateFromEvent(
 /** Payload for `project_state` SSE events. */
 export interface ProjectStateEvent {
   projectId: string
+  agentType?: AgentType
   containerName: string
   totalCost: number
   messageCount: number
@@ -202,6 +224,7 @@ export interface ProjectStateEvent {
 /** Payload for `worktree_list_changed` SSE events. */
 export interface WorktreeListChangedEvent {
   projectId: string
+  agentType?: AgentType
   /** Container name whose worktree list changed. */
   containerName: string
 }
@@ -215,6 +238,7 @@ export interface WorktreeResult {
 /** Result of a project mutation (add, remove, stop, restart). */
 export interface ProjectResult {
   projectId: string
+  agentType: AgentType
   name: string
   containerId?: string
 }
@@ -240,6 +264,8 @@ export interface CreateContainerRequest {
   name: string
   image: string
   projectPath: string
+  /** CLI agent type (defaults to "claude-code" if omitted). */
+  agentType?: AgentType
   envVars?: Record<string, string>
   /** Additional bind mounts from host into the container. */
   mounts?: Mount[]
@@ -260,6 +286,8 @@ export interface ContainerConfig {
   name: string
   image: string
   projectPath: string
+  /** CLI agent type running in this project. */
+  agentType: AgentType
   envVars?: Record<string, string>
   mounts?: Mount[]
   skipPermissions: boolean
@@ -420,6 +448,8 @@ export type AuditLogMode = 'off' | 'standard' | 'detailed'
 export interface ServerSettings {
   /** Active container runtime. */
   runtime: 'docker' | 'podman'
+  /** Server working directory (used for resolving relative paths). */
+  workingDirectory: string
   /** Audit log mode (off/standard/detailed). */
   auditLogMode: AuditLogMode
   /** Global default per-project cost budget in USD (0 = unlimited). */
@@ -438,6 +468,7 @@ export interface ServerSettings {
 /** Shared payload shape for budget enforcement SSE events. */
 export interface BudgetEventPayload {
   projectId: string
+  agentType?: AgentType
   containerName: string
   totalCost: number
   budget: number
@@ -469,6 +500,8 @@ export interface AuditLogEntry {
   event: string
   /** Stable project ID (empty for backend/frontend events without one). */
   projectId?: string
+  /** Agent type associated with the event. */
+  agentType?: AgentType
   /** Container name (for display). */
   containerName?: string
   /** Worktree ID (only for agent events). */
@@ -572,4 +605,11 @@ export interface AuditSummary {
   uniqueWorktrees: number
   topTools: ToolCount[]
   timeRange: TimeRange
+}
+
+// --- Clipboard ---
+
+/** Response from the clipboard upload endpoint. */
+export interface ClipboardUploadResponse {
+  path: string
 }

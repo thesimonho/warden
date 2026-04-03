@@ -7,7 +7,7 @@ head:
     content: Warden
 hero:
   title: Secure autonomous agents by default.
-  tagline: A modular security boundary for AI coding agents. Every project gets its own container — isolated filesystem, credentials, and network. A rogue agent can trash its container but can never escape to the host.
+  tagline: A modular security boundary for AI coding agents. Run Claude Code and OpenAI Codex in isolated containers — each project gets its own filesystem, credentials, and network. A rogue agent can trash its container but can never escape to the host.
   image:
     html: '<img src="/warden/hero-light.webp" class="hero-background-image light-only" alt=""><img src="/warden/hero-dark.webp" class="hero-background-image dark-only" alt="">'
   actions:
@@ -46,7 +46,7 @@ import { Card, CardGrid } from "@astrojs/starlight/components";
   Each project gets its own filesystem, env vars, and credentials. No
   credential bleed, no cross-project file access. Containers are hardened with
   dropped capabilities, a seccomp syscall filter, and no-new-privileges. Run
-  `--dangerously-skip-permissions` without risking your host.
+  agents in fully autonomous mode without risking your host.
  </Card>
  <Card title="Network access controls" icon="warning">
   Per-container network policy: full access, domain allowlist (restricted), or

@@ -1,7 +1,8 @@
 import { useCallback, useState } from 'react'
-import { AlertTriangle, FolderCog, Loader2 } from 'lucide-react'
+import { AlertTriangle, FolderCog, Loader2, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { deleteContainer, removeProject, resetProjectCosts, purgeProjectAudit } from '@/lib/api'
+import { deleteProjectScrollback } from '@/lib/scrollback-db'
 import type { Project } from '@/lib/types'
 import {
   Dialog,
@@ -88,7 +89,7 @@ export default function ManageProjectDialog({
     // Delete container first so no orphaned container remains if a later step fails.
     if (shouldDeleteContainer && hasContainer) {
       try {
-        await deleteContainer(project.projectId)
+        await deleteContainer(project.projectId, project.agentType)
       } catch {
         errors.push('delete container')
       }
@@ -96,8 +97,8 @@ export default function ManageProjectDialog({
 
     // Cost reset and audit purge are independent — run in parallel.
     const dataCleanup: Promise<unknown>[] = []
-    if (resetCosts) dataCleanup.push(resetProjectCosts(project.projectId))
-    if (purgeAudit) dataCleanup.push(purgeProjectAudit(project.projectId))
+    if (resetCosts) dataCleanup.push(resetProjectCosts(project.projectId, project.agentType))
+    if (purgeAudit) dataCleanup.push(purgeProjectAudit(project.projectId, project.agentType))
     const results = await Promise.allSettled(dataCleanup)
     const dataLabels = [resetCosts && 'reset costs', purgeAudit && 'purge audit'].filter(Boolean)
     results.forEach((r, i) => {
@@ -107,7 +108,8 @@ export default function ManageProjectDialog({
     // Remove from Warden last so cost/audit cleanup can resolve the project row.
     if (removeFromWarden) {
       try {
-        await removeProject(project.projectId)
+        await removeProject(project.projectId, project.agentType)
+        void deleteProjectScrollback(project.projectId)
       } catch {
         errors.push('remove project')
       }
@@ -227,10 +229,10 @@ export default function ManageProjectDialog({
             variant="error"
             onClick={handleConfirm}
             disabled={!hasAnyAction || !isPurgeConfirmed || isSubmitting}
-            icon={Loader2}
+            icon={isSubmitting ? Loader2 : Trash2}
             loading={isSubmitting}
           >
-            {isSubmitting ? 'Processing…' : 'Confirm'}
+            {isSubmitting ? 'Processing…' : 'Delete'}
           </Button>
         </DialogFooter>
       </DialogContent>

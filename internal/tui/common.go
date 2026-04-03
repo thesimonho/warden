@@ -17,10 +17,10 @@ const (
 	TabProjects Tab = iota
 	// TabSettings is the settings view.
 	TabSettings
-	// TabAudit is the unified audit log viewer.
-	TabAudit
 	// TabAccess is the access management view.
 	TabAccess
+	// TabAudit is the unified audit log viewer.
+	TabAudit
 )
 
 // TabLabels maps each tab to its display label.
@@ -106,6 +106,8 @@ type NavigateMsg struct {
 	Tab Tab
 	// ProjectID is set when navigating to project detail.
 	ProjectID string
+	// AgentType is the agent type for the project.
+	AgentType string
 	// ProjectName is the display name for the project.
 	ProjectName string
 }

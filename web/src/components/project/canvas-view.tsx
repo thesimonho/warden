@@ -25,7 +25,7 @@ interface CanvasViewProps {
   isSelected: boolean
   /** Whether a layout animation is in progress. */
   isLayoutAnimating: boolean
-  /** Worktree state label (e.g. "Claude exited"). */
+  /** Worktree state label (e.g. "Agent exited"). */
   stateLabel?: string
   /** Worktree state dot CSS class. */
   stateDotClass: string
@@ -106,6 +106,7 @@ function CanvasViewInner({
 
   const handleDisconnect = useTerminalDisconnect(
     panel.projectId,
+    panel.agentType,
     panel.worktreeId,
     panel.id,
     terminalRef,
@@ -186,6 +187,7 @@ function CanvasViewInner({
         <TerminalCard
           ref={terminalRef}
           projectId={panel.projectId}
+          agentType={panel.agentType}
           worktreeId={panel.worktreeId}
           projectName={worktreeDisplayName(panel.worktreeId, panel.projectName)}
           branch={panel.branch}

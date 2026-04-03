@@ -3,13 +3,14 @@ title: Projects
 description: Manage workspaces, containers, and per-project configuration.
 ---
 
-A **Project** is a host directory paired with a container that runs Claude Code against it. Each project gets its own isolated container with configurable image, environment, mounts, network policy, and cost budget. Projects are the top-level unit of organization in Warden.
+A **Project** is a host directory paired with a container that runs an AI coding agent against it. Each project gets its own isolated container with configurable image, environment, mounts, network policy, and cost budget. Projects are the top-level unit of organization in Warden.
 
 ## Creating a Project
 
 Add a project by providing:
 
-- **Name** — a display name (also determines the workspace path inside the container: `/home/dev/<name>`)
+- **Agent Type** — the CLI agent to run: **Claude Code** (Anthropic) or **Codex** (OpenAI). This is selected first and cannot be changed after creation.
+- **Name** — a display name (also determines the workspace path inside the container: `/home/warden/<name>`)
 - **Host Path** — the absolute path to the directory on your machine
 
 If you add the same path again, Warden returns the existing project instead of creating a duplicate.
@@ -20,7 +21,7 @@ Each project's container is configured at creation time. You can update the conf
 
 ### Image
 
-The container image to use. Defaults to `ghcr.io/thesimonho/warden:latest` (Ubuntu 24.04 with Claude Code and all terminal infrastructure pre-installed).
+The container image to use. Defaults to `ghcr.io/thesimonho/warden:latest` (Ubuntu 24.04 with Claude Code, Codex, and all terminal infrastructure pre-installed).
 
 To use a custom image, see [Custom Images](/warden/guide/devcontainers/).
 
@@ -28,7 +29,8 @@ To use a custom image, see [Custom Images](/warden/guide/devcontainers/).
 
 Key-value pairs injected into the container. Useful for API keys, git identity, and tool configuration:
 
-- `ANTHROPIC_API_KEY` — required for Claude Code (unless using subscription login)
+- `ANTHROPIC_API_KEY` — required for Claude Code projects (unless using subscription login)
+- `OPENAI_API_KEY` — required for Codex projects (unless using subscription login)
 - `GITHUB_TOKEN` — for GitHub API access
 - `GIT_AUTHOR_NAME`, `GIT_AUTHOR_EMAIL` — override git identity
 
@@ -36,11 +38,13 @@ Environment variables persist across container restarts and are available in eve
 
 ### Bind Mounts
 
-Additional host directories or files to mount into the container. Each mount specifies:
+Host directories or files to mount into the container. Each mount specifies:
 
 - **Host path** — absolute path on your machine
 - **Container path** — where it appears inside the container
 - **Read-only** — whether the container can write to it (default: read-write)
+
+The agent config directory (`~/.claude` or `~/.codex`) is always mounted and cannot be removed — the agent needs it for authentication and session tracking. You can change the host path if your config lives in a non-standard location. Additional mounts are optional.
 
 Warden validates that host paths exist and resolves symlinks before creating the container. If a mount source is moved or deleted after creation, Warden detects the stale mount and blocks restarts until you fix it.
 
@@ -64,10 +68,10 @@ Select which [Access Items](/warden/features/access/) to enable for this project
 
 ### Skip Permissions
 
-When enabled, terminals start Claude Code with `--dangerously-skip-permissions`, bypassing tool approval prompts. Useful for trusted automation workflows.
+When enabled, terminals start the agent in fully autonomous mode, bypassing tool approval prompts. Claude Code uses `--dangerously-skip-permissions`; Codex uses `--dangerously-bypass-approvals-and-sandbox`. Useful for trusted automation workflows.
 
 :::caution
-Skipping permissions gives Claude Code unrestricted access to the tools available in the container. Only enable this for projects where you trust the prompts being sent.
+Skipping permissions gives the agent unrestricted access to the tools available in the container. Only enable this for projects where you trust the prompts being sent.
 :::
 
 ## Container Lifecycle
@@ -114,14 +118,14 @@ c := client.New("http://localhost:8090")
 // List all projects
 projects, _ := c.ListProjects(ctx)
 
-// Add a project
+// Add a project (agentType is set when creating the container)
 result, _ := c.AddProject(ctx, "my-project", "/home/user/code/my-project")
 
 // Create container with configuration
 result, _ := c.CreateContainer(ctx, projectID, engine.CreateContainerRequest{
     Image:    "ghcr.io/thesimonho/warden:latest",
     EnvVars:  map[string]string{"ANTHROPIC_API_KEY": os.Getenv("ANTHROPIC_API_KEY")},
-    Mounts:   []engine.Mount{{HostPath: "/home/user/.claude", ContainerPath: "/home/dev/.claude"}},
+    Mounts:   []engine.Mount{{HostPath: "/home/user/.claude", ContainerPath: "/home/warden/.claude"}},
     NetworkMode: "restricted",
     AllowedDomains: []string{"github.com", "npmjs.org"},
 })
@@ -137,13 +141,13 @@ c.DeleteContainer(ctx, projectID)
 When using Warden as a Go library, project operations are available on the `service.Service` type:
 
 ```go
-app, _ := warden.New(warden.Options{})
+w, _ := warden.New(warden.Options{})
 
 // Add and configure a project
-result, _ := app.Service.AddProject("my-project", "/home/user/code/my-project")
+result, _ := w.Service.AddProject("my-project", "/home/user/code/my-project")
 
 // Create container (same CreateContainerRequest as the client)
-containerResult, _ := app.Service.CreateContainer(ctx, project, engine.CreateContainerRequest{...})
+containerResult, _ := w.Service.CreateContainer(ctx, engine.CreateContainerRequest{...})
 ```
 
 See the [Go Packages](/warden/reference/go/) reference for full API documentation.

@@ -42,7 +42,7 @@ func setupTestWatcher(t *testing.T) (string, string, *Watcher, *eventCollector) 
 
 	baseDir := t.TempDir()
 	containerName := "test-container"
-	eventDir := filepath.Join(baseDir, containerName, "events")
+	eventDir := filepath.Join(baseDir, containerName)
 
 	if err := os.MkdirAll(eventDir, 0o777); err != nil {
 		t.Fatalf("create event dir: %v", err)
@@ -206,7 +206,7 @@ func TestWatcher_ConcurrentContainerDirs(t *testing.T) {
 
 	// Create two container directories.
 	for _, name := range []string{"container-a", "container-b"} {
-		dir := filepath.Join(baseDir, name, "events")
+		dir := filepath.Join(baseDir, name)
 		if err := os.MkdirAll(dir, 0o777); err != nil {
 			t.Fatalf("create dir: %v", err)
 		}
@@ -218,12 +218,12 @@ func TestWatcher_ConcurrentContainerDirs(t *testing.T) {
 	defer w.Shutdown(context.Background()) //nolint:errcheck
 
 	// Write to both directories.
-	writeEventFile(t, filepath.Join(baseDir, "container-a", "events"), ContainerEvent{
+	writeEventFile(t, filepath.Join(baseDir, "container-a"), ContainerEvent{
 		Type:          EventSessionStart,
 		ContainerName: "container-a",
 		Timestamp:     time.Now(),
 	})
-	writeEventFile(t, filepath.Join(baseDir, "container-b", "events"), ContainerEvent{
+	writeEventFile(t, filepath.Join(baseDir, "container-b"), ContainerEvent{
 		Type:          EventSessionEnd,
 		ContainerName: "container-b",
 		Timestamp:     time.Now(),
@@ -330,7 +330,7 @@ func TestWatcher_CleanupDrainsUnprocessedEvents(t *testing.T) {
 
 	baseDir := t.TempDir()
 	containerName := "drain-test"
-	eventDir := filepath.Join(baseDir, containerName, "events")
+	eventDir := filepath.Join(baseDir, containerName)
 
 	if err := os.MkdirAll(eventDir, 0o777); err != nil {
 		t.Fatalf("create event dir: %v", err)
@@ -386,7 +386,7 @@ func TestWatcher_WatchAndUnwatchContainerDir(t *testing.T) {
 
 	baseDir := t.TempDir()
 	containerName := "watch-test"
-	eventDir := filepath.Join(baseDir, containerName, "events")
+	eventDir := filepath.Join(baseDir, containerName)
 
 	if err := os.MkdirAll(eventDir, 0o777); err != nil {
 		t.Fatalf("create event dir: %v", err)

@@ -37,8 +37,8 @@ func TestContainerWorkspaceDir(t *testing.T) {
 	t.Parallel()
 
 	got := ContainerWorkspaceDir("my-project")
-	if got != "/home/dev/my-project" {
-		t.Errorf("ContainerWorkspaceDir(\"my-project\") = %q, want /home/dev/my-project", got)
+	if got != "/home/warden/my-project" {
+		t.Errorf("ContainerWorkspaceDir(\"my-project\") = %q, want /home/warden/my-project", got)
 	}
 }
 
@@ -51,26 +51,26 @@ func TestProjectCostFromContainerStatuses(t *testing.T) {
 		prefix   string
 		want     float64
 	}{
-		{name: "nil map", statuses: nil, prefix: "/home/dev/test", want: 0},
-		{name: "empty map", statuses: map[string]*agent.Status{}, prefix: "/home/dev/test", want: 0},
+		{name: "nil map", statuses: nil, prefix: "/home/warden/test", want: 0},
+		{name: "empty map", statuses: map[string]*agent.Status{}, prefix: "/home/warden/test", want: 0},
 		{name: "single entry", statuses: map[string]*agent.Status{
-			"/home/dev/app": {CostUSD: 1.23},
-		}, prefix: "/home/dev/app", want: 1.23},
+			"/home/warden/app": {CostUSD: 1.23},
+		}, prefix: "/home/warden/app", want: 1.23},
 		{name: "multiple entries sums matching prefix", statuses: map[string]*agent.Status{
-			"/home/dev/app":                        {CostUSD: 1.00},
-			"/home/dev/app/.claude/worktrees/feat": {CostUSD: 0.50},
-			"/home/dev/app/.claude/worktrees/fix":  {CostUSD: 0.25},
-		}, prefix: "/home/dev/app", want: 1.75},
+			"/home/warden/app":                        {CostUSD: 1.00},
+			"/home/warden/app/.claude/worktrees/feat": {CostUSD: 0.50},
+			"/home/warden/app/.claude/worktrees/fix":  {CostUSD: 0.25},
+		}, prefix: "/home/warden/app", want: 1.75},
 		{name: "nil entries skipped", statuses: map[string]*agent.Status{
-			"/home/dev/app":                        {CostUSD: 1.00},
-			"/home/dev/app/.claude/worktrees/feat": nil,
-		}, prefix: "/home/dev/app", want: 1.00},
+			"/home/warden/app":                        {CostUSD: 1.00},
+			"/home/warden/app/.claude/worktrees/feat": nil,
+		}, prefix: "/home/warden/app", want: 1.00},
 		{name: "filters out non-matching paths", statuses: map[string]*agent.Status{
-			"/home/dev/my-app":                        {CostUSD: 1.00},
-			"/home/dev/my-app/.claude/worktrees/feat": {CostUSD: 0.50},
+			"/home/warden/my-app":                        {CostUSD: 1.00},
+			"/home/warden/my-app/.claude/worktrees/feat": {CostUSD: 0.50},
 			"/home/user/other-project":                {CostUSD: 5.00},
 			"/run/media/Projects/Services/myapp":      {CostUSD: 3.77},
-		}, prefix: "/home/dev/my-app", want: 1.50},
+		}, prefix: "/home/warden/my-app", want: 1.50},
 		{name: "empty prefix defaults to /project", statuses: map[string]*agent.Status{
 			"/project":                        {CostUSD: 2.00},
 			"/project/.claude/worktrees/feat": {CostUSD: 0.50},

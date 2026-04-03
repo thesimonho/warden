@@ -24,9 +24,12 @@ var _ Client = (*ServiceAdapter)(nil)
 // containerUser references the non-root user inside Warden containers.
 var containerUser = engine.ContainerUser
 
-// ServiceAdapter wraps a [warden.App] to satisfy the [Client] interface
-// for embedded mode (single-process deployment). Most methods delegate
-// directly to app.Service. The two exceptions are:
+// ServiceAdapter wraps a [warden.Warden] to satisfy the [Client] interface
+// for embedded mode (single-process deployment). Since Service methods
+// accept project IDs and resolve internally, most adapter methods are
+// trivial one-liner delegations.
+//
+// The two exceptions are:
 //
 //   - [ServiceAdapter.SubscribeEvents]: subscribes to the in-process event
 //     broker directly (no SSE/HTTP involved)
@@ -38,285 +41,240 @@ var containerUser = engine.ContainerUser
 //
 // Usage:
 //
-//	app, _ := warden.New(warden.Options{})
-//	defer app.Close()
-//	adapter := tui.NewServiceAdapter(app)
+//	w, _ := warden.New(warden.Options{})
+//	defer w.Close()
+//	adapter := tui.NewServiceAdapter(w)
 //	// adapter satisfies tui.Client
 type ServiceAdapter struct {
-	app *warden.App
+	w *warden.Warden
 }
 
-// NewServiceAdapter creates a [Client] backed by an embedded [warden.App].
-func NewServiceAdapter(app *warden.App) *ServiceAdapter {
-	return &ServiceAdapter{app: app}
-}
-
-// resolveProject looks up the project DB row for a project ID.
-// Returns an error if the project is not found.
-func (a *ServiceAdapter) resolveProject(projectID string) (*db.ProjectRow, error) {
-	row, err := a.app.Service.GetProject(projectID)
-	if err != nil {
-		return nil, fmt.Errorf("looking up project %q: %w", projectID, err)
-	}
-	if row == nil {
-		return nil, fmt.Errorf("project %q not found", projectID)
-	}
-	return row, nil
-}
-
-// withProject resolves a projectID to a DB project row and calls fn.
-// Eliminates the resolve-check-delegate boilerplate across adapter methods.
-func withProject[T any](a *ServiceAdapter, projectID string, fn func(project *db.ProjectRow) (T, error)) (T, error) {
-	row, err := a.resolveProject(projectID)
-	if err != nil {
-		var zero T
-		return zero, err
-	}
-	return fn(row)
+// NewServiceAdapter creates a [Client] backed by an embedded [warden.Warden].
+func NewServiceAdapter(w *warden.Warden) *ServiceAdapter {
+	return &ServiceAdapter{w: w}
 }
 
 // --- Projects ---
 
-// ListProjects delegates to api.Service.ListProjects.
+// ListProjects delegates to Service.ListProjects.
 func (a *ServiceAdapter) ListProjects(ctx context.Context) ([]engine.Project, error) {
-	return a.app.Service.ListProjects(ctx)
+	return a.w.Service.ListProjects(ctx)
 }
 
-// AddProject delegates to api.Service.AddProject.
-func (a *ServiceAdapter) AddProject(_ context.Context, name, hostPath string) (*api.ProjectResult, error) {
-	return a.app.Service.AddProject(name, hostPath)
+// AddProject delegates to Service.AddProject.
+func (a *ServiceAdapter) AddProject(_ context.Context, name, hostPath, agentType string) (*api.ProjectResult, error) {
+	return a.w.Service.AddProject(name, hostPath, agentType)
 }
 
-// RemoveProject delegates to api.Service.RemoveProject.
-func (a *ServiceAdapter) RemoveProject(_ context.Context, projectID string) (*api.ProjectResult, error) {
-	return a.app.Service.RemoveProject(projectID)
+// RemoveProject delegates to Service.RemoveProject.
+func (a *ServiceAdapter) RemoveProject(_ context.Context, projectID, agentType string) (*api.ProjectResult, error) {
+	return a.w.Service.RemoveProject(projectID, agentType)
 }
 
-// StopProject resolves the project row and stops the container.
-func (a *ServiceAdapter) StopProject(ctx context.Context, projectID string) (*api.ProjectResult, error) {
-	return withProject[*api.ProjectResult](a, projectID, func(p *db.ProjectRow) (*api.ProjectResult, error) {
-		return a.app.Service.StopProject(ctx, p)
-	})
+// StopProject delegates to Service.StopProject.
+func (a *ServiceAdapter) StopProject(ctx context.Context, projectID, agentType string) (*api.ProjectResult, error) {
+	return a.w.Service.StopProject(ctx, projectID, agentType)
 }
 
-// RestartProject resolves the project row and restarts the container.
-func (a *ServiceAdapter) RestartProject(ctx context.Context, projectID string) (*api.ProjectResult, error) {
-	return withProject[*api.ProjectResult](a, projectID, func(p *db.ProjectRow) (*api.ProjectResult, error) {
-		return a.app.Service.RestartProject(ctx, p)
-	})
+// RestartProject delegates to Service.RestartProject.
+func (a *ServiceAdapter) RestartProject(ctx context.Context, projectID, agentType string) (*api.ProjectResult, error) {
+	return a.w.Service.RestartProject(ctx, projectID, agentType)
 }
 
 // --- Worktrees ---
 
-// ListWorktrees resolves the project row and lists worktrees.
-func (a *ServiceAdapter) ListWorktrees(ctx context.Context, projectID string) ([]engine.Worktree, error) {
-	return withProject[[]engine.Worktree](a, projectID, func(p *db.ProjectRow) ([]engine.Worktree, error) {
-		return a.app.Service.ListWorktrees(ctx, p)
-	})
+// ListWorktrees delegates to Service.ListWorktrees.
+func (a *ServiceAdapter) ListWorktrees(ctx context.Context, projectID, agentType string) ([]engine.Worktree, error) {
+	return a.w.Service.ListWorktrees(ctx, projectID, agentType)
 }
 
-// CreateWorktree resolves the project row and creates a worktree.
-func (a *ServiceAdapter) CreateWorktree(ctx context.Context, projectID, name string) (*api.WorktreeResult, error) {
-	return withProject[*api.WorktreeResult](a, projectID, func(p *db.ProjectRow) (*api.WorktreeResult, error) {
-		return a.app.Service.CreateWorktree(ctx, p, name)
-	})
+// CreateWorktree delegates to Service.CreateWorktree.
+func (a *ServiceAdapter) CreateWorktree(ctx context.Context, projectID, agentType, name string) (*api.WorktreeResult, error) {
+	return a.w.Service.CreateWorktree(ctx, projectID, agentType, name)
 }
 
-// ConnectTerminal resolves the project row and connects a terminal.
-func (a *ServiceAdapter) ConnectTerminal(ctx context.Context, projectID, worktreeID string) (*api.WorktreeResult, error) {
-	return withProject[*api.WorktreeResult](a, projectID, func(p *db.ProjectRow) (*api.WorktreeResult, error) {
-		return a.app.Service.ConnectTerminal(ctx, p, worktreeID)
-	})
+// ConnectTerminal delegates to Service.ConnectTerminal.
+func (a *ServiceAdapter) ConnectTerminal(ctx context.Context, projectID, agentType, worktreeID string) (*api.WorktreeResult, error) {
+	return a.w.Service.ConnectTerminal(ctx, projectID, agentType, worktreeID)
 }
 
-// DisconnectTerminal resolves the project row and disconnects the terminal.
-func (a *ServiceAdapter) DisconnectTerminal(ctx context.Context, projectID, worktreeID string) (*api.WorktreeResult, error) {
-	return withProject[*api.WorktreeResult](a, projectID, func(p *db.ProjectRow) (*api.WorktreeResult, error) {
-		return a.app.Service.DisconnectTerminal(ctx, p, worktreeID)
-	})
+// DisconnectTerminal delegates to Service.DisconnectTerminal.
+func (a *ServiceAdapter) DisconnectTerminal(ctx context.Context, projectID, agentType, worktreeID string) (*api.WorktreeResult, error) {
+	return a.w.Service.DisconnectTerminal(ctx, projectID, agentType, worktreeID)
 }
 
-// KillWorktreeProcess resolves the project row and kills the worktree process.
-func (a *ServiceAdapter) KillWorktreeProcess(ctx context.Context, projectID, worktreeID string) (*api.WorktreeResult, error) {
-	return withProject[*api.WorktreeResult](a, projectID, func(p *db.ProjectRow) (*api.WorktreeResult, error) {
-		return a.app.Service.KillWorktreeProcess(ctx, p, worktreeID)
-	})
+// KillWorktreeProcess delegates to Service.KillWorktreeProcess.
+func (a *ServiceAdapter) KillWorktreeProcess(ctx context.Context, projectID, agentType, worktreeID string) (*api.WorktreeResult, error) {
+	return a.w.Service.KillWorktreeProcess(ctx, projectID, agentType, worktreeID)
 }
 
-// RemoveWorktree resolves the project row and removes the worktree.
-func (a *ServiceAdapter) RemoveWorktree(ctx context.Context, projectID, worktreeID string) (*api.WorktreeResult, error) {
-	return withProject[*api.WorktreeResult](a, projectID, func(p *db.ProjectRow) (*api.WorktreeResult, error) {
-		return a.app.Service.RemoveWorktree(ctx, p, worktreeID)
-	})
+// RemoveWorktree delegates to Service.RemoveWorktree.
+func (a *ServiceAdapter) RemoveWorktree(ctx context.Context, projectID, agentType, worktreeID string) (*api.WorktreeResult, error) {
+	return a.w.Service.RemoveWorktree(ctx, projectID, agentType, worktreeID)
 }
 
-// CleanupWorktrees resolves the project row and cleans up orphaned worktrees.
-func (a *ServiceAdapter) CleanupWorktrees(ctx context.Context, projectID string) ([]string, error) {
-	return withProject[[]string](a, projectID, func(p *db.ProjectRow) ([]string, error) {
-		return a.app.Service.CleanupWorktrees(ctx, p)
-	})
+// CleanupWorktrees delegates to Service.CleanupWorktrees.
+func (a *ServiceAdapter) CleanupWorktrees(ctx context.Context, projectID, agentType string) ([]string, error) {
+	return a.w.Service.CleanupWorktrees(ctx, projectID, agentType)
 }
 
-// GetWorktreeDiff resolves the project row and returns the diff.
-func (a *ServiceAdapter) GetWorktreeDiff(ctx context.Context, projectID, worktreeID string) (*api.DiffResponse, error) {
-	return withProject[*api.DiffResponse](a, projectID, func(p *db.ProjectRow) (*api.DiffResponse, error) {
-		return a.app.Service.GetWorktreeDiff(ctx, p, worktreeID)
-	})
+// GetWorktreeDiff delegates to Service.GetWorktreeDiff.
+func (a *ServiceAdapter) GetWorktreeDiff(ctx context.Context, projectID, agentType, worktreeID string) (*api.DiffResponse, error) {
+	return a.w.Service.GetWorktreeDiff(ctx, projectID, agentType, worktreeID)
 }
 
-// ResetProjectCosts delegates to service.ResetProjectCosts.
-func (a *ServiceAdapter) ResetProjectCosts(_ context.Context, projectID string) error {
-	return a.app.Service.ResetProjectCosts(projectID)
+// ResetProjectCosts delegates to Service.ResetProjectCosts.
+func (a *ServiceAdapter) ResetProjectCosts(_ context.Context, projectID, agentType string) error {
+	return a.w.Service.ResetProjectCosts(projectID, agentType)
 }
 
-// PurgeProjectAudit delegates to service.PurgeProjectAudit.
-func (a *ServiceAdapter) PurgeProjectAudit(_ context.Context, projectID string) error {
-	_, err := a.app.Service.PurgeProjectAudit(projectID)
+// PurgeProjectAudit delegates to Service.PurgeProjectAudit.
+func (a *ServiceAdapter) PurgeProjectAudit(_ context.Context, projectID, agentType string) error {
+	_, err := a.w.Service.PurgeProjectAudit(projectID, agentType)
 	return err
 }
 
 // --- Containers ---
 
-// CreateContainer delegates to service.CreateContainer.
+// CreateContainer delegates to Service.CreateContainer.
 // The projectID parameter is used by the HTTP client but ignored here —
 // the service computes the project ID from req.ProjectPath.
-func (a *ServiceAdapter) CreateContainer(_ context.Context, _ string, req engine.CreateContainerRequest) (*api.ContainerResult, error) {
-	return a.app.Service.CreateContainer(context.Background(), req)
+func (a *ServiceAdapter) CreateContainer(_ context.Context, _, _ string, req engine.CreateContainerRequest) (*api.ContainerResult, error) {
+	return a.w.Service.CreateContainer(context.Background(), req)
 }
 
-// DeleteContainer resolves the project row and deletes the container.
-func (a *ServiceAdapter) DeleteContainer(ctx context.Context, projectID string) (*api.ContainerResult, error) {
-	return withProject[*api.ContainerResult](a, projectID, func(p *db.ProjectRow) (*api.ContainerResult, error) {
-		return a.app.Service.DeleteContainer(ctx, p)
-	})
+// DeleteContainer delegates to Service.DeleteContainer.
+func (a *ServiceAdapter) DeleteContainer(ctx context.Context, projectID, agentType string) (*api.ContainerResult, error) {
+	return a.w.Service.DeleteContainer(ctx, projectID, agentType)
 }
 
-// InspectContainer resolves the project row and returns config.
-func (a *ServiceAdapter) InspectContainer(ctx context.Context, projectID string) (*engine.ContainerConfig, error) {
-	return withProject[*engine.ContainerConfig](a, projectID, func(p *db.ProjectRow) (*engine.ContainerConfig, error) {
-		return a.app.Service.InspectContainer(ctx, p)
-	})
+// InspectContainer delegates to Service.InspectContainer.
+func (a *ServiceAdapter) InspectContainer(ctx context.Context, projectID, agentType string) (*engine.ContainerConfig, error) {
+	return a.w.Service.InspectContainer(ctx, projectID, agentType)
 }
 
-// UpdateContainer resolves the project row and recreates it.
-func (a *ServiceAdapter) UpdateContainer(ctx context.Context, projectID string, req engine.CreateContainerRequest) (*api.ContainerResult, error) {
-	return withProject[*api.ContainerResult](a, projectID, func(p *db.ProjectRow) (*api.ContainerResult, error) {
-		return a.app.Service.UpdateContainer(ctx, p, req)
-	})
+// UpdateContainer delegates to Service.UpdateContainer.
+func (a *ServiceAdapter) UpdateContainer(ctx context.Context, projectID, agentType string, req engine.CreateContainerRequest) (*api.ContainerResult, error) {
+	return a.w.Service.UpdateContainer(ctx, projectID, agentType, req)
 }
 
-// ValidateContainer resolves the project row and delegates to service.ValidateContainer.
-func (a *ServiceAdapter) ValidateContainer(ctx context.Context, projectID string) (*api.ValidateContainerResult, error) {
-	return withProject[*api.ValidateContainerResult](a, projectID, func(p *db.ProjectRow) (*api.ValidateContainerResult, error) {
-		return a.app.Service.ValidateContainer(ctx, p)
-	})
+// ValidateContainer delegates to Service.ValidateContainer.
+func (a *ServiceAdapter) ValidateContainer(ctx context.Context, projectID, agentType string) (*api.ValidateContainerResult, error) {
+	return a.w.Service.ValidateContainer(ctx, projectID, agentType)
 }
 
 // --- Settings ---
 
-// GetSettings delegates to api.Service.GetSettings.
+// GetSettings delegates to Service.GetSettings.
 func (a *ServiceAdapter) GetSettings(_ context.Context) (*api.SettingsResponse, error) {
-	resp := a.app.Service.GetSettings()
+	resp := a.w.Service.GetSettings()
 	return &resp, nil
 }
 
-// UpdateSettings delegates to api.Service.UpdateSettings.
+// UpdateSettings delegates to Service.UpdateSettings.
 func (a *ServiceAdapter) UpdateSettings(ctx context.Context, req api.UpdateSettingsRequest) (*api.UpdateSettingsResult, error) {
-	return a.app.Service.UpdateSettings(ctx, req)
+	return a.w.Service.UpdateSettings(ctx, req)
 }
 
 // --- Host Utilities ---
 
-// GetDefaults delegates to api.Service.GetDefaults.
+// GetDefaults delegates to Service.GetDefaults.
 func (a *ServiceAdapter) GetDefaults(_ context.Context) (*api.DefaultsResponse, error) {
-	resp := a.app.Service.GetDefaults()
+	resp := a.w.Service.GetDefaults()
 	return &resp, nil
 }
 
-// ListDirectories delegates to api.Service.ListDirectories.
+// ListDirectories delegates to Service.ListDirectories.
 func (a *ServiceAdapter) ListDirectories(_ context.Context, path string, includeFiles bool) ([]api.DirEntry, error) {
-	return a.app.Service.ListDirectories(path, includeFiles)
+	return a.w.Service.ListDirectories(path, includeFiles)
 }
 
-// ListRuntimes delegates to api.Service.ListRuntimes.
+// ListRuntimes delegates to Service.ListRuntimes.
 func (a *ServiceAdapter) ListRuntimes(ctx context.Context) ([]runtime.RuntimeInfo, error) {
-	return a.app.Service.ListRuntimes(ctx), nil
+	return a.w.Service.ListRuntimes(ctx), nil
 }
 
 // --- Audit Log ---
 
-// GetAuditLog delegates to service.GetAuditLog.
+// GetAuditLog delegates to Service.GetAuditLog.
 func (a *ServiceAdapter) GetAuditLog(_ context.Context, filters api.AuditFilters) ([]db.Entry, error) {
-	return a.app.Service.GetAuditLog(filters)
+	return a.w.Service.GetAuditLog(filters)
 }
 
-// GetAuditSummary delegates to service.GetAuditSummary.
+// GetAuditSummary delegates to Service.GetAuditSummary.
 func (a *ServiceAdapter) GetAuditSummary(ctx context.Context, filters api.AuditFilters) (*api.AuditSummary, error) {
-	return a.app.Service.GetAuditSummary(ctx, filters)
+	return a.w.Service.GetAuditSummary(ctx, filters)
 }
 
-// GetAuditProjects delegates to service.GetAuditProjects.
+// GetAuditProjects delegates to Service.GetAuditProjects.
 func (a *ServiceAdapter) GetAuditProjects(_ context.Context) ([]string, error) {
-	return a.app.Service.GetAuditProjects()
+	return a.w.Service.GetAuditProjects()
 }
 
-// PostAuditEvent delegates to service.PostAuditEvent.
+// PostAuditEvent delegates to Service.PostAuditEvent.
 func (a *ServiceAdapter) PostAuditEvent(_ context.Context, req api.PostAuditEventRequest) error {
-	return a.app.Service.PostAuditEvent(req)
+	return a.w.Service.PostAuditEvent(req)
 }
 
-// DeleteAuditEvents delegates to service.DeleteAuditEvents.
+// DeleteAuditEvents delegates to Service.DeleteAuditEvents.
 func (a *ServiceAdapter) DeleteAuditEvents(_ context.Context, filters api.AuditFilters) error {
-	_, err := a.app.Service.DeleteAuditEvents(filters)
+	_, err := a.w.Service.DeleteAuditEvents(filters)
 	return err
 }
 
 // --- Access Items ---
 
-// ListAccessItems delegates to service.ListAccessItems.
+// ListAccessItems delegates to Service.ListAccessItems.
 func (a *ServiceAdapter) ListAccessItems(_ context.Context) (*api.AccessItemListResponse, error) {
-	items, err := a.app.Service.ListAccessItems()
+	items, err := a.w.Service.ListAccessItems()
 	if err != nil {
 		return nil, err
 	}
 	return &api.AccessItemListResponse{Items: items}, nil
 }
 
-// GetAccessItem delegates to service.GetAccessItem.
+// GetAccessItem delegates to Service.GetAccessItem.
 func (a *ServiceAdapter) GetAccessItem(_ context.Context, id string) (*api.AccessItemResponse, error) {
-	return a.app.Service.GetAccessItem(id)
+	return a.w.Service.GetAccessItem(id)
 }
 
-// CreateAccessItem delegates to service.CreateAccessItem.
+// CreateAccessItem delegates to Service.CreateAccessItem.
 func (a *ServiceAdapter) CreateAccessItem(_ context.Context, req api.CreateAccessItemRequest) (*access.Item, error) {
-	return a.app.Service.CreateAccessItem(req)
+	return a.w.Service.CreateAccessItem(req)
 }
 
-// UpdateAccessItem delegates to service.UpdateAccessItem.
+// UpdateAccessItem delegates to Service.UpdateAccessItem.
 func (a *ServiceAdapter) UpdateAccessItem(_ context.Context, id string, req api.UpdateAccessItemRequest) (*access.Item, error) {
-	return a.app.Service.UpdateAccessItem(id, req)
+	return a.w.Service.UpdateAccessItem(id, req)
 }
 
-// DeleteAccessItem delegates to service.DeleteAccessItem.
+// DeleteAccessItem delegates to Service.DeleteAccessItem.
 func (a *ServiceAdapter) DeleteAccessItem(_ context.Context, id string) error {
-	return a.app.Service.DeleteAccessItem(id)
+	return a.w.Service.DeleteAccessItem(id)
 }
 
-// ResetAccessItem delegates to service.ResetAccessItem.
+// ResetAccessItem delegates to Service.ResetAccessItem.
 func (a *ServiceAdapter) ResetAccessItem(_ context.Context, id string) (*access.Item, error) {
-	return a.app.Service.ResetAccessItem(id)
+	return a.w.Service.ResetAccessItem(id)
 }
 
-// ResolveAccessItems delegates to service.ResolveAccessItems.
+// ResolveAccessItems delegates to Service.ResolveAccessItems.
 func (a *ServiceAdapter) ResolveAccessItems(_ context.Context, req api.ResolveAccessItemsRequest) (*api.ResolveAccessItemsResponse, error) {
-	return a.app.Service.ResolveAccessItems(req.Items)
+	return a.w.Service.ResolveAccessItems(req.Items)
+}
+
+// --- Clipboard ---
+
+// UploadClipboard delegates to Service.UploadClipboard.
+func (a *ServiceAdapter) UploadClipboard(ctx context.Context, projectID, agentType string, content []byte, mimeType string) (*api.ClipboardUploadResponse, error) {
+	return a.w.Service.UploadClipboard(ctx, projectID, agentType, content, mimeType)
 }
 
 // --- Real-time Events ---
 
 // SubscribeEvents subscribes to the event broker directly (no SSE).
 func (a *ServiceAdapter) SubscribeEvents(_ context.Context) (<-chan eventbus.SSEEvent, func(), error) {
-	ch, unsub := a.app.Broker.Subscribe()
+	ch, unsub := a.w.Broker.Subscribe()
 	return ch, unsub, nil
 }
 
@@ -327,10 +285,10 @@ func (a *ServiceAdapter) SubscribeEvents(_ context.Context) (<-chan eventbus.SSE
 // internal/terminal/proxy.go but returns an io.ReadWriteCloser
 // instead of bridging to WebSocket.
 func (a *ServiceAdapter) AttachTerminal(ctx context.Context, projectID, worktreeID string) (client.TerminalConnection, error) {
-	api := a.app.Engine.APIClient()
+	dockerAPI := a.w.Engine.APIClient()
 
 	sessionName := fmt.Sprintf("warden-%s", worktreeID)
-	execResp, err := api.ContainerExecCreate(ctx, projectID, container.ExecOptions{
+	execResp, err := dockerAPI.ContainerExecCreate(ctx, projectID, container.ExecOptions{
 		Cmd:          []string{"abduco", "-a", sessionName},
 		User:         containerUser,
 		Env:          []string{"TERM=xterm-256color"},
@@ -343,7 +301,7 @@ func (a *ServiceAdapter) AttachTerminal(ctx context.Context, projectID, worktree
 		return nil, fmt.Errorf("exec create: %w", err)
 	}
 
-	hijacked, err := api.ContainerExecAttach(ctx, execResp.ID, container.ExecStartOptions{
+	hijacked, err := dockerAPI.ContainerExecAttach(ctx, execResp.ID, container.ExecStartOptions{
 		Tty: true,
 	})
 	if err != nil {
@@ -353,7 +311,7 @@ func (a *ServiceAdapter) AttachTerminal(ctx context.Context, projectID, worktree
 	return &dockerTerminalConn{
 		hijacked: &hijacked,
 		execID:   execResp.ID,
-		api:      api,
+		api:      dockerAPI,
 		ctx:      ctx,
 	}, nil
 }

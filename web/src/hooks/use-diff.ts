@@ -18,11 +18,17 @@ interface UseDiffResult {
  * manually via `refetch`. No polling or SSE — diffs are not real-time.
  *
  * @param projectId - Container ID.
+ * @param agentType - The CLI agent type for this project.
  * @param worktreeId - Worktree ID.
  * @param enabled - When true, fetch the diff. When false, skip.
  * @returns Diff data, loading state, error, and a refetch function.
  */
-export function useDiff(projectId: string, worktreeId: string, enabled: boolean): UseDiffResult {
+export function useDiff(
+  projectId: string,
+  agentType: string,
+  worktreeId: string,
+  enabled: boolean,
+): UseDiffResult {
   const [diff, setDiff] = useState<DiffResponse | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -31,7 +37,7 @@ export function useDiff(projectId: string, worktreeId: string, enabled: boolean)
     setIsLoading(true)
     setError(null)
     try {
-      const data = await fetchWorktreeDiff(projectId, worktreeId)
+      const data = await fetchWorktreeDiff(projectId, agentType, worktreeId)
       setDiff(data)
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to fetch diff'
@@ -39,7 +45,7 @@ export function useDiff(projectId: string, worktreeId: string, enabled: boolean)
     } finally {
       setIsLoading(false)
     }
-  }, [projectId, worktreeId])
+  }, [projectId, agentType, worktreeId])
 
   // Fetch when enabled transitions to true.
   useEffect(() => {

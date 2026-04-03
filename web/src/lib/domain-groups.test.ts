@@ -25,4 +25,8 @@ describe('restrictedDomains', () => {
   it('includes github wildcard', () => {
     expect(restrictedDomains).toContain('*.github.com')
   })
+
+  it('includes openai wildcard', () => {
+    expect(restrictedDomains).toContain('*.openai.com')
+  })
 })

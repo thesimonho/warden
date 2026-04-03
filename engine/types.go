@@ -4,21 +4,23 @@ package engine
 
 import (
 	"context"
+	"io"
 
 	"github.com/thesimonho/warden/agent"
 	"github.com/thesimonho/warden/api"
+	"github.com/thesimonho/warden/constants"
 )
 
-// ClaudeStatus represents whether Claude Code is actively running inside a container.
-type ClaudeStatus string
+// AgentStatus represents whether the agent CLI is actively running inside a container.
+type AgentStatus string
 
 const (
-	// ClaudeStatusIdle means no Claude process is running.
-	ClaudeStatusIdle ClaudeStatus = "idle"
-	// ClaudeStatusWorking means a Claude process is currently active.
-	ClaudeStatusWorking ClaudeStatus = "working"
-	// ClaudeStatusUnknown means the status could not be determined.
-	ClaudeStatusUnknown ClaudeStatus = "unknown"
+	// AgentStatusIdle means no agent process is running.
+	AgentStatusIdle AgentStatus = "idle"
+	// AgentStatusWorking means an agent process is currently active.
+	AgentStatusWorking AgentStatus = "working"
+	// AgentStatusUnknown means the status could not be determined.
+	AgentStatusUnknown AgentStatus = "unknown"
 )
 
 // NotificationType represents the kind of attention Claude Code needs from the user.
@@ -56,7 +58,7 @@ type WorktreeState string
 const (
 	// WorktreeStateConnected means a terminal is running with Claude active.
 	WorktreeStateConnected WorktreeState = "connected"
-	// WorktreeStateShell means Claude exited but the bash shell is still alive via ttyd.
+	// WorktreeStateShell means the agent exited but the bash shell is still alive.
 	WorktreeStateShell WorktreeState = "shell"
 	// WorktreeStateBackground means the abduco session is alive but ttyd is not
 	// serving (e.g. browser closed). Claude Code may still be working.
@@ -108,7 +110,7 @@ type Project struct {
 	SSHPort      string       `json:"sshPort"`
 	State        string       `json:"state"`
 	Status       string       `json:"status"`
-	ClaudeStatus ClaudeStatus `json:"claudeStatus"`
+	AgentStatus AgentStatus `json:"agentStatus"`
 	// NeedsInput is true when any worktree requires user attention.
 	NeedsInput bool `json:"needsInput,omitempty"`
 	// NotificationType indicates why Claude needs attention (e.g. permission_prompt, idle_prompt).
@@ -124,6 +126,8 @@ type Project struct {
 	CostBudget float64 `json:"costBudget"`
 	// IsGitRepo indicates whether the container's /project is a git repository.
 	IsGitRepo bool `json:"isGitRepo"`
+	// AgentType identifies the CLI agent running in this project (e.g. "claude-code", "codex").
+	AgentType constants.AgentType `json:"agentType"`
 	// SkipPermissions indicates whether terminals should skip permission prompts.
 	SkipPermissions bool `json:"skipPermissions"`
 	// MountedDir is the host directory mounted into the container.
@@ -148,8 +152,9 @@ type Worktree struct {
 	Branch string `json:"branch,omitempty"`
 	// State is the terminal connection state (connected, shell, disconnected).
 	State WorktreeState `json:"state"`
-	// ExitCode is Claude's exit code when in shell state.
-	ExitCode int `json:"exitCode,omitempty"`
+	// ExitCode is the agent's exit code when in shell state.
+	// Nil means the agent is still running (or no exit code captured).
+	ExitCode *int `json:"exitCode,omitempty"`
 	// NeedsInput is true when Claude is blocked waiting for user attention.
 	NeedsInput bool `json:"needsInput,omitempty"`
 	// NotificationType indicates why Claude needs attention.
@@ -171,7 +176,9 @@ type CreateContainerRequest struct {
 	Name        string            `json:"name"`
 	Image       string            `json:"image"`
 	ProjectPath string            `json:"projectPath"`
-	EnvVars     map[string]string `json:"envVars,omitempty"`
+	// AgentType selects the CLI agent to run (e.g. "claude-code", "codex"). Defaults to "claude-code".
+	AgentType constants.AgentType `json:"agentType,omitempty"`
+	EnvVars   map[string]string `json:"envVars,omitempty"`
 	// Mounts is a list of additional bind mounts from host into the container.
 	Mounts []Mount `json:"mounts,omitempty"`
 	// SkipPermissions controls whether terminals skip permission prompts.
@@ -193,6 +200,8 @@ type ContainerConfig struct {
 	Name            string            `json:"name"`
 	Image           string            `json:"image"`
 	ProjectPath     string            `json:"projectPath"`
+	// AgentType identifies the CLI agent running in this project.
+	AgentType       constants.AgentType `json:"agentType"`
 	EnvVars         map[string]string `json:"envVars,omitempty"`
 	Mounts          []Mount           `json:"mounts,omitempty"`
 	SkipPermissions bool              `json:"skipPermissions"`
@@ -204,6 +213,21 @@ type ContainerConfig struct {
 	CostBudget float64 `json:"costBudget"`
 	// EnabledAccessItems lists active access item IDs (e.g. ["git","ssh"]).
 	EnabledAccessItems []string `json:"enabledAccessItems,omitempty"`
+}
+
+// ContainerHealth describes a container's startup health state.
+// Used by the liveness checker to diagnose crash-looping containers.
+type ContainerHealth struct {
+	// Restarting is true when the container is in a Docker restart loop.
+	Restarting bool
+	// RestartCount is the number of times Docker has restarted the container.
+	RestartCount int
+	// ExitCode is the last exit code from the container's entrypoint.
+	ExitCode int
+	// OOMKilled is true if the container was killed due to memory limits.
+	OOMKilled bool
+	// LogTail contains the last lines of container logs (only populated when unhealthy).
+	LogTail string
 }
 
 // Client defines the interface for interacting with Docker containers.
@@ -232,6 +256,9 @@ type Client interface {
 
 	// InspectContainer returns the editable configuration of a container.
 	InspectContainer(ctx context.Context, id string) (*ContainerConfig, error)
+
+	// RenameContainer changes the name of an existing container without recreation.
+	RenameContainer(ctx context.Context, id string, newName string) error
 
 	// RecreateContainer replaces a stopped container with a new one using updated config.
 	// Returns the new container ID.
@@ -290,4 +317,15 @@ type Client interface {
 	// ReadAgentCostAndBillingType reads the agent config once and returns
 	// both cost (filtered by workspace prefix) and billing type.
 	ReadAgentCostAndBillingType(ctx context.Context, containerID, workspacePrefix string) (*AgentCostResult, error)
+
+	// ContainerStartupHealth inspects a container's state to determine if it
+	// is crash-looping. When the container is restarting, reads the last lines
+	// of container logs to capture the error. Used by the liveness checker to
+	// enrich stale-heartbeat audit events with diagnostic details.
+	ContainerStartupHealth(ctx context.Context, containerName string) (*ContainerHealth, error)
+
+	// CopyFileToContainer writes a single file into a running container.
+	// The file is packaged as a tar archive and extracted at destDir.
+	// Used by the clipboard upload feature to stage images for the xclip shim.
+	CopyFileToContainer(ctx context.Context, containerID, destDir, filename string, content io.Reader, size int64) error
 }

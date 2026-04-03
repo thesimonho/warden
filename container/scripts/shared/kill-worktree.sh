@@ -22,13 +22,13 @@ if [[ ! "$WORKTREE_ID" =~ ^[a-zA-Z0-9][a-zA-Z0-9._-]*$ ]]; then
 fi
 
 WORKSPACE_DIR="${WARDEN_WORKSPACE_DIR:-/project}"
-TERMINAL_DIR="${WORKSPACE_DIR}/.warden-terminals/${WORKTREE_ID}"
+TERMINAL_DIR="${WORKSPACE_DIR}/.warden/terminals/${WORKTREE_ID}"
 
 # -------------------------------------------------------------------
 # Kill abduco session
 # -------------------------------------------------------------------
-pkill -f "abduco -A 'warden-${WORKTREE_ID}'" 2>/dev/null || true
-pkill -f "abduco -A warden-${WORKTREE_ID}" 2>/dev/null || true
+# Match both -n (new) and -A (legacy) flags
+pkill -f "abduco -[nA] .*warden-${WORKTREE_ID}" 2>/dev/null || true
 
 # -------------------------------------------------------------------
 # Remove terminal tracking directory entry

@@ -47,6 +47,9 @@ type QueryFilters struct {
 // DefaultQueryLimit is applied when QueryFilters.Limit is zero.
 const DefaultQueryLimit = 10_000
 
+// defaultAgentType is the Go-side default matching the SQL schema default.
+const defaultAgentType = "claude-code"
+
 // Source identifies where a log entry originated.
 type Source string
 
@@ -87,6 +90,8 @@ type Entry struct {
 	Event string `json:"event"`
 	// ProjectID is the deterministic project identifier (sha256 of host path, 12 hex chars).
 	ProjectID string `json:"projectId,omitempty"`
+	// AgentType identifies the agent that produced this event (e.g. "claude-code", "codex").
+	AgentType string `json:"agentType,omitempty"`
 	// ContainerName is a snapshot of the container name at the time of the event.
 	ContainerName string `json:"containerName,omitempty"`
 	// Worktree is the worktree ID (only for agent events).
@@ -100,6 +105,10 @@ type Entry struct {
 	// Category is the audit category (session, agent, prompt, config, system).
 	// Computed at query time from the event name — not stored in the DB.
 	Category string `json:"category,omitempty"`
+	// SourceID is a content hash for deduplication of JSONL-sourced events.
+	// When set, the DB uses INSERT OR IGNORE to silently drop duplicates.
+	// Empty for hook and backend events (no dedup needed).
+	SourceID string `json:"-"`
 }
 
 // DisplayProject returns the best available project label for human display.
@@ -142,8 +151,17 @@ type ProjectRow struct {
 	CostBudget float64
 	// EnabledAccessItems is a comma-separated list of enabled access item IDs (e.g. "git,ssh").
 	EnabledAccessItems string
+	// AgentType identifies the CLI agent running in this project (e.g. "claude-code", "codex").
+	AgentType string
 	// ContainerID is the Docker-assigned container ID (empty when no container exists).
 	ContainerID string
 	// ContainerName is the Docker container name (may differ from Name if renamed).
 	ContainerName string
+}
+
+// ProjectAgentKey uniquely identifies a project+agent pair. Used as a map key
+// where the compound (project_id, agent_type) identity is needed.
+type ProjectAgentKey struct {
+	ProjectID string
+	AgentType string
 }

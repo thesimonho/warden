@@ -216,7 +216,7 @@ func TestResolve_FileToMount(t *testing.T) {
 				Label:   "Git Config",
 				Sources: []Source{{Type: SourceFilePath, Value: configFile}},
 				Injections: []Injection{
-					{Type: InjectionMountFile, Key: "/home/dev/.gitconfig.host", ReadOnly: true},
+					{Type: InjectionMountFile, Key: "/home/warden/.gitconfig.host", ReadOnly: true},
 				},
 			},
 		},

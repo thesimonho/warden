@@ -10,15 +10,18 @@ import (
 	"charm.land/bubbles/v2/textinput"
 	tea "charm.land/bubbletea/v2"
 
-	"github.com/thesimonho/warden/access"
+	"github.com/thesimonho/warden/agent"
 	"github.com/thesimonho/warden/api"
+	"github.com/thesimonho/warden/constants"
 	"github.com/thesimonho/warden/engine"
 	"github.com/thesimonho/warden/internal/tui/components"
 )
 
-// defaultAllowedDomains is the minimum useful set for Claude Code in
+// defaultAllowedDomains is the minimum useful set for AI coding agents in
 // restricted network mode. Matches web/src/lib/domain-groups.ts.
 const defaultAllowedDomains = `*.anthropic.com
+*.openai.com
+*.chatgpt.com
 *.github.com
 *.githubusercontent.com
 pypi.org
@@ -31,7 +34,8 @@ sum.golang.org`
 
 // Form field indices.
 const (
-	fieldName = iota
+	fieldAgentType = iota
+	fieldName
 	fieldPath
 	fieldSkipPerms
 	fieldBudget
@@ -40,14 +44,18 @@ const (
 	fieldAdvanced
 	// --- Advanced fields (visible when advancedOpen) ---
 	fieldImage
-	fieldGitPassthrough // toggle for git config passthrough
-	fieldSSHPassthrough // toggle for SSH passthrough
-	fieldMounts         // section header with "add" action
-	fieldEnvVars        // section header with "add" action
+	fieldAccessItems // dynamic access item toggles (Git, SSH, user-defined)
+	fieldMounts      // section header with "add" action
+	fieldEnvVars     // section header with "add" action
 	fieldSubmit
 	fieldCount
 )
 
+// Agent type options sourced from the agent registry.
+var agentTypes = agent.AllTypes
+
+// agentTypeLabels maps agent type IDs to display labels.
+var agentTypeLabels = agent.DisplayLabels
 
 // Network mode options.
 var networkModes = []string{"full", "restricted", "none"}
@@ -62,8 +70,9 @@ var networkDescriptions = map[string]string{
 // ContainerFormView handles creating or editing a container using
 // native bubbles components instead of huh.
 type ContainerFormView struct {
-	client   Client
-	editID   string
+	client        Client
+	editID        string
+	editAgentType string
 	defaults *api.DefaultsResponse
 	loading  bool
 	err      error
@@ -79,15 +88,17 @@ type ContainerFormView struct {
 	domains     textarea.Model
 
 	// Selection fields.
-	network  int // index into networkModes
-	skipPerm bool
+	agentType int // index into agentTypes
+	network   int // index into networkModes
+	skipPerm  bool
 
 	// Advanced section.
 	advancedOpen bool
 
-	// Access items (Git, SSH passthrough toggles).
+	// Access items (Git, SSH, user-defined toggles).
 	accessItems   []api.AccessItemResponse
 	accessToggles map[string]bool
+	accessCursor  int // sub-cursor within access items (-1 = header)
 
 	// Bind mounts.
 	mounts       []engine.Mount
@@ -136,10 +147,11 @@ func NewContainerFormView(client Client) *ContainerFormView {
 }
 
 // NewContainerEditView creates a container editing form.
-func NewContainerEditView(client Client, editID string) *ContainerFormView {
+func NewContainerEditView(client Client, editID, editAgentType string) *ContainerFormView {
 	v := &ContainerFormView{
 		client:        client,
 		editID:        editID,
+		editAgentType: editAgentType,
 		loading:       true,
 		keys:          DefaultFormKeyMap(),
 		accessToggles: make(map[string]bool),
@@ -219,7 +231,7 @@ func (v *ContainerFormView) Init() tea.Cmd {
 	}
 	if v.editID != "" {
 		cmds = append(cmds, func() tea.Msg {
-			cfg, err := v.client.InspectContainer(context.Background(), v.editID)
+			cfg, err := v.client.InspectContainer(context.Background(), v.editID, v.editAgentType)
 			return containerConfigLoadedMsg{Config: cfg, Err: err}
 		})
 	}
@@ -246,7 +258,11 @@ func (v *ContainerFormView) Update(msg tea.Msg) (View, tea.Cmd) {
 		}
 
 		if v.editID == "" && len(v.mounts) == 0 && len(v.defaults.Mounts) > 0 {
+			selected := agentTypes[v.agentType]
 			for _, dm := range v.defaults.Mounts {
+				if !isMountForAgent(dm, selected) {
+					continue
+				}
 				v.mounts = append(v.mounts, engine.Mount{
 					HostPath:      dm.HostPath,
 					ContainerPath: dm.ContainerPath,
@@ -293,6 +309,12 @@ func (v *ContainerFormView) Update(msg tea.Msg) (View, tea.Cmd) {
 		v.inputs[0].SetValue(msg.Config.Name)
 		v.inputs[1].SetValue(msg.Config.ProjectPath)
 		v.inputs[2].SetValue(msg.Config.Image)
+		for i, at := range agentTypes {
+			if at == msg.Config.AgentType {
+				v.agentType = i
+				break
+			}
+		}
 		for i, m := range networkModes {
 			if m == string(msg.Config.NetworkMode) {
 				v.network = i
@@ -307,6 +329,9 @@ func (v *ContainerFormView) Update(msg tea.Msg) (View, tea.Cmd) {
 		if len(msg.Config.Mounts) > 0 {
 			v.mounts = msg.Config.Mounts
 		}
+		// Ensure the required agent config mount is present (covers
+		// projects created before this mount became mandatory).
+		v.ensureRequiredMount()
 		if len(msg.Config.EnvVars) > 0 {
 			for k, val := range msg.Config.EnvVars {
 				v.envVars = append(v.envVars, envVarEntry{key: k, value: val})
@@ -357,6 +382,10 @@ func (v *ContainerFormView) handleKey(msg tea.KeyPressMsg) (View, tea.Cmd) {
 		return v.handleBrowsingKey(msg)
 	}
 	if v.editingMount {
+		// Required mounts only allow editing the host path — skip tab to container path.
+		if msg.String() == "tab" && v.isRequiredMount(v.mountCursor) {
+			return v, nil
+		}
 		return v.handleInlineEditKey(msg, &v.mountInputs, v.cancelMountEdit, v.saveMountInputs)
 	}
 	if v.editingEnv {
@@ -488,14 +517,19 @@ func (v *ContainerFormView) handleBrowsingKey(msg tea.KeyPressMsg) (View, tea.Cm
 // cycleSelection cycles the value of selection fields (tab key).
 func (v *ContainerFormView) cycleSelection() (View, tea.Cmd) {
 	switch v.cursor {
+	case fieldAgentType:
+		if v.editID == "" { // read-only in edit mode
+			v.agentType = (v.agentType + 1) % len(agentTypes)
+			v.refilterDefaultMounts()
+		}
 	case fieldNetwork:
 		v.network = (v.network + 1) % len(networkModes)
 	case fieldSkipPerms:
 		v.skipPerm = !v.skipPerm
-	case fieldGitPassthrough:
-		v.toggleAccessItem(access.BuiltInIDGit)
-	case fieldSSHPassthrough:
-		v.toggleAccessItem(access.BuiltInIDSSH)
+	case fieldAccessItems:
+		if v.accessCursor >= 0 && v.accessCursor < len(v.accessItems) {
+			v.toggleAccessItem(v.accessItems[v.accessCursor].ID)
+		}
 	}
 	return v, nil
 }
@@ -505,15 +539,30 @@ func (v *ContainerFormView) isFieldVisible(field int) bool {
 	switch field {
 	case fieldDomains:
 		return networkModes[v.network] == "restricted"
-	case fieldImage, fieldGitPassthrough, fieldSSHPassthrough, fieldMounts, fieldEnvVars:
+	case fieldImage, fieldAccessItems, fieldMounts, fieldEnvVars:
 		return v.advancedOpen
 	}
 	return true
 }
 
 // moveCursor moves the cursor by delta, skipping hidden fields.
-// For mount/env sections, navigates sub-items including the [Add] header at -1.
+// For access/mount/env sections, navigates sub-items.
 func (v *ContainerFormView) moveCursor(delta int) {
+	if v.cursor == fieldAccessItems {
+		next := v.accessCursor + delta
+		if next < 0 {
+			v.accessCursor = 0
+			v.moveCursorField(delta)
+			return
+		}
+		if next >= len(v.accessItems) {
+			v.moveCursorField(delta)
+			return
+		}
+		v.accessCursor = next
+		return
+	}
+
 	if v.cursor == fieldMounts {
 		next := v.mountCursor + delta
 		if next < -1 {
@@ -553,6 +602,13 @@ func (v *ContainerFormView) moveCursorField(delta int) {
 	for next >= 0 && next < fieldCount {
 		if v.isFieldVisible(next) {
 			v.cursor = next
+			if next == fieldAccessItems {
+				if delta > 0 {
+					v.accessCursor = 0
+				} else {
+					v.accessCursor = max(len(v.accessItems)-1, 0)
+				}
+			}
 			if next == fieldMounts {
 				if delta > 0 {
 					v.mountCursor = -1
@@ -594,16 +650,21 @@ func (v *ContainerFormView) activateField() (View, tea.Cmd) {
 		v.editing = true
 		return v, v.domains.Focus()
 
+	case fieldAgentType:
+		if v.editID == "" {
+			v.agentType = (v.agentType + 1) % len(agentTypes)
+			v.refilterDefaultMounts()
+		}
 	case fieldNetwork:
 		v.network = (v.network + 1) % len(networkModes)
 	case fieldSkipPerms:
 		v.skipPerm = !v.skipPerm
 	case fieldAdvanced:
 		v.advancedOpen = !v.advancedOpen
-	case fieldGitPassthrough:
-		v.toggleAccessItem(access.BuiltInIDGit)
-	case fieldSSHPassthrough:
-		v.toggleAccessItem(access.BuiltInIDSSH)
+	case fieldAccessItems:
+		if v.accessCursor >= 0 && v.accessCursor < len(v.accessItems) {
+			v.toggleAccessItem(v.accessItems[v.accessCursor].ID)
+		}
 
 	case fieldMounts:
 		return v.activateMountField()
@@ -634,6 +695,11 @@ func (v *ContainerFormView) startMountEdit() (View, tea.Cmd) {
 	v.mountInputs[0].SetValue(m.HostPath)
 	v.mountInputs[1].SetValue(m.ContainerPath)
 	v.editingMount = true
+	// Container path must stay at the agent's expected location;
+	// only let the user remap which host directory backs it.
+	if v.isRequiredMount(v.mountCursor) {
+		v.mountInputs[1].Blur()
+	}
 	return v, v.mountInputs[0].Focus()
 }
 
@@ -663,6 +729,9 @@ func (v *ContainerFormView) startEnvEdit() (View, tea.Cmd) {
 // removeCurrentItem removes the selected mount or env var.
 func (v *ContainerFormView) removeCurrentItem() (View, tea.Cmd) {
 	if v.cursor == fieldMounts && v.mountCursor >= 0 && v.mountCursor < len(v.mounts) {
+		if v.isRequiredMount(v.mountCursor) {
+			return v, nil // agent won't function without its config directory
+		}
 		v.mounts = append(v.mounts[:v.mountCursor], v.mounts[v.mountCursor+1:]...)
 		if v.mountCursor >= len(v.mounts) {
 			v.mountCursor = len(v.mounts) - 1
@@ -728,7 +797,7 @@ func (v *ContainerFormView) updateActiveField(msg tea.Msg) (View, tea.Cmd) {
 			v.mountInputs[1], cmd = v.mountInputs[1].Update(msg)
 		}
 	case v.editingEnv:
-		if v.envInputFocus == 0 {
+		if v.envInputs[0].Focused() {
 			v.envInputs[0], cmd = v.envInputs[0].Update(msg)
 		} else {
 			v.envInputs[1], cmd = v.envInputs[1].Update(msg)
@@ -789,6 +858,7 @@ func (v *ContainerFormView) submit() tea.Cmd {
 		Name:            name,
 		ProjectPath:     path,
 		Image:           v.inputs[2].Value(),
+		AgentType:       agentTypes[v.agentType],
 		NetworkMode:     engine.NetworkMode(networkModes[v.network]),
 		AllowedDomains:  domains,
 		SkipPermissions: v.skipPerm,
@@ -812,12 +882,12 @@ func (v *ContainerFormView) submit() tea.Cmd {
 
 	if v.editID != "" {
 		return func() tea.Msg {
-			_, err := v.client.UpdateContainer(context.Background(), v.editID, req)
+			_, err := v.client.UpdateContainer(context.Background(), v.editID, v.editAgentType, req)
 			return OperationResultMsg{Operation: "update", Err: err}
 		}
 	}
 	return func() tea.Msg {
-		_, err := v.client.CreateContainer(context.Background(), "", req)
+		_, err := v.client.CreateContainer(context.Background(), "", string(req.AgentType), req)
 		return OperationResultMsg{Operation: "create", Err: err}
 	}
 }
@@ -837,5 +907,84 @@ func (v *ContainerFormView) isAccessItemAvailable(id string) bool {
 		}
 	}
 	return false
+}
+
+// refilterDefaultMounts replaces the mounts list with agent-type-filtered
+// defaults. Only applies in create mode when defaults are loaded.
+func (v *ContainerFormView) refilterDefaultMounts() {
+	if v.editID != "" || v.defaults == nil {
+		return
+	}
+	selected := agentTypes[v.agentType]
+	v.mounts = nil
+	for _, dm := range v.defaults.Mounts {
+		if !isMountForAgent(dm, selected) {
+			continue
+		}
+		v.mounts = append(v.mounts, engine.Mount{
+			HostPath:      dm.HostPath,
+			ContainerPath: dm.ContainerPath,
+			ReadOnly:      dm.ReadOnly,
+		})
+	}
+}
+
+// isMountForAgent returns true if a default mount belongs to the given agent type.
+func isMountForAgent(dm api.DefaultMount, agentType constants.AgentType) bool {
+	if dm.AgentType != "" {
+		return dm.AgentType == string(agentType)
+	}
+	return true // non-agent mount, always include
+}
+
+// requiredContainerPath returns the container path of the required mount for
+// the current agent type, or empty string if none.
+func (v *ContainerFormView) requiredContainerPath() string {
+	if v.defaults == nil {
+		return ""
+	}
+	selected := agentTypes[v.agentType]
+	for _, dm := range v.defaults.Mounts {
+		if dm.Required && isMountForAgent(dm, selected) {
+			return dm.ContainerPath
+		}
+	}
+	return ""
+}
+
+// isRequiredMount returns true if the mount at the given index is the
+// required agent config mount that cannot be removed.
+func (v *ContainerFormView) isRequiredMount(index int) bool {
+	if index < 0 || index >= len(v.mounts) {
+		return false
+	}
+	rcp := v.requiredContainerPath()
+	return rcp != "" && v.mounts[index].ContainerPath == rcp
+}
+
+// ensureRequiredMount checks that the required agent config mount is present
+// in v.mounts, prepending it from defaults if missing.
+func (v *ContainerFormView) ensureRequiredMount() {
+	rcp := v.requiredContainerPath()
+	if rcp == "" {
+		return
+	}
+	for _, m := range v.mounts {
+		if m.ContainerPath == rcp {
+			return
+		}
+	}
+	// Find the full default mount to copy host path and read-only flag.
+	selected := agentTypes[v.agentType]
+	for _, dm := range v.defaults.Mounts {
+		if dm.Required && isMountForAgent(dm, selected) {
+			v.mounts = append([]engine.Mount{{
+				HostPath:      dm.HostPath,
+				ContainerPath: dm.ContainerPath,
+				ReadOnly:      dm.ReadOnly,
+			}}, v.mounts...)
+			return
+		}
+	}
 }
 

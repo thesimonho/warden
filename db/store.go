@@ -65,20 +65,34 @@ func (l *Store) Write(entry Entry) error {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
-	_, err := l.db.Exec(
-		`INSERT INTO events (ts, source, level, event, project_id, container_name, worktree, msg, data, attrs)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+	args := []any{
 		entry.Timestamp.Format(time.RFC3339Nano),
 		string(entry.Source),
 		string(entry.Level),
 		entry.Event,
 		entry.ProjectID,
+		entry.AgentType,
 		entry.ContainerName,
 		entry.Worktree,
 		entry.Message,
 		dataStr,
 		attrsStr,
-	)
+	}
+
+	// JSONL-sourced events use INSERT OR IGNORE for dedup via the
+	// (project_id, agent_type, source_id) unique index. Hook/backend events
+	// use plain INSERT so real constraint errors aren't silently swallowed.
+	var query string
+	if entry.SourceID != "" {
+		query = `INSERT OR IGNORE INTO events (ts, source, level, event, project_id, agent_type, container_name, worktree, msg, data, attrs, source_id)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+		args = append(args, entry.SourceID)
+	} else {
+		query = `INSERT INTO events (ts, source, level, event, project_id, agent_type, container_name, worktree, msg, data, attrs)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+	}
+
+	_, err := l.db.Exec(query, args...)
 	if err != nil {
 		return fmt.Errorf("inserting audit log entry: %w", err)
 	}
@@ -154,7 +168,7 @@ func (l *Store) Query(filters QueryFilters) ([]Entry, error) {
 
 	where, args := buildWhereClause(filters)
 
-	query := "SELECT ts, source, level, event, project_id, container_name, worktree, msg, data, attrs FROM events"
+	query := "SELECT ts, source, level, event, project_id, agent_type, container_name, worktree, msg, data, attrs FROM events"
 	if len(where) > 0 {
 		query += " WHERE " + strings.Join(where, " AND ")
 	}
@@ -364,7 +378,7 @@ func (l *Store) Close() error {
 
 // projectColumns is the SELECT column list shared by project queries.
 const projectColumns = `project_id, name, host_path, added_at, image, env_vars, mounts, original_mounts,
-	skip_permissions, network_mode, allowed_domains, cost_budget, enabled_access_items, container_id, container_name`
+	skip_permissions, network_mode, allowed_domains, cost_budget, enabled_access_items, agent_type, container_id, container_name`
 
 // InsertProject adds a project to the database. If a project with the same
 // project ID already exists, it is replaced (upsert).
@@ -391,12 +405,17 @@ func (l *Store) InsertProject(p ProjectRow) error {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
+	agentType := p.AgentType
+	if agentType == "" {
+		agentType = defaultAgentType
+	}
+
 	_, err := l.db.Exec(
 		`INSERT OR REPLACE INTO projects
 		 (project_id, name, host_path, added_at, image, env_vars, mounts, original_mounts,
 		  skip_permissions, network_mode, allowed_domains, cost_budget, enabled_access_items,
-		  container_id, container_name)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		  agent_type, container_id, container_name)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		p.ProjectID,
 		p.Name,
 		p.HostPath,
@@ -410,6 +429,7 @@ func (l *Store) InsertProject(p ProjectRow) error {
 		p.AllowedDomains,
 		p.CostBudget,
 		p.EnabledAccessItems,
+		agentType,
 		p.ContainerID,
 		p.ContainerName,
 	)
@@ -421,7 +441,7 @@ func (l *Store) InsertProject(p ProjectRow) error {
 
 // DeleteProject removes a project from the projects table. Audit events and
 // cost data are intentionally retained so the audit page can show historical data.
-func (l *Store) DeleteProject(projectID string) error {
+func (l *Store) DeleteProject(projectID, agentType string) error {
 	if l == nil {
 		return nil
 	}
@@ -429,46 +449,47 @@ func (l *Store) DeleteProject(projectID string) error {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
-	if _, err := l.db.Exec("DELETE FROM projects WHERE project_id = ?", projectID); err != nil {
-		return fmt.Errorf("deleting project %q: %w", projectID, err)
+	if _, err := l.db.Exec("DELETE FROM projects WHERE project_id = ? AND agent_type = ?", projectID, agentType); err != nil {
+		return fmt.Errorf("deleting project %q/%s: %w", projectID, agentType, err)
 	}
 	return nil
 }
 
-// ListProjectIDs returns all project IDs in insertion order.
-func (l *Store) ListProjectIDs() ([]string, error) {
+// ListProjectKeys returns all project+agent pairs in insertion order.
+func (l *Store) ListProjectKeys() ([]ProjectAgentKey, error) {
 	if l == nil {
 		return nil, nil
 	}
 
 	l.mu.RLock()
-	rows, err := l.db.Query("SELECT project_id FROM projects ORDER BY added_at ASC")
+	rows, err := l.db.Query("SELECT project_id, agent_type FROM projects ORDER BY added_at ASC")
 	l.mu.RUnlock()
 	if err != nil {
-		return nil, fmt.Errorf("listing project IDs: %w", err)
+		return nil, fmt.Errorf("listing project keys: %w", err)
 	}
 	defer rows.Close() //nolint:errcheck // rows.Close() errors on read-only queries are non-actionable
 
-	var ids []string
+	var keys []ProjectAgentKey
 	for rows.Next() {
-		var id string
-		if err := rows.Scan(&id); err != nil {
-			return nil, fmt.Errorf("scanning project ID: %w", err)
+		var k ProjectAgentKey
+		if err := rows.Scan(&k.ProjectID, &k.AgentType); err != nil {
+			return nil, fmt.Errorf("scanning project key: %w", err)
 		}
-		ids = append(ids, id)
+		keys = append(keys, k)
 	}
-	return ids, rows.Err()
+	return keys, rows.Err()
 }
 
-// GetProject returns a project by project ID, or nil if not found.
-func (l *Store) GetProject(projectID string) (*ProjectRow, error) {
+// GetProject returns a project by its compound key, or nil if not found.
+func (l *Store) GetProject(projectID, agentType string) (*ProjectRow, error) {
 	if l == nil {
 		return nil, nil
 	}
 
 	l.mu.RLock()
 	row := l.db.QueryRow(
-		`SELECT `+projectColumns+` FROM projects WHERE project_id = ?`, projectID,
+		`SELECT `+projectColumns+` FROM projects WHERE project_id = ? AND agent_type = ?`,
+		projectID, agentType,
 	)
 	l.mu.RUnlock()
 
@@ -477,31 +498,36 @@ func (l *Store) GetProject(projectID string) (*ProjectRow, error) {
 		return nil, nil
 	}
 	if err != nil {
-		return nil, fmt.Errorf("getting project %q: %w", projectID, err)
+		return nil, fmt.Errorf("getting project %q/%s: %w", projectID, agentType, err)
 	}
 	return p, nil
 }
 
-// GetProjectByPath returns a project by its host path, or nil if not found.
-func (l *Store) GetProjectByPath(hostPath string) (*ProjectRow, error) {
+// GetProjectsByPath returns all projects at a host path (one per agent type).
+func (l *Store) GetProjectsByPath(hostPath string) ([]*ProjectRow, error) {
 	if l == nil {
 		return nil, nil
 	}
 
 	l.mu.RLock()
-	row := l.db.QueryRow(
-		`SELECT `+projectColumns+` FROM projects WHERE host_path = ?`, hostPath,
+	rows, err := l.db.Query(
+		`SELECT `+projectColumns+` FROM projects WHERE host_path = ? ORDER BY agent_type ASC`, hostPath,
 	)
 	l.mu.RUnlock()
-
-	p, err := scanProjectRow(row)
-	if err == sql.ErrNoRows {
-		return nil, nil
-	}
 	if err != nil {
-		return nil, fmt.Errorf("getting project by path %q: %w", hostPath, err)
+		return nil, fmt.Errorf("getting projects by path %q: %w", hostPath, err)
 	}
-	return p, nil
+	defer rows.Close() //nolint:errcheck
+
+	var result []*ProjectRow
+	for rows.Next() {
+		p, scanErr := scanProjectRow(rows)
+		if scanErr != nil {
+			return nil, fmt.Errorf("scanning project row: %w", scanErr)
+		}
+		result = append(result, p)
+	}
+	return result, rows.Err()
 }
 
 // GetProjectByContainerName returns a project by its Docker container name, or nil if not found.
@@ -527,8 +553,8 @@ func (l *Store) GetProjectByContainerName(containerName string) (*ProjectRow, er
 	return p, nil
 }
 
-// ListAllProjects returns all projects indexed by project ID.
-func (l *Store) ListAllProjects() (map[string]*ProjectRow, error) {
+// ListAllProjects returns all projects as a flat slice ordered by insertion time.
+func (l *Store) ListAllProjects() ([]*ProjectRow, error) {
 	if l == nil {
 		return nil, nil
 	}
@@ -541,13 +567,13 @@ func (l *Store) ListAllProjects() (map[string]*ProjectRow, error) {
 	}
 	defer rows.Close() //nolint:errcheck // rows.Close() errors on read-only queries are non-actionable
 
-	result := make(map[string]*ProjectRow)
+	var result []*ProjectRow
 	for rows.Next() {
 		p, scanErr := scanProjectRow(rows)
 		if scanErr != nil {
 			return nil, fmt.Errorf("scanning project row: %w", scanErr)
 		}
-		result[p.ProjectID] = p
+		result = append(result, p)
 	}
 	return result, rows.Err()
 }
@@ -571,7 +597,7 @@ func scanProjectRow(s scanner) (*ProjectRow, error) {
 		&p.ProjectID, &p.Name, &p.HostPath, &addedAtStr, &p.Image,
 		&envVars, &mounts, &origMounts,
 		&skipPerms, &p.NetworkMode, &p.AllowedDomains, &p.CostBudget,
-		&p.EnabledAccessItems,
+		&p.EnabledAccessItems, &p.AgentType,
 		&p.ContainerID, &p.ContainerName,
 	)
 	if err != nil {
@@ -595,14 +621,14 @@ func scanProjectRow(s scanner) (*ProjectRow, error) {
 	return &p, nil
 }
 
-// HasProject reports whether a project with the given project ID exists.
-func (l *Store) HasProject(projectID string) (bool, error) {
+// HasProject reports whether a project with the given compound key exists.
+func (l *Store) HasProject(projectID, agentType string) (bool, error) {
 	if l == nil {
 		return false, nil
 	}
 
 	l.mu.RLock()
-	row := l.db.QueryRow("SELECT 1 FROM projects WHERE project_id = ?", projectID)
+	row := l.db.QueryRow("SELECT 1 FROM projects WHERE project_id = ? AND agent_type = ?", projectID, agentType)
 	l.mu.RUnlock()
 
 	var exists int
@@ -611,14 +637,14 @@ func (l *Store) HasProject(projectID string) (bool, error) {
 		return false, nil
 	}
 	if err != nil {
-		return false, fmt.Errorf("checking project %q: %w", projectID, err)
+		return false, fmt.Errorf("checking project %q/%s: %w", projectID, agentType, err)
 	}
 	return true, nil
 }
 
 // UpdateProjectContainer updates the container ID and name for a project.
 // Used after container creation, rebuild, or deletion.
-func (l *Store) UpdateProjectContainer(projectID, containerID, containerName string) error {
+func (l *Store) UpdateProjectContainer(projectID, agentType, containerID, containerName string) error {
 	if l == nil {
 		return nil
 	}
@@ -627,11 +653,34 @@ func (l *Store) UpdateProjectContainer(projectID, containerID, containerName str
 	defer l.mu.Unlock()
 
 	_, err := l.db.Exec(
-		"UPDATE projects SET container_id = ?, container_name = ? WHERE project_id = ?",
-		containerID, containerName, projectID,
+		"UPDATE projects SET container_id = ?, container_name = ? WHERE project_id = ? AND agent_type = ?",
+		containerID, containerName, projectID, agentType,
 	)
 	if err != nil {
-		return fmt.Errorf("updating container for project %q: %w", projectID, err)
+		return fmt.Errorf("updating container for project %q/%s: %w", projectID, agentType, err)
+	}
+	return nil
+}
+
+// UpdateProjectSettings updates lightweight project settings that do not
+// require container recreation (name, skip_permissions, cost_budget,
+// container_name). All other fields remain unchanged.
+func (l *Store) UpdateProjectSettings(projectID, agentType, name, containerName string, skipPermissions bool, costBudget float64) error {
+	if l == nil {
+		return nil
+	}
+
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	_, err := l.db.Exec(
+		`UPDATE projects
+		 SET name = ?, container_name = ?, skip_permissions = ?, cost_budget = ?
+		 WHERE project_id = ? AND agent_type = ?`,
+		name, containerName, skipPermissions, costBudget, projectID, agentType,
+	)
+	if err != nil {
+		return fmt.Errorf("updating settings for project %q/%s: %w", projectID, agentType, err)
 	}
 	return nil
 }
@@ -642,7 +691,7 @@ func (l *Store) UpdateProjectContainer(projectID, containerID, containerName str
 // given session ID is monotonically non-decreasing, so upserting is always
 // safe — we simply take the max of old and new values. Project total cost
 // is computed as SUM(cost) across all sessions for a project.
-func (l *Store) UpsertSessionCost(projectID, sessionID string, cost float64, isEstimated bool) error {
+func (l *Store) UpsertSessionCost(projectID, agentType, sessionID string, cost float64, isEstimated bool) error {
 	if l == nil || sessionID == "" {
 		return nil
 	}
@@ -655,13 +704,13 @@ func (l *Store) UpsertSessionCost(projectID, sessionID string, cost float64, isE
 	// when a session was first seen, giving each session a time span for
 	// range-filtered cost queries (created_at..updated_at).
 	_, err := l.db.Exec(
-		`INSERT INTO session_costs (project_id, session_id, cost, is_estimated, updated_at, created_at)
-		 VALUES (?, ?, ?, ?, ?, ?)
-		 ON CONFLICT(project_id, session_id) DO UPDATE SET
+		`INSERT INTO session_costs (project_id, agent_type, session_id, cost, is_estimated, updated_at, created_at)
+		 VALUES (?, ?, ?, ?, ?, ?, ?)
+		 ON CONFLICT(project_id, agent_type, session_id) DO UPDATE SET
 		   cost = MAX(cost, excluded.cost),
 		   is_estimated = excluded.is_estimated,
 		   updated_at = excluded.updated_at`,
-		projectID, sessionID, cost, isEstimated, now, now,
+		projectID, agentType, sessionID, cost, isEstimated, now, now,
 	)
 	if err != nil {
 		return fmt.Errorf("upserting session cost: %w", err)
@@ -675,8 +724,8 @@ type ProjectCostRow struct {
 	IsEstimated bool
 }
 
-// GetProjectTotalCost returns the cumulative cost for a single project.
-func (l *Store) GetProjectTotalCost(projectID string) (ProjectCostRow, error) {
+// GetProjectTotalCost returns the cumulative cost for a single project+agent pair.
+func (l *Store) GetProjectTotalCost(projectID, agentType string) (ProjectCostRow, error) {
 	if l == nil {
 		return ProjectCostRow{}, nil
 	}
@@ -686,8 +735,8 @@ func (l *Store) GetProjectTotalCost(projectID string) (ProjectCostRow, error) {
 
 	var row ProjectCostRow
 	err := l.db.QueryRow(
-		"SELECT COALESCE(SUM(cost), 0), COALESCE(MAX(is_estimated), 0) FROM session_costs WHERE project_id = ?",
-		projectID,
+		"SELECT COALESCE(SUM(cost), 0), COALESCE(MAX(is_estimated), 0) FROM session_costs WHERE project_id = ? AND agent_type = ?",
+		projectID, agentType,
 	).Scan(&row.TotalCost, &row.IsEstimated)
 	if err != nil {
 		return ProjectCostRow{}, fmt.Errorf("querying project cost: %w", err)
@@ -695,9 +744,9 @@ func (l *Store) GetProjectTotalCost(projectID string) (ProjectCostRow, error) {
 	return row, nil
 }
 
-// GetAllProjectTotalCosts returns cumulative costs for all projects by
-// summing across all sessions.
-func (l *Store) GetAllProjectTotalCosts() (map[string]ProjectCostRow, error) {
+// GetAllProjectTotalCosts returns cumulative costs for all project+agent pairs
+// by summing across all sessions.
+func (l *Store) GetAllProjectTotalCosts() (map[ProjectAgentKey]ProjectCostRow, error) {
 	if l == nil {
 		return nil, nil
 	}
@@ -705,9 +754,9 @@ func (l *Store) GetAllProjectTotalCosts() (map[string]ProjectCostRow, error) {
 	l.mu.RLock()
 	defer l.mu.RUnlock()
 
-	costs := make(map[string]ProjectCostRow)
+	costs := make(map[ProjectAgentKey]ProjectCostRow)
 
-	rows, err := l.db.Query("SELECT project_id, SUM(cost), MAX(is_estimated) FROM session_costs GROUP BY project_id")
+	rows, err := l.db.Query("SELECT project_id, agent_type, SUM(cost), MAX(is_estimated) FROM session_costs GROUP BY project_id, agent_type")
 	if err != nil {
 		return nil, fmt.Errorf("querying session costs: %w", err)
 	}
@@ -715,11 +764,11 @@ func (l *Store) GetAllProjectTotalCosts() (map[string]ProjectCostRow, error) {
 
 	for rows.Next() {
 		var row ProjectCostRow
-		var id string
-		if err := rows.Scan(&id, &row.TotalCost, &row.IsEstimated); err != nil {
+		var key ProjectAgentKey
+		if err := rows.Scan(&key.ProjectID, &key.AgentType, &row.TotalCost, &row.IsEstimated); err != nil {
 			return nil, fmt.Errorf("scanning session cost row: %w", err)
 		}
-		costs[id] = row
+		costs[key] = row
 	}
 	return costs, rows.Err()
 }
@@ -759,8 +808,8 @@ func (l *Store) GetCostInTimeRange(projectID string, since, until time.Time) (Pr
 	return row, nil
 }
 
-// DeleteProjectCosts removes all cost entries for a project.
-func (l *Store) DeleteProjectCosts(projectID string) error {
+// DeleteProjectCosts removes all cost entries for a project+agent pair.
+func (l *Store) DeleteProjectCosts(projectID, agentType string) error {
 	if l == nil {
 		return nil
 	}
@@ -768,7 +817,7 @@ func (l *Store) DeleteProjectCosts(projectID string) error {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
-	if _, err := l.db.Exec("DELETE FROM session_costs WHERE project_id = ?", projectID); err != nil {
+	if _, err := l.db.Exec("DELETE FROM session_costs WHERE project_id = ? AND agent_type = ?", projectID, agentType); err != nil {
 		return fmt.Errorf("deleting session costs: %w", err)
 	}
 	return nil
@@ -991,13 +1040,14 @@ func scanEntries(rows *sql.Rows) ([]Entry, error) {
 			level         string
 			event         string
 			projectID     string
+			agentType     string
 			containerName string
 			worktree      string
 			msg           string
 			dataStr       sql.NullString
 			attrsStr      sql.NullString
 		)
-		if err := rows.Scan(&tsStr, &source, &level, &event, &projectID, &containerName, &worktree, &msg, &dataStr, &attrsStr); err != nil {
+		if err := rows.Scan(&tsStr, &source, &level, &event, &projectID, &agentType, &containerName, &worktree, &msg, &dataStr, &attrsStr); err != nil {
 			return nil, fmt.Errorf("scanning audit log row: %w", err)
 		}
 
@@ -1012,6 +1062,7 @@ func scanEntries(rows *sql.Rows) ([]Entry, error) {
 			Level:         Level(level),
 			Event:         event,
 			ProjectID:     projectID,
+			AgentType:     agentType,
 			ContainerName: containerName,
 			Worktree:      worktree,
 			Message:       msg,

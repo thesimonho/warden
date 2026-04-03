@@ -6,36 +6,57 @@ The `container/` directory defines the container image used by project container
 
 ```
 container/
-├── Dockerfile                          # Multi-stage build: builder compiles abduco, runtime has no build deps
+├── Dockerfile                          # Multi-stage build: builder compiles abduco, runtime uses layered installs
 ├── scripts/
-│   ├── install-tools.sh                # Shared install logic (abduco, gosu, Claude Code, dev user, managed hooks, network isolation tools)
-│   ├── entrypoint.sh                   # Root-phase entrypoint: UID remapping, iptables, exec gosu to drop privileges
-│   ├── user-entrypoint.sh              # User-phase entrypoint (PID 1 as dev): env forwarding, git config, heartbeat, stay alive
-│   └── ...                             # See scripts.md for all scripts
+│   ├── install-tools.sh                # Wrapper for devcontainer feature (calls sub-scripts in order)
+│   ├── install-system-deps.sh          # System packages, GitHub CLI, Node.js, abduco/gosu (devcontainer)
+│   ├── install-user.sh                 # warden user, workspace dirs, .profile env forwarding
+│   ├── install-claude.sh               # Claude Code CLI + managed-settings.json hooks
+│   ├── install-codex.sh                # Codex CLI (npm install -g @openai/codex)
+│   ├── install-warden.sh               # Copy scripts to /usr/local/bin/, create /project
+│   ├── shared/                         # Agent-agnostic runtime scripts
+│   ├── claude/                         # Claude-specific event handler
+│   └── codex/                          # Codex-specific event handler (placeholder)
 └── devcontainer-feature/
     ├── devcontainer-feature.json        # Feature metadata (id, version, options)
     ├── install.sh                       # Feature entry point, delegates to install-tools.sh
     └── README.md                        # Feature usage documentation
 ```
 
-## Shared Install Logic
+## Install Pipeline
 
-`scripts/install-tools.sh` is the single source of truth for installing Warden's terminal infrastructure. It is used by both the Dockerfile and the devcontainer feature. The script:
+The install pipeline is split into composable sub-scripts. The Dockerfile calls each as a separate `RUN` instruction for Docker layer caching. The devcontainer feature calls `install-tools.sh` which orchestrates all sub-scripts.
 
-1. Installs runtime system deps (git, curl, jq, procps, iproute2, psmisc, iptables)
-2. Installs gosu if not already present (downloaded as a static binary). When used from the multi-stage Dockerfile, gosu is pre-built in the builder stage and this step is skipped
-3. Compiles abduco from source if not already present. When used from the multi-stage Dockerfile, abduco is pre-built in the builder stage and this step is skipped
-4. Creates `dev` non-root user
-5. Installs Claude Code CLI via official installer
-6. Sets up `/home/dev` and `/home/dev/.claude` directories
-7. Adds env var forwarding to `/home/dev/.bashrc`
-8. Copies terminal scripts to `/usr/local/bin/`
-9. Creates Claude Code managed settings at `/etc/claude-code/managed-settings.json` with hooks for attention tracking and event logging
+### Dockerfile Layer Order
+
+```
+builder stage:  compile abduco + fetch gosu
+runtime stage:
+  Layer 1: install-system-deps.sh  (system packages — rarely changes)
+  Layer 2: install-user.sh         (warden user — rarely changes)
+  Layer 3: install-claude.sh       (Claude CLI — changes on upstream releases)
+  Layer 4: install-codex.sh        (Codex CLI — changes on upstream releases)
+  Layer 5: install-warden.sh       (Warden scripts — changes every release)
+```
+
+Most Warden releases only invalidate Layer 5. CLI updates only invalidate from that CLI's layer onward.
+
+### Sub-Script Responsibilities
+
+- **install-system-deps.sh** — apt packages (git, curl, jq, iptables, etc.), GitHub CLI, Node.js LTS. Compiles abduco and fetches gosu when pre-built binaries aren't available (devcontainer path). Cleans up apt lists.
+- **install-user.sh** — creates `warden` user (prefers UID 1000), sets up `~/.local/bin`, creates workspace and agent config directories (`~/.claude`, `~/.codex`), configures `.profile` env forwarding.
+- **install-claude.sh** — installs Claude Code CLI via official installer, writes managed-settings.json with attention state hooks (Notification, PreToolUse, UserPromptSubmit).
+- **install-codex.sh** — installs Codex CLI via `npm install -g @openai/codex`, creates `~/.codex` config directory.
+- **install-warden.sh** — copies runtime scripts from `shared/`, `claude/`, `codex/` to `/usr/local/bin/`, calls `install-clipboard-shim.sh` to set up the xclip wrapper. Detects directory layout (subdirectories for Dockerfile, flat for devcontainer). Creates `/project` workspace.
 
 All steps are idempotent. Environment variables: `ABDUCO_VERSION` (default: `0.6`), `GOSU_VERSION` (default: `1.17`).
 
 ## Devcontainer Feature
 
-The devcontainer feature (`container/devcontainer-feature/`) packages Warden's terminal infrastructure as an OCI artifact at `ghcr.io/thesimonho/warden/session-tools`. Users who use devcontainers can add this feature to their `.devcontainer/devcontainer.json` to bake Warden infrastructure into their image, then pass the built image to Warden like any custom image.
+The devcontainer feature (`container/devcontainer-feature/`) packages Warden's terminal infrastructure as an OCI artifact at `ghcr.io/thesimonho/warden/session-tools`. Users who use devcontainers can add this feature to their `.devcontainer/devcontainer.json` to bake Warden infrastructure into their image.
 
-At CI publish time (`.github/workflows/devcontainer-feature.yml`), scripts from `container/scripts/` are copied into the feature directory before packaging.
+At CI publish time (`.github/workflows/container.yml`), scripts from `container/scripts/` (including subdirectories) are copied flat alongside `install.sh` before packaging. The `install-warden.sh` script detects the flat layout and adjusts accordingly.
+
+## Both CLIs Bundled
+
+The image includes both Claude Code and Codex CLIs. `WARDEN_AGENT_TYPE` env var (set by the Go engine at container creation) controls which agent launches in `create-terminal.sh`. The JSONL schema is a contract between CLI and parser — both must be present for testing.

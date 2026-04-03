@@ -31,7 +31,8 @@ const REQUIRED_BINARIES = [
   '/usr/local/bin/disconnect-terminal.sh',
   '/usr/local/bin/kill-worktree.sh',
   '/usr/local/bin/entrypoint.sh',
-  '/usr/local/bin/warden-event.sh',
+  '/usr/local/bin/warden-event-claude.sh',
+  '/usr/local/bin/warden-event-codex.sh',
   '/usr/local/bin/warden-heartbeat.sh',
 ]
 

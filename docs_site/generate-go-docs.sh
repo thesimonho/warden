@@ -14,7 +14,10 @@ PACKAGES=(
   "."
   "access"
   "agent"
+  "agent/claudecode"
+  "agent/codex"
   "api"
+  "constants"
   "client"
   "db"
   "engine"
@@ -36,7 +39,9 @@ for pkg in "${PACKAGES[@]}"; do
     pkg_dir="./${pkg}"
   fi
 
-  output_file="${OUTPUT_DIR}/${pkg_name}.md"
+  # Use the last path component for the output filename (e.g. "agent/claudecode" → "claudecode")
+  output_basename="${pkg_name##*/}"
+  output_file="${OUTPUT_DIR}/${output_basename}.md"
 
   echo "Generating docs for ${import_path}..."
 

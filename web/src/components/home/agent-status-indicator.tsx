@@ -1,38 +1,38 @@
-import type { ClaudeStatus, NotificationType } from '@/lib/types'
+import type { AgentStatus, NotificationType } from '@/lib/types'
 import { getAttentionConfig } from '@/lib/notification-config'
 import { cn } from '@/lib/utils'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 
-/** Props for the ClaudeStatusIndicator component. */
-interface ClaudeStatusIndicatorProps {
-  status: ClaudeStatus
+/** Props for the AgentStatusIndicator component. */
+interface AgentStatusIndicatorProps {
+  status: AgentStatus
   /** When true, overrides the display to show an attention alert. */
   needsInput?: boolean
   /** The specific type of attention needed, for context-specific labels. */
   notificationType?: NotificationType
 }
 
-/** Maps Claude status to display properties. */
-const statusConfig: Record<ClaudeStatus, { label: string; dotClass: string }> = {
+/** Maps agent status to display properties. */
+const statusConfig: Record<AgentStatus, { label: string; dotClass: string }> = {
   working: { label: 'Working', dotClass: 'bg-warning animate-pulse' },
   idle: { label: 'Idle', dotClass: 'bg-muted-foreground/40' },
   unknown: { label: 'Status Unknown', dotClass: 'bg-muted-foreground/20' },
 }
 
 /**
- * Displays the Claude Code process status as a labeled dot indicator.
+ * Displays the agent CLI process status as a labeled dot indicator.
  * When needsInput is true, overrides the status display with a
  * context-specific attention alert based on the notification type.
  *
- * @param props.status - The current Claude status for the container.
- * @param props.needsInput - Whether Claude is blocked waiting for user attention.
+ * @param props.status - The current agent status for the container.
+ * @param props.needsInput - Whether the agent is blocked waiting for user attention.
  * @param props.notificationType - The specific kind of attention needed.
  */
-export default function ClaudeStatusIndicator({
+export default function AgentStatusIndicator({
   status,
   needsInput,
   notificationType,
-}: ClaudeStatusIndicatorProps) {
+}: AgentStatusIndicatorProps) {
   const config = needsInput ? getAttentionConfig(notificationType) : statusConfig[status]
 
   return (

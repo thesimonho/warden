@@ -23,6 +23,8 @@ internal/server/ui/*
 
 # Plans
 docs/plans/
+docs/events_claude.md
+docs/events_codex.md
 
 # Environment
 .env
@@ -46,5 +48,4 @@ skills-lock.json
 Thumbs.db
 
 # warden
-.warden-debug*
-.warden-user-hook*
+.warden/

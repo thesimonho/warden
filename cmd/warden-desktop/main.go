@@ -32,19 +32,19 @@ func main() {
 		return
 	}
 
-	app, err := warden.New(warden.Options{})
+	w, err := warden.New(warden.Options{})
 	if err != nil {
 		slog.Error("failed to start warden", "err", err)
 		os.Exit(1)
 	}
-	settings := app.Service.GetSettings()
+	settings := w.Service.GetSettings()
 	slog.Info("container runtime", "runtime", settings.Runtime)
 
-	termProxy := terminal.NewProxy(app.Engine.APIClient())
-	srv := server.New(addr, app.Service, app.Broker, termProxy)
+	termProxy := terminal.NewProxy(w.Engine.APIClient())
+	srv := server.New(addr, w.Service, w.Broker, termProxy)
 
 	run(srv, url, func() {
-		app.Close()
+		w.Close()
 	})
 }
 

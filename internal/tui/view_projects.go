@@ -11,6 +11,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 
+	"github.com/thesimonho/warden/agent"
 	"github.com/thesimonho/warden/engine"
 	"github.com/thesimonho/warden/eventbus"
 	"github.com/thesimonho/warden/internal/tui/components"
@@ -161,6 +162,7 @@ func (v *ProjectsView) handleKey(msg tea.KeyPressMsg) (View, tea.Cmd) {
 				return NavigateMsg{
 					Tab:         TabProjects,
 					ProjectID:   selected.ProjectID,
+					AgentType:   string(selected.AgentType),
 					ProjectName: selected.Name,
 				}
 			}
@@ -171,7 +173,7 @@ func (v *ProjectsView) handleKey(msg tea.KeyPressMsg) (View, tea.Cmd) {
 			break
 		}
 		if selected.HasContainer {
-			formView := NewContainerEditView(v.client, selected.ProjectID)
+			formView := NewContainerEditView(v.client, selected.ProjectID, string(selected.AgentType))
 			return formView, formView.Init()
 		}
 		// No container — open create form pre-filled with project info.
@@ -181,9 +183,9 @@ func (v *ProjectsView) handleKey(msg tea.KeyPressMsg) (View, tea.Cmd) {
 	case key.Matches(msg, v.keys.Toggle):
 		if selected != nil && selected.HasContainer {
 			if selected.State == components.ContainerStateRunning {
-				return v, stopProject(v.client, selected.ProjectID)
+				return v, stopProject(v.client, selected.ProjectID, string(selected.AgentType))
 			}
-			return v, restartProject(v.client, selected.ProjectID)
+			return v, restartProject(v.client, selected.ProjectID, string(selected.AgentType))
 		}
 
 	case key.Matches(msg, v.keys.New):
@@ -192,7 +194,7 @@ func (v *ProjectsView) handleKey(msg tea.KeyPressMsg) (View, tea.Cmd) {
 
 	case key.Matches(msg, v.keys.Remove):
 		if selected != nil {
-			manageView := NewManageProjectView(v.client, selected.ProjectID, selected.Name, selected.HasContainer)
+			manageView := NewManageProjectView(v.client, selected.ProjectID, string(selected.AgentType), selected.Name, selected.HasContainer)
 			return manageView, manageView.Init()
 		}
 
@@ -219,16 +221,17 @@ func (v *ProjectsView) selectedProject() *engine.Project {
 func projectColumns(width int) []table.Column {
 	// Fixed-width columns; Name gets all remaining space.
 	// Each column has 2 chars of cell padding (Padding(0,1) on each side).
-	const statusW, worktreeW, costW, networkW = 10, 10, 8, 12
-	const numCols = 5
+	const agentW, statusW, worktreeW, costW, networkW = 8, 10, 10, 8, 12
+	const numCols = 6
 	const cellPadding = 2 * numCols
-	fixed := statusW + worktreeW + costW + networkW
+	fixed := agentW + statusW + worktreeW + costW + networkW
 	nameW := width - fixed - cellPadding
 	if nameW < 12 {
 		nameW = 12
 	}
 	return []table.Column{
 		{Title: "Name", Width: nameW},
+		{Title: "Agent", Width: agentW},
 		{Title: "Status", Width: statusW},
 		{Title: "Worktrees", Width: worktreeW},
 		{Title: "Cost", Width: costW},
@@ -249,6 +252,7 @@ func projectRows(projects []engine.Project) []table.Row {
 
 		rows[i] = table.Row{
 			p.Name,
+			agent.ShortLabel(p.AgentType),
 			state,
 			worktreeInfo,
 			cost,
@@ -281,16 +285,16 @@ func loadProjects(client Client) tea.Cmd {
 	}
 }
 
-func stopProject(client Client, id string) tea.Cmd {
+func stopProject(client Client, id, agentType string) tea.Cmd {
 	return func() tea.Msg {
-		_, err := client.StopProject(context.Background(), id)
+		_, err := client.StopProject(context.Background(), id, agentType)
 		return OperationResultMsg{Operation: "stop", Err: err}
 	}
 }
 
-func restartProject(client Client, id string) tea.Cmd {
+func restartProject(client Client, id, agentType string) tea.Cmd {
 	return func() tea.Msg {
-		_, err := client.RestartProject(context.Background(), id)
+		_, err := client.RestartProject(context.Background(), id, agentType)
 		return OperationResultMsg{Operation: "restart", Err: err}
 	}
 }

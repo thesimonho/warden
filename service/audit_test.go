@@ -15,7 +15,7 @@ func newTestService(t *testing.T) (*Service, *db.Store) {
 		t.Fatalf("db.New() error: %v", err)
 	}
 	t.Cleanup(func() { store.Close() }) //nolint:errcheck
-	return New(nil, store, nil, nil), store
+	return New(ServiceDeps{DB: store}), store
 }
 
 func writeTestEvents(t *testing.T, store *db.Store) {
@@ -28,7 +28,6 @@ func writeTestEvents(t *testing.T, store *db.Store) {
 		{Source: db.SourceAgent, Level: db.LevelInfo, Event: "permission_request", ProjectID: "proj1", Worktree: "main", Message: "Write"},
 		{Source: db.SourceAgent, Level: db.LevelInfo, Event: "user_prompt", ProjectID: "proj1", Worktree: "main", Message: "fix the bug"},
 		{Source: db.SourceAgent, Level: db.LevelInfo, Event: "tool_use", ProjectID: "proj1", Worktree: "feat-1", Message: "Read"},
-		{Source: db.SourceAgent, Level: db.LevelInfo, Event: "stop", ProjectID: "proj1", Worktree: "main"},
 		{Source: db.SourceAgent, Level: db.LevelInfo, Event: "session_end", ProjectID: "proj1", Worktree: "main"},
 		{Source: db.SourceAgent, Level: db.LevelWarn, Event: "stop_failure", ProjectID: "proj1", Worktree: "main", Message: "rate_limit"},
 		{Source: db.SourceAgent, Level: db.LevelInfo, Event: "subagent_start", ProjectID: "proj1", Worktree: "main", Message: "Explore"},
@@ -58,9 +57,9 @@ func TestGetAuditLog_AllEvents(t *testing.T) {
 		t.Fatalf("GetAuditLog() error: %v", err)
 	}
 
-	// No category filter = all 19 events returned.
-	if len(entries) != 19 {
-		t.Errorf("expected 19 entries, got %d", len(entries))
+	// No category filter = all 18 events returned.
+	if len(entries) != 18 {
+		t.Errorf("expected 18 entries, got %d", len(entries))
 	}
 }
 
@@ -204,8 +203,8 @@ func TestGetAuditSummary_TimeFilteredCost(t *testing.T) {
 	svc, store := newTestService(t)
 	writeTestEvents(t, store)
 
-	_ = store.UpsertSessionCost("proj1", "s1", 1.50, false)
-	_ = store.UpsertSessionCost("proj1", "s2", 3.00, false)
+	_ = store.UpsertSessionCost("proj1", "claude-code", "s1", 1.50, false)
+	_ = store.UpsertSessionCost("proj1", "claude-code", "s2", 3.00, false)
 
 	t.Run("range encompassing now includes all costs", func(t *testing.T) {
 		summary, err := svc.GetAuditSummary(context.Background(), api.AuditFilters{
@@ -241,8 +240,8 @@ func TestGetAuditSummary_DeletedProjectCost(t *testing.T) {
 	// Simulate cost data from a project that was later deleted.
 	// The session_costs rows are preserved (audit logging on), but the
 	// project no longer exists in ListProjects.
-	_ = store.UpsertSessionCost("deleted-proj", "s1", 2.50, false)
-	_ = store.UpsertSessionCost("deleted-proj", "s2", 1.00, false)
+	_ = store.UpsertSessionCost("deleted-proj", "claude-code", "s1", 2.50, false)
+	_ = store.UpsertSessionCost("deleted-proj", "claude-code", "s2", 1.00, false)
 
 	// Without time filter — this was the buggy path.
 	summary, err := svc.GetAuditSummary(context.Background(), api.AuditFilters{})
@@ -296,7 +295,7 @@ func TestWriteAuditCSV(t *testing.T) {
 
 func TestGetAuditLog_NilDB(t *testing.T) {
 	t.Parallel()
-	svc := New(nil, nil, nil, nil)
+	svc := New(ServiceDeps{})
 
 	entries, err := svc.GetAuditLog(api.AuditFilters{})
 	if err != nil {
@@ -313,7 +312,7 @@ func TestStandardAuditEvents(t *testing.T) {
 
 	// Must contain all session events.
 	sessionEvents := []string{
-		"session_start", "session_end", "stop", "session_exit",
+		"session_start", "session_end", "session_exit",
 		"terminal_connected", "terminal_disconnected",
 		"stop_failure", "worktree_created", "worktree_removed",
 	}

@@ -5,8 +5,9 @@ description: Get up and running with Warden in under a minute.
 
 ## Prerequisites
 
+- [Git](https://git-scm.com/downloads) — required for worktree support
 - [Docker](https://docs.docker.com/get-docker/) or [Podman](https://podman.io/docs/installation)
-- [Claude Code](https://docs.anthropic.com/en/docs/agents-and-tools/claude-code/overview) — currently the only supported agent (more coming soon)
+- An agent CLI account — [Claude Code](https://docs.anthropic.com/en/docs/agents-and-tools/claude-code/overview) (Anthropic) or [Codex](https://github.com/openai/codex) (OpenAI)
 
 ## Choose your binary
 
@@ -33,15 +34,34 @@ Download the binary for your platform from the [releases page](https://github.co
 
 The container image is pulled automatically from `ghcr.io/thesimonho/warden` on first use.
 
+## Create your first project
+
+When creating a project, the first field is the **agent type** — choose between Claude Code and Codex. Each project is locked to one agent at creation time.
+
+Fill in the project name and host path, configure environment variables and other settings, then create. Warden pulls the container image (if needed) and starts the project.
+
 ## Authentication
+
+### Claude Code
 
 **API key:** Pass `ANTHROPIC_API_KEY` as an environment variable when creating the container.
 
 **Subscription login:** Open the terminal and run `claude` — it prompts you to authenticate via browser. Authentication persists across restarts.
 
-## Claude config directory
+### Codex
 
-Share your host's `~/.claude` into containers (skills, MCP plugins, settings) by setting the bind mounts when creating a container. Different projects can use different config directories.
+**API key:** Pass `OPENAI_API_KEY` as an environment variable when creating the container.
+
+**Subscription login:** Authenticate on your host machine first by running `codex login`. Because Warden mounts `~/.codex` into the container, the auth token is shared automatically — no need to authenticate again inside the container.
+
+## Agent config directories
+
+Warden automatically mounts your host's agent config directory into every container. This mount is required and cannot be removed — the agent needs it for authentication, session tracking, and configuration.
+
+- **Claude Code:** `~/.claude` (auth, skills, MCP plugins, settings)
+- **Codex:** `~/.codex` (auth tokens, agent configuration)
+
+The host path is editable if you want to point to a non-standard location.
 
 ## Environment variables
 

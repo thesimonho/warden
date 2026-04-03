@@ -54,8 +54,8 @@ iptables -A OUTPUT -o lo -j ACCEPT
 iptables -A OUTPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
 
 if [ "$MODE" = "none" ]; then
-  # Air-gapped: drop everything else.
-  iptables -A OUTPUT -j DROP
+  # Air-gapped: reject everything else (REJECT gives instant failure vs DROP's 5min timeout).
+  iptables -A OUTPUT -j REJECT --reject-with icmp-port-unreachable
   echo "[warden] network isolation: air-gapped (all outbound blocked)"
   exit 0
 fi
@@ -74,7 +74,7 @@ if [ "$MODE" = "restricted" ]; then
 
   if [ -z "$ALLOWED_DOMAINS" ]; then
     echo "[warden] network isolation: restricted but no domains allowed"
-    iptables -A OUTPUT -j DROP
+    iptables -A OUTPUT -j REJECT --reject-with icmp-port-unreachable
     exit 0
   fi
 
@@ -88,7 +88,7 @@ if [ "$MODE" = "restricted" ]; then
         iptables -A OUTPUT -d "$ip" -j ACCEPT
       done
     done
-    iptables -A OUTPUT -j DROP
+    iptables -A OUTPUT -j REJECT --reject-with icmp-port-unreachable
     echo "[warden] network isolation: restricted/static ($(echo "$ALLOWED_DOMAINS" | tr ',' ' '))"
     exit 0
   fi
@@ -134,8 +134,8 @@ if [ "$MODE" = "restricted" ]; then
   # --- iptables: allow traffic to IPs in the ipset ---
   iptables -A OUTPUT -m set --match-set warden_allowed dst -j ACCEPT
 
-  # Drop everything else.
-  iptables -A OUTPUT -j DROP
+  # Reject everything else (instant failure vs DROP's silent 5min timeout).
+  iptables -A OUTPUT -j REJECT --reject-with icmp-port-unreachable
 
   # --- Start dnsmasq and wait for it to be ready ---
   dnsmasq --conf-dir=/etc/dnsmasq.d --keep-in-foreground &

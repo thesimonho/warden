@@ -10,6 +10,7 @@ import type { TerminalCardHandle } from '@/components/project/terminal-card'
  * on error, and invokes `onRemove` to remove the panel from the view.
  *
  * @param projectId - Container ID.
+ * @param agentType - The CLI agent type for this project.
  * @param worktreeId - Worktree ID.
  * @param panelId - Panel ID to remove.
  * @param terminalRef - Ref to the TerminalCard handle for cleanup.
@@ -17,6 +18,7 @@ import type { TerminalCardHandle } from '@/components/project/terminal-card'
  */
 export function useTerminalDisconnect(
   projectId: string,
+  agentType: string,
   worktreeId: string,
   panelId: string,
   terminalRef: RefObject<TerminalCardHandle | null>,
@@ -26,11 +28,11 @@ export function useTerminalDisconnect(
     terminalRef.current?.detach()
 
     try {
-      await disconnectTerminal(projectId, worktreeId)
+      await disconnectTerminal(projectId, agentType, worktreeId)
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unknown error'
       toast.error('Failed to disconnect', { description: message })
     }
     onRemove(panelId)
-  }, [projectId, worktreeId, panelId, terminalRef, onRemove])
+  }, [projectId, agentType, worktreeId, panelId, terminalRef, onRemove])
 }

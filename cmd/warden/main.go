@@ -32,16 +32,16 @@ func main() {
 		addr = "127.0.0.1:8090"
 	}
 
-	app, err := warden.New(warden.Options{})
+	w, err := warden.New(warden.Options{})
 	if err != nil {
 		slog.Error("failed to start warden", "err", err)
 		os.Exit(1)
 	}
 
-	termProxy := terminal.NewProxy(app.Engine.APIClient())
-	srv := server.New(addr, app.Service, app.Broker, termProxy)
+	termProxy := terminal.NewProxy(w.Engine.APIClient())
+	srv := server.New(addr, w.Service, w.Broker, termProxy)
 
-	settings := app.Service.GetSettings()
+	settings := w.Service.GetSettings()
 	url := formatURL(addr)
 	slog.Info("starting warden server", "url", url, "runtime", settings.Runtime)
 	fmt.Fprintf(os.Stderr, "\n  Warden API → %s\n\n", url)
@@ -66,7 +66,7 @@ func main() {
 	if err := srv.Shutdown(shutdownCtx); err != nil {
 		slog.Error("shutdown error", "err", err)
 	}
-	app.Close()
+	w.Close()
 }
 
 // formatURL builds the HTTP URL from the listen address.

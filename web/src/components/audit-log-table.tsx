@@ -35,6 +35,7 @@ import {
   Copy,
   Loader2,
 } from 'lucide-react'
+import { AgentIcon } from '@/components/ui/agent-icons'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
 import {
@@ -48,7 +49,7 @@ import {
   entryMessage,
 } from '@/lib/audit-log-utils'
 import { readStorage, writeStorage } from '@/lib/storage'
-import type { AuditLogEntry, AuditCategory, AuditLogLevel } from '@/lib/types'
+import type { AgentType, AuditLogEntry, AuditCategory, AuditLogLevel } from '@/lib/types'
 
 // --- Styles ---
 
@@ -100,6 +101,7 @@ const columns: ColumnDef<AuditLogEntry, unknown>[] = [
       [
         row.event,
         row.projectId,
+        row.agentType,
         row.containerName,
         row.worktree,
         row.msg,
@@ -169,13 +171,25 @@ const columns: ColumnDef<AuditLogEntry, unknown>[] = [
   {
     accessorKey: 'ts',
     header: 'Timestamp',
-    size: 160,
+    size: 130,
     minSize: 120,
     sortingFn: 'datetime',
     sortDescFirst: true,
     cell: ({ getValue }) => (
       <span className="text-muted-foreground">{formatTimestamp(getValue<string>())}</span>
     ),
+  },
+  {
+    accessorKey: 'agentType',
+    header: 'Agent',
+    size: 70,
+    minSize: 50,
+    sortUndefined: 'last',
+    cell: ({ getValue }) => {
+      const at = getValue<AgentType | undefined>()
+      if (!at) return null
+      return <AgentIcon type={at} className="h-4 w-4" />
+    },
   },
   {
     accessorKey: 'projectId',
@@ -191,7 +205,7 @@ const columns: ColumnDef<AuditLogEntry, unknown>[] = [
   },
   {
     accessorKey: 'containerName',
-    header: 'Project',
+    header: 'Name',
     size: 160,
     minSize: 100,
     sortUndefined: 'last',
@@ -274,7 +288,7 @@ const columns: ColumnDef<AuditLogEntry, unknown>[] = [
           e.stopPropagation()
           copyEntry(row.original)
         }}
-        title="Copy entry as JSON"
+        title="Copy as JSON"
       >
         <Copy className="h-4 w-4 cursor-pointer" />
       </button>
@@ -366,6 +380,7 @@ export function AuditLogTable({
     [],
   )
 
+  // eslint-disable-next-line react-hooks/incompatible-library -- TanStack Table API is stable; false positive from React Compiler
   const table = useReactTable({
     data: entries,
     columns,
@@ -391,6 +406,18 @@ export function AuditLogTable({
     onFilteredCountChange?.(rows.length)
   }, [rows.length, onFilteredCountChange])
 
+  /** Track mousedown position to distinguish clicks from text-selection drags. */
+  const mouseDownPos = useRef<{ x: number; y: number } | null>(null)
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    mouseDownPos.current = { x: e.clientX, y: e.clientY }
+  }, [])
+  const isDrag = useCallback((e: React.MouseEvent) => {
+    if (!mouseDownPos.current) return false
+    const dx = e.clientX - mouseDownPos.current.x
+    const dy = e.clientY - mouseDownPos.current.y
+    return Math.abs(dx) > 4 || Math.abs(dy) > 4
+  }, [])
+
   const scrollContainerRef = useRef<HTMLDivElement>(null)
   const virtualizer = useVirtualizer({
     count: rows.length,
@@ -402,6 +429,11 @@ export function AuditLogTable({
         ? (element) => element?.getBoundingClientRect().height
         : undefined,
   })
+
+  /** Re-measure all rows when expansion state changes so positions update. */
+  useEffect(() => {
+    virtualizer.measure()
+  }, [expanded, virtualizer])
 
   if (isLoading) {
     return (
@@ -482,7 +514,15 @@ export function AuditLogTable({
                   'group border-border/30 hover:bg-muted/30 absolute flex w-full flex-wrap border-b',
                   row.getCanExpand() && 'cursor-pointer',
                 )}
-                onClick={row.getCanExpand() ? row.getToggleExpandedHandler() : undefined}
+                onMouseDown={handleMouseDown}
+                onClick={
+                  row.getCanExpand()
+                    ? (e) => {
+                        if (isDrag(e)) return
+                        row.toggleExpanded()
+                      }
+                    : undefined
+                }
                 style={{ transform: `translateY(${virtualRow.start}px)` }}
               >
                 {row.getVisibleCells().map((cell) => (

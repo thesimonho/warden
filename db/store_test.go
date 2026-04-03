@@ -616,7 +616,7 @@ func TestInsertAndGetProject(t *testing.T) {
 		t.Fatalf("InsertProject() error: %v", err)
 	}
 
-	got, err := store.GetProject("aabbccddee01")
+	got, err := store.GetProject("aabbccddee01", "claude-code")
 	if err != nil {
 		t.Fatalf("GetProject() error: %v", err)
 	}
@@ -656,6 +656,63 @@ func TestInsertAndGetProject(t *testing.T) {
 	}
 }
 
+func TestUpdateProjectSettings(t *testing.T) {
+	t.Parallel()
+	store, err := New(t.TempDir())
+	if err != nil {
+		t.Fatalf("New() error: %v", err)
+	}
+	defer store.Close() //nolint:errcheck
+
+	// Insert a project first.
+	p := ProjectRow{
+		ProjectID:       "aabbccddee02",
+		Name:            "original-name",
+		HostPath:        "/home/user/code",
+		Image:           "warden:latest",
+		EnvVars:         json.RawMessage(`{"FOO":"bar"}`),
+		SkipPermissions: false,
+		CostBudget:      0,
+		ContainerID:     "abc123",
+		ContainerName:   "original-name",
+	}
+	if err := store.InsertProject(p); err != nil {
+		t.Fatalf("InsertProject() error: %v", err)
+	}
+
+	// Update only lightweight settings.
+	if err := store.UpdateProjectSettings("aabbccddee02", "claude-code", "new-name", "new-name", true, 42.5); err != nil {
+		t.Fatalf("UpdateProjectSettings() error: %v", err)
+	}
+
+	got, err := store.GetProject("aabbccddee02", "claude-code")
+	if err != nil {
+		t.Fatalf("GetProject() error: %v", err)
+	}
+	if got.Name != "new-name" {
+		t.Errorf("Name = %q, want %q", got.Name, "new-name")
+	}
+	if got.ContainerName != "new-name" {
+		t.Errorf("ContainerName = %q, want %q", got.ContainerName, "new-name")
+	}
+	if !got.SkipPermissions {
+		t.Error("SkipPermissions should be true")
+	}
+	if got.CostBudget != 42.5 {
+		t.Errorf("CostBudget = %f, want 42.5", got.CostBudget)
+	}
+	// Verify non-updated fields are preserved.
+	if got.Image != "warden:latest" {
+		t.Errorf("Image = %q, want %q (should be unchanged)", got.Image, "warden:latest")
+	}
+	if string(got.EnvVars) != `{"FOO":"bar"}` {
+		t.Errorf("EnvVars = %s, want %s (should be unchanged)", got.EnvVars, `{"FOO":"bar"}`)
+	}
+	if got.ContainerID != "abc123" {
+		t.Errorf("ContainerID = %q, want %q (should be unchanged)", got.ContainerID, "abc123")
+	}
+}
+
 func TestGetProject_NotFound(t *testing.T) {
 	t.Parallel()
 	store, err := New(t.TempDir())
@@ -664,7 +721,7 @@ func TestGetProject_NotFound(t *testing.T) {
 	}
 	defer store.Close() //nolint:errcheck
 
-	got, err := store.GetProject("nonexistent")
+	got, err := store.GetProject("nonexistent", "claude-code")
 	if err != nil {
 		t.Fatalf("GetProject() error: %v", err)
 	}
@@ -673,7 +730,7 @@ func TestGetProject_NotFound(t *testing.T) {
 	}
 }
 
-func TestGetProjectByPath(t *testing.T) {
+func TestGetProjectsByPath(t *testing.T) {
 	t.Parallel()
 	store, err := New(t.TempDir())
 	if err != nil {
@@ -689,28 +746,27 @@ func TestGetProjectByPath(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	got, err := store.GetProjectByPath("/home/user/code")
+	got, err := store.GetProjectsByPath("/home/user/code")
 	if err != nil {
-		t.Fatalf("GetProjectByPath() error: %v", err)
+		t.Fatalf("GetProjectsByPath() error: %v", err)
 	}
-	if got == nil {
-		t.Fatal("GetProjectByPath() returned nil")
-		return // unreachable but helps staticcheck
+	if len(got) == 0 {
+		t.Fatal("GetProjectsByPath() returned empty slice")
 	}
-	if got.ProjectID != "aabbccddee01" {
-		t.Errorf("ProjectID = %q, want %q", got.ProjectID, "aabbccddee01")
+	if got[0].ProjectID != "aabbccddee01" {
+		t.Errorf("ProjectID = %q, want %q", got[0].ProjectID, "aabbccddee01")
 	}
 
-	got, err = store.GetProjectByPath("/nonexistent")
+	got, err = store.GetProjectsByPath("/nonexistent")
 	if err != nil {
-		t.Fatalf("GetProjectByPath() error: %v", err)
+		t.Fatalf("GetProjectsByPath() error: %v", err)
 	}
-	if got != nil {
-		t.Errorf("expected nil for nonexistent path, got %v", got)
+	if len(got) != 0 {
+		t.Errorf("expected empty slice for nonexistent path, got %v", got)
 	}
 }
 
-func TestListProjectIDs(t *testing.T) {
+func TestListProjectKeys(t *testing.T) {
 	t.Parallel()
 	store, err := New(t.TempDir())
 	if err != nil {
@@ -725,16 +781,16 @@ func TestListProjectIDs(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	ids, err := store.ListProjectIDs()
+	keys, err := store.ListProjectKeys()
 	if err != nil {
-		t.Fatalf("ListProjectIDs() error: %v", err)
+		t.Fatalf("ListProjectKeys() error: %v", err)
 	}
-	if len(ids) != 2 {
-		t.Fatalf("expected 2 IDs, got %d", len(ids))
+	if len(keys) != 2 {
+		t.Fatalf("expected 2 keys, got %d", len(keys))
 	}
 	// Ordered by added_at (insertion order).
-	if ids[0] != "112233445566" || ids[1] != "aabbccddee01" {
-		t.Errorf("expected [112233445566, aabbccddee01], got %v", ids)
+	if keys[0].ProjectID != "112233445566" || keys[1].ProjectID != "aabbccddee01" {
+		t.Errorf("expected [112233445566, aabbccddee01], got %v", keys)
 	}
 }
 
@@ -750,7 +806,7 @@ func TestHasProject(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	has, err := store.HasProject("aabbccddee01")
+	has, err := store.HasProject("aabbccddee01", "claude-code")
 	if err != nil {
 		t.Fatalf("HasProject() error: %v", err)
 	}
@@ -758,7 +814,7 @@ func TestHasProject(t *testing.T) {
 		t.Error("expected HasProject to return true")
 	}
 
-	has, err = store.HasProject("missing")
+	has, err = store.HasProject("missing", "claude-code")
 	if err != nil {
 		t.Fatalf("HasProject() error: %v", err)
 	}
@@ -779,11 +835,11 @@ func TestDeleteProject(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := store.DeleteProject("aabbccddee01"); err != nil {
+	if err := store.DeleteProject("aabbccddee01", "claude-code"); err != nil {
 		t.Fatalf("DeleteProject() error: %v", err)
 	}
 
-	got, _ := store.GetProject("aabbccddee01")
+	got, _ := store.GetProject("aabbccddee01", "claude-code")
 	if got != nil {
 		t.Error("expected project to be deleted")
 	}
@@ -809,14 +865,14 @@ func TestDeleteProject_RetainsAuditEvents(t *testing.T) {
 	}
 
 	// Delete the project.
-	if err := store.DeleteProject("aabbccddee01"); err != nil {
+	if err := store.DeleteProject("aabbccddee01", "claude-code"); err != nil {
 		t.Fatalf("DeleteProject() error: %v", err)
 	}
 
 	// Project row should be gone.
-	ids, _ := store.ListProjectIDs()
-	for _, id := range ids {
-		if id == "aabbccddee01" {
+	keys, _ := store.ListProjectKeys()
+	for _, key := range keys {
+		if key.ProjectID == "aabbccddee01" {
 			t.Error("expected project to be removed from projects table")
 		}
 	}
@@ -843,14 +899,14 @@ func TestInsertProject_Upsert(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	got, _ := store.GetProject("aabbccddee01")
+	got, _ := store.GetProject("aabbccddee01", "claude-code")
 	if got.Image != "new-image" {
 		t.Errorf("Image = %q, want %q after upsert", got.Image, "new-image")
 	}
 
-	ids, _ := store.ListProjectIDs()
-	if len(ids) != 1 {
-		t.Errorf("expected 1 project after upsert, got %d", len(ids))
+	keys, _ := store.ListProjectKeys()
+	if len(keys) != 1 {
+		t.Errorf("expected 1 project after upsert, got %d", len(keys))
 	}
 }
 
@@ -866,11 +922,11 @@ func TestUpdateProjectContainer(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := store.UpdateProjectContainer("aabbccddee01", "docker-id-123", "my-container"); err != nil {
+	if err := store.UpdateProjectContainer("aabbccddee01", "claude-code","docker-id-123", "my-container"); err != nil {
 		t.Fatalf("UpdateProjectContainer() error: %v", err)
 	}
 
-	got, _ := store.GetProject("aabbccddee01")
+	got, _ := store.GetProject("aabbccddee01", "claude-code")
 	if got.ContainerID != "docker-id-123" {
 		t.Errorf("ContainerID = %q, want %q", got.ContainerID, "docker-id-123")
 	}
@@ -879,10 +935,10 @@ func TestUpdateProjectContainer(t *testing.T) {
 	}
 
 	// Clear container.
-	if err := store.UpdateProjectContainer("aabbccddee01", "", ""); err != nil {
+	if err := store.UpdateProjectContainer("aabbccddee01", "claude-code","", ""); err != nil {
 		t.Fatal(err)
 	}
-	got, _ = store.GetProject("aabbccddee01")
+	got, _ = store.GetProject("aabbccddee01", "claude-code")
 	if got.ContainerID != "" {
 		t.Errorf("expected empty ContainerID after clear, got %q", got.ContainerID)
 	}
@@ -898,14 +954,14 @@ func TestUpsertSessionCost(t *testing.T) {
 	}
 	defer store.Close() //nolint:errcheck
 
-	if err := store.UpsertSessionCost("aabbccddee01", "sess1", 1.50, false); err != nil {
+	if err := store.UpsertSessionCost("aabbccddee01", "claude-code","sess1", 1.50, false); err != nil {
 		t.Fatal(err)
 	}
-	if err := store.UpsertSessionCost("aabbccddee01", "sess2", 0.50, false); err != nil {
+	if err := store.UpsertSessionCost("aabbccddee01", "claude-code","sess2", 0.50, false); err != nil {
 		t.Fatal(err)
 	}
 
-	cost, err := store.GetProjectTotalCost("aabbccddee01")
+	cost, err := store.GetProjectTotalCost("aabbccddee01", "claude-code")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -914,10 +970,10 @@ func TestUpsertSessionCost(t *testing.T) {
 	}
 
 	// Upsert with higher cost — should update.
-	if err := store.UpsertSessionCost("aabbccddee01", "sess1", 3.00, false); err != nil {
+	if err := store.UpsertSessionCost("aabbccddee01", "claude-code","sess1", 3.00, false); err != nil {
 		t.Fatal(err)
 	}
-	cost, _ = store.GetProjectTotalCost("aabbccddee01")
+	cost, _ = store.GetProjectTotalCost("aabbccddee01", "claude-code")
 	if cost.TotalCost != 3.5 {
 		t.Errorf("TotalCost = %v, want 3.5 after upsert", cost.TotalCost)
 	}
@@ -931,8 +987,8 @@ func TestGetAllProjectTotalCosts(t *testing.T) {
 	}
 	defer store.Close() //nolint:errcheck
 
-	_ = store.UpsertSessionCost("aabbccddee01", "s1", 1.0, false)
-	_ = store.UpsertSessionCost("112233445566", "s2", 2.0, true)
+	_ = store.UpsertSessionCost("aabbccddee01", "claude-code","s1", 1.0, false)
+	_ = store.UpsertSessionCost("112233445566", "claude-code","s2", 2.0, true)
 
 	costs, err := store.GetAllProjectTotalCosts()
 	if err != nil {
@@ -941,11 +997,13 @@ func TestGetAllProjectTotalCosts(t *testing.T) {
 	if len(costs) != 2 {
 		t.Fatalf("expected 2 projects, got %d", len(costs))
 	}
-	if costs["aabbccddee01"].TotalCost != 1.0 {
-		t.Errorf("proj1 cost = %v, want 1.0", costs["aabbccddee01"].TotalCost)
+	key1 := ProjectAgentKey{ProjectID: "aabbccddee01", AgentType: "claude-code"}
+	key2 := ProjectAgentKey{ProjectID: "112233445566", AgentType: "claude-code"}
+	if costs[key1].TotalCost != 1.0 {
+		t.Errorf("proj1 cost = %v, want 1.0", costs[key1].TotalCost)
 	}
-	if costs["112233445566"].TotalCost != 2.0 {
-		t.Errorf("proj2 cost = %v, want 2.0", costs["112233445566"].TotalCost)
+	if costs[key2].TotalCost != 2.0 {
+		t.Errorf("proj2 cost = %v, want 2.0", costs[key2].TotalCost)
 	}
 }
 
@@ -957,14 +1015,14 @@ func TestDeleteProjectCosts(t *testing.T) {
 	}
 	defer store.Close() //nolint:errcheck
 
-	_ = store.UpsertSessionCost("aabbccddee01", "s1", 5.0, false)
-	_ = store.UpsertSessionCost("aabbccddee01", "s2", 3.0, false)
+	_ = store.UpsertSessionCost("aabbccddee01", "claude-code","s1", 5.0, false)
+	_ = store.UpsertSessionCost("aabbccddee01", "claude-code","s2", 3.0, false)
 
-	if err := store.DeleteProjectCosts("aabbccddee01"); err != nil {
+	if err := store.DeleteProjectCosts("aabbccddee01", "claude-code"); err != nil {
 		t.Fatal(err)
 	}
 
-	cost, _ := store.GetProjectTotalCost("aabbccddee01")
+	cost, _ := store.GetProjectTotalCost("aabbccddee01", "claude-code")
 	if cost.TotalCost != 0 {
 		t.Errorf("expected 0 cost after delete, got %v", cost.TotalCost)
 	}
@@ -1054,21 +1112,21 @@ func TestNilStore_ProjectsAndSettings(t *testing.T) {
 	if err := store.InsertProject(ProjectRow{ProjectID: "aabbccddee01", Name: "test", HostPath: "/a"}); err != nil {
 		t.Errorf("nil InsertProject() should not error, got %v", err)
 	}
-	if err := store.DeleteProject("aabbccddee01"); err != nil {
+	if err := store.DeleteProject("aabbccddee01", "claude-code"); err != nil {
 		t.Errorf("nil DeleteProject() should not error, got %v", err)
 	}
 
-	ids, err := store.ListProjectIDs()
-	if err != nil || ids != nil {
-		t.Errorf("nil ListProjectIDs() = (%v, %v), want (nil, nil)", ids, err)
+	keys, err := store.ListProjectKeys()
+	if err != nil || keys != nil {
+		t.Errorf("nil ListProjectKeys() = (%v, %v), want (nil, nil)", keys, err)
 	}
 
-	got, err := store.GetProject("aabbccddee01")
+	got, err := store.GetProject("aabbccddee01", "claude-code")
 	if err != nil || got != nil {
 		t.Errorf("nil GetProject() = (%v, %v), want (nil, nil)", got, err)
 	}
 
-	has, err := store.HasProject("aabbccddee01")
+	has, err := store.HasProject("aabbccddee01", "claude-code")
 	if err != nil || has {
 		t.Errorf("nil HasProject() = (%v, %v), want (false, nil)", has, err)
 	}
@@ -1080,5 +1138,165 @@ func TestNilStore_ProjectsAndSettings(t *testing.T) {
 
 	if err := store.SetSetting("key", "val"); err != nil {
 		t.Errorf("nil SetSetting() should not error, got %v", err)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// SourceID dedup (INSERT OR IGNORE on compound unique index)
+// ---------------------------------------------------------------------------
+
+func TestWrite_DuplicateSourceID_SameProject_OnlyOneRow(t *testing.T) {
+	t.Parallel()
+	store, err := New(t.TempDir())
+	if err != nil {
+		t.Fatalf("New() error: %v", err)
+	}
+	defer store.Close() //nolint:errcheck
+
+	entry := Entry{
+		Source:    SourceAgent,
+		Level:     LevelInfo,
+		ProjectID: "aabbccddee01",
+		Event:     "tool_use",
+		Message:   "first write",
+		SourceID:  "deadbeef12345678",
+	}
+
+	if err := store.Write(entry); err != nil {
+		t.Fatalf("first Write() error: %v", err)
+	}
+
+	// Second write with the same SourceID and ProjectID should be silently ignored.
+	entry.Message = "second write"
+	if err := store.Write(entry); err != nil {
+		t.Fatalf("second Write() error: %v", err)
+	}
+
+	result, err := store.Query(QueryFilters{ProjectID: "aabbccddee01"})
+	if err != nil {
+		t.Fatalf("Query() error: %v", err)
+	}
+	if len(result) != 1 {
+		t.Fatalf("expected 1 entry (dedup), got %d", len(result))
+	}
+	if result[0].Message != "first write" {
+		t.Errorf("expected first write to win, got %q", result[0].Message)
+	}
+}
+
+func TestWrite_EmptySourceID_BothInserted(t *testing.T) {
+	t.Parallel()
+	store, err := New(t.TempDir())
+	if err != nil {
+		t.Fatalf("New() error: %v", err)
+	}
+	defer store.Close() //nolint:errcheck
+
+	entry := Entry{
+		Source:    SourceAgent,
+		Level:     LevelInfo,
+		ProjectID: "aabbccddee01",
+		Event:     "tool_use",
+		Message:   "no source id",
+		// SourceID is empty — becomes NULL in SQLite.
+	}
+
+	if err := store.Write(entry); err != nil {
+		t.Fatalf("first Write() error: %v", err)
+	}
+	if err := store.Write(entry); err != nil {
+		t.Fatalf("second Write() error: %v", err)
+	}
+
+	result, err := store.Query(QueryFilters{ProjectID: "aabbccddee01"})
+	if err != nil {
+		t.Fatalf("Query() error: %v", err)
+	}
+	if len(result) != 2 {
+		t.Fatalf("expected 2 entries (NULL source_ids don't trigger uniqueness), got %d", len(result))
+	}
+}
+
+func TestWrite_DifferentSourceIDs_BothInserted(t *testing.T) {
+	t.Parallel()
+	store, err := New(t.TempDir())
+	if err != nil {
+		t.Fatalf("New() error: %v", err)
+	}
+	defer store.Close() //nolint:errcheck
+
+	base := Entry{
+		Source:    SourceAgent,
+		Level:     LevelInfo,
+		ProjectID: "aabbccddee01",
+		Event:     "tool_use",
+	}
+
+	first := base
+	first.SourceID = "aaaa000011112222"
+	first.Message = "first"
+
+	second := base
+	second.SourceID = "bbbb333344445555"
+	second.Message = "second"
+
+	if err := store.Write(first); err != nil {
+		t.Fatalf("first Write() error: %v", err)
+	}
+	if err := store.Write(second); err != nil {
+		t.Fatalf("second Write() error: %v", err)
+	}
+
+	result, err := store.Query(QueryFilters{ProjectID: "aabbccddee01"})
+	if err != nil {
+		t.Fatalf("Query() error: %v", err)
+	}
+	if len(result) != 2 {
+		t.Fatalf("expected 2 entries (different SourceIDs), got %d", len(result))
+	}
+}
+
+func TestWrite_SameSourceID_DifferentProjects_BothInserted(t *testing.T) {
+	t.Parallel()
+	store, err := New(t.TempDir())
+	if err != nil {
+		t.Fatalf("New() error: %v", err)
+	}
+	defer store.Close() //nolint:errcheck
+
+	sourceID := "deadbeef12345678"
+
+	first := Entry{
+		Source:    SourceAgent,
+		Level:     LevelInfo,
+		ProjectID: "aabbccddee01",
+		Event:     "tool_use",
+		Message:   "project A",
+		SourceID:  sourceID,
+	}
+
+	second := Entry{
+		Source:    SourceAgent,
+		Level:     LevelInfo,
+		ProjectID: "112233445566",
+		Event:     "tool_use",
+		Message:   "project B",
+		SourceID:  sourceID,
+	}
+
+	if err := store.Write(first); err != nil {
+		t.Fatalf("first Write() error: %v", err)
+	}
+	if err := store.Write(second); err != nil {
+		t.Fatalf("second Write() error: %v", err)
+	}
+
+	// Both should exist because the compound key is (project_id, source_id).
+	all, err := store.Read()
+	if err != nil {
+		t.Fatalf("Read() error: %v", err)
+	}
+	if len(all) != 2 {
+		t.Fatalf("expected 2 entries (same SourceID, different projects), got %d", len(all))
 	}
 }

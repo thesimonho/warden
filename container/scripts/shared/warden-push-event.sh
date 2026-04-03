@@ -16,25 +16,17 @@ set -euo pipefail
 
 EVENT_TYPE="${1:-}"
 WORKTREE_ID="${2:-}"
-DATA="${3:-{}}"
+DEFAULT_DATA='{}'
+DATA="${3:-$DEFAULT_DATA}"
 
 if [ -z "$EVENT_TYPE" ] || [ -z "$WORKTREE_ID" ]; then
   exit 0
 fi
 
-CONTAINER_NAME="${WARDEN_CONTAINER_NAME:-}"
-if [ -z "$CONTAINER_NAME" ]; then
-  exit 0
-fi
-
-PROJECT_ID="${WARDEN_PROJECT_ID:-}"
-
-if [ -z "${WARDEN_EVENT_DIR:-}" ]; then
-  exit 0
-fi
-
 # shellcheck source=warden-write-event.sh
 source /usr/local/bin/warden-write-event.sh
+
+warden_check_event_env || exit 0
 
 warden_write_event "$(warden_build_event_json "$EVENT_TYPE" "$DATA")"
 

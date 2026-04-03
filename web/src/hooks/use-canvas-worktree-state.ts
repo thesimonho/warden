@@ -54,18 +54,19 @@ export function useCanvasWorktreeState(panels: CanvasPanel[]): Map<string, Panel
         return
       }
 
-      // Group panels by project to batch API calls.
-      const projectIds = [...new Set(currentPanels.map((p) => p.projectId))]
+      // Group panels by project+agentType to batch API calls.
+      const projectKeys = [...new Set(currentPanels.map((p) => `${p.projectId}:${p.agentType}`))]
       const nextMap = new Map<string, PanelWorktreeState>()
 
       await Promise.all(
-        projectIds.map(async (projectId) => {
+        projectKeys.map(async (key) => {
+          const [projectId, agentType] = key.split(':')
           try {
-            const worktrees = await fetchWorktrees(projectId)
+            const worktrees = await fetchWorktrees(projectId, agentType)
             const worktreeMap = new Map(worktrees.map((wt) => [wt.id, wt]))
 
             for (const panel of currentPanels) {
-              if (panel.projectId !== projectId) continue
+              if (panel.projectId !== projectId || panel.agentType !== agentType) continue
               const wt = worktreeMap.get(panel.worktreeId)
 
               if (!wt) {
@@ -174,7 +175,10 @@ export function useCanvasWorktreeState(panels: CanvasPanel[]): Map<string, Panel
 
     // Find panels matching this event.
     const matchingPanels = currentPanels.filter(
-      (p) => p.projectId === event.projectId && p.worktreeId === event.worktreeId,
+      (p) =>
+        p.projectId === event.projectId &&
+        p.agentType === event.agentType &&
+        p.worktreeId === event.worktreeId,
     )
     if (matchingPanels.length === 0) return
 

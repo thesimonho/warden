@@ -307,7 +307,7 @@ func TestProxyIgnoresMalformedControlMessages(t *testing.T) {
 }
 
 // TestProxyExecRunsAsContainerUser verifies that the abduco viewer exec runs as
-// the dev user, not root. Without this, Docker exec defaults to root which can't
+// the warden user, not root. Without this, Docker exec defaults to root which can't
 // find abduco sockets owned by dev (they live under the user's home directory).
 func TestProxyExecRunsAsContainerUser(t *testing.T) {
 	hijacked, ptyWriter, _ := hijackedPipe()

@@ -66,7 +66,9 @@ export function useProjects(pollIntervalMs = DEFAULT_POLL_INTERVAL_MS): UseProje
   const handleProjectState = useCallback((event: ProjectStateEvent) => {
     startTransition(() => {
       setProjects((prev) => {
-        const index = prev.findIndex((p) => p.projectId === event.projectId)
+        const index = prev.findIndex(
+          (p) => p.projectId === event.projectId && p.agentType === event.agentType,
+        )
         if (index === -1) return prev
         const project = prev[index]
 

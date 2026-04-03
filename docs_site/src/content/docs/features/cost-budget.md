@@ -3,18 +3,23 @@ title: Cost & Budget
 description: Track per-project spending and enforce cost limits.
 ---
 
-Warden tracks Claude Code spending per project and can enforce budget limits automatically — warning you, stopping worktrees, or shutting down containers when costs exceed thresholds.
+Warden tracks agent spending per project and can enforce budget limits automatically — warning you, stopping worktrees, or shutting down containers when costs exceed thresholds.
 
 ## How Cost Tracking Works
 
-Warden automatically captures Claude Code usage costs per project. Costs are recorded when Claude exits, when a container stops, and periodically during long-running worktrees. Costs survive container restarts and recreation — they're tied to the project, not the container.
+Warden automatically captures agent usage costs per project. Costs are recorded when the agent exits, when a container stops, and periodically during long-running worktrees. Costs survive container restarts and recreation — they're tied to the project, not the container.
 
-### Estimated vs Actual
+### Cost Models
 
-Cost accuracy depends on your Claude Code billing type:
+Cost accuracy depends on the agent type and billing method:
 
-- **API key users** — costs are actual spend
-- **Subscription users** — costs are estimated based on token usage
+| Model | When it applies | Accuracy |
+|-------|----------------|----------|
+| **Actual cost** | Claude Code with API key (`ANTHROPIC_API_KEY`) | Exact — read from Claude's cost data |
+| **Subscription cost** | Claude Code with Pro/Max subscription | Estimated from token usage |
+| **Estimated cost** | Codex (all billing types) | Computed from token counts using pricing tables |
+
+Codex costs are always estimated because the Codex CLI does not report actual spend. Warden computes cost from token usage and model-specific pricing tables. These estimates are directionally accurate but may not match your actual OpenAI bill exactly.
 
 ## Setting Budgets
 
@@ -94,10 +99,10 @@ c.UpdateSettings(ctx, api.UpdateSettingsRequest{
 ### Go Library
 
 ```go
-app, _ := warden.New(warden.Options{})
+w, _ := warden.New(warden.Options{})
 
 // Reset costs
-app.Service.ResetProjectCosts(projectID)
+w.Service.ResetProjectCosts(projectID)
 ```
 
 Budget enforcement happens automatically when Warden captures cost data — no manual triggering needed.

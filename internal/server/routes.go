@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"net/http"
 	"path/filepath"
@@ -14,6 +15,7 @@ import (
 	"time"
 
 	"github.com/thesimonho/warden/api"
+	"github.com/thesimonho/warden/constants"
 	"github.com/thesimonho/warden/db"
 	"github.com/thesimonho/warden/engine"
 	"github.com/thesimonho/warden/eventbus"
@@ -54,24 +56,24 @@ func registerAPIRoutes(mux *http.ServeMux, svc *service.Service, broker *eventbu
 	mux.HandleFunc("GET /api/v1/health", handleHealth)
 	mux.HandleFunc("GET /api/v1/projects", rt.handleListProjects)
 	mux.HandleFunc("POST /api/v1/projects", rt.handleAddProject)
-	mux.HandleFunc("DELETE /api/v1/projects/{projectId}", rt.handleRemoveProject)
-	mux.HandleFunc("POST /api/v1/projects/{projectId}/stop", rt.handleStopProject)
-	mux.HandleFunc("POST /api/v1/projects/{projectId}/restart", rt.handleRestartProject)
-	mux.HandleFunc("GET /api/v1/projects/{projectId}/worktrees", rt.handleListWorktrees)
-	mux.HandleFunc("POST /api/v1/projects/{projectId}/worktrees", rt.handleCreateWorktree)
-	mux.HandleFunc("POST /api/v1/projects/{projectId}/worktrees/{wid}/connect", rt.handleConnectTerminal)
-	mux.HandleFunc("POST /api/v1/projects/{projectId}/worktrees/{wid}/disconnect", rt.handleDisconnectTerminal)
-	mux.HandleFunc("POST /api/v1/projects/{projectId}/worktrees/{wid}/kill", rt.handleKillWorktreeProcess)
-	mux.HandleFunc("DELETE /api/v1/projects/{projectId}/worktrees/{wid}", rt.handleRemoveWorktree)
-	mux.HandleFunc("GET /api/v1/projects/{projectId}/worktrees/{wid}/diff", rt.handleGetWorktreeDiff)
-	mux.HandleFunc("POST /api/v1/projects/{projectId}/worktrees/cleanup", rt.handleCleanupWorktrees)
-	mux.HandleFunc("DELETE /api/v1/projects/{projectId}/costs", rt.handleResetProjectCosts)
-	mux.HandleFunc("DELETE /api/v1/projects/{projectId}/audit", rt.handlePurgeProjectAudit)
-	mux.HandleFunc("POST /api/v1/projects/{projectId}/container", rt.handleCreateContainer)
-	mux.HandleFunc("DELETE /api/v1/projects/{projectId}/container", rt.handleDeleteContainer)
-	mux.HandleFunc("GET /api/v1/projects/{projectId}/container/config", rt.handleInspectContainer)
-	mux.HandleFunc("PUT /api/v1/projects/{projectId}/container", rt.handleUpdateContainer)
-	mux.HandleFunc("GET /api/v1/projects/{projectId}/container/validate", rt.handleValidateContainer)
+	mux.HandleFunc("DELETE /api/v1/projects/{projectId}/{agentType}", rt.handleRemoveProject)
+	mux.HandleFunc("POST /api/v1/projects/{projectId}/{agentType}/stop", rt.handleStopProject)
+	mux.HandleFunc("POST /api/v1/projects/{projectId}/{agentType}/restart", rt.handleRestartProject)
+	mux.HandleFunc("GET /api/v1/projects/{projectId}/{agentType}/worktrees", rt.handleListWorktrees)
+	mux.HandleFunc("POST /api/v1/projects/{projectId}/{agentType}/worktrees", rt.handleCreateWorktree)
+	mux.HandleFunc("POST /api/v1/projects/{projectId}/{agentType}/worktrees/{wid}/connect", rt.handleConnectTerminal)
+	mux.HandleFunc("POST /api/v1/projects/{projectId}/{agentType}/worktrees/{wid}/disconnect", rt.handleDisconnectTerminal)
+	mux.HandleFunc("POST /api/v1/projects/{projectId}/{agentType}/worktrees/{wid}/kill", rt.handleKillWorktreeProcess)
+	mux.HandleFunc("DELETE /api/v1/projects/{projectId}/{agentType}/worktrees/{wid}", rt.handleRemoveWorktree)
+	mux.HandleFunc("GET /api/v1/projects/{projectId}/{agentType}/worktrees/{wid}/diff", rt.handleGetWorktreeDiff)
+	mux.HandleFunc("POST /api/v1/projects/{projectId}/{agentType}/worktrees/cleanup", rt.handleCleanupWorktrees)
+	mux.HandleFunc("DELETE /api/v1/projects/{projectId}/{agentType}/costs", rt.handleResetProjectCosts)
+	mux.HandleFunc("DELETE /api/v1/projects/{projectId}/{agentType}/audit", rt.handlePurgeProjectAudit)
+	mux.HandleFunc("POST /api/v1/projects/{projectId}/{agentType}/container", rt.handleCreateContainer)
+	mux.HandleFunc("DELETE /api/v1/projects/{projectId}/{agentType}/container", rt.handleDeleteContainer)
+	mux.HandleFunc("GET /api/v1/projects/{projectId}/{agentType}/container/config", rt.handleInspectContainer)
+	mux.HandleFunc("PUT /api/v1/projects/{projectId}/{agentType}/container", rt.handleUpdateContainer)
+	mux.HandleFunc("GET /api/v1/projects/{projectId}/{agentType}/container/validate", rt.handleValidateContainer)
 	mux.HandleFunc("GET /api/v1/runtimes", rt.handleListRuntimes)
 	mux.HandleFunc("GET /api/v1/settings", rt.handleGetSettings)
 	mux.HandleFunc("PUT /api/v1/settings", rt.handleUpdateSettings)
@@ -92,30 +94,43 @@ func registerAPIRoutes(mux *http.ServeMux, svc *service.Service, broker *eventbu
 	mux.HandleFunc("POST /api/v1/access/resolve", rt.handleResolveAccessItems)
 	mux.HandleFunc("GET /api/v1/defaults", rt.handleDefaults)
 	mux.HandleFunc("GET /api/v1/events", rt.handleSSE)
-	mux.HandleFunc("GET /api/v1/projects/{projectId}/ws/{wid}", rt.handleTerminalWS)
+	mux.HandleFunc("POST /api/v1/projects/{projectId}/{agentType}/clipboard", rt.handleUploadClipboard)
+	mux.HandleFunc("GET /api/v1/projects/{projectId}/{agentType}/ws/{wid}", rt.handleTerminalWS)
 }
 
 // --- Helpers ---
 
-// resolveProject looks up the project row from a projectId path parameter.
-// Writes a 404 error response and returns nil if the project is not found.
-func (rt *routes) resolveProject(w http.ResponseWriter, r *http.Request) *db.ProjectRow {
-	projectID := r.PathValue("projectId")
-	if !engine.ValidProjectID(projectID) {
-		writeError(w, ErrCodeInvalidBody, "invalid project ID", http.StatusBadRequest)
-		return nil
-	}
-	row, err := rt.svc.GetProject(projectID)
-	if err != nil {
-		writeError(w, ErrCodeInternal, "failed to look up project", http.StatusInternalServerError)
-		slog.Error("resolve project", "projectId", projectID, "err", err)
-		return nil
-	}
-	if row == nil {
+// writeServiceError maps common service-layer errors to HTTP responses.
+// Returns true if it wrote an error response, false if the error was not recognized.
+func writeServiceError(w http.ResponseWriter, err error) bool {
+	if errors.Is(err, service.ErrNotFound) {
 		writeError(w, ErrCodeNotFound, "project not found", http.StatusNotFound)
-		return nil
+		return true
 	}
-	return row
+	if errors.Is(err, service.ErrInvalidInput) {
+		writeError(w, ErrCodeInvalidBody, err.Error(), http.StatusBadRequest)
+		return true
+	}
+	if errors.Is(err, service.ErrBudgetExceeded) {
+		writeError(w, ErrCodeBudgetExceeded, err.Error(), http.StatusForbidden)
+		return true
+	}
+	if engine.IsStaleMountsError(err) {
+		writeError(w, ErrCodeStaleMounts, err.Error(), http.StatusConflict)
+		return true
+	}
+	return false
+}
+
+// extractAgentType reads and validates the "agentType" path parameter.
+// Returns the agent type and true if valid, or empty string and false
+// if the value is not a recognized agent type.
+func extractAgentType(r *http.Request) (string, bool) {
+	at := constants.AgentType(r.PathValue("agentType"))
+	if at.Valid() {
+		return string(at), true
+	}
+	return "", false
 }
 
 // --- Projects ---
@@ -156,6 +171,7 @@ func (rt *routes) handleAddProject(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Name        string `json:"name"`
 		ProjectPath string `json:"projectPath"`
+		AgentType   string `json:"agentType"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeError(w, ErrCodeInvalidBody, "invalid request body", http.StatusBadRequest)
@@ -172,7 +188,11 @@ func (rt *routes) handleAddProject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	result, err := rt.svc.AddProject(req.Name, req.ProjectPath)
+	if req.AgentType == "" {
+		req.AgentType = string(constants.DefaultAgentType)
+	}
+
+	result, err := rt.svc.AddProject(req.Name, req.ProjectPath, req.AgentType)
 	if err != nil {
 		writeError(w, ErrCodeInternal, err.Error(), http.StatusInternalServerError)
 		slog.Error("add project", "name", req.Name, "err", err)
@@ -192,17 +212,22 @@ func (rt *routes) handleAddProject(w http.ResponseWriter, r *http.Request) {
 //	@Failure		400			{object}	apiError
 //	@Failure		404			{object}	apiError
 //	@Failure		500			{object}	apiError
-//	@Router			/api/v1/projects/{projectId} [delete]
+//	@Router			/api/v1/projects/{projectId}/{agentType} [delete]
 func (rt *routes) handleRemoveProject(w http.ResponseWriter, r *http.Request) {
-	row := rt.resolveProject(w, r)
-	if row == nil {
+	projectID := r.PathValue("projectId")
+	agentType, ok := extractAgentType(r)
+	if !ok {
+		writeError(w, ErrCodeInvalidBody, "invalid agent type", http.StatusBadRequest)
 		return
 	}
 
-	result, err := rt.svc.RemoveProject(row.ProjectID)
+	result, err := rt.svc.RemoveProject(projectID, agentType)
 	if err != nil {
+		if writeServiceError(w, err) {
+			return
+		}
 		writeError(w, ErrCodeInternal, err.Error(), http.StatusInternalServerError)
-		slog.Error("remove project", "projectId", row.ProjectID, "err", err)
+		slog.Error("remove project", "projectId", projectID, "err", err)
 		return
 	}
 
@@ -219,16 +244,21 @@ func (rt *routes) handleRemoveProject(w http.ResponseWriter, r *http.Request) {
 //	@Failure		400	{object}	apiError
 //	@Failure		404	{object}	apiError
 //	@Failure		500	{object}	apiError
-//	@Router			/api/v1/projects/{projectId}/costs [delete]
+//	@Router			/api/v1/projects/{projectId}/{agentType}/costs [delete]
 func (rt *routes) handleResetProjectCosts(w http.ResponseWriter, r *http.Request) {
-	row := rt.resolveProject(w, r)
-	if row == nil {
+	projectID := r.PathValue("projectId")
+	agentType, ok := extractAgentType(r)
+	if !ok {
+		writeError(w, ErrCodeInvalidBody, "invalid agent type", http.StatusBadRequest)
 		return
 	}
 
-	if err := rt.svc.ResetProjectCosts(row.ProjectID); err != nil {
+	if err := rt.svc.ResetProjectCosts(projectID, agentType); err != nil {
+		if writeServiceError(w, err) {
+			return
+		}
 		writeError(w, ErrCodeInternal, err.Error(), http.StatusInternalServerError)
-		slog.Error("reset project costs", "projectId", row.ProjectID, "err", err)
+		slog.Error("reset project costs", "projectId", projectID, "err", err)
 		return
 	}
 
@@ -245,17 +275,22 @@ func (rt *routes) handleResetProjectCosts(w http.ResponseWriter, r *http.Request
 //	@Failure		400			{object}	apiError
 //	@Failure		404			{object}	apiError
 //	@Failure		500			{object}	apiError
-//	@Router			/api/v1/projects/{projectId}/audit [delete]
+//	@Router			/api/v1/projects/{projectId}/{agentType}/audit [delete]
 func (rt *routes) handlePurgeProjectAudit(w http.ResponseWriter, r *http.Request) {
-	row := rt.resolveProject(w, r)
-	if row == nil {
+	projectID := r.PathValue("projectId")
+	agentType, ok := extractAgentType(r)
+	if !ok {
+		writeError(w, ErrCodeInvalidBody, "invalid agent type", http.StatusBadRequest)
 		return
 	}
 
-	deleted, err := rt.svc.PurgeProjectAudit(row.ProjectID)
+	deleted, err := rt.svc.PurgeProjectAudit(projectID, agentType)
 	if err != nil {
+		if writeServiceError(w, err) {
+			return
+		}
 		writeError(w, ErrCodeInternal, err.Error(), http.StatusInternalServerError)
-		slog.Error("purge project audit", "projectId", row.ProjectID, "err", err)
+		slog.Error("purge project audit", "projectId", projectID, "err", err)
 		return
 	}
 
@@ -272,17 +307,22 @@ func (rt *routes) handlePurgeProjectAudit(w http.ResponseWriter, r *http.Request
 //	@Failure		400			{object}	apiError
 //	@Failure		404			{object}	apiError
 //	@Failure		500			{object}	apiError
-//	@Router			/api/v1/projects/{projectId}/stop [post]
+//	@Router			/api/v1/projects/{projectId}/{agentType}/stop [post]
 func (rt *routes) handleStopProject(w http.ResponseWriter, r *http.Request) {
-	row := rt.resolveProject(w, r)
-	if row == nil {
+	projectID := r.PathValue("projectId")
+	agentType, ok := extractAgentType(r)
+	if !ok {
+		writeError(w, ErrCodeInvalidBody, "invalid agent type", http.StatusBadRequest)
 		return
 	}
 
-	result, err := rt.svc.StopProject(r.Context(), row)
+	result, err := rt.svc.StopProject(r.Context(), projectID, agentType)
 	if err != nil {
+		if writeServiceError(w, err) {
+			return
+		}
 		writeError(w, ErrCodeInternal, err.Error(), http.StatusInternalServerError)
-		slog.Error("stop project", "projectId", row.ProjectID, "err", err)
+		slog.Error("stop project", "projectId", projectID, "err", err)
 		return
 	}
 
@@ -300,25 +340,22 @@ func (rt *routes) handleStopProject(w http.ResponseWriter, r *http.Request) {
 //	@Failure		404			{object}	apiError
 //	@Failure		409			{object}	apiError	"Stale mounts prevent restart"
 //	@Failure		500			{object}	apiError
-//	@Router			/api/v1/projects/{projectId}/restart [post]
+//	@Router			/api/v1/projects/{projectId}/{agentType}/restart [post]
 func (rt *routes) handleRestartProject(w http.ResponseWriter, r *http.Request) {
-	row := rt.resolveProject(w, r)
-	if row == nil {
+	projectID := r.PathValue("projectId")
+	agentType, ok := extractAgentType(r)
+	if !ok {
+		writeError(w, ErrCodeInvalidBody, "invalid agent type", http.StatusBadRequest)
 		return
 	}
 
-	result, err := rt.svc.RestartProject(r.Context(), row)
+	result, err := rt.svc.RestartProject(r.Context(), projectID, agentType)
 	if err != nil {
-		if errors.Is(err, service.ErrBudgetExceeded) {
-			writeError(w, ErrCodeBudgetExceeded, err.Error(), http.StatusForbidden)
-			return
-		}
-		if engine.IsStaleMountsError(err) {
-			writeError(w, ErrCodeStaleMounts, err.Error(), http.StatusConflict)
+		if writeServiceError(w, err) {
 			return
 		}
 		writeError(w, ErrCodeInternal, err.Error(), http.StatusInternalServerError)
-		slog.Error("restart project", "projectId", row.ProjectID, "err", err)
+		slog.Error("restart project", "projectId", projectID, "err", err)
 		return
 	}
 
@@ -338,17 +375,22 @@ func (rt *routes) handleRestartProject(w http.ResponseWriter, r *http.Request) {
 //	@Failure		400			{object}	apiError
 //	@Failure		404			{object}	apiError
 //	@Failure		500			{object}	apiError
-//	@Router			/api/v1/projects/{projectId}/worktrees [get]
+//	@Router			/api/v1/projects/{projectId}/{agentType}/worktrees [get]
 func (rt *routes) handleListWorktrees(w http.ResponseWriter, r *http.Request) {
-	row := rt.resolveProject(w, r)
-	if row == nil {
+	projectID := r.PathValue("projectId")
+	agentType, ok := extractAgentType(r)
+	if !ok {
+		writeError(w, ErrCodeInvalidBody, "invalid agent type", http.StatusBadRequest)
 		return
 	}
 
-	worktrees, err := rt.svc.ListWorktrees(r.Context(), row)
+	worktrees, err := rt.svc.ListWorktrees(r.Context(), projectID, agentType)
 	if err != nil {
+		if writeServiceError(w, err) {
+			return
+		}
 		writeError(w, ErrCodeInternal, err.Error(), http.StatusInternalServerError)
-		slog.Error("list worktrees", "projectId", row.ProjectID, "err", err)
+		slog.Error("list worktrees", "projectId", projectID, "err", err)
 		return
 	}
 
@@ -367,12 +409,9 @@ func (rt *routes) handleListWorktrees(w http.ResponseWriter, r *http.Request) {
 //	@Failure		400			{object}	apiError
 //	@Failure		404			{object}	apiError
 //	@Failure		500			{object}	apiError
-//	@Router			/api/v1/projects/{projectId}/worktrees [post]
+//	@Router			/api/v1/projects/{projectId}/{agentType}/worktrees [post]
 func (rt *routes) handleCreateWorktree(w http.ResponseWriter, r *http.Request) {
-	row := rt.resolveProject(w, r)
-	if row == nil {
-		return
-	}
+	projectID := r.PathValue("projectId")
 
 	r.Body = http.MaxBytesReader(w, r.Body, 1<<10)
 
@@ -394,10 +433,19 @@ func (rt *routes) handleCreateWorktree(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	resp, err := rt.svc.CreateWorktree(r.Context(), row, req.Name)
+	agentType, ok := extractAgentType(r)
+	if !ok {
+		writeError(w, ErrCodeInvalidBody, "invalid agent type", http.StatusBadRequest)
+		return
+	}
+
+	resp, err := rt.svc.CreateWorktree(r.Context(), projectID, agentType, req.Name)
 	if err != nil {
+		if writeServiceError(w, err) {
+			return
+		}
 		writeError(w, ErrCodeInternal, err.Error(), http.StatusInternalServerError)
-		slog.Error("create worktree", "projectId", row.ProjectID, "name", req.Name, "err", err)
+		slog.Error("create worktree", "projectId", projectID, "name", req.Name, "err", err)
 		return
 	}
 
@@ -416,12 +464,9 @@ func (rt *routes) handleCreateWorktree(w http.ResponseWriter, r *http.Request) {
 //	@Failure		400			{object}	apiError
 //	@Failure		404			{object}	apiError
 //	@Failure		500			{object}	apiError
-//	@Router			/api/v1/projects/{projectId}/worktrees/{wid}/connect [post]
+//	@Router			/api/v1/projects/{projectId}/{agentType}/worktrees/{wid}/connect [post]
 func (rt *routes) handleConnectTerminal(w http.ResponseWriter, r *http.Request) {
-	row := rt.resolveProject(w, r)
-	if row == nil {
-		return
-	}
+	projectID := r.PathValue("projectId")
 
 	wid := r.PathValue("wid")
 	if !isValidWorktreeID(wid) {
@@ -429,10 +474,19 @@ func (rt *routes) handleConnectTerminal(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	resp, err := rt.svc.ConnectTerminal(r.Context(), row, wid)
+	agentType, ok := extractAgentType(r)
+	if !ok {
+		writeError(w, ErrCodeInvalidBody, "invalid agent type", http.StatusBadRequest)
+		return
+	}
+
+	resp, err := rt.svc.ConnectTerminal(r.Context(), projectID, agentType, wid)
 	if err != nil {
+		if writeServiceError(w, err) {
+			return
+		}
 		writeError(w, ErrCodeInternal, err.Error(), http.StatusInternalServerError)
-		slog.Error("connect terminal", "projectId", row.ProjectID, "wid", wid, "err", err)
+		slog.Error("connect terminal", "projectId", projectID, "wid", wid, "err", err)
 		return
 	}
 
@@ -451,12 +505,9 @@ func (rt *routes) handleConnectTerminal(w http.ResponseWriter, r *http.Request) 
 //	@Failure		400			{object}	apiError
 //	@Failure		404			{object}	apiError
 //	@Failure		500			{object}	apiError
-//	@Router			/api/v1/projects/{projectId}/worktrees/{wid}/disconnect [post]
+//	@Router			/api/v1/projects/{projectId}/{agentType}/worktrees/{wid}/disconnect [post]
 func (rt *routes) handleDisconnectTerminal(w http.ResponseWriter, r *http.Request) {
-	row := rt.resolveProject(w, r)
-	if row == nil {
-		return
-	}
+	projectID := r.PathValue("projectId")
 
 	wid := r.PathValue("wid")
 	if !isValidWorktreeID(wid) {
@@ -464,10 +515,19 @@ func (rt *routes) handleDisconnectTerminal(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	result, err := rt.svc.DisconnectTerminal(r.Context(), row, wid)
+	agentType, ok := extractAgentType(r)
+	if !ok {
+		writeError(w, ErrCodeInvalidBody, "invalid agent type", http.StatusBadRequest)
+		return
+	}
+
+	result, err := rt.svc.DisconnectTerminal(r.Context(), projectID, agentType, wid)
 	if err != nil {
+		if writeServiceError(w, err) {
+			return
+		}
 		writeError(w, ErrCodeInternal, err.Error(), http.StatusInternalServerError)
-		slog.Error("disconnect terminal", "projectId", row.ProjectID, "wid", wid, "err", err)
+		slog.Error("disconnect terminal", "projectId", projectID, "wid", wid, "err", err)
 		return
 	}
 
@@ -487,12 +547,9 @@ func (rt *routes) handleDisconnectTerminal(w http.ResponseWriter, r *http.Reques
 //	@Failure		400			{object}	apiError
 //	@Failure		404			{object}	apiError
 //	@Failure		500			{object}	apiError
-//	@Router			/api/v1/projects/{projectId}/worktrees/{wid}/kill [post]
+//	@Router			/api/v1/projects/{projectId}/{agentType}/worktrees/{wid}/kill [post]
 func (rt *routes) handleKillWorktreeProcess(w http.ResponseWriter, r *http.Request) {
-	row := rt.resolveProject(w, r)
-	if row == nil {
-		return
-	}
+	projectID := r.PathValue("projectId")
 
 	wid := r.PathValue("wid")
 	if !isValidWorktreeID(wid) {
@@ -500,10 +557,19 @@ func (rt *routes) handleKillWorktreeProcess(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	result, err := rt.svc.KillWorktreeProcess(r.Context(), row, wid)
+	agentType, ok := extractAgentType(r)
+	if !ok {
+		writeError(w, ErrCodeInvalidBody, "invalid agent type", http.StatusBadRequest)
+		return
+	}
+
+	result, err := rt.svc.KillWorktreeProcess(r.Context(), projectID, agentType, wid)
 	if err != nil {
+		if writeServiceError(w, err) {
+			return
+		}
 		writeError(w, ErrCodeInternal, err.Error(), http.StatusInternalServerError)
-		slog.Error("kill worktree process", "projectId", row.ProjectID, "wid", wid, "err", err)
+		slog.Error("kill worktree process", "projectId", projectID, "wid", wid, "err", err)
 		return
 	}
 
@@ -523,12 +589,9 @@ func (rt *routes) handleKillWorktreeProcess(w http.ResponseWriter, r *http.Reque
 //	@Failure		400			{object}	apiError
 //	@Failure		404			{object}	apiError
 //	@Failure		500			{object}	apiError
-//	@Router			/api/v1/projects/{projectId}/worktrees/{wid} [delete]
+//	@Router			/api/v1/projects/{projectId}/{agentType}/worktrees/{wid} [delete]
 func (rt *routes) handleRemoveWorktree(w http.ResponseWriter, r *http.Request) {
-	row := rt.resolveProject(w, r)
-	if row == nil {
-		return
-	}
+	projectID := r.PathValue("projectId")
 
 	wid := r.PathValue("wid")
 	if !isValidWorktreeID(wid) {
@@ -536,10 +599,19 @@ func (rt *routes) handleRemoveWorktree(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	result, err := rt.svc.RemoveWorktree(r.Context(), row, wid)
+	agentType, ok := extractAgentType(r)
+	if !ok {
+		writeError(w, ErrCodeInvalidBody, "invalid agent type", http.StatusBadRequest)
+		return
+	}
+
+	result, err := rt.svc.RemoveWorktree(r.Context(), projectID, agentType, wid)
 	if err != nil {
+		if writeServiceError(w, err) {
+			return
+		}
 		writeError(w, ErrCodeInternal, err.Error(), http.StatusInternalServerError)
-		slog.Error("remove worktree", "projectId", row.ProjectID, "wid", wid, "err", err)
+		slog.Error("remove worktree", "projectId", projectID, "wid", wid, "err", err)
 		return
 	}
 
@@ -557,17 +629,23 @@ func (rt *routes) handleRemoveWorktree(w http.ResponseWriter, r *http.Request) {
 //	@Failure		400			{object}	apiError
 //	@Failure		404			{object}	apiError
 //	@Failure		500			{object}	apiError
-//	@Router			/api/v1/projects/{projectId}/worktrees/cleanup [post]
+//	@Router			/api/v1/projects/{projectId}/{agentType}/worktrees/cleanup [post]
 func (rt *routes) handleCleanupWorktrees(w http.ResponseWriter, r *http.Request) {
-	row := rt.resolveProject(w, r)
-	if row == nil {
+	projectID := r.PathValue("projectId")
+
+	agentType, ok := extractAgentType(r)
+	if !ok {
+		writeError(w, ErrCodeInvalidBody, "invalid agent type", http.StatusBadRequest)
 		return
 	}
 
-	removed, err := rt.svc.CleanupWorktrees(r.Context(), row)
+	removed, err := rt.svc.CleanupWorktrees(r.Context(), projectID, agentType)
 	if err != nil {
+		if writeServiceError(w, err) {
+			return
+		}
 		writeError(w, ErrCodeInternal, err.Error(), http.StatusInternalServerError)
-		slog.Error("cleanup worktrees", "projectId", row.ProjectID, "err", err)
+		slog.Error("cleanup worktrees", "projectId", projectID, "err", err)
 		return
 	}
 
@@ -586,12 +664,9 @@ func (rt *routes) handleCleanupWorktrees(w http.ResponseWriter, r *http.Request)
 //	@Failure		400			{object}	apiError
 //	@Failure		404			{object}	apiError
 //	@Failure		500			{object}	apiError
-//	@Router			/api/v1/projects/{projectId}/worktrees/{wid}/diff [get]
+//	@Router			/api/v1/projects/{projectId}/{agentType}/worktrees/{wid}/diff [get]
 func (rt *routes) handleGetWorktreeDiff(w http.ResponseWriter, r *http.Request) {
-	row := rt.resolveProject(w, r)
-	if row == nil {
-		return
-	}
+	projectID := r.PathValue("projectId")
 
 	wid := r.PathValue("wid")
 	if !isValidWorktreeID(wid) {
@@ -599,10 +674,19 @@ func (rt *routes) handleGetWorktreeDiff(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	resp, err := rt.svc.GetWorktreeDiff(r.Context(), row, wid)
+	agentType, ok := extractAgentType(r)
+	if !ok {
+		writeError(w, ErrCodeInvalidBody, "invalid agent type", http.StatusBadRequest)
+		return
+	}
+
+	resp, err := rt.svc.GetWorktreeDiff(r.Context(), projectID, agentType, wid)
 	if err != nil {
+		if writeServiceError(w, err) {
+			return
+		}
 		writeError(w, ErrCodeInternal, err.Error(), http.StatusInternalServerError)
-		slog.Error("get worktree diff", "projectId", row.ProjectID, "wid", wid, "err", err)
+		slog.Error("get worktree diff", "projectId", projectID, "wid", wid, "err", err)
 		return
 	}
 
@@ -625,12 +709,9 @@ func (rt *routes) handleGetWorktreeDiff(w http.ResponseWriter, r *http.Request) 
 //	@Failure		404			{object}	apiError
 //	@Failure		409			{object}	apiError	"Container name already in use"
 //	@Failure		500			{object}	apiError
-//	@Router			/api/v1/projects/{projectId}/container [post]
+//	@Router			/api/v1/projects/{projectId}/{agentType}/container [post]
 func (rt *routes) handleCreateContainer(w http.ResponseWriter, r *http.Request) {
-	row := rt.resolveProject(w, r)
-	if row == nil {
-		return
-	}
+	projectID := r.PathValue("projectId")
 
 	r.Body = http.MaxBytesReader(w, r.Body, 1<<16)
 
@@ -657,12 +738,15 @@ func (rt *routes) handleCreateContainer(w http.ResponseWriter, r *http.Request) 
 
 	result, err := rt.svc.CreateContainer(r.Context(), req)
 	if err != nil {
-		slog.Error("create container", "projectId", row.ProjectID, "name", req.Name, "err", err)
+		slog.Error("create container", "projectId", projectID, "name", req.Name, "err", err)
+		if writeServiceError(w, err) {
+			return
+		}
 		if errors.Is(err, engine.ErrNameTaken) {
 			writeError(w, ErrCodeNameTaken, err.Error(), http.StatusConflict)
-		} else {
-			writeError(w, ErrCodeInternal, err.Error(), http.StatusInternalServerError)
+			return
 		}
+		writeError(w, ErrCodeInternal, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
@@ -679,17 +763,22 @@ func (rt *routes) handleCreateContainer(w http.ResponseWriter, r *http.Request) 
 //	@Failure		400			{object}	apiError
 //	@Failure		404			{object}	apiError
 //	@Failure		500			{object}	apiError
-//	@Router			/api/v1/projects/{projectId}/container [delete]
+//	@Router			/api/v1/projects/{projectId}/{agentType}/container [delete]
 func (rt *routes) handleDeleteContainer(w http.ResponseWriter, r *http.Request) {
-	row := rt.resolveProject(w, r)
-	if row == nil {
+	projectID := r.PathValue("projectId")
+	agentType, ok := extractAgentType(r)
+	if !ok {
+		writeError(w, ErrCodeInvalidBody, "invalid agent type", http.StatusBadRequest)
 		return
 	}
 
-	result, err := rt.svc.DeleteContainer(r.Context(), row)
+	result, err := rt.svc.DeleteContainer(r.Context(), projectID, agentType)
 	if err != nil {
+		if writeServiceError(w, err) {
+			return
+		}
 		writeError(w, ErrCodeInternal, err.Error(), http.StatusInternalServerError)
-		slog.Error("delete container", "projectId", row.ProjectID, "err", err)
+		slog.Error("delete container", "projectId", projectID, "err", err)
 		return
 	}
 
@@ -707,17 +796,22 @@ func (rt *routes) handleDeleteContainer(w http.ResponseWriter, r *http.Request) 
 //	@Failure		400			{object}	apiError
 //	@Failure		404			{object}	apiError
 //	@Failure		500			{object}	apiError
-//	@Router			/api/v1/projects/{projectId}/container/config [get]
+//	@Router			/api/v1/projects/{projectId}/{agentType}/container/config [get]
 func (rt *routes) handleInspectContainer(w http.ResponseWriter, r *http.Request) {
-	row := rt.resolveProject(w, r)
-	if row == nil {
+	projectID := r.PathValue("projectId")
+	agentType, ok := extractAgentType(r)
+	if !ok {
+		writeError(w, ErrCodeInvalidBody, "invalid agent type", http.StatusBadRequest)
 		return
 	}
 
-	cfg, err := rt.svc.InspectContainer(r.Context(), row)
+	cfg, err := rt.svc.InspectContainer(r.Context(), projectID, agentType)
 	if err != nil {
+		if writeServiceError(w, err) {
+			return
+		}
 		writeError(w, ErrCodeInternal, err.Error(), http.StatusInternalServerError)
-		slog.Error("inspect container", "projectId", row.ProjectID, "err", err)
+		slog.Error("inspect container", "projectId", projectID, "err", err)
 		return
 	}
 
@@ -735,17 +829,22 @@ func (rt *routes) handleInspectContainer(w http.ResponseWriter, r *http.Request)
 //	@Failure		400			{object}	apiError
 //	@Failure		404			{object}	apiError
 //	@Failure		500			{object}	apiError
-//	@Router			/api/v1/projects/{projectId}/container/validate [get]
+//	@Router			/api/v1/projects/{projectId}/{agentType}/container/validate [get]
 func (rt *routes) handleValidateContainer(w http.ResponseWriter, r *http.Request) {
-	row := rt.resolveProject(w, r)
-	if row == nil {
+	projectID := r.PathValue("projectId")
+	agentType, ok := extractAgentType(r)
+	if !ok {
+		writeError(w, ErrCodeInvalidBody, "invalid agent type", http.StatusBadRequest)
 		return
 	}
 
-	result, err := rt.svc.ValidateContainer(r.Context(), row)
+	result, err := rt.svc.ValidateContainer(r.Context(), projectID, agentType)
 	if err != nil {
+		if writeServiceError(w, err) {
+			return
+		}
 		writeError(w, ErrCodeInternal, err.Error(), http.StatusInternalServerError)
-		slog.Error("validate infrastructure", "projectId", row.ProjectID, "err", err)
+		slog.Error("validate infrastructure", "projectId", projectID, "err", err)
 		return
 	}
 
@@ -765,12 +864,9 @@ func (rt *routes) handleValidateContainer(w http.ResponseWriter, r *http.Request
 //	@Failure		400			{object}	apiError
 //	@Failure		404			{object}	apiError
 //	@Failure		500			{object}	apiError
-//	@Router			/api/v1/projects/{projectId}/container [put]
+//	@Router			/api/v1/projects/{projectId}/{agentType}/container [put]
 func (rt *routes) handleUpdateContainer(w http.ResponseWriter, r *http.Request) {
-	row := rt.resolveProject(w, r)
-	if row == nil {
-		return
-	}
+	projectID := r.PathValue("projectId")
 
 	r.Body = http.MaxBytesReader(w, r.Body, 1<<16)
 
@@ -790,10 +886,19 @@ func (rt *routes) handleUpdateContainer(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	result, err := rt.svc.UpdateContainer(r.Context(), row, req)
+	agentType, ok := extractAgentType(r)
+	if !ok {
+		writeError(w, ErrCodeInvalidBody, "invalid agent type", http.StatusBadRequest)
+		return
+	}
+
+	result, err := rt.svc.UpdateContainer(r.Context(), projectID, agentType, req)
 	if err != nil {
+		if writeServiceError(w, err) {
+			return
+		}
 		writeError(w, ErrCodeInternal, err.Error(), http.StatusInternalServerError)
-		slog.Error("update container", "projectId", row.ProjectID, "err", err)
+		slog.Error("update container", "projectId", projectID, "err", err)
 		return
 	}
 
@@ -1435,6 +1540,75 @@ func (rt *routes) handleSSE(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// clipboardMaxSize is the maximum upload size for clipboard images (10 MB).
+const clipboardMaxSize = 10 << 20
+
+// handleUploadClipboard stages an image in the container's clipboard directory
+// for the xclip shim to serve. The web frontend calls this before sending Ctrl+V
+// to the terminal so the agent's clipboard read picks up the image.
+//
+//	@Summary		Upload clipboard image
+//	@Description	Stages an image file in the container's clipboard directory. The xclip
+//	@Description	shim serves it when the agent reads the clipboard. Used by the web
+//	@Description	frontend for image paste support.
+//	@Tags			clipboard
+//	@Accept			multipart/form-data
+//	@Produce		json
+//	@Param			projectId	path		string							true	"Project ID"
+//	@Param			file		formData	file							true	"Image file"
+//	@Success		200			{object}	api.ClipboardUploadResponse
+//	@Failure		400			{object}	apiError
+//	@Failure		404			{object}	apiError
+//	@Failure		413			{object}	apiError
+//	@Failure		500			{object}	apiError
+//	@Router			/api/v1/projects/{projectId}/{agentType}/clipboard [post]
+func (rt *routes) handleUploadClipboard(w http.ResponseWriter, r *http.Request) {
+	projectID := r.PathValue("projectId")
+
+	r.Body = http.MaxBytesReader(w, r.Body, clipboardMaxSize)
+
+	if err := r.ParseMultipartForm(clipboardMaxSize); err != nil {
+		writeError(w, ErrCodeInvalidBody, "file too large or invalid multipart form", http.StatusBadRequest)
+		return
+	}
+
+	file, header, err := r.FormFile("file")
+	if err != nil {
+		writeError(w, ErrCodeRequiredField, "file field is required", http.StatusBadRequest)
+		return
+	}
+	defer file.Close()
+
+	content, err := io.ReadAll(file)
+	if err != nil {
+		writeError(w, ErrCodeInternal, "failed to read file", http.StatusInternalServerError)
+		return
+	}
+
+	mimeType := header.Header.Get("Content-Type")
+	if mimeType == "" {
+		mimeType = "image/png"
+	}
+
+	agentType, ok := extractAgentType(r)
+	if !ok {
+		writeError(w, ErrCodeInvalidBody, "invalid agent type", http.StatusBadRequest)
+		return
+	}
+
+	resp, err := rt.svc.UploadClipboard(r.Context(), projectID, agentType, content, mimeType)
+	if err != nil {
+		if writeServiceError(w, err) {
+			return
+		}
+		writeError(w, ErrCodeInternal, err.Error(), http.StatusInternalServerError)
+		slog.Error("upload clipboard", "projectId", projectID, "err", err)
+		return
+	}
+
+	writeJSON(w, resp)
+}
+
 // handleTerminalWS upgrades to a WebSocket and bridges it to an abduco session
 // inside the project's container via docker exec.
 //
@@ -1449,10 +1623,25 @@ func (rt *routes) handleSSE(w http.ResponseWriter, r *http.Request) {
 //	@Failure		400			{object}	apiError
 //	@Failure		404			{object}	apiError
 //	@Failure		503			{object}	apiError	"Terminal proxy not configured"
-//	@Router			/api/v1/projects/{projectId}/ws/{wid} [get]
+//	@Router			/api/v1/projects/{projectId}/{agentType}/ws/{wid} [get]
 func (rt *routes) handleTerminalWS(w http.ResponseWriter, r *http.Request) {
-	row := rt.resolveProject(w, r)
+	projectID := r.PathValue("projectId")
+
+	// The WebSocket handler needs the container ID for docker exec and the
+	// full project row for NotifyTerminalDisconnected, so resolve via GetProject.
+	agentType, ok := extractAgentType(r)
+	if !ok {
+		writeError(w, ErrCodeInvalidBody, "invalid agent type", http.StatusBadRequest)
+		return
+	}
+	row, err := rt.svc.GetProject(projectID, agentType)
+	if err != nil {
+		writeError(w, ErrCodeInternal, "failed to look up project", http.StatusInternalServerError)
+		slog.Error("resolve project for terminal WS", "projectId", projectID, "err", err)
+		return
+	}
 	if row == nil {
+		writeError(w, ErrCodeNotFound, "project not found", http.StatusNotFound)
 		return
 	}
 

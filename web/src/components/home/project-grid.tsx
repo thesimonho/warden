@@ -1,4 +1,4 @@
-import type { Project } from '@/lib/types'
+import type { AgentType, Project } from '@/lib/types'
 import ProjectCard from '@/components/home/project-card'
 import { Skeleton } from '@/components/ui/skeleton'
 
@@ -6,16 +6,16 @@ import { Skeleton } from '@/components/ui/skeleton'
 interface ProjectGridProps {
   projects: Project[]
   isLoading: boolean
-  onStop: (id: string) => void
-  onRestart: (id: string) => void
+  onStop: (id: string, agentType: AgentType) => void
+  onRestart: (id: string, agentType: AgentType) => void
   onRemove: (project: Project) => void
   onEdit: (project: Project) => void
   isSelectable?: boolean
   selectedIds?: Set<string>
-  onToggleSelect?: (id: string) => void
-  /** IDs of projects with a stop action currently in flight. */
+  onToggleSelect?: (id: string, agentType: AgentType) => void
+  /** Compound keys (projectId:agentType) of projects with a stop action in flight. */
   pendingStopIds?: Set<string>
-  /** IDs of projects with a restart action currently in flight. */
+  /** Compound keys (projectId:agentType) of projects with a restart action in flight. */
   pendingRestartIds?: Set<string>
   /** Whether the "prevent restart" budget enforcement action is enabled. */
   budgetActionPreventStart?: boolean
@@ -73,22 +73,25 @@ export default function ProjectGrid({
       data-testid="project-grid"
       className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3"
     >
-      {projects.map((project) => (
-        <ProjectCard
-          key={project.projectId || project.name}
-          project={project}
-          onStop={onStop}
-          onRestart={onRestart}
-          onRemove={onRemove}
-          onEdit={onEdit}
-          isSelectable={isSelectable}
-          isSelected={selectedIds.has(project.projectId)}
-          onToggleSelect={onToggleSelect}
-          isStopPending={pendingStopIds.has(project.projectId)}
-          isRestartPending={pendingRestartIds.has(project.projectId)}
-          budgetActionPreventStart={budgetActionPreventStart}
-        />
-      ))}
+      {projects.map((project) => {
+        const key = `${project.projectId}:${project.agentType}`
+        return (
+          <ProjectCard
+            key={key}
+            project={project}
+            onStop={onStop}
+            onRestart={onRestart}
+            onRemove={onRemove}
+            onEdit={onEdit}
+            isSelectable={isSelectable}
+            isSelected={selectedIds.has(key)}
+            onToggleSelect={onToggleSelect}
+            isStopPending={pendingStopIds.has(key)}
+            isRestartPending={pendingRestartIds.has(key)}
+            budgetActionPreventStart={budgetActionPreventStart}
+          />
+        )
+      })}
     </div>
   )
 }

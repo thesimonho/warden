@@ -17,10 +17,13 @@ import (
 var auditEventsByCategory = map[api.AuditCategory][]string{
 	api.AuditCategorySession: {
 		string(eventbus.EventSessionStart), string(eventbus.EventSessionEnd),
-		string(eventbus.EventStop), string(eventbus.EventSessionExit),
+		string(eventbus.EventSessionExit),
+		string(eventbus.EventTurnComplete), string(eventbus.EventTurnDuration),
+		string(eventbus.EventContextCompact),
+		string(eventbus.EventSystemInfo),
 		// Terminal lifecycle.
 		string(eventbus.EventTerminalConnected), string(eventbus.EventTerminalDisconnected),
-		"container_heartbeat_stale",
+		"container_heartbeat_stale", "container_startup_failed",
 		// Worktree lifecycle.
 		"worktree_created", "worktree_removed", "worktree_cleaned_up",
 		"worktree_create_failed", "terminal_connect_failed", "terminal_disconnect_failed",
@@ -33,6 +36,7 @@ var auditEventsByCategory = map[api.AuditCategory][]string{
 		string(eventbus.EventSubagentStart), string(eventbus.EventSubagentStop),
 		string(eventbus.EventTaskCompleted),
 		string(eventbus.EventElicitation), string(eventbus.EventElicitationResult),
+		string(eventbus.EventPermissionGrant),
 	},
 	api.AuditCategoryPrompt: {string(eventbus.EventUserPrompt)},
 	api.AuditCategoryConfig: {
@@ -46,6 +50,7 @@ var auditEventsByCategory = map[api.AuditCategory][]string{
 	api.AuditCategorySystem: {
 		string(eventbus.EventProcessKilled), "restart_blocked_stale_mounts",
 		"project_removed", "container_deleted", "audit_purged",
+		string(eventbus.EventApiMetrics),
 	},
 }
 

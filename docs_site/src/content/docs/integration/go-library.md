@@ -11,57 +11,60 @@ Import Warden as a Go library for single-process deployment. No `warden` binary 
 import "github.com/thesimonho/warden"
 
 func main() {
-    app, err := warden.New(warden.Options{})
+    w, err := warden.New(warden.Options{})
     if err != nil {
         panic(err)
     }
-    defer app.Close()
+    defer w.Close()
 
     ctx := context.Background()
-    result, err := app.CreateProject(ctx, "my-project", "/path/to/repo", nil)
+    result, err := w.Service.CreateContainer(ctx, engine.CreateContainerRequest{
+        ProjectPath: "/path/to/repo",
+        ProjectName: "my-project",
+    })
     if err != nil {
         panic(err)
     }
-    fmt.Printf("Created project: %s (container: %s)\n", result.Name, result.ContainerID)
+    fmt.Printf("Created project: %s (container: %s)\n", result.ProjectName, result.ContainerID)
 }
 ```
 
-## App initialization
+## Warden initialization
 
 ```go
-app, err := warden.New(warden.Options{
+w, err := warden.New(warden.Options{
     DBDir:   "/path/to/db",  // Optional: override default database location
     Runtime: "docker",       // Optional: explicit runtime
 })
 if err != nil {
     return err
 }
-defer app.Close() // Idempotent; shuts down all subsystems
+defer w.Close() // Idempotent; shuts down all subsystems (including session watchers)
 ```
+
+`warden.New()` initializes the engine, database, event bus, agent registry, and starts session watchers for active containers. `w.Close()` tears down all subsystems including any running session watchers.
 
 ## Project management
 
 ### Create a project
 
 ```go
-// Minimal creation
-result, err := app.CreateProject(ctx, "project-name", "/workspace/path", nil)
-
-// With options
-result, err := app.CreateProject(ctx, "project-name", "/workspace/path", &warden.CreateProjectOptions{
-    Image:           "ubuntu:24.04",
-    EnvVars:         map[string]string{"USER": "alice", "DEBUG": "1"},
-    Mounts:          []string{"/data:/data"},
-    SkipPermissions: false,
-    NetworkMode:     engine.NetworkModeFull,
-    AllowedDomains:  []string{"api.example.com"},
+result, err := w.Service.CreateContainer(ctx, engine.CreateContainerRequest{
+    ProjectPath: "/workspace/path",
+    ProjectName: "project-name",
+    AgentType:   "claude-code",  // "claude-code" (default) or "codex"
+    Image:       "ubuntu:24.04",
+    EnvVars:     map[string]string{"USER": "alice", "OPENAI_API_KEY": os.Getenv("OPENAI_API_KEY")},
+    Mounts:      []string{"/data:/data"},
+    NetworkMode: engine.NetworkModeFull,
+    AllowedDomains: []string{"api.example.com"},
 })
 ```
 
 ### List projects
 
 ```go
-projects, err := app.Service.ListProjects(ctx)
+projects, err := w.Service.ListProjects(ctx)
 for _, proj := range projects {
     fmt.Printf("%s: %s\n", proj.Name, proj.State)
 }
@@ -70,35 +73,38 @@ for _, proj := range projects {
 ### Stop/Restart
 
 ```go
-result, err := app.StopProject(ctx, "project-id")
-result, err := app.RestartProject(ctx, "project-id")
-results, err := app.StopAll(ctx)
+err := w.Service.StopProject(ctx, "project-id", "claude-code")
+err := w.Service.RestartProject(ctx, "project-id", "claude-code")
 ```
 
 ### Delete a project
 
 ```go
-result, err := app.DeleteProject(ctx, "project-id")
+err := w.Service.DeleteContainer(ctx, "project-id", "claude-code")
+err := w.Service.RemoveProject("project-id", "claude-code")
 ```
 
 ### Reset project cost history
 
 ```go
-err := app.Service.ResetProjectCosts("project-id")
+err := w.Service.ResetProjectCosts("project-id", "claude-code")
 ```
 
 ### Purge project audit history
 
 ```go
-deleted, err := app.Service.PurgeProjectAudit("project-id")
+deleted, err := w.Service.PurgeProjectAudit("project-id", "claude-code")
 ```
 
-### Get project status
+### Get project and worktree status
 
 ```go
-status, err := app.GetProjectStatus(ctx, "project-name")
-fmt.Printf("Project: %s\n", status.Project.Name)
-for _, wt := range status.Worktrees {
+projects, err := w.Service.ListProjects(ctx)
+projectID := projects[0].ProjectID
+agentType := projects[0].AgentType
+
+worktrees, err := w.Service.ListWorktrees(ctx, projectID, agentType)
+for _, wt := range worktrees {
     fmt.Printf("  - %s (state: %s)\n", wt.ID, wt.State)
 }
 ```
@@ -108,73 +114,47 @@ for _, wt := range status.Worktrees {
 ### Create a worktree
 
 ```go
-// Resolve project row from project ID
-project, err := app.Service.GetProject("project-id")
-if err != nil {
-    return err
-}
-result, err := app.Service.CreateWorktree(ctx, project, "feature-branch")
+result, err := w.Service.CreateWorktree(ctx, "project-id", "claude-code", "feature-branch")
 ```
 
-### Connect terminal (start Claude)
+The `agentType` parameter specifies which agent manages the worktree (`"claude-code"` or `"codex"`). This must match the agent type used when creating the project.
+
+### Connect terminal (start agent)
 
 ```go
-// Resolve project row from project ID
-project, err := app.Service.GetProject("project-id")
-if err != nil {
-    return err
-}
-result, err := app.Service.ConnectTerminal(ctx, project, "worktree-id")
+result, err := w.Service.ConnectTerminal(ctx, "project-id", "claude-code", "worktree-id")
 ```
 
 ### Disconnect terminal
 
 ```go
-// Resolve project row from project ID
-project, err := app.Service.GetProject("project-id")
-if err != nil {
-    return err
-}
-result, err := app.Service.DisconnectTerminal(ctx, project, "worktree-id")
+result, err := w.Service.DisconnectTerminal(ctx, "project-id", "claude-code", "worktree-id")
 ```
 
 ### Kill worktree process
 
 ```go
-// Resolve project row from project ID
-project, err := app.Service.GetProject("project-id")
-if err != nil {
-    return err
-}
-result, err := app.Service.KillWorktreeProcess(ctx, project, "worktree-id")
+result, err := w.Service.KillWorktreeProcess(ctx, "project-id", "claude-code", "worktree-id")
 ```
 
 ### Remove worktree
 
 ```go
-// Resolve project row from project ID
-project, err := app.Service.GetProject("project-id")
-if err != nil {
-    return err
-}
-result, err := app.Service.RemoveWorktree(ctx, project, "worktree-id")
+result, err := w.Service.RemoveWorktree(ctx, "project-id", "claude-code", "worktree-id")
 ```
 
 ### Restart a worktree
 
 ```go
-result, err := app.RestartWorktree(ctx, "project-id", "worktree-id")
+// Kill and reconnect
+err := w.Service.KillWorktreeProcess(ctx, "project-id", "claude-code", "worktree-id")
+result, err := w.Service.ConnectTerminal(ctx, "project-id", "claude-code", "worktree-id")
 ```
 
 ### List worktrees
 
 ```go
-// Resolve project row from project ID
-project, err := app.Service.GetProject("project-id")
-if err != nil {
-    return err
-}
-worktrees, err := app.Service.ListWorktrees(ctx, project)
+worktrees, err := w.Service.ListWorktrees(ctx, "project-id", "claude-code")
 for _, wt := range worktrees {
     fmt.Printf("%s: state=%s, branch=%s\n", wt.ID, wt.State, wt.Branch)
 }
@@ -187,7 +167,7 @@ Enable event logging via settings and query audit events through the service:
 ```go
 // Enable detailed logging (off/standard/detailed)
 mode := api.AuditLogDetailed
-app.Service.UpdateSettings(ctx, api.UpdateSettingsRequest{
+w.Service.UpdateSettings(ctx, api.UpdateSettingsRequest{
     AuditLogMode: &mode,
 })
 ```
@@ -195,13 +175,13 @@ app.Service.UpdateSettings(ctx, api.UpdateSettingsRequest{
 Query audit events:
 
 ```go
-entries, err := app.Service.GetAuditLog(api.AuditFilters{
+entries, err := w.Service.GetAuditLog(api.AuditFilters{
     Category:  api.AuditCategoryAgent,
     Container: "my-project",
     Limit:     100,
 })
 
-summary, err := app.Service.GetAuditSummary(ctx, api.AuditFilters{})
+summary, err := w.Service.GetAuditSummary(ctx, api.AuditFilters{})
 fmt.Printf("Sessions: %d, Tools: %d\n",
     summary.TotalSessions, summary.TotalToolUses)
 ```
@@ -210,7 +190,7 @@ Export as CSV:
 
 ```go
 var buf bytes.Buffer
-err := app.Service.WriteAuditCSV(&buf, api.AuditFilters{
+err := w.Service.WriteAuditCSV(&buf, api.AuditFilters{
     Container: "my-project",
 })
 ```
@@ -218,7 +198,7 @@ err := app.Service.WriteAuditCSV(&buf, api.AuditFilters{
 ## Event subscription (real-time)
 
 ```go
-events, unsubscribe := app.Broker.Subscribe()
+events, unsubscribe := w.Broker.Subscribe()
 defer unsubscribe()
 
 for event := range events {
@@ -238,15 +218,16 @@ for event := range events {
 
 ## Lower-level API access
 
-For operations not exposed via App convenience methods, access the service layer directly:
+For advanced operations, access the service layer or engine directly:
 
 ```go
-svc := app.Service
+// Service methods
+err := w.Service.ValidateContainer(ctx, "container-id")
+containers, err := w.Service.ListContainers(ctx)
+settings := w.Service.GetSettings()
 
-err := svc.ValidateContainer(ctx, "container-id")
-containers, err := svc.ListContainers(ctx)
-config, err := svc.InspectContainer(ctx, "container-id")
-settings := svc.GetSettings()
+// Engine client (advanced use only)
+config, err := w.Engine.InspectContainer(ctx, "container-id")
 ```
 
 ## Error handling
@@ -256,7 +237,7 @@ Service methods return `error`. Check for sentinel errors:
 ```go
 import "github.com/thesimonho/warden/service"
 
-_, err := app.Service.RemoveProject("project-id")
+_, err := w.Service.RemoveProject("project-id")
 if errors.Is(err, service.ErrNotFound) {
     fmt.Println("Project not found")
 }
@@ -282,15 +263,17 @@ import (
 func main() {
     ctx := context.Background()
 
-    // 1. Initialize App
-    app, err := warden.New(warden.Options{})
+    // 1. Initialize Warden
+    w, err := warden.New(warden.Options{})
     if err != nil {
         log.Fatal(err)
     }
-    defer app.Close()
+    defer w.Close()
 
-    // 2. Create project
-    projectResult, err := app.CreateProject(ctx, "my-app", "/home/user/projects/my-app", &warden.CreateProjectOptions{
+    // 2. Create container for a project
+    containerResult, err := w.Service.CreateContainer(ctx, engine.CreateContainerRequest{
+        ProjectPath: "/home/user/projects/my-app",
+        ProjectName: "my-app",
         Image:       "ubuntu:24.04",
         Mounts:      []string{"/data:/data"},
         NetworkMode: engine.NetworkModeFull,
@@ -298,43 +281,39 @@ func main() {
     if err != nil {
         log.Fatal(err)
     }
-    fmt.Printf("Created: %s (ID: %s)\n", projectResult.Name, projectResult.ContainerID)
+    projectID := containerResult.ProjectID
+    fmt.Printf("Created: %s (ID: %s)\n", containerResult.ProjectName, containerResult.ContainerID)
 
-    // 3. Resolve project row for subsequent operations
-    project, err := app.Service.GetProject(projectResult.ProjectID)
+    // 3. Create worktree
+    wtResult, err := w.Service.CreateWorktree(ctx, projectID, "claude-code", "feature-branch")
     if err != nil {
         log.Fatal(err)
     }
 
-    // 4. Create worktree
-    wtResult, err := app.Service.CreateWorktree(ctx, project, "feature-branch")
+    // 4. Connect terminal (start agent)
+    _, err = w.Service.ConnectTerminal(ctx, projectID, "claude-code", wtResult.WorktreeID)
     if err != nil {
         log.Fatal(err)
     }
 
-    // 5. Connect terminal (start Claude)
-    _, err = app.Service.ConnectTerminal(ctx, project, wtResult.WorktreeID)
+    // 5. Get worktree status
+    worktrees, err := w.Service.ListWorktrees(ctx, projectID, "claude-code")
     if err != nil {
         log.Fatal(err)
     }
+    fmt.Printf("Project status: %d worktrees\n", len(worktrees))
 
-    // 6. Get status
-    status, err := app.GetProjectStatus(ctx, projectResult.Name)
-    if err != nil {
-        log.Fatal(err)
-    }
-    fmt.Printf("Project status: %d worktrees\n", len(status.Worktrees))
-
-    // 7. Clean up
-    _, _ = app.Service.DisconnectTerminal(ctx, project, wtResult.WorktreeID)
-    _, _ = app.DeleteProject(ctx, projectResult.ProjectID)
+    // 6. Clean up
+    _, _ = w.Service.DisconnectTerminal(ctx, projectID, "claude-code", wtResult.WorktreeID)
+    _ = w.Service.DeleteContainer(ctx, projectID, "claude-code")
+    _ = w.Service.RemoveProject(projectID, "claude-code")
 }
 ```
 
 ## Reference
 
-- **Entry point**: `warden.New(Options) (*App, error)`
-- **Convenience methods**: `CreateProject`, `DeleteProject`, `StopProject`, `RestartProject`, `StopAll`, `RestartWorktree`, `GetProjectStatus`
-- **Service layer**: `app.Service` — full access to business logic
-- **Event bus**: `app.Broker` — subscribe to real-time events
+- **Entry point**: `warden.New(Options) (*Warden, error)`
+- **Primary interface**: `w.Service` — all operations (containers, worktrees, settings, audit, access items)
+- **Event bus**: `w.Broker` — subscribe to real-time events
+- **Advanced access**: `w.Engine` — container runtime client, `w.DB` — SQLite store, `w.Watcher` — file-based event watcher
 - **Go Packages**: See the [Go Packages reference](../../reference/go/) for API documentation

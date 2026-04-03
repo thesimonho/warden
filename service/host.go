@@ -4,6 +4,7 @@ import (
 	"cmp"
 	"context"
 	"fmt"
+	"log/slog"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -12,12 +13,12 @@ import (
 	"strings"
 
 	"github.com/thesimonho/warden/api"
-	"github.com/thesimonho/warden/engine"
+	"github.com/thesimonho/warden/constants"
 	"github.com/thesimonho/warden/runtime"
 )
 
-// containerHomeDir is a convenience alias for engine.ContainerHomeDir.
-var containerHomeDir = engine.ContainerHomeDir
+// containerHomeDir is the home directory of the non-root user inside containers.
+var containerHomeDir = constants.ContainerHomeDir
 
 // preferredMount defines a well-known host path that is useful inside
 // the container. Each mount is only included if the host path exists.
@@ -25,11 +26,16 @@ type preferredMount struct {
 	hostRelPath   string
 	containerPath string
 	readOnly      bool
+	agentType     string // restricts mount to a specific agent type (empty = all)
+	required      bool   // mandatory for the agent to function (UI prevents removal)
 }
 
 // userMounts are always-present mounts that aren't part of any access item.
+// Each config directory is tagged to its agent type so the form only shows
+// the mount relevant to the selected agent.
 var userMounts = []preferredMount{
-	{hostRelPath: ".claude", containerPath: containerHomeDir + "/.claude", readOnly: false},
+	{hostRelPath: ".claude", containerPath: containerHomeDir + "/.claude", readOnly: false, agentType: "claude-code", required: true},
+	{hostRelPath: ".codex", containerPath: containerHomeDir + "/.codex", readOnly: false, agentType: "codex", required: true},
 }
 
 // GetDefaults returns server-resolved default values for the create
@@ -46,13 +52,20 @@ func (s *Service) GetDefaults() DefaultsResponse {
 	if homeDir != "" {
 		for _, um := range userMounts {
 			hostPath := filepath.Join(homeDir, um.hostRelPath)
-			if _, statErr := os.Stat(hostPath); statErr == nil {
-				mounts = append(mounts, DefaultMount{
-					HostPath:      hostPath,
-					ContainerPath: um.containerPath,
-					ReadOnly:      um.readOnly,
-				})
+			// Create the directory if it doesn't exist — these mounts are
+			// mandatory for JSONL parsing and agent config passthrough.
+			if _, statErr := os.Stat(hostPath); statErr != nil {
+				if mkErr := os.MkdirAll(hostPath, 0o700); mkErr != nil {
+					slog.Warn("failed to create agent config directory", "path", hostPath, "err", mkErr)
+				}
 			}
+			mounts = append(mounts, DefaultMount{
+				HostPath:      hostPath,
+				ContainerPath: um.containerPath,
+				ReadOnly:      um.readOnly,
+				AgentType:     um.agentType,
+				Required:      um.required,
+			})
 		}
 	}
 

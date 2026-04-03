@@ -11,16 +11,14 @@ import (
 
 	"github.com/docker/docker/api/types/container"
 	"github.com/thesimonho/warden/api"
+	"github.com/thesimonho/warden/constants"
 )
 
-// ContainerUser is the non-root user inside project containers. All terminal
-// processes (abduco, claude, bash) run as this user so that PATH includes
-// ~/.local/bin (where Claude Code is installed) and abduco sockets are in
-// a consistent location. Works identically on Docker and Podman.
-const ContainerUser = "dev"
+// ContainerUser is the non-root user inside project containers.
+const ContainerUser = constants.ContainerUser
 
 // ContainerHomeDir is the home directory for [ContainerUser] inside containers.
-const ContainerHomeDir = "/home/" + ContainerUser
+const ContainerHomeDir = constants.ContainerHomeDir
 
 // createTerminalScript is the path to the terminal creator inside the container.
 const createTerminalScript = "/usr/local/bin/create-terminal.sh"
@@ -33,13 +31,13 @@ const disconnectTerminalScript = "/usr/local/bin/disconnect-terminal.sh"
 const killWorktreeScript = "/usr/local/bin/kill-worktree.sh"
 
 // terminalsDirSuffix is appended to the workspace dir for terminal tracking.
-const terminalsDirSuffix = "/.warden-terminals"
-
-// worktreesPrefixSuffix is the legacy worktree path suffix.
-const worktreesPrefixSuffix = "/.worktrees/"
+const terminalsDirSuffix = "/.warden/terminals"
 
 // claudeWorktreesPrefixSuffix is Claude Code's worktree path suffix.
 const claudeWorktreesPrefixSuffix = "/.claude/worktrees/"
+
+// wardenWorktreesPrefixSuffix is Warden's worktree path for non-Claude agents (Codex, future).
+const wardenWorktreesPrefixSuffix = "/.warden/worktrees/"
 
 // IsValidWorktreeID validates worktree IDs (alphanumeric start, then alphanumeric/hyphens/underscores/dots).
 func IsValidWorktreeID(id string) bool {
@@ -64,12 +62,12 @@ func IsValidWorktreeID(id string) bool {
 // Claude Code's --worktree flag handles git worktree creation and isolation,
 // so the worktree won't exist in git yet — we skip the orphan check.
 // When skipPermissions is true, Claude Code runs with --dangerously-skip-permissions.
-func (dc *DockerClient) CreateWorktree(ctx context.Context, containerID, name string, skipPermissions bool) (string, error) {
+func (ec *EngineClient) CreateWorktree(ctx context.Context, containerID, name string, skipPermissions bool) (string, error) {
 	if !IsValidWorktreeID(name) {
 		return "", fmt.Errorf("invalid worktree name: %q", name)
 	}
 
-	return dc.connectTerminal(ctx, containerID, name, skipPermissions, true)
+	return ec.connectTerminal(ctx, containerID, name, skipPermissions, true)
 }
 
 // ConnectTerminal starts a terminal for a worktree inside the container.
@@ -77,27 +75,27 @@ func (dc *DockerClient) CreateWorktree(ctx context.Context, containerID, name st
 // to it instead of creating a fresh session. Otherwise runs create-terminal.sh
 // which allocates a port, starts ttyd + abduco, and launches Claude Code.
 // When skipPermissions is true, Claude Code runs with --dangerously-skip-permissions.
-func (dc *DockerClient) ConnectTerminal(ctx context.Context, containerID, worktreeID string, skipPermissions bool) (string, error) {
+func (ec *EngineClient) ConnectTerminal(ctx context.Context, containerID, worktreeID string, skipPermissions bool) (string, error) {
 	if !IsValidWorktreeID(worktreeID) {
 		return "", fmt.Errorf("invalid worktree ID: %q", worktreeID)
 	}
 
-	return dc.connectTerminal(ctx, containerID, worktreeID, skipPermissions, false)
+	return ec.connectTerminal(ctx, containerID, worktreeID, skipPermissions, false)
 }
 
 // connectTerminal is the shared implementation for CreateWorktree and ConnectTerminal.
 // When skipPermissions is true, Claude Code runs with --dangerously-skip-permissions.
 // When isCreate is true, the git worktree orphan check is skipped because Claude
 // Code's --worktree flag will create the worktree.
-func (dc *DockerClient) connectTerminal(ctx context.Context, containerID, worktreeID string, skipPermissions, isCreate bool) (string, error) {
+func (ec *EngineClient) connectTerminal(ctx context.Context, containerID, worktreeID string, skipPermissions, isCreate bool) (string, error) {
 	// Check if an abduco session is still alive (background state)
-	isBackground := dc.isAbducoSessionAlive(ctx, containerID, worktreeID)
+	isBackground := ec.isAbducoSessionAlive(ctx, containerID, worktreeID)
 
 	// For reconnects (not creates), verify the worktree exists in git.
 	// Prevents launching a broken terminal for orphaned worktree directories
 	// that git no longer tracks.
-	if !isCreate && !isBackground && worktreeID != "main" && dc.checkIsGitRepo(ctx, containerID) {
-		if !dc.isGitWorktreeKnown(ctx, containerID, worktreeID) {
+	if !isCreate && !isBackground && worktreeID != "main" && ec.checkIsGitRepo(ctx, containerID) {
+		if !ec.isGitWorktreeKnown(ctx, containerID, worktreeID) {
 			return "", fmt.Errorf("worktree %q is not tracked by git — it may be an orphaned directory", worktreeID)
 		}
 	}
@@ -115,7 +113,7 @@ func (dc *DockerClient) connectTerminal(ctx context.Context, containerID, worktr
 		cmd = append(cmd, "--skip-permissions")
 	}
 
-	output, err := dc.execAndCaptureStrict(ctx, containerID, container.ExecOptions{
+	output, err := ec.execAndCaptureStrict(ctx, containerID, container.ExecOptions{
 		Cmd:          cmd,
 		User:         ContainerUser,
 		AttachStdout: true,
@@ -142,8 +140,8 @@ func (dc *DockerClient) connectTerminal(ctx context.Context, containerID, worktr
 
 // isGitWorktreeKnown checks whether a worktree ID appears in git's worktree list.
 // Returns false for orphaned directories that exist on disk but aren't tracked by git.
-func (dc *DockerClient) isGitWorktreeKnown(ctx context.Context, containerID, worktreeID string) bool {
-	worktrees, err := dc.discoverGitWorktrees(ctx, containerID)
+func (ec *EngineClient) isGitWorktreeKnown(ctx context.Context, containerID, worktreeID string) bool {
+	worktrees, err := ec.discoverGitWorktrees(ctx, containerID)
 	if err != nil {
 		return true // fail open — don't block connections on git errors
 	}
@@ -157,8 +155,8 @@ func (dc *DockerClient) isGitWorktreeKnown(ctx context.Context, containerID, wor
 
 // isAbducoSessionAlive checks if an abduco session for the worktree is running.
 // Uses [a]bduco character-class trick so pgrep doesn't match its own process.
-func (dc *DockerClient) isAbducoSessionAlive(ctx context.Context, containerID, worktreeID string) bool {
-	output, err := dc.execAndCapture(ctx, containerID, container.ExecOptions{
+func (ec *EngineClient) isAbducoSessionAlive(ctx context.Context, containerID, worktreeID string) bool {
+	output, err := ec.execAndCapture(ctx, containerID, container.ExecOptions{
 		Cmd:          []string{"sh", "-c", fmt.Sprintf(`pgrep -f "[a]bduco.*warden-%s" >/dev/null 2>&1 && echo 1 || echo 0`, worktreeID)},
 		AttachStdout: true,
 		AttachStderr: true,
@@ -173,18 +171,18 @@ func (dc *DockerClient) isAbducoSessionAlive(ctx context.Context, containerID, w
 // For git repos, discovers worktrees via `git worktree list --porcelain`.
 // For non-git repos, returns a single implicit worktree at /project.
 // When skipEnrich is true, the expensive batch docker exec for terminal state is skipped.
-func (dc *DockerClient) ListWorktrees(ctx context.Context, containerID string, skipEnrich bool) ([]Worktree, error) {
-	return dc.listWorktreesWithHint(ctx, containerID, dc.checkIsGitRepo(ctx, containerID), skipEnrich)
+func (ec *EngineClient) ListWorktrees(ctx context.Context, containerID string, skipEnrich bool) ([]Worktree, error) {
+	return ec.listWorktreesWithHint(ctx, containerID, ec.checkIsGitRepo(ctx, containerID), skipEnrich)
 }
 
 // listWorktreesWithHint is the internal implementation of ListWorktrees that accepts
 // a pre-computed isGitRepo flag to avoid a duplicate exec when the caller already knows.
 // When skipEnrich is true, the expensive batch exec for terminal state is skipped.
-func (dc *DockerClient) listWorktreesWithHint(ctx context.Context, containerID string, isGitRepo, skipEnrich bool) ([]Worktree, error) {
+func (ec *EngineClient) listWorktreesWithHint(ctx context.Context, containerID string, isGitRepo, skipEnrich bool) ([]Worktree, error) {
 	var worktrees []Worktree
 	if isGitRepo {
 		var err error
-		worktrees, err = dc.discoverGitWorktrees(ctx, containerID)
+		worktrees, err = ec.discoverGitWorktrees(ctx, containerID)
 		if err != nil {
 			return nil, fmt.Errorf("discovering worktrees: %w", err)
 		}
@@ -193,7 +191,7 @@ func (dc *DockerClient) listWorktreesWithHint(ctx context.Context, containerID s
 			{
 				ID:        "main",
 				ProjectID: containerID,
-				Path:      dc.workspaceDir(ctx, containerID),
+				Path:      ec.workspaceDir(ctx, containerID),
 				State:     WorktreeStateDisconnected,
 			},
 		}
@@ -201,12 +199,12 @@ func (dc *DockerClient) listWorktreesWithHint(ctx context.Context, containerID s
 
 	// Discover terminals that have tracking directories but no corresponding
 	// git worktree yet (e.g. Claude Code is still creating the worktree).
-	dc.mergeTerminalWorktrees(ctx, containerID, &worktrees)
+	ec.mergeTerminalWorktrees(ctx, containerID, &worktrees)
 
-	// Enrich worktrees with terminal state from .warden-terminals/
+	// Enrich worktrees with terminal state from .warden/terminals/
 	// Skip when the caller will overlay state from the event bus store.
 	if !skipEnrich {
-		dc.enrichWorktreeState(ctx, containerID, worktrees)
+		ec.enrichWorktreeState(ctx, containerID, worktrees)
 	}
 
 	return worktrees, nil
@@ -214,8 +212,8 @@ func (dc *DockerClient) listWorktreesWithHint(ctx context.Context, containerID s
 
 // listDirEntries lists non-hidden entries in a container directory.
 // Returns nil when the directory is empty or doesn't exist.
-func (dc *DockerClient) listDirEntries(ctx context.Context, containerID, dir string) []string {
-	output, err := dc.execAndCapture(ctx, containerID, container.ExecOptions{
+func (ec *EngineClient) listDirEntries(ctx context.Context, containerID, dir string) []string {
+	output, err := ec.execAndCapture(ctx, containerID, container.ExecOptions{
 		Cmd:          []string{"sh", "-c", fmt.Sprintf("ls -1 %s 2>/dev/null", dir)},
 		AttachStdout: true,
 		AttachStderr: true,
@@ -236,13 +234,13 @@ func (dc *DockerClient) listDirEntries(ctx context.Context, containerID, dir str
 }
 
 // removeDirs removes directories under a base path inside the container.
-func (dc *DockerClient) removeDirs(ctx context.Context, containerID, baseDir string, names []string) error {
+func (ec *EngineClient) removeDirs(ctx context.Context, containerID, baseDir string, names []string) error {
 	var rmParts []string
 	for _, name := range names {
 		rmParts = append(rmParts, fmt.Sprintf("rm -rf '%s/%s'", baseDir, name))
 	}
 
-	_, err := dc.execAndCapture(ctx, containerID, container.ExecOptions{
+	_, err := ec.execAndCapture(ctx, containerID, container.ExecOptions{
 		Cmd:          []string{"sh", "-c", strings.Join(rmParts, " ; ")},
 		AttachStdout: true,
 		AttachStderr: true,
@@ -250,21 +248,21 @@ func (dc *DockerClient) removeDirs(ctx context.Context, containerID, baseDir str
 	return err
 }
 
-// mergeTerminalWorktrees lists directories under .warden-terminals/ and adds
+// mergeTerminalWorktrees lists directories under .warden/terminals/ and adds
 // any that are not already represented in the worktree list. This ensures
-// worktrees whose terminals launched before Claude created the git worktree
+// worktrees whose terminals launched before the agent created the git worktree
 // still appear in the UI.
-func (dc *DockerClient) mergeTerminalWorktrees(ctx context.Context, containerID string, worktrees *[]Worktree) {
-	wsDir := dc.workspaceDir(ctx, containerID)
+func (ec *EngineClient) mergeTerminalWorktrees(ctx context.Context, containerID string, worktrees *[]Worktree) {
+	wsDir := ec.workspaceDir(ctx, containerID)
 	termDir := wsDir + terminalsDirSuffix
-	entries := dc.listDirEntries(ctx, containerID, termDir)
+	entries := ec.listDirEntries(ctx, containerID, termDir)
 
 	known := make(map[string]bool, len(*worktrees))
 	for _, wt := range *worktrees {
 		known[wt.ID] = true
 	}
 
-	claudePrefix := wsDir + claudeWorktreesPrefixSuffix
+	prefix := wsDir + ec.worktreesPrefixSuffix(ctx, containerID)
 	for _, name := range entries {
 		if known[name] {
 			continue
@@ -272,7 +270,7 @@ func (dc *DockerClient) mergeTerminalWorktrees(ctx context.Context, containerID 
 		*worktrees = append(*worktrees, Worktree{
 			ID:        name,
 			ProjectID: containerID,
-			Path:      claudePrefix + name,
+			Path:      prefix + name,
 			State:     WorktreeStateDisconnected,
 		})
 	}
@@ -280,9 +278,9 @@ func (dc *DockerClient) mergeTerminalWorktrees(ctx context.Context, containerID 
 
 // discoverGitWorktrees parses `git worktree list --porcelain` output
 // to discover all worktrees in the container.
-func (dc *DockerClient) discoverGitWorktrees(ctx context.Context, containerID string) ([]Worktree, error) {
-	wsDir := dc.workspaceDir(ctx, containerID)
-	output, err := dc.execAndCapture(ctx, containerID, container.ExecOptions{
+func (ec *EngineClient) discoverGitWorktrees(ctx context.Context, containerID string) ([]Worktree, error) {
+	wsDir := ec.workspaceDir(ctx, containerID)
+	output, err := ec.execAndCapture(ctx, containerID, container.ExecOptions{
 		Cmd:          []string{"git", "-C", wsDir, "-c", "safe.directory=" + wsDir, "worktree", "list", "--porcelain"},
 		AttachStdout: true,
 		AttachStderr: true,
@@ -358,24 +356,24 @@ func parseGitWorktreeList(containerID, output, wsDir string) []Worktree {
 
 // worktreeIDFromPath extracts the worktree ID from its filesystem path.
 // <wsDir> → "main"
-// <wsDir>/.worktrees/feature-x → "feature-x" (legacy path)
-// <wsDir>/.claude/worktrees/feature-x → "feature-x" (Claude Code's path)
+// <wsDir>/.claude/worktrees/feature-x → "feature-x" (Claude Code)
+// <wsDir>/.warden/worktrees/feature-x → "feature-x" (Warden-managed)
 func worktreeIDFromPath(path, wsDir string) string {
 	claudePrefix := wsDir + claudeWorktreesPrefixSuffix
 	if strings.HasPrefix(path, claudePrefix) {
 		return strings.TrimPrefix(path, claudePrefix)
 	}
-	legacyPrefix := wsDir + worktreesPrefixSuffix
-	if strings.HasPrefix(path, legacyPrefix) {
-		return strings.TrimPrefix(path, legacyPrefix)
+	wardenPrefix := wsDir + wardenWorktreesPrefixSuffix
+	if strings.HasPrefix(path, wardenPrefix) {
+		return strings.TrimPrefix(path, wardenPrefix)
 	}
 	return "main"
 }
 
-// enrichWorktreeState reads terminal tracking data from .warden-terminals/
+// enrichWorktreeState reads terminal tracking data from .warden/terminals/
 // to determine each worktree's terminal state (port, liveness, abduco session).
 // Attention state is handled separately via the event bus push path.
-func (dc *DockerClient) enrichWorktreeState(ctx context.Context, containerID string, worktrees []Worktree) {
+func (ec *EngineClient) enrichWorktreeState(ctx context.Context, containerID string, worktrees []Worktree) {
 	if len(worktrees) == 0 {
 		return
 	}
@@ -386,7 +384,7 @@ func (dc *DockerClient) enrichWorktreeState(ctx context.Context, containerID str
 	// pgrep uses [a]bduco character-class trick to avoid matching its own process.
 	//
 	// Attention state is NOT read here — it's handled by the event bus push path.
-	wsDir := dc.workspaceDir(ctx, containerID)
+	wsDir := ec.workspaceDir(ctx, containerID)
 	termDir := wsDir + terminalsDirSuffix
 
 	var cmdParts []string
@@ -399,7 +397,7 @@ func (dc *DockerClient) enrichWorktreeState(ctx context.Context, containerID str
 		)
 	}
 
-	batchOutput, err := dc.execAndCapture(ctx, containerID, container.ExecOptions{
+	batchOutput, err := ec.execAndCapture(ctx, containerID, container.ExecOptions{
 		Cmd:          []string{"sh", "-c", strings.Join(cmdParts, " ; ")},
 		AttachStdout: true,
 		AttachStderr: true,
@@ -420,9 +418,10 @@ func (dc *DockerClient) enrichWorktreeState(ctx context.Context, containerID str
 
 		if ts.abducoAlive {
 			if ts.exitCode >= 0 {
-				// Claude exited but shell is still alive
+				// Agent exited but shell is still alive
 				worktrees[i].State = WorktreeStateShell
-				worktrees[i].ExitCode = ts.exitCode
+				code := ts.exitCode
+				worktrees[i].ExitCode = &code
 			} else {
 				worktrees[i].State = WorktreeStateConnected
 			}
@@ -480,29 +479,29 @@ func parseTerminalBatch(output string) map[string]*terminalState {
 //  1. Prunes git worktree metadata for directories that no longer exist on disk.
 //  2. Removes .claude/worktrees/ directories not tracked by git (leftovers from
 //     kill-worktree.sh running before Claude could call `git worktree remove`).
-//  3. Removes .warden-terminals/<id>/ directories whose abduco sessions are dead
+//  3. Removes .warden/terminals/<id>/ directories whose abduco sessions are dead
 //     OR whose worktree directories no longer exist on disk (orphaned by Claude
 //     running `git worktree remove` inside the container). Kills orphaned abduco
 //     sessions before removing their tracking directories.
 //
 // Returns the deduplicated list of removed worktree IDs from steps 2 and 3.
-func (dc *DockerClient) CleanupOrphanedWorktrees(ctx context.Context, containerID string) ([]string, error) {
-	if !dc.checkIsGitRepo(ctx, containerID) {
+func (ec *EngineClient) CleanupOrphanedWorktrees(ctx context.Context, containerID string) ([]string, error) {
+	if !ec.checkIsGitRepo(ctx, containerID) {
 		return nil, nil
 	}
 
 	// Step 1: Prune git metadata for worktrees whose directories are gone.
-	dc.pruneGitWorktrees(ctx, containerID)
+	ec.pruneGitWorktrees(ctx, containerID)
 
 	// Step 2: Remove .claude/worktrees/ directories not tracked by git.
-	orphans, err := dc.cleanupOrphanedWorktreeDirs(ctx, containerID)
+	orphans, err := ec.cleanupOrphanedWorktreeDirs(ctx, containerID)
 	if err != nil {
 		return nil, err
 	}
 
-	// Step 3: Remove .warden-terminals/<id>/ directories with no live abduco
+	// Step 3: Remove .warden/terminals/<id>/ directories with no live abduco
 	// OR whose worktree directory no longer exists.
-	staleTerminals := dc.cleanupStaleTerminals(ctx, containerID)
+	staleTerminals := ec.cleanupStaleTerminals(ctx, containerID)
 
 	// Merge stale terminal IDs into the removed list (deduplicated).
 	seen := make(map[string]bool, len(orphans))
@@ -521,9 +520,9 @@ func (dc *DockerClient) CleanupOrphanedWorktrees(ctx context.Context, containerI
 
 // pruneGitWorktrees runs `git worktree prune` to remove git metadata for
 // worktrees whose directories no longer exist on disk.
-func (dc *DockerClient) pruneGitWorktrees(ctx context.Context, containerID string) {
-	wsDir := dc.workspaceDir(ctx, containerID)
-	_, err := dc.execAndCapture(ctx, containerID, container.ExecOptions{
+func (ec *EngineClient) pruneGitWorktrees(ctx context.Context, containerID string) {
+	wsDir := ec.workspaceDir(ctx, containerID)
+	_, err := ec.execAndCapture(ctx, containerID, container.ExecOptions{
 		Cmd:          []string{"git", "-C", wsDir, "-c", "safe.directory=" + wsDir, "worktree", "prune"},
 		AttachStdout: true,
 		AttachStderr: true,
@@ -533,19 +532,12 @@ func (dc *DockerClient) pruneGitWorktrees(ctx context.Context, containerID strin
 	}
 }
 
-// cleanupOrphanedWorktreeDirs removes directories from .claude/worktrees/ that
-// are not tracked by git.
-func (dc *DockerClient) cleanupOrphanedWorktreeDirs(ctx context.Context, containerID string) ([]string, error) {
-	gitWorktrees, err := dc.discoverGitWorktrees(ctx, containerID)
+// cleanupOrphanedWorktreeDirs removes directories from the worktree directories
+// (.claude/worktrees/ and .warden/worktrees/) that are not tracked by git.
+func (ec *EngineClient) cleanupOrphanedWorktreeDirs(ctx context.Context, containerID string) ([]string, error) {
+	gitWorktrees, err := ec.discoverGitWorktrees(ctx, containerID)
 	if err != nil {
 		return nil, fmt.Errorf("discovering git worktrees: %w", err)
-	}
-
-	wsDir := dc.workspaceDir(ctx, containerID)
-	claudePrefix := wsDir + claudeWorktreesPrefixSuffix
-	entries := dc.listDirEntries(ctx, containerID, claudePrefix)
-	if len(entries) == 0 {
-		return nil, nil
 	}
 
 	known := make(map[string]bool, len(gitWorktrees))
@@ -553,29 +545,40 @@ func (dc *DockerClient) cleanupOrphanedWorktreeDirs(ctx context.Context, contain
 		known[wt.ID] = true
 	}
 
-	var orphans []string
-	for _, name := range entries {
-		if !known[name] {
-			orphans = append(orphans, name)
+	wsDir := ec.workspaceDir(ctx, containerID)
+	prefixes := []string{
+		wsDir + claudeWorktreesPrefixSuffix,
+		wsDir + wardenWorktreesPrefixSuffix,
+	}
+
+	seen := make(map[string]bool)
+	var allOrphans []string
+	for _, prefix := range prefixes {
+		entries := ec.listDirEntries(ctx, containerID, prefix)
+		var orphansForPrefix []string
+		for _, name := range entries {
+			if known[name] || seen[name] {
+				continue
+			}
+			seen[name] = true
+			orphansForPrefix = append(orphansForPrefix, name)
 		}
+		if len(orphansForPrefix) == 0 {
+			continue
+		}
+		if err := ec.removeDirs(ctx, containerID, prefix, orphansForPrefix); err != nil {
+			slog.Warn("failed to remove orphaned worktrees", "container", containerID, "err", err)
+		}
+		for _, name := range orphansForPrefix {
+			slog.Info("removed orphaned worktree directory", "container", containerID, "worktree", name)
+		}
+		allOrphans = append(allOrphans, orphansForPrefix...)
 	}
 
-	if len(orphans) == 0 {
-		return nil, nil
-	}
-
-	if err := dc.removeDirs(ctx, containerID, claudePrefix, orphans); err != nil {
-		return nil, fmt.Errorf("removing orphaned worktrees: %w", err)
-	}
-
-	for _, name := range orphans {
-		slog.Info("removed orphaned worktree directory", "container", containerID, "worktree", name)
-	}
-
-	return orphans, nil
+	return allOrphans, nil
 }
 
-// cleanupStaleTerminals removes .warden-terminals/<id>/ directories that are
+// cleanupStaleTerminals removes .warden/terminals/<id>/ directories that are
 // stale. A terminal is stale when either:
 //   - The abduco session is dead (normal exit, Ctrl-C, container restart).
 //   - The worktree directory no longer exists on disk (removed by Claude inside
@@ -586,24 +589,24 @@ func (dc *DockerClient) cleanupOrphanedWorktreeDirs(ctx context.Context, contain
 //
 // Returns the list of cleaned-up worktree IDs so the caller can evict
 // their cached state from the event store.
-func (dc *DockerClient) cleanupStaleTerminals(ctx context.Context, containerID string) []string {
-	wsDir := dc.workspaceDir(ctx, containerID)
+func (ec *EngineClient) cleanupStaleTerminals(ctx context.Context, containerID string) []string {
+	wsDir := ec.workspaceDir(ctx, containerID)
 	termDir := wsDir + terminalsDirSuffix
 	claudePrefix := wsDir + claudeWorktreesPrefixSuffix
-	legacyPrefix := wsDir + worktreesPrefixSuffix
+	wardenPrefix := wsDir + wardenWorktreesPrefixSuffix
 
 	// Single exec: for each terminal dir, check if abduco is alive AND if the
-	// worktree directory exists. Print "<id> dead" if abduco is dead, or
-	// "<id> orphan" if abduco is alive but the worktree dir is missing.
+	// worktree directory exists in either worktree location. Print "<id> dead"
+	// if abduco is dead, or "<id> orphan" if abduco is alive but no worktree dir.
 	cmd := fmt.Sprintf(
 		`for d in %s/*/; do [ -d "$d" ] || continue; id=$(basename "$d"); `+
 			`alive=0; pgrep -f "[a]bduco.*warden-$id" >/dev/null 2>&1 && alive=1; `+
 			`has_dir=0; { [ -d "%s$id" ] || [ -d "%s$id" ] || [ "$id" = "main" ]; } && has_dir=1; `+
 			`if [ "$alive" = "0" ]; then echo "$id dead"; `+
 			`elif [ "$has_dir" = "0" ]; then echo "$id orphan"; fi; done`,
-		termDir, claudePrefix, legacyPrefix,
+		termDir, claudePrefix, wardenPrefix,
 	)
-	output, err := dc.execAndCapture(ctx, containerID, container.ExecOptions{
+	output, err := ec.execAndCapture(ctx, containerID, container.ExecOptions{
 		Cmd:          []string{"sh", "-c", cmd},
 		AttachStdout: true,
 		AttachStderr: true,
@@ -634,7 +637,7 @@ func (dc *DockerClient) cleanupStaleTerminals(ctx context.Context, containerID s
 
 	// Kill abduco for orphaned worktrees (live session, no directory).
 	for _, name := range orphans {
-		_ = dc.KillWorktreeProcess(ctx, containerID, name)
+		_ = ec.KillWorktreeProcess(ctx, containerID, name)
 		slog.Info("killed orphaned worktree process", "container", containerID, "worktree", name)
 	}
 
@@ -643,7 +646,7 @@ func (dc *DockerClient) cleanupStaleTerminals(ctx context.Context, containerID s
 		return nil
 	}
 
-	if err := dc.removeDirs(ctx, containerID, termDir, all); err != nil {
+	if err := ec.removeDirs(ctx, containerID, termDir, all); err != nil {
 		slog.Warn("failed to remove stale terminal directories", "container", containerID, "err", err)
 		// Still return IDs — abduco was already killed for orphans, so callers
 		// need these to evict cached state even if dir removal failed.
@@ -659,12 +662,12 @@ func (dc *DockerClient) cleanupStaleTerminals(ctx context.Context, containerID s
 
 // DisconnectTerminal kills the ttyd viewer for a worktree, freeing the port.
 // The abduco session (and Claude/bash running inside it) continues in the background.
-func (dc *DockerClient) DisconnectTerminal(ctx context.Context, containerID, worktreeID string) error {
+func (ec *EngineClient) DisconnectTerminal(ctx context.Context, containerID, worktreeID string) error {
 	if !IsValidWorktreeID(worktreeID) {
 		return fmt.Errorf("invalid worktree ID: %q", worktreeID)
 	}
 
-	_, err := dc.execAndCaptureStrict(ctx, containerID, container.ExecOptions{
+	_, err := ec.execAndCaptureStrict(ctx, containerID, container.ExecOptions{
 		Cmd:          []string{disconnectTerminalScript, worktreeID},
 		AttachStdout: true,
 		AttachStderr: true,
@@ -678,13 +681,13 @@ func (dc *DockerClient) DisconnectTerminal(ctx context.Context, containerID, wor
 }
 
 // RemoveWorktree fully removes a worktree: kills any running abduco session,
-// runs `git worktree remove --force`, and cleans up the .warden-terminals/
+// runs `git worktree remove --force`, and cleans up the .warden/terminals/
 // tracking directory. Cannot remove the "main" worktree.
 //
 // Tolerates missing git worktrees (e.g. when Claude already ran
 // `git worktree remove` inside the container). In that case, git metadata
 // is pruned and the terminal tracking directory is still cleaned up.
-func (dc *DockerClient) RemoveWorktree(ctx context.Context, containerID, worktreeID string) error {
+func (ec *EngineClient) RemoveWorktree(ctx context.Context, containerID, worktreeID string) error {
 	if !IsValidWorktreeID(worktreeID) {
 		return fmt.Errorf("invalid worktree ID: %q", worktreeID)
 	}
@@ -693,18 +696,19 @@ func (dc *DockerClient) RemoveWorktree(ctx context.Context, containerID, worktre
 	}
 
 	// Kill abduco unconditionally (ignore errors — it may already be dead).
-	_ = dc.KillWorktreeProcess(ctx, containerID, worktreeID)
+	_ = ec.KillWorktreeProcess(ctx, containerID, worktreeID)
 
 	// Prune stale git metadata first — if Claude already removed the worktree
 	// directory, this marks it as gone so the subsequent remove doesn't fail.
-	dc.pruneGitWorktrees(ctx, containerID)
+	ec.pruneGitWorktrees(ctx, containerID)
 
-	// Remove the git worktree. --force handles dirty working trees.
-	// Tolerate errors: the worktree may already be gone (removed by Claude
-	// or pruned above). Cleanup of the terminal dir must still proceed.
-	wsDir := dc.workspaceDir(ctx, containerID)
-	_, err := dc.execAndCapture(ctx, containerID, container.ExecOptions{
-		Cmd:          []string{"git", "-C", wsDir, "-c", "safe.directory=" + wsDir, "worktree", "remove", "--force", worktreeID},
+	// Remove the git worktree by full path (git expects a path, not a name).
+	// --force handles dirty working trees. Tolerate errors: the worktree may
+	// already be gone (removed by the agent or pruned above).
+	worktreePath := ec.resolveWorktreePath(ctx, containerID, worktreeID)
+	wsDir := ec.workspaceDir(ctx, containerID)
+	_, err := ec.execAndCapture(ctx, containerID, container.ExecOptions{
+		Cmd:          []string{"git", "-C", wsDir, "-c", "safe.directory=" + wsDir, "worktree", "remove", "--force", worktreePath},
 		AttachStdout: true,
 		AttachStderr: true,
 	})
@@ -714,7 +718,7 @@ func (dc *DockerClient) RemoveWorktree(ctx context.Context, containerID, worktre
 
 	// Clean up tracking directory (may already be gone from KillWorktreeProcess).
 	termDir := wsDir + terminalsDirSuffix
-	_, _ = dc.execAndCapture(ctx, containerID, container.ExecOptions{
+	_, _ = ec.execAndCapture(ctx, containerID, container.ExecOptions{
 		Cmd:          []string{"rm", "-rf", fmt.Sprintf("%s/%s", termDir, worktreeID)},
 		AttachStdout: true,
 		AttachStderr: true,
@@ -727,12 +731,12 @@ func (dc *DockerClient) RemoveWorktree(ctx context.Context, containerID, worktre
 // KillWorktreeProcess kills both ttyd and abduco for a worktree, destroying the
 // process entirely. The git worktree directory on disk is preserved.
 // Use DisconnectTerminal to only kill the viewer and keep the process alive.
-func (dc *DockerClient) KillWorktreeProcess(ctx context.Context, containerID, worktreeID string) error {
+func (ec *EngineClient) KillWorktreeProcess(ctx context.Context, containerID, worktreeID string) error {
 	if !IsValidWorktreeID(worktreeID) {
 		return fmt.Errorf("invalid worktree ID: %q", worktreeID)
 	}
 
-	_, err := dc.execAndCaptureStrict(ctx, containerID, container.ExecOptions{
+	_, err := ec.execAndCaptureStrict(ctx, containerID, container.ExecOptions{
 		Cmd:          []string{killWorktreeScript, worktreeID},
 		AttachStdout: true,
 		AttachStderr: true,
@@ -758,8 +762,8 @@ const untrackedMarker = "\t[untracked]"
 // GetWorktreeDiff returns the uncommitted changes (tracked + untracked) for a
 // worktree inside the container. Uses a temporary index copy so the real
 // index is never modified.
-func (dc *DockerClient) GetWorktreeDiff(ctx context.Context, containerID, worktreeID string) (*api.DiffResponse, error) {
-	worktreePath := dc.resolveWorktreePath(ctx, containerID, worktreeID)
+func (ec *EngineClient) GetWorktreeDiff(ctx context.Context, containerID, worktreeID string) (*api.DiffResponse, error) {
+	worktreePath := ec.resolveWorktreePath(ctx, containerID, worktreeID)
 
 	// Single exec: copy the git index, intent-to-add untracked files on the
 	// copy, then run numstat + unified diff. The awk script tags untracked
@@ -784,7 +788,7 @@ func (dc *DockerClient) GetWorktreeDiff(ctx context.Context, containerID, worktr
 		worktreePath, diffSeparator,
 	)
 
-	output, err := dc.execAndCapture(ctx, containerID, container.ExecOptions{
+	output, err := ec.execAndCapture(ctx, containerID, container.ExecOptions{
 		Cmd:          []string{"sh", "-c", cmd},
 		User:         ContainerUser,
 		AttachStdout: true,
@@ -800,12 +804,23 @@ func (dc *DockerClient) GetWorktreeDiff(ctx context.Context, containerID, worktr
 }
 
 // resolveWorktreePath returns the filesystem path for a worktree inside a container.
-func (dc *DockerClient) resolveWorktreePath(ctx context.Context, containerID, worktreeID string) string {
-	wsDir := dc.workspaceDir(ctx, containerID)
+// For Claude Code, worktrees live under .claude/worktrees/; for other agents
+// (Codex, future), Warden manages worktrees under .warden/worktrees/.
+func (ec *EngineClient) resolveWorktreePath(ctx context.Context, containerID, worktreeID string) string {
+	wsDir := ec.workspaceDir(ctx, containerID)
 	if worktreeID == "main" {
 		return wsDir
 	}
-	return wsDir + claudeWorktreesPrefixSuffix + worktreeID
+	return wsDir + ec.worktreesPrefixSuffix(ctx, containerID) + worktreeID
+}
+
+// worktreesPrefixSuffix returns the worktree directory suffix for the container's agent type.
+func (ec *EngineClient) worktreesPrefixSuffix(ctx context.Context, containerID string) string {
+	agentType := ec.cachedAgentType(ctx, containerID)
+	if agentType == "claude-code" || agentType == "" {
+		return claudeWorktreesPrefixSuffix
+	}
+	return wardenWorktreesPrefixSuffix
 }
 
 // parseDiffOutput splits the combined exec output into numstat + raw diff

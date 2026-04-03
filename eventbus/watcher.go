@@ -63,7 +63,7 @@ func NewWatcher(baseDir string, handler func(ContainerEvent), pollInterval time.
 
 // eventDirForContainer returns the events subdirectory path for a container.
 func (w *Watcher) eventDirForContainer(containerName string) string {
-	return filepath.Join(w.baseDir, containerName, "events")
+	return filepath.Join(w.baseDir, containerName)
 }
 
 // Start begins watching for event files. It processes any existing files

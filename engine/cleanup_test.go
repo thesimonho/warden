@@ -8,8 +8,8 @@ import (
 
 // primeGitRepoCache pre-warms the git repo cache so checkIsGitRepo
 // doesn't fire an exec call that collides with other "git" mocks.
-func primeGitRepoCache(dc *DockerClient, containerID string, isGit bool) {
-	dc.gitRepoCache.Store(containerID, isGit)
+func primeGitRepoCache(ec *EngineClient, containerID string, isGit bool) {
+	ec.gitRepoCache.Store(containerID, isGit)
 }
 
 // ---------------------------------------------------------------------------
@@ -22,9 +22,9 @@ func TestPruneGitWorktrees_CallsGitWorktreePrune(t *testing.T) {
 	mock := newExecMockAPI()
 	mock.onCmd("git", "")
 
-	dc := newTestClient(mock)
+	ec := newTestClient(mock)
 
-	dc.pruneGitWorktrees(context.Background(), "ctr-prune")
+	ec.pruneGitWorktrees(context.Background(), "ctr-prune")
 
 	var found bool
 	for _, call := range mock.getCalls() {
@@ -51,12 +51,12 @@ func TestCleanupStaleTerminals_RemovesDeadSessions(t *testing.T) {
 	// Batched check outputs names of dead sessions (format: "<id> dead").
 	mock.onCmd("for d in", "dead-wt dead\nanother-dead dead\n")
 	// rm -rf succeeds. Use "rm -rf" to avoid matching "rm" in path strings
-	// like ".warden-terminals" which contains the substring "rm".
+	// like ".warden/terminals" which contains the substring "rm".
 	mock.onCmd("rm -rf", "")
 
-	dc := newTestClient(mock)
+	ec := newTestClient(mock)
 
-	removed := dc.cleanupStaleTerminals(context.Background(), "ctr-stale")
+	removed := ec.cleanupStaleTerminals(context.Background(), "ctr-stale")
 
 	if len(removed) != 2 {
 		t.Fatalf("expected 2 removed, got %d: %v", len(removed), removed)
@@ -96,9 +96,9 @@ func TestCleanupStaleTerminals_KillsOrphanedSessions(t *testing.T) {
 	// rm -rf for terminal dir cleanup.
 	mock.onCmd("rm -rf", "")
 
-	dc := newTestClient(mock)
+	ec := newTestClient(mock)
 
-	removed := dc.cleanupStaleTerminals(context.Background(), "ctr-orphan")
+	removed := ec.cleanupStaleTerminals(context.Background(), "ctr-orphan")
 
 	if len(removed) != 1 || removed[0] != "orphan-wt" {
 		t.Fatalf("expected [orphan-wt], got %v", removed)
@@ -123,9 +123,9 @@ func TestCleanupStaleTerminals_SkipsLiveSessions(t *testing.T) {
 	// Batched check outputs nothing (all sessions alive with existing dirs).
 	mock.onCmd("for d in", "")
 
-	dc := newTestClient(mock)
+	ec := newTestClient(mock)
 
-	removed := dc.cleanupStaleTerminals(context.Background(), "ctr-alive")
+	removed := ec.cleanupStaleTerminals(context.Background(), "ctr-alive")
 
 	if len(removed) != 0 {
 		t.Errorf("expected no removals for live sessions, got %v", removed)
@@ -145,9 +145,9 @@ func TestCleanupStaleTerminals_EmptyDir(t *testing.T) {
 	// Batched check outputs nothing (no dirs).
 	mock.onCmd("for d in", "")
 
-	dc := newTestClient(mock)
+	ec := newTestClient(mock)
 
-	removed := dc.cleanupStaleTerminals(context.Background(), "ctr-empty")
+	removed := ec.cleanupStaleTerminals(context.Background(), "ctr-empty")
 
 	if len(removed) != 0 {
 		t.Errorf("expected no removals for empty dir, got %v", removed)
@@ -175,10 +175,10 @@ func TestCleanupOrphanedWorktreeDirs_RemovesUntracked(t *testing.T) {
 	// rm succeeds.
 	mock.onCmd("rm -rf", "")
 
-	dc := newTestClient(mock)
-	primeGitRepoCache(dc, "ctr-orphan", true)
+	ec := newTestClient(mock)
+	primeGitRepoCache(ec, "ctr-orphan", true)
 
-	removed, err := dc.cleanupOrphanedWorktreeDirs(context.Background(), "ctr-orphan")
+	removed, err := ec.cleanupOrphanedWorktreeDirs(context.Background(), "ctr-orphan")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -197,10 +197,10 @@ func TestCleanupOrphanedWorktreeDirs_SkipsTracked(t *testing.T) {
 	// ls .claude/worktrees/ also shows feature-x — it's tracked, not orphaned.
 	mock.onCmd("ls", "feature-x\n")
 
-	dc := newTestClient(mock)
-	primeGitRepoCache(dc, "ctr-tracked", true)
+	ec := newTestClient(mock)
+	primeGitRepoCache(ec, "ctr-tracked", true)
 
-	removed, err := dc.cleanupOrphanedWorktreeDirs(context.Background(), "ctr-tracked")
+	removed, err := ec.cleanupOrphanedWorktreeDirs(context.Background(), "ctr-tracked")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -220,15 +220,15 @@ func TestCleanupOrphanedWorktrees_RunsAllSteps(t *testing.T) {
 	mock := newExecMockAPI()
 	// git worktree prune + git worktree list both match "git".
 	mock.onCmd("git", "worktree /project\nHEAD abc123\nbranch refs/heads/main\n")
-	// ls matches both .claude/worktrees/ and .warden-terminals/ queries.
+	// ls matches both .claude/worktrees/ and .warden/terminals/ queries.
 	mock.onCmd("ls", "")
 	// pgrep for abduco check.
 	mock.onCmd("pgrep", "0\n")
 
-	dc := newTestClient(mock)
-	primeGitRepoCache(dc, "ctr-full", true)
+	ec := newTestClient(mock)
+	primeGitRepoCache(ec, "ctr-full", true)
 
-	_, err := dc.CleanupOrphanedWorktrees(context.Background(), "ctr-full")
+	_, err := ec.CleanupOrphanedWorktrees(context.Background(), "ctr-full")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -253,10 +253,10 @@ func TestCleanupOrphanedWorktrees_SkipsNonGitRepos(t *testing.T) {
 
 	mock := newExecMockAPI()
 
-	dc := newTestClient(mock)
-	primeGitRepoCache(dc, "ctr-nongit", false)
+	ec := newTestClient(mock)
+	primeGitRepoCache(ec, "ctr-nongit", false)
 
-	removed, err := dc.CleanupOrphanedWorktrees(context.Background(), "ctr-nongit")
+	removed, err := ec.CleanupOrphanedWorktrees(context.Background(), "ctr-nongit")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -285,9 +285,9 @@ func TestRemoveWorktree_KillsAndRemoves(t *testing.T) {
 	// rm cleanup succeeds.
 	mock.onCmd("rm -rf", "")
 
-	dc := newTestClient(mock)
+	ec := newTestClient(mock)
 
-	err := dc.RemoveWorktree(context.Background(), "ctr-rm", "feature-x")
+	err := ec.RemoveWorktree(context.Background(), "ctr-rm", "feature-x")
 	if err != nil {
 		t.Fatalf("RemoveWorktree failed: %v", err)
 	}
@@ -330,10 +330,10 @@ func TestRemoveWorktree_ToleratesAlreadyRemovedByAgent(t *testing.T) {
 	// rm cleanup for terminal dir.
 	mock.onCmd("rm -rf", "")
 
-	dc := newTestClient(mock)
+	ec := newTestClient(mock)
 
 	// Should succeed even though git worktree was already removed by Claude.
-	err := dc.RemoveWorktree(context.Background(), "ctr-orphan", "gone-wt")
+	err := ec.RemoveWorktree(context.Background(), "ctr-orphan", "gone-wt")
 	if err != nil {
 		t.Fatalf("RemoveWorktree should tolerate already-removed worktrees, got: %v", err)
 	}
@@ -361,9 +361,9 @@ func TestRemoveWorktree_AlwaysCallsKill(t *testing.T) {
 	// rm cleanup succeeds.
 	mock.onCmd("rm -rf", "")
 
-	dc := newTestClient(mock)
+	ec := newTestClient(mock)
 
-	err := dc.RemoveWorktree(context.Background(), "ctr-rm2", "dead-wt")
+	err := ec.RemoveWorktree(context.Background(), "ctr-rm2", "dead-wt")
 	if err != nil {
 		t.Fatalf("RemoveWorktree failed: %v", err)
 	}
@@ -384,9 +384,9 @@ func TestRemoveWorktree_RejectsMain(t *testing.T) {
 	t.Parallel()
 
 	mock := newExecMockAPI()
-	dc := newTestClient(mock)
+	ec := newTestClient(mock)
 
-	err := dc.RemoveWorktree(context.Background(), "ctr-rm3", "main")
+	err := ec.RemoveWorktree(context.Background(), "ctr-rm3", "main")
 	if err == nil {
 		t.Fatal("expected error when removing main worktree")
 	}
@@ -396,9 +396,9 @@ func TestRemoveWorktree_RejectsInvalidID(t *testing.T) {
 	t.Parallel()
 
 	mock := newExecMockAPI()
-	dc := newTestClient(mock)
+	ec := newTestClient(mock)
 
-	err := dc.RemoveWorktree(context.Background(), "ctr-rm4", "../etc/passwd")
+	err := ec.RemoveWorktree(context.Background(), "ctr-rm4", "../etc/passwd")
 	if err == nil {
 		t.Fatal("expected error for invalid worktree ID")
 	}

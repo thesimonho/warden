@@ -23,7 +23,7 @@ if [[ ! "$WORKTREE_ID" =~ ^[a-zA-Z0-9][a-zA-Z0-9._-]*$ ]]; then
 fi
 
 WORKSPACE_DIR="${WARDEN_WORKSPACE_DIR:-/project}"
-TERMINAL_DIR="${WORKSPACE_DIR}/.warden-terminals/${WORKTREE_ID}"
+TERMINAL_DIR="${WORKSPACE_DIR}/.warden/terminals/${WORKTREE_ID}"
 
 # Clean up any stale port file from the old ttyd architecture
 rm -f "${TERMINAL_DIR}/port"

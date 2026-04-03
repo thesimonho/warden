@@ -7,7 +7,7 @@ import (
 	"charm.land/bubbles/v2/textinput"
 	"charm.land/lipgloss/v2"
 
-	"github.com/thesimonho/warden/access"
+	"github.com/thesimonho/warden/agent"
 )
 
 // Form field styles.
@@ -106,9 +106,22 @@ func (v *ContainerFormView) Render(width, height int) string {
 		s.WriteString(Styles.Error.Render("Error: "+v.err.Error()) + "\n\n")
 	}
 
-	lines, cursorLine := v.buildFieldLines()
+	rawLines, rawCursorLine := v.buildFieldLines()
 
-	maxVisible := height - 6
+	// Flatten multi-line entries (e.g. textarea values) so every entry
+	// in the slice is exactly one visual row. This ensures the scroll
+	// logic counts rows correctly regardless of dynamic content height.
+	var lines []string
+	cursorLine := 0
+	for i, line := range rawLines {
+		if i == rawCursorLine {
+			cursorLine = len(lines)
+		}
+		parts := strings.Split(line, "\n")
+		lines = append(lines, parts...)
+	}
+
+	maxVisible := height - 2
 	if maxVisible < 5 {
 		maxVisible = 5
 	}
@@ -168,10 +181,17 @@ func (v *ContainerFormView) buildFieldLines() ([]string, int) {
 	}
 
 	// Core fields.
+	appendField(fieldAgentType, "Agent", v.fieldView(fieldAgentType), "")
 	appendField(fieldName, "Name", v.fieldView(fieldName), "")
 	appendField(fieldPath, "Project Path", v.fieldView(fieldPath), "Host directory to mount")
 
-	appendField(fieldSkipPerms, "Skip Permissions", v.fieldView(fieldSkipPerms), "Auto-approve all Claude Code actions")
+	var skipPermsDesc string
+	if agentTypes[v.agentType] == agent.Codex {
+		skipPermsDesc = "Auto-approve all Codex actions (--dangerously-bypass-approvals-and-sandbox)"
+	} else {
+		skipPermsDesc = "Auto-approve all Claude Code actions (--dangerously-skip-permissions)"
+	}
+	appendField(fieldSkipPerms, "Skip Permissions", v.fieldView(fieldSkipPerms), skipPermsDesc)
 	appendField(fieldBudget, "Project Budget (USD)", v.fieldView(fieldBudget), "Auto-pauses agents when exceeded")
 	appendField(fieldNetwork, "Network", v.fieldView(fieldNetwork), networkDescriptions[networkModes[v.network]])
 
@@ -196,9 +216,29 @@ func (v *ContainerFormView) buildFieldLines() ([]string, int) {
 	if v.advancedOpen {
 		appendField(fieldImage, "Image", v.fieldView(fieldImage), "")
 
-		// Passthrough toggles.
-		appendField(fieldGitPassthrough, "Passthrough: Git", v.fieldView(fieldGitPassthrough), "Mount host .gitconfig (read-only)")
-		appendField(fieldSSHPassthrough, "Passthrough: SSH", v.fieldView(fieldSSHPassthrough), "Mount SSH config, known_hosts, and agent socket")
+		// Access item toggles.
+		if len(v.accessItems) > 0 {
+			isActive := v.cursor == fieldAccessItems
+			markCursor(fieldAccessItems)
+			lines = append(lines, cursorPrefix(isActive && v.accessCursor < 0)+formLabel.Render("Access"))
+			lines = append(lines, formDescription.Render("Passthrough access items to containers"))
+			for i, item := range v.accessItems {
+				isSelected := isActive && v.accessCursor == i
+				if isSelected {
+					cursorLine = len(lines)
+				}
+				prefix := subItemPrefix(isSelected)
+				toggle := boolSelector(v.accessToggles[item.ID])
+				if !item.Detection.Available {
+					toggle = Styles.Muted.Render("(unavailable)")
+				}
+				lines = append(lines, prefix+item.Label+" "+toggle)
+				if item.Description != "" {
+					lines = append(lines, formDescription.Render("  "+item.Description))
+				}
+			}
+			lines = append(lines, "")
+		}
 
 		v.appendListSection(&lines, &cursorLine,
 			fieldMounts, "Bind Mounts", "Additional host directories",
@@ -272,14 +312,19 @@ func (v *ContainerFormView) appendListSection(
 
 // renderMountItems renders mount sub-items.
 func (v *ContainerFormView) renderMountItems(isActive bool) []string {
+	rcp := v.requiredContainerPath()
 	var lines []string
 	for i, m := range v.mounts {
 		isSelected := isActive && v.mountCursor == i
 		prefix := subItemPrefix(isSelected)
+		reqLabel := ""
+		if rcp != "" && m.ContainerPath == rcp {
+			reqLabel = " (required)"
+		}
 		if v.editingMount && isSelected {
-			lines = append(lines, prefix+v.mountInputs[0].View()+" → "+v.mountInputs[1].View()+roLabel(m.ReadOnly))
+			lines = append(lines, prefix+v.mountInputs[0].View()+" → "+v.mountInputs[1].View()+roLabel(m.ReadOnly)+reqLabel)
 		} else {
-			lines = append(lines, prefix+orEmpty(m.HostPath)+" → "+orEmpty(m.ContainerPath)+roLabel(m.ReadOnly))
+			lines = append(lines, prefix+orEmpty(m.HostPath)+" → "+orEmpty(m.ContainerPath)+roLabel(m.ReadOnly)+reqLabel)
 		}
 	}
 	return lines
@@ -306,6 +351,19 @@ func (v *ContainerFormView) renderEnvItems(isActive bool) []string {
 
 func (v *ContainerFormView) fieldView(field int) string {
 	switch field {
+	case fieldAgentType:
+		selected := agentTypes[v.agentType]
+		var parts []string
+		for _, at := range agentTypes {
+			label := agentTypeLabels[at]
+			if at == selected {
+				parts = append(parts, formCursor.Render("["+label+"]"))
+			} else {
+				parts = append(parts, Styles.Muted.Render(" "+label+" "))
+			}
+		}
+		return strings.Join(parts, " ")
+
 	case fieldName:
 		return textInputView(v.inputs[0], v.editing && v.cursor == fieldName)
 	case fieldPath:
@@ -351,17 +409,6 @@ func (v *ContainerFormView) fieldView(field int) string {
 	case fieldSkipPerms:
 		return boolSelector(v.skipPerm)
 
-	case fieldGitPassthrough:
-		if !v.isAccessItemAvailable(access.BuiltInIDGit) {
-			return Styles.Muted.Render("(unavailable)")
-		}
-		return boolSelector(v.accessToggles[access.BuiltInIDGit])
-
-	case fieldSSHPassthrough:
-		if !v.isAccessItemAvailable(access.BuiltInIDSSH) {
-			return Styles.Muted.Render("(unavailable)")
-		}
-		return boolSelector(v.accessToggles[access.BuiltInIDSSH])
 	}
 	return ""
 }

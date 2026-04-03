@@ -41,6 +41,41 @@ _warden_enforce_safety_valve() {
   fi
 }
 
+# warden_check_event_env validates that the required environment
+# variables for event delivery are set. Returns 1 if any are missing,
+# allowing callers to exit early: `warden_check_event_env || exit 0`
+#
+# Sets CONTAINER_NAME and PROJECT_ID as side effects (shared by all
+# event scripts).
+warden_check_event_env() {
+  CONTAINER_NAME="${WARDEN_CONTAINER_NAME:-}"
+  if [ -z "$CONTAINER_NAME" ]; then return 1; fi
+  PROJECT_ID="${WARDEN_PROJECT_ID:-}"
+  AGENT_TYPE="${WARDEN_AGENT_TYPE:-claude-code}"
+  if [ -z "${WARDEN_EVENT_DIR:-}" ]; then return 1; fi
+  return 0
+}
+
+# warden_extract_worktree_id derives the worktree ID from a cwd path.
+# Claude Code worktrees: .claude/worktrees/<id>
+# Warden-managed worktrees: .warden/worktrees/<id>
+# Workspace root: "main"
+#
+# Usage: WORKTREE_ID=$(warden_extract_worktree_id "$CWD" "$WORKSPACE_DIR")
+warden_extract_worktree_id() {
+  local cwd="$1" workspace_dir="$2"
+  if [ -z "$cwd" ]; then
+    return
+  fi
+  if [[ "$cwd" =~ /\.claude/worktrees/([^/]+) ]]; then
+    printf '%s' "${BASH_REMATCH[1]}"
+  elif [[ "$cwd" =~ /\.warden/worktrees/([^/]+) ]]; then
+    printf '%s' "${BASH_REMATCH[1]}"
+  elif [ "$cwd" = "$workspace_dir" ] || [[ "$cwd" =~ ^${workspace_dir}/ ]]; then
+    printf 'main'
+  fi
+}
+
 # warden_extract_field extracts a simple top-level string value from
 # JSON using bash pattern matching. Avoids forking jq for simple reads.
 # Returns empty string if the field is missing or null.
@@ -63,13 +98,13 @@ warden_extract_field() {
 # controlled identifiers that cannot contain JSON-special characters.
 # The data argument must be a valid JSON fragment (object or scalar).
 #
-# Requires CONTAINER_NAME, PROJECT_ID, and WORKTREE_ID to be set.
+# Requires CONTAINER_NAME, PROJECT_ID, AGENT_TYPE, and WORKTREE_ID to be set.
 #
 # Usage: JSON=$(warden_build_event_json "$event_type" "$data_json")
 warden_build_event_json() {
   local event_type="$1" data="$2"
-  printf '{"type":"%s","containerName":"%s","projectId":"%s","worktreeId":"%s","data":%s}' \
-    "$event_type" "$CONTAINER_NAME" "$PROJECT_ID" "$WORKTREE_ID" "$data"
+  printf '{"type":"%s","containerName":"%s","projectId":"%s","agentType":"%s","worktreeId":"%s","data":%s}' \
+    "$event_type" "$CONTAINER_NAME" "$PROJECT_ID" "$AGENT_TYPE" "$WORKTREE_ID" "$data"
 }
 
 # warden_write_event writes a JSON event to the event directory.

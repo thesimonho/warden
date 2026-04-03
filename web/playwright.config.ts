@@ -69,7 +69,7 @@ const runtimePrefix = process.env.WARDEN_RUNTIME ? `${process.env.WARDEN_RUNTIME
 
 /** Test-file patterns for the two project tiers. */
 const uiTestMatch = /home-page|navigation|project-page|project-lifecycle|panel-maximize|terminal-connection/
-const containerTestMatch = /container-integration|devcontainer-feature|panel-layout|terminal-resilience/
+const containerTestMatch = /container-integration|codex-container|devcontainer-feature|panel-layout|terminal-resilience/
 
 export default defineConfig({
   testDir: './e2e',

@@ -57,9 +57,9 @@ func TestListProjects(t *testing.T) {
 func TestStopProject(t *testing.T) {
 	t.Parallel()
 
-	c := newTestServer(t, "POST", "/api/v1/projects/abc123def456/stop", http.StatusOK, service.ProjectResult{Name: "test", ContainerID: "abc123def456"})
+	c := newTestServer(t, "POST", "/api/v1/projects/abc123def456/claude-code/stop", http.StatusOK, service.ProjectResult{Name: "test", ContainerID: "abc123def456"})
 
-	_, err := c.StopProject(context.Background(), "abc123def456")
+	_, err := c.StopProject(context.Background(), "abc123def456", "claude-code")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -71,9 +71,9 @@ func TestListWorktrees(t *testing.T) {
 	worktrees := []engine.Worktree{
 		{ID: "main", Branch: "main", State: "connected"},
 	}
-	c := newTestServer(t, "GET", "/api/v1/projects/abc123def456/worktrees", http.StatusOK, worktrees)
+	c := newTestServer(t, "GET", "/api/v1/projects/abc123def456/claude-code/worktrees", http.StatusOK, worktrees)
 
-	result, err := c.ListWorktrees(context.Background(), "abc123def456")
+	result, err := c.ListWorktrees(context.Background(), "abc123def456", "claude-code")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -85,9 +85,9 @@ func TestListWorktrees(t *testing.T) {
 func TestCreateWorktree(t *testing.T) {
 	t.Parallel()
 
-	c := newTestServer(t, "POST", "/api/v1/projects/abc123def456/worktrees", http.StatusCreated, service.WorktreeResult{WorktreeID: "feature-x", ProjectID: "abc123def456"})
+	c := newTestServer(t, "POST", "/api/v1/projects/abc123def456/claude-code/worktrees", http.StatusCreated, service.WorktreeResult{WorktreeID: "feature-x", ProjectID: "abc123def456"})
 
-	resp, err := c.CreateWorktree(context.Background(), "abc123def456", "feature-x")
+	resp, err := c.CreateWorktree(context.Background(), "abc123def456", "claude-code", "feature-x")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -99,9 +99,9 @@ func TestCreateWorktree(t *testing.T) {
 func TestDeleteContainer(t *testing.T) {
 	t.Parallel()
 
-	c := newTestServer(t, "DELETE", "/api/v1/projects/aabbccddeeff/container", http.StatusOK, service.ContainerResult{ContainerID: "abc123def456", Name: "test"})
+	c := newTestServer(t, "DELETE", "/api/v1/projects/aabbccddeeff/claude-code/container", http.StatusOK, service.ContainerResult{ContainerID: "abc123def456", Name: "test"})
 
-	_, err := c.DeleteContainer(context.Background(), "aabbccddeeff")
+	_, err := c.DeleteContainer(context.Background(), "aabbccddeeff", "claude-code")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -133,9 +133,9 @@ func TestRemoveProject_EncodesName(t *testing.T) {
 	t.Parallel()
 
 	// The path should be URL-encoded.
-	c := newTestServer(t, "DELETE", "/api/v1/projects/my%20project", http.StatusOK, service.ProjectResult{Name: "my project"})
+	c := newTestServer(t, "DELETE", "/api/v1/projects/my%20project/claude-code", http.StatusOK, service.ProjectResult{Name: "my project"})
 
-	_, err := c.RemoveProject(context.Background(), "my project")
+	_, err := c.RemoveProject(context.Background(), "my project", "claude-code")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -148,9 +148,9 @@ func TestGetDefaults(t *testing.T) {
 
 	defaults := service.DefaultsResponse{
 		HomeDir:          "/home/user",
-		ContainerHomeDir: "/home/dev",
+		ContainerHomeDir: "/home/warden",
 		Mounts: []service.DefaultMount{
-			{HostPath: "/home/user/.claude", ContainerPath: "/home/dev/.claude"},
+			{HostPath: "/home/user/.claude", ContainerPath: "/home/warden/.claude"},
 		},
 	}
 	c := newTestServer(t, "GET", "/api/v1/defaults", http.StatusOK, defaults)

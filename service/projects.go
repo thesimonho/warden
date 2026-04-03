@@ -7,8 +7,10 @@ import (
 	"fmt"
 	"log/slog"
 	"strings"
+	"time"
 
 	"github.com/thesimonho/warden/api"
+	"github.com/thesimonho/warden/constants"
 	"github.com/thesimonho/warden/db"
 	"github.com/thesimonho/warden/engine"
 )
@@ -73,43 +75,48 @@ func (s *Service) ListProjects(ctx context.Context) ([]engine.Project, error) {
 }
 
 // AddProject registers a project in the database. The project ID is computed
-// deterministically from the host path. If a project for this path already
-// exists, returns the existing project without error.
-func (s *Service) AddProject(name, hostPath string) (*ProjectResult, error) {
+// deterministically from the host path. If a project for this path and agent
+// type already exists, returns the existing project without error.
+func (s *Service) AddProject(name, hostPath, agentType string) (*ProjectResult, error) {
 	projectID, err := engine.ProjectID(hostPath)
 	if err != nil {
 		return nil, fmt.Errorf("computing project ID: %w", err)
 	}
 
-	has, err := s.db.HasProject(projectID)
+	if agentType == "" {
+		agentType = string(constants.DefaultAgentType)
+	}
+
+	has, err := s.db.HasProject(projectID, agentType)
 	if err != nil {
 		return nil, err
 	}
 	if has {
-		return &ProjectResult{ProjectID: projectID, Name: name}, nil
+		return &ProjectResult{ProjectID: projectID, Name: name, AgentType: agentType}, nil
 	}
 	if err := s.db.InsertProject(db.ProjectRow{
 		ProjectID: projectID,
 		Name:      name,
 		HostPath:  hostPath,
+		AgentType: agentType,
 	}); err != nil {
 		return nil, err
 	}
-	return &ProjectResult{ProjectID: projectID, Name: name}, nil
+	return &ProjectResult{ProjectID: projectID, Name: name, AgentType: agentType}, nil
 }
 
-// RemoveProject removes a project from the database by project ID.
+// RemoveProject removes a project from the database by compound key.
 // When audit logging is enabled, cost data and events are preserved so the
 // audit log remains accurate. When audit logging is off, all associated
 // data is cleaned up.
-func (s *Service) RemoveProject(projectID string) (*ProjectResult, error) {
+func (s *Service) RemoveProject(projectID, agentType string) (*ProjectResult, error) {
 	// Look up the project name before deleting for the result.
 	var name string
-	if row, err := s.db.GetProject(projectID); err == nil && row != nil {
+	if row, err := s.db.GetProject(projectID, agentType); err == nil && row != nil {
 		name = effectiveContainerName(row)
 	}
 
-	if err := s.db.DeleteProject(projectID); err != nil {
+	if err := s.db.DeleteProject(projectID, agentType); err != nil {
 		return nil, err
 	}
 
@@ -117,6 +124,7 @@ func (s *Service) RemoveProject(projectID string) (*ProjectResult, error) {
 		Source:        db.SourceBackend,
 		Level:         db.LevelInfo,
 		ProjectID:     projectID,
+		AgentType:     agentType,
 		ContainerName: name,
 		Event:         "project_removed",
 		Message:       fmt.Sprintf("project %q removed from Warden", name),
@@ -124,7 +132,7 @@ func (s *Service) RemoveProject(projectID string) (*ProjectResult, error) {
 
 	if s.GetAuditLogMode() == api.AuditLogOff {
 		// Audit logging is off — clean up all associated data.
-		if err := s.db.DeleteProjectCosts(projectID); err != nil {
+		if err := s.db.DeleteProjectCosts(projectID, agentType); err != nil {
 			slog.Warn("failed to delete project costs", "projectID", projectID, "err", err)
 		}
 		if _, err := s.DeleteAuditEvents(api.AuditFilters{ProjectID: projectID}); err != nil {
@@ -132,24 +140,25 @@ func (s *Service) RemoveProject(projectID string) (*ProjectResult, error) {
 		}
 	}
 
-	return &ProjectResult{ProjectID: projectID, Name: name}, nil
+	return &ProjectResult{ProjectID: projectID, Name: name, AgentType: agentType}, nil
 }
 
-// ResetProjectCosts removes all cost history for a project.
+// ResetProjectCosts removes all cost history for a project+agent pair.
 // This is an audit event itself — the fact that costs were reset is recorded.
-func (s *Service) ResetProjectCosts(projectID string) error {
+func (s *Service) ResetProjectCosts(projectID, agentType string) error {
 	if s.db == nil {
 		return nil
 	}
 
-	name := s.resolveProjectName(projectID)
-	if err := s.db.DeleteProjectCosts(projectID); err != nil {
+	name := s.resolveProjectName(projectID, agentType)
+	if err := s.db.DeleteProjectCosts(projectID, agentType); err != nil {
 		return err
 	}
 	s.audit.Write(db.Entry{
 		Source:        db.SourceBackend,
 		Level:         db.LevelInfo,
 		ProjectID:     projectID,
+		AgentType:     agentType,
 		ContainerName: name,
 		Event:         "cost_reset",
 		Message:       "project cost history cleared",
@@ -161,12 +170,13 @@ func (s *Service) ResetProjectCosts(projectID string) error {
 // The audit_purged event is written before the purge but will be deleted
 // by it — the event serves as a write-ahead record for external log
 // consumers that process events before they are purged.
-func (s *Service) PurgeProjectAudit(projectID string) (int64, error) {
-	name := s.resolveProjectName(projectID)
+func (s *Service) PurgeProjectAudit(projectID, agentType string) (int64, error) {
+	name := s.resolveProjectName(projectID, agentType)
 	s.audit.Write(db.Entry{
 		Source:        db.SourceBackend,
 		Level:         db.LevelInfo,
 		ProjectID:     projectID,
+		AgentType:     agentType,
 		ContainerName: name,
 		Event:         "audit_purged",
 		Message:       "project audit history purged",
@@ -174,28 +184,35 @@ func (s *Service) PurgeProjectAudit(projectID string) (int64, error) {
 	return s.DeleteAuditEvents(api.AuditFilters{ProjectID: projectID})
 }
 
-// GetProject returns a project row by project ID, or nil if not found.
-func (s *Service) GetProject(projectID string) (*db.ProjectRow, error) {
+// GetProject returns a project row by compound key, or nil if not found.
+func (s *Service) GetProject(projectID, agentType string) (*db.ProjectRow, error) {
 	if s.db == nil {
 		return nil, nil
 	}
-	return s.db.GetProject(projectID)
+	return s.db.GetProject(projectID, agentType)
 }
 
 // StopProject stops the container for the given project. Before stopping,
 // it captures cost from the agent's config file via docker exec and
 // persists it to the DB so cost data survives the container stop.
-func (s *Service) StopProject(ctx context.Context, project *db.ProjectRow) (*ProjectResult, error) {
+func (s *Service) StopProject(ctx context.Context, projectID, agentType string) (*ProjectResult, error) {
+	project, err := s.resolveProject(projectID, agentType)
+	if err != nil {
+		return nil, err
+	}
 	containerName := effectiveContainerName(project)
-	s.readAndPersistAgentCost(ctx, project.ProjectID, project.ContainerID, containerName)
+	s.readAndPersistAgentCost(ctx, project.ProjectID, project.AgentType, project.ContainerID, containerName)
 
 	if err := s.docker.StopProject(ctx, project.ContainerID); err != nil {
 		return nil, err
 	}
 
+	s.StopSessionWatcher(project.ProjectID, project.AgentType)
+
 	return &ProjectResult{
 		ContainerID: project.ContainerID,
 		ProjectID:   project.ProjectID,
+		AgentType:   project.AgentType,
 		Name:        containerName,
 	}, nil
 }
@@ -205,10 +222,14 @@ func (s *Service) StopProject(ctx context.Context, project *db.ProjectRow) (*Pro
 // the restart is blocked and a StaleMountsError is returned so the UI
 // can warn the user. Returns ErrBudgetExceeded if the project is over
 // budget and the preventStart enforcement action is enabled.
-func (s *Service) RestartProject(ctx context.Context, project *db.ProjectRow) (*ProjectResult, error) {
+func (s *Service) RestartProject(ctx context.Context, projectID, agentType string) (*ProjectResult, error) {
+	project, err := s.resolveProject(projectID, agentType)
+	if err != nil {
+		return nil, err
+	}
 	containerName := effectiveContainerName(project)
 
-	if s.IsOverBudget(project.ProjectID) {
+	if s.IsOverBudget(project.ProjectID, project.AgentType) {
 		return nil, ErrBudgetExceeded
 	}
 
@@ -227,6 +248,7 @@ func (s *Service) RestartProject(ctx context.Context, project *db.ProjectRow) (*
 				Source:        db.SourceBackend,
 				Level:         db.LevelError,
 				ProjectID:     project.ProjectID,
+				AgentType:     project.AgentType,
 				ContainerName: containerName,
 				Event:         "restart_blocked_stale_mounts",
 				Message:       "bind mounts are stale — recreate the container to refresh mounts",
@@ -235,12 +257,16 @@ func (s *Service) RestartProject(ctx context.Context, project *db.ProjectRow) (*
 		}
 		return nil, err
 	}
-	return &ProjectResult{ProjectID: project.ProjectID, Name: containerName, ContainerID: project.ContainerID}, nil
+	s.StopSessionWatcher(project.ProjectID, project.AgentType)
+	s.startProjectWatcher(project.ProjectID, containerName, project.AgentType)
+
+	return &ProjectResult{ProjectID: project.ProjectID, AgentType: project.AgentType, Name: containerName, ContainerID: project.ContainerID}, nil
 }
 
 // applyDBMetadata merges database-stored project metadata onto a single project.
 // defaultBudget is the global fallback (pass 0 if not needed).
 func applyDBMetadata(p *engine.Project, row *db.ProjectRow, defaultBudget float64) {
+	p.AgentType = constants.AgentType(row.AgentType)
 	p.SkipPermissions = row.SkipPermissions
 	if row.NetworkMode != "" {
 		p.NetworkMode = engine.NetworkMode(row.NetworkMode)
@@ -261,23 +287,68 @@ func applyDBMetadata(p *engine.Project, row *db.ProjectRow, defaultBudget float6
 // HandleContainerStale writes an audit entry when a container's heartbeat
 // goes stale. Called by the event bus stale callback so the audit entry
 // includes full project context (project ID and container name).
+//
+// When the container is crash-looping, an additional container_startup_failed
+// event is written with the container's log tail for diagnostics.
 func (s *Service) HandleContainerStale(containerName string) {
-	var projectID string
+	var projectID, agentType string
 	if s.db != nil {
 		if row, err := s.db.GetProjectByContainerName(containerName); err == nil && row != nil {
 			projectID = row.ProjectID
+			agentType = row.AgentType
 			containerName = effectiveContainerName(row)
 		}
 	}
+
+	// The session watcher is NOT stopped here. It tails host-side JSONL
+	// files which persist regardless of container state, and the 2s poll
+	// is essentially free when no new data arrives. Stopping it on stale
+	// creates a race: if the container is deleted and recreated quickly,
+	// the liveness checker fires the stale callback for the OLD container
+	// but looks up the NEW project by name, killing its watcher.
+	// Watchers are stopped only by explicit lifecycle events (delete,
+	// stop, shutdown).
 
 	s.audit.Write(db.Entry{
 		Source:        db.SourceBackend,
 		Level:         db.LevelWarn,
 		ProjectID:     projectID,
+		AgentType:     agentType,
 		ContainerName: containerName,
 		Event:         "container_heartbeat_stale",
 		Message:       "container heartbeat stale, marking worktrees disconnected",
 	})
+
+	// Check if the container is crash-looping and capture diagnostics.
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	health, err := s.docker.ContainerStartupHealth(ctx, containerName)
+	if err != nil {
+		return
+	}
+	if !health.Restarting && health.RestartCount == 0 && !health.OOMKilled {
+		return
+	}
+
+	msg := fmt.Sprintf(
+		"container crash-looping (restarts: %d, exit code: %d, OOM: %v)",
+		health.RestartCount, health.ExitCode, health.OOMKilled,
+	)
+
+	entry := db.Entry{
+		Source:        db.SourceBackend,
+		Level:         db.LevelError,
+		ProjectID:     projectID,
+		AgentType:     agentType,
+		ContainerName: containerName,
+		Event:         "container_startup_failed",
+		Message:       msg,
+	}
+	if health.LogTail != "" {
+		entry.Data = []byte(health.LogTail)
+	}
+	s.audit.Write(entry)
 }
 
 // effectiveContainerName returns the Docker container name for a project row.
@@ -289,13 +360,13 @@ func effectiveContainerName(row *db.ProjectRow) string {
 	return row.Name
 }
 
-// resolveProjectName looks up the container name for a project by ID.
+// resolveProjectName looks up the container name for a project by compound key.
 // Returns empty string if the project is not found.
-func (s *Service) resolveProjectName(projectID string) string {
+func (s *Service) resolveProjectName(projectID, agentType string) string {
 	if s.db == nil {
 		return ""
 	}
-	row, err := s.db.GetProject(projectID)
+	row, err := s.db.GetProject(projectID, agentType)
 	if err != nil || row == nil {
 		return ""
 	}
@@ -336,8 +407,7 @@ func (s *Service) overlayCost(ctx context.Context, projects []engine.Project) {
 	}
 
 	// Batch-load all DB costs in a single query (avoids N+1).
-	// Costs are keyed by ProjectID, which engine.Project now carries.
-	var dbCosts map[string]db.ProjectCostRow
+	var dbCosts map[db.ProjectAgentKey]db.ProjectCostRow
 	if s.db != nil {
 		var err error
 		dbCosts, err = s.db.GetAllProjectTotalCosts()
@@ -348,7 +418,8 @@ func (s *Service) overlayCost(ctx context.Context, projects []engine.Project) {
 
 	for i := range projects {
 		// Primary: cumulative cost from DB (session_costs table).
-		if row, ok := dbCosts[projects[i].ProjectID]; ok && row.TotalCost > 0 {
+		key := db.ProjectAgentKey{ProjectID: projects[i].ProjectID, AgentType: string(projects[i].AgentType)}
+		if row, ok := dbCosts[key]; ok && row.TotalCost > 0 {
 			projects[i].TotalCost = row.TotalCost
 			projects[i].IsEstimatedCost = row.IsEstimated
 			continue
@@ -358,7 +429,7 @@ func (s *Service) overlayCost(ctx context.Context, projects []engine.Project) {
 		if projects[i].State != "running" {
 			continue
 		}
-		result := s.readAndPersistAgentCost(ctx, projects[i].ProjectID, projects[i].ID, projects[i].Name)
+		result := s.readAndPersistAgentCost(ctx, projects[i].ProjectID, string(projects[i].AgentType), projects[i].ID, projects[i].Name)
 		if result != nil && result.TotalCost > 0 {
 			projects[i].TotalCost = result.TotalCost
 			projects[i].IsEstimatedCost = result.IsEstimated
@@ -370,24 +441,24 @@ func (s *Service) overlayCost(ctx context.Context, projects []engine.Project) {
 // docker exec and persists per-session costs to the DB. Budget enforcement
 // is triggered once after all sessions are persisted.
 // Returns the result for the caller to use. Best-effort — errors are logged.
-func (s *Service) readAndPersistAgentCost(ctx context.Context, projectID, containerID, containerName string) *engine.AgentCostResult {
+func (s *Service) readAndPersistAgentCost(ctx context.Context, projectID, agentType, containerID, containerName string) *engine.AgentCostResult {
 	result, err := s.docker.ReadAgentCostAndBillingType(ctx, containerID, engine.ContainerWorkspaceDir(containerName))
 	if err != nil {
 		slog.Debug("agent cost read failed", "container", containerName, "err", err)
 		return nil
 	}
 
-	// Persist each session's cost keyed by projectID, then enforce budget once.
+	// Persist each session's cost keyed by projectID+agentType, then enforce budget once.
 	if s.db != nil {
 		for _, sc := range result.Sessions {
 			if sc.SessionID != "" && sc.Cost > 0 {
-				if err := s.db.UpsertSessionCost(projectID, sc.SessionID, sc.Cost, result.IsEstimated); err != nil {
+				if err := s.db.UpsertSessionCost(projectID, agentType, sc.SessionID, sc.Cost, result.IsEstimated); err != nil {
 					slog.Debug("failed to persist session cost", "projectID", projectID, "session", sc.SessionID, "err", err)
 				}
 			}
 		}
 	}
-	s.enforceBudget(projectID)
+	s.enforceBudget(projectID, agentType)
 
 	return result
 }

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { AlertTriangle, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import type { ContainerConfig } from '@/lib/types'
+import { DEFAULT_AGENT_TYPE } from '@/lib/types'
 import { addProject, createContainer, fetchContainerConfig, updateContainer } from '@/lib/api'
 import {
   Dialog,
@@ -29,6 +30,8 @@ interface AddProjectDialogProps {
   onProjectAdded: () => void
   /** When set, opens the dialog directly in edit mode for this project. */
   editProjectId?: string | null
+  /** Agent type for the project being edited. */
+  editAgentType?: string | null
   /** Whether the project being edited is currently running (disables the form). */
   editIsRunning?: boolean
   /** When set, opens in create mode for an existing project that has no container. */
@@ -49,6 +52,7 @@ export default function AddProjectDialog({
   onOpenChange,
   onProjectAdded,
   editProjectId = null,
+  editAgentType = null,
   editIsRunning = false,
   createForProject = null,
 }: AddProjectDialogProps) {
@@ -68,17 +72,17 @@ export default function AddProjectDialog({
       return
     }
 
-    if (editProjectId) {
+    if (editProjectId && editAgentType) {
       setIsLoadingConfig(true)
       setFormError(null)
-      fetchContainerConfig(editProjectId)
+      fetchContainerConfig(editProjectId, editAgentType)
         .then(setEditConfig)
         .catch((err) => {
           setFormError(err instanceof Error ? err.message : 'Failed to load config')
         })
         .finally(() => setIsLoadingConfig(false))
     }
-  }, [open, editProjectId])
+  }, [open, editProjectId, editAgentType])
 
   /** Handles form submission for create, edit, and create-for-existing modes. */
   const handleFormSubmit = useCallback(
@@ -90,6 +94,7 @@ export default function AddProjectDialog({
           name: data.name,
           image: data.image,
           projectPath: data.projectPath,
+          agentType: data.agentType,
           envVars: data.envVars,
           mounts: data.mounts,
           skipPermissions: data.skipPermissions,
@@ -99,16 +104,16 @@ export default function AddProjectDialog({
           enabledAccessItems: data.enabledAccessItems,
         }
 
-        if (isEditMode && editProjectId) {
-          await updateContainer(editProjectId, payload)
+        if (isEditMode && editProjectId && editAgentType) {
+          await updateContainer(editProjectId, editAgentType, payload)
           toast.success('Container updated')
         } else if (createForProject) {
-          await createContainer(createForProject.projectId, payload)
+          await createContainer(createForProject.projectId, data.agentType, payload)
           toast.success('Container created')
         } else {
-          const result = await addProject(data.name, data.projectPath)
+          const result = await addProject(data.name, data.projectPath, data.agentType)
           const projectId = result.projectId
-          await createContainer(projectId, payload)
+          await createContainer(projectId, data.agentType, payload)
           toast.success('Project created')
         }
         onProjectAdded()
@@ -123,7 +128,7 @@ export default function AddProjectDialog({
         setIsSubmitting(false)
       }
     },
-    [isEditMode, editProjectId, createForProject, onProjectAdded, onOpenChange],
+    [isEditMode, editProjectId, editAgentType, createForProject, onProjectAdded, onOpenChange],
   )
 
   const title = isEditMode
@@ -143,6 +148,7 @@ export default function AddProjectDialog({
         name: createForProject.name,
         projectPath: createForProject.hostPath,
         image: '',
+        agentType: DEFAULT_AGENT_TYPE,
         skipPermissions: false,
         networkMode: 'full',
         costBudget: 0,

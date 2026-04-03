@@ -21,18 +21,18 @@ import (
 )
 
 func main() {
-	app, err := warden.New(warden.Options{})
+	w, err := warden.New(warden.Options{})
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "failed to start warden: %v\n", err)
 		os.Exit(1)
 	}
-	defer app.Close()
+	defer w.Close()
 
 	// Discard slog output after engine init so logs don't bleed into the
 	// TUI. Must be after warden.New() which sets its own default logger.
 	slog.SetDefault(slog.New(slog.NewTextHandler(io.Discard, nil)))
 
-	client := tui.NewServiceAdapter(app)
+	client := tui.NewServiceAdapter(w)
 	p := tea.NewProgram(tui.NewApp(client))
 
 	if _, err := p.Run(); err != nil {

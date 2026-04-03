@@ -246,7 +246,7 @@ function DeleteAuditDialog({
           </Button>
           <Button
             variant="error"
-            icon={Loader2}
+            icon={isDeleting ? Loader2 : Trash2}
             loading={isDeleting}
             onClick={handleDelete}
             disabled={!isConfirmed || isDeleting}

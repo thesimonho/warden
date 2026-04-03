@@ -33,10 +33,19 @@
 import { useEffect, useRef, useCallback, useState } from 'react'
 import { Terminal } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
+import { SerializeAddon } from '@xterm/addon-serialize'
 import { Unicode11Addon } from '@xterm/addon-unicode11'
 import { WebLinksAddon } from '@xterm/addon-web-links'
-import { toast } from 'sonner'
 import { getTerminalTheme } from '@/lib/terminal-themes'
+import { useTerminalClipboard } from '@/hooks/use-terminal-clipboard'
+import {
+  saveScrollback,
+  loadScrollback,
+  deleteScrollback,
+  scrollbackKey,
+} from '@/lib/scrollback-db'
+import { fetchWorktrees } from '@/lib/api'
+import { serializeTerminal } from '@/lib/scrollback-serialize'
 import '@fontsource/jetbrains-mono/400.css'
 import '@fontsource/jetbrains-mono/600.css'
 
@@ -47,6 +56,8 @@ export type TerminalStatus = 'connecting' | 'connected' | 'disconnected' | 'erro
 interface UseTerminalOptions {
   /** Container ID (12 or 64 char hex). */
   projectId: string
+  /** CLI agent type for this project. */
+  agentType: string
   /** Worktree identifier. */
   worktreeId: string
   /** Whether the terminal should be active (connected). */
@@ -85,15 +96,21 @@ const RECONNECT_MAX_MS = 16000
 const MAX_RECONNECT_ATTEMPTS = 5
 
 /**
+ * Scrollback lines to retain in the xterm.js buffer. 10k lines keeps serialized
+ * buffer sizes reasonable for IndexedDB (~1-5 MB) while capturing enough history.
+ */
+const SCROLLBACK_LINES = 10_000
+
+/**
  * Builds the WebSocket URL for a terminal connection.
  *
  * In development, Vite proxies /api/* (including WS upgrades) to the Go
  * backend, so we use the current host. In production, the Go binary serves
  * both the SPA and the WebSocket endpoint on the same origin.
  */
-function buildWSUrl(projectId: string, worktreeId: string): string {
+function buildWSUrl(projectId: string, agentType: string, worktreeId: string): string {
   const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-  return `${protocol}//${window.location.host}/api/v1/projects/${projectId}/ws/${worktreeId}`
+  return `${protocol}//${window.location.host}/api/v1/projects/${projectId}/${agentType}/ws/${worktreeId}`
 }
 
 /**
@@ -108,6 +125,7 @@ function buildWSUrl(projectId: string, worktreeId: string): string {
  */
 export function useTerminal({
   projectId,
+  agentType,
   worktreeId,
   isActive,
   isFocused = true,
@@ -115,6 +133,7 @@ export function useTerminal({
   const containerRef = useRef<HTMLDivElement>(null)
   const terminalRef = useRef<Terminal | null>(null)
   const fitAddonRef = useRef<FitAddon | null>(null)
+  const serializeAddonRef = useRef<SerializeAddon | null>(null)
   const wsRef = useRef<WebSocket | null>(null)
   const reconnectAttemptRef = useRef(0)
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -127,6 +146,8 @@ export function useTerminal({
   const throttleTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const isFocusedRef = useRef(isFocused)
   const [status, setStatus] = useState<TerminalStatus>('disconnected')
+
+  const clipboard = useTerminalClipboard({ terminalRef, wsRef, projectId, agentType })
 
   // Keep focus ref in sync so the message handler (closure) sees changes.
   isFocusedRef.current = isFocused
@@ -196,7 +217,7 @@ export function useTerminal({
     const terminal = terminalRef.current
     if (!terminal || isDisposedRef.current) return
 
-    const url = buildWSUrl(projectId, worktreeId)
+    const url = buildWSUrl(projectId, agentType, worktreeId)
     const ws = new WebSocket(url)
     ws.binaryType = 'arraybuffer'
     wsRef.current = ws
@@ -274,7 +295,7 @@ export function useTerminal({
       },
       { once: true },
     )
-  }, [projectId, worktreeId, fit, flushWriteBuffer])
+  }, [projectId, agentType, worktreeId, fit, flushWriteBuffer])
 
   /** Tears down the WebSocket and terminal, preventing reconnection. */
   const detach = useCallback(() => {
@@ -313,15 +334,30 @@ export function useTerminal({
       wsRef.current = null
     }
 
+    // Serialize the scrollback buffer before disposing the terminal.
+    // Fire-and-forget — detach must be synchronous (React cleanup).
     const terminal = terminalRef.current
+    const serializeAddon = serializeAddonRef.current
+    if (terminal && serializeAddon) {
+      try {
+        const data = serializeTerminal(terminal, serializeAddon)
+        if (data) {
+          saveScrollback(projectId, agentType, worktreeId, data, terminal.cols, terminal.rows)
+        }
+      } catch {
+        // Serialization failure is not critical.
+      }
+    }
+
     if (terminal) {
       terminal.dispose()
       terminalRef.current = null
     }
 
     fitAddonRef.current = null
+    serializeAddonRef.current = null
     setStatus('disconnected')
-  }, [])
+  }, [projectId, agentType, worktreeId])
 
   // Switch flush strategy when focus changes.
   // Focused: cancel interval, let RAF handle it (scheduled per-message).
@@ -354,6 +390,11 @@ export function useTerminal({
     }
   }, [isFocused, isActive, flushWriteBuffer])
 
+  /** Gives keyboard focus to the xterm.js instance. */
+  const focus = useCallback(() => {
+    terminalRef.current?.focus()
+  }, [])
+
   // Main lifecycle effect: create terminal, connect WS, observe resizes.
   useEffect(() => {
     if (!isActive || !containerRef.current) return
@@ -376,7 +417,7 @@ export function useTerminal({
       fontSize: 12,
       fontWeight: '400',
       fontWeightBold: '600',
-      scrollback: 2000,
+      scrollback: SCROLLBACK_LINES,
       smoothScrollDuration: 0,
       rescaleOverlappingGlyphs: false,
       theme: getTerminalTheme(),
@@ -386,12 +427,16 @@ export function useTerminal({
     terminal.loadAddon(fitAddon)
     terminal.loadAddon(new WebLinksAddon())
 
+    const serializeAddon = new SerializeAddon()
+    terminal.loadAddon(serializeAddon)
+
     const unicodeAddon = new Unicode11Addon()
     terminal.loadAddon(unicodeAddon)
     terminal.unicode.activeVersion = '11'
 
     terminalRef.current = terminal
     fitAddonRef.current = fitAddon
+    serializeAddonRef.current = serializeAddon
 
     // Wait for JetBrains Mono to load before opening, so xterm caches
     // correct glyph metrics on first render (no FOUT or misaligned text).
@@ -419,6 +464,12 @@ export function useTerminal({
       // xterm.js limitation (also affects VS Code's terminal).
       // See: https://github.com/xtermjs/xterm.js/issues/5194
       // See: https://github.com/anthropics/claude-code/issues/23581
+
+      // OSC 52 clipboard support: applications inside the container can
+      // write to the browser clipboard via the OSC 52 escape sequence.
+      // Claude Code uses this in fullscreen mode (CLAUDE_CODE_NO_FLICKER=1)
+      // for copy operations. Format: ESC ] 52 ; <sel> ; <base64> ST
+      clipboard.registerOsc52Handler(terminal)
 
       // Clipboard keybindings: Ctrl+Shift+C copies selected text,
       // Ctrl+Shift+V pastes from clipboard. Plain Ctrl+C still sends ^C
@@ -449,23 +500,31 @@ export function useTerminal({
         const isCtrlShift = event.ctrlKey && event.shiftKey && !event.altKey && !event.metaKey
 
         if (isCtrlShift && event.key === 'C') {
-          const selection = terminal.getSelection()
-          if (selection) {
-            navigator.clipboard.writeText(selection).then(() => {
-              toast.success('Copied to clipboard')
-            })
-          }
+          clipboard.copySelection()
           event.preventDefault()
           return false
         }
 
         if (isCtrlShift && event.key === 'V') {
-          navigator.clipboard
-            .readText()
-            .then((text) => {
-              if (text) terminal.paste(text)
-            })
-            .catch(() => {})
+          clipboard.pasteText()
+          event.preventDefault()
+          return false
+        }
+
+        // Plain Ctrl+V: check for image data on clipboard. If found,
+        // upload to the container's xclip staging dir, then send Ctrl+V
+        // so the agent reads it via the shim. For text-only clipboard,
+        // send the raw Ctrl+V byte so the agent handles it.
+        if (
+          event.key === 'v' &&
+          event.ctrlKey &&
+          !event.shiftKey &&
+          !event.altKey &&
+          !event.metaKey
+        ) {
+          clipboard.pasteImageFromClipboard().then((handled) => {
+            if (!handled) clipboard.sendToPty('\x16')
+          })
           event.preventDefault()
           return false
         }
@@ -484,8 +543,26 @@ export function useTerminal({
         }
       })
 
-      // Connect WebSocket.
-      connect()
+      // Restore saved scrollback before connecting the WebSocket so
+      // abduco's visible-screen replay appends after the historical content.
+      // Fetch worktree state in parallel to check if the agent has exited —
+      // stale scrollback from a finished session should not be restored.
+      const sbKey = scrollbackKey(projectId, agentType, worktreeId)
+      Promise.all([loadScrollback(sbKey), fetchWorktrees(projectId, agentType).catch(() => [])])
+        .then(([entry, worktrees]) => {
+          if (effectCancelled) return
+          const wt = worktrees.find((w) => w.id === worktreeId)
+          const hasAgentExited = wt != null && wt.exitCode != null
+          if (entry && !hasAgentExited) {
+            terminal.write(entry.data)
+          } else if (entry) {
+            deleteScrollback(sbKey)
+          }
+          connect()
+        })
+        .catch(() => {
+          if (!effectCancelled) connect()
+        })
 
       // Observe container resizes to refit the terminal.
       const resizeObserver = new ResizeObserver(() => {
@@ -514,15 +591,18 @@ export function useTerminal({
       effectCancelled = true
       detach()
     }
-    // We intentionally exclude `connect`, `fit`, and `detach` — they're stable
-    // callbacks that shouldn't trigger re-creation of the terminal.
+    // We exclude `connect`, `fit`, and `detach` from deps. `connect` and `fit`
+    // are stable (empty deps). `detach` depends on [projectId, worktreeId] which
+    // are already in this effect's deps, so changes are covered without listing it.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isActive, projectId, worktreeId])
+  }, [isActive, projectId, agentType, worktreeId])
 
-  /** Gives keyboard focus to the xterm.js instance. */
-  const focus = useCallback(() => {
-    terminalRef.current?.focus()
-  }, [])
-
-  return { containerRef, status, detach, focus, fit }
+  return {
+    containerRef,
+    status,
+    detach,
+    focus,
+    fit,
+    clipboard,
+  }
 }

@@ -12,7 +12,7 @@ const dbFileName = "warden.db"
 
 const schema = `
 CREATE TABLE IF NOT EXISTS projects (
-    project_id        TEXT PRIMARY KEY,
+    project_id        TEXT NOT NULL,
     name              TEXT NOT NULL,
     host_path         TEXT NOT NULL,
     added_at          TEXT NOT NULL,
@@ -25,8 +25,10 @@ CREATE TABLE IF NOT EXISTS projects (
     allowed_domains   TEXT NOT NULL DEFAULT '',
     cost_budget       REAL NOT NULL DEFAULT 0,
     enabled_access_items TEXT NOT NULL DEFAULT '',
+    agent_type        TEXT NOT NULL,
     container_id      TEXT NOT NULL DEFAULT '',
-    container_name    TEXT NOT NULL DEFAULT ''
+    container_name    TEXT NOT NULL DEFAULT '',
+    PRIMARY KEY (project_id, agent_type)
 );
 
 CREATE TABLE IF NOT EXISTS settings (
@@ -41,11 +43,13 @@ CREATE TABLE IF NOT EXISTS events (
     level          TEXT    NOT NULL,
     event          TEXT    NOT NULL,
     project_id     TEXT    NOT NULL DEFAULT '',
+    agent_type     TEXT    NOT NULL DEFAULT '',
     container_name TEXT    NOT NULL DEFAULT '',
     worktree       TEXT    NOT NULL DEFAULT '',
     msg            TEXT    NOT NULL DEFAULT '',
     data           TEXT,
-    attrs          TEXT
+    attrs          TEXT,
+    source_id      TEXT
 );
 
 CREATE INDEX IF NOT EXISTS idx_events_ts ON events(ts);
@@ -54,14 +58,17 @@ CREATE INDEX IF NOT EXISTS idx_events_level ON events(level);
 CREATE INDEX IF NOT EXISTS idx_events_project_id ON events(project_id);
 CREATE INDEX IF NOT EXISTS idx_events_event ON events(event);
 
+CREATE UNIQUE INDEX IF NOT EXISTS idx_events_dedup ON events(project_id, agent_type, source_id) WHERE source_id IS NOT NULL;
+
 CREATE TABLE IF NOT EXISTS session_costs (
     project_id   TEXT NOT NULL,
+    agent_type   TEXT NOT NULL,
     session_id   TEXT NOT NULL,
     cost         REAL NOT NULL DEFAULT 0,
     is_estimated INTEGER NOT NULL DEFAULT 0,
     created_at   TEXT NOT NULL,
     updated_at   TEXT NOT NULL,
-    PRIMARY KEY (project_id, session_id)
+    PRIMARY KEY (project_id, agent_type, session_id)
 );
 
 CREATE TABLE IF NOT EXISTS access_items (
@@ -73,7 +80,7 @@ CREATE TABLE IF NOT EXISTS access_items (
 );
 
 CREATE INDEX IF NOT EXISTS idx_projects_host_path ON projects(host_path);
-CREATE INDEX IF NOT EXISTS idx_session_costs_project_time ON session_costs(project_id, updated_at);
+CREATE INDEX IF NOT EXISTS idx_session_costs_project_time ON session_costs(project_id, agent_type, updated_at);
 `
 
 // openDB opens (or creates) a SQLite database at the given path and applies
@@ -101,22 +108,20 @@ func openDB(path string) (*sql.DB, error) {
 		}
 	}
 
+	// Detect old single-column PK and drop tables for compound PK migration.
+	// This is a one-time destructive migration — all existing project, cost,
+	// and audit data is lost.
+	var pkCount int
+	row := db.QueryRow(`SELECT COUNT(*) FROM pragma_table_info('projects') WHERE pk > 0`)
+	if err := row.Scan(&pkCount); err == nil && pkCount == 1 {
+		db.Exec("DROP TABLE IF EXISTS projects")    //nolint:errcheck
+		db.Exec("DROP TABLE IF EXISTS session_costs") //nolint:errcheck
+		db.Exec("DROP TABLE IF EXISTS events")       //nolint:errcheck
+	}
+
 	if _, err := db.Exec(schema); err != nil {
 		db.Close() //nolint:errcheck
 		return nil, fmt.Errorf("creating schema: %w", err)
-	}
-
-	// Column migrations for existing databases. ALTER TABLE ADD COLUMN
-	// errors when the column already exists; ignoring the error is the
-	// conventional SQLite migration pattern without version tracking.
-	migrations := []string{
-		// Rename enabled_presets → enabled_access_items for existing databases.
-		`ALTER TABLE projects RENAME COLUMN enabled_presets TO enabled_access_items`,
-		// Fallback: add the column if it doesn't exist yet (new DB with old schema).
-		`ALTER TABLE projects ADD COLUMN enabled_access_items TEXT NOT NULL DEFAULT ''`,
-	}
-	for _, m := range migrations {
-		_, _ = db.Exec(m) //nolint:errcheck // expected to fail if column exists
 	}
 
 	return db, nil

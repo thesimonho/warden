@@ -57,12 +57,14 @@ The server exposes all endpoints under `/api/v1/`. See the [API Reference](../..
 
 ## Example: Create a project
 
+The request body accepts an optional `agentType` field (`"claude-code"` or `"codex"`). Defaults to `"claude-code"` if omitted. The agent type is locked at creation time and cannot be changed later.
+
 <Tabs>
   <TabItem label="curl">
     ```bash
     curl -X POST http://localhost:8090/api/v1/projects \
       -H "Content-Type: application/json" \
-      -d '{"name": "my-project", "projectPath": "/home/user/project"}'
+      -d '{"name": "my-project", "projectPath": "/home/user/project", "agentType": "codex"}'
     ```
   </TabItem>
   <TabItem label="TypeScript">
@@ -73,6 +75,7 @@ The server exposes all endpoints under `/api/v1/`. See the [API Reference](../..
       body: JSON.stringify({
         name: "my-project",
         projectPath: "/home/user/project",
+        agentType: "codex",
       }),
     });
     const result = await response.json();
@@ -87,6 +90,7 @@ The server exposes all endpoints under `/api/v1/`. See the [API Reference](../..
         json={
             "name": "my-project",
             "projectPath": "/home/user/project",
+            "agentType": "codex",
         },
     )
     result = response.json()
@@ -97,6 +101,7 @@ The server exposes all endpoints under `/api/v1/`. See the [API Reference](../..
     body, _ := json.Marshal(map[string]string{
         "name":        "my-project",
         "projectPath": "/home/user/project",
+        "agentType":   "codex",
     })
 
     resp, err := http.Post(
@@ -233,19 +238,53 @@ Subscribe to `GET /api/v1/events` for real-time updates:
 
 Events include `worktree_state` (attention/terminal state changes per worktree), `project_state` (aggregated cost + attention state per project), `worktree_list_changed`, `budget_exceeded` (when a project exceeds its cost budget), and `budget_container_stopped` (after budget enforcement stops a container — includes `containerId` for matching against project views).
 
+## Clipboard operations
+
+### Image paste
+
+Upload an image to the container's clipboard staging directory for agent use:
+
+```
+POST /api/v1/projects/{projectId}/{agentType}/clipboard
+Content-Type: multipart/form-data
+
+file: <image file>
+```
+
+Returns:
+
+```json
+{
+  "path": "/tmp/warden-clipboard/paste-1234567890.png"
+}
+```
+
+The web terminal uses this for image paste (Ctrl+V) — it uploads the image, stages it in the container, then sends Ctrl+V to the terminal so the agent's clipboard read picks it up via the xclip shim. Maximum upload size is 10 MB.
+
+**Note**: The xclip shim is transparently injected into containers for clipboard integration. When the agent reads the clipboard via `xclip`, the shim returns staged images. For non-image clipboard operations, the shim passes through to the real xclip binary.
+
+### OSC 52 clipboard
+
+The terminal supports OSC 52 for bidirectional text clipboard access between the agent and the browser. When the agent sends OSC 52 escape sequences:
+
+- **Write** — the browser writes to its clipboard
+- **Read** — the browser reads from its clipboard and sends it back
+
+This is transparent to agents — Claude Code's fullscreen mode automatically uses OSC 52 for copy operations.
+
 ## Terminal lifecycle
 
 Terminal interaction requires two steps:
 
-1. **Connect** (`POST /api/v1/projects/{id}/worktrees/{wid}/connect`) — starts the terminal process (abduco session) if not already running. This is idempotent — calling it on a running terminal is safe.
+1. **Connect** (`POST /api/v1/projects/{projectId}/{agentType}/worktrees/{wid}/connect`) — starts the terminal process (abduco session) if not already running. This is idempotent — calling it on a running terminal is safe.
 
-2. **Attach** (`GET /api/v1/projects/{id}/ws/{wid}`) — opens a WebSocket viewer into the running session. Binary frames carry PTY I/O; text frames carry JSON control messages (resize).
+2. **Attach** (`GET /api/v1/projects/{projectId}/{agentType}/ws/{wid}`) — opens a WebSocket viewer into the running session. Binary frames carry PTY I/O; text frames carry JSON control messages (resize).
 
 The abduco session survives viewer disconnects. After the viewer closes:
 
-3. **Disconnect** (`POST /api/v1/projects/{id}/worktrees/{wid}/disconnect`) — notifies the server the viewer closed (triggers state update events).
+3. **Disconnect** (`POST /api/v1/projects/{projectId}/{agentType}/worktrees/{wid}/disconnect`) — notifies the server the viewer closed (triggers state update events).
 
-To fully terminate a terminal, use **Kill** (`POST /api/v1/projects/{id}/worktrees/{wid}/kill`) instead.
+To fully terminate a terminal, use **Kill** (`POST /api/v1/projects/{projectId}/{agentType}/worktrees/{wid}/kill`) instead.
 
 ```
 Connect (start process) → Attach (open viewer) → Read/Write → Close viewer → Disconnect
@@ -254,7 +293,7 @@ Connect (start process) → Attach (open viewer) → Read/Write → Close viewer
 
 ### WebSocket protocol
 
-The terminal WebSocket at `/api/v1/projects/{id}/ws/{wid}` uses:
+The terminal WebSocket at `/api/v1/projects/{projectId}/{agentType}/ws/{wid}` uses:
 
 - **Binary frames**: raw PTY data (stdin input / stdout output)
 - **Text frames**: JSON control messages — currently only resize:

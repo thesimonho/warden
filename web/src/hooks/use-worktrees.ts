@@ -20,9 +20,10 @@ interface UseWorktreesResult {
  * SSE worktree_state events update needsInput/notificationType immediately.
  *
  * @param projectId - The project to fetch worktrees for.
+ * @param agentType - The CLI agent type for this project.
  * @returns Worktrees, loading state, error, and a manual refetch function.
  */
-export function useWorktrees(projectId: string): UseWorktreesResult {
+export function useWorktrees(projectId: string, agentType: string): UseWorktreesResult {
   const [worktrees, setWorktrees] = useState<Worktree[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -31,7 +32,7 @@ export function useWorktrees(projectId: string): UseWorktreesResult {
 
   const refetch = useCallback(async () => {
     try {
-      const data = await fetchWorktrees(projectId)
+      const data = await fetchWorktrees(projectId, agentType)
       const json = JSON.stringify(data)
       if (json !== prevJSON.current) {
         prevJSON.current = json
@@ -44,7 +45,7 @@ export function useWorktrees(projectId: string): UseWorktreesResult {
     } finally {
       setIsLoading(false)
     }
-  }, [projectId])
+  }, [projectId, agentType])
 
   useEffect(() => {
     refetch()
@@ -55,7 +56,7 @@ export function useWorktrees(projectId: string): UseWorktreesResult {
   /** Applies a worktree_state SSE event to local state. */
   const handleWorktreeState = useCallback(
     (event: WorktreeStateEvent) => {
-      if (event.projectId !== projectId) return
+      if (event.projectId !== projectId || event.agentType !== agentType) return
 
       startTransition(() => {
         setWorktrees((prev) => {
@@ -88,15 +89,15 @@ export function useWorktrees(projectId: string): UseWorktreesResult {
         })
       })
     },
-    [projectId],
+    [projectId, agentType],
   )
 
   /** Refetches the worktree list when a structural change occurs. */
   const handleWorktreeListChanged = useCallback(
     (event: WorktreeListChangedEvent) => {
-      if (event.projectId === projectId) refetch()
+      if (event.projectId === projectId && event.agentType === agentType) refetch()
     },
-    [projectId, refetch],
+    [projectId, agentType, refetch],
   )
 
   useEventSource({

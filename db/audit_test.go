@@ -221,8 +221,8 @@ func TestGetCostInTimeRange(t *testing.T) {
 
 	for _, s := range sessions {
 		_, insertErr := store.db.Exec(
-			`INSERT INTO session_costs (project_id, session_id, cost, is_estimated, created_at, updated_at)
-			 VALUES (?, ?, ?, 0, ?, ?)`,
+			`INSERT INTO session_costs (project_id, agent_type, session_id, cost, is_estimated, created_at, updated_at)
+			 VALUES (?, 'claude-code', ?, ?, 0, ?, ?)`,
 			s.projectID, s.sessionID, s.cost,
 			s.createdAt.Format(time.RFC3339Nano),
 			s.updatedAt.Format(time.RFC3339Nano),

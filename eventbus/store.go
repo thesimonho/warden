@@ -1,8 +1,11 @@
 package eventbus
 
 import (
+	"encoding/hex"
 	"encoding/json"
+	"hash/fnv"
 	"log/slog"
+	"strconv"
 	"sync"
 	"time"
 
@@ -80,8 +83,7 @@ func (ts *TerminalState) DeriveWorktreeState() engine.WorktreeState {
 // WorktreeStatePayload is the JSON shape sent over SSE for worktree_state events.
 // Shared by all broadcast helpers to keep the Go and TypeScript types in sync.
 type WorktreeStatePayload struct {
-	ProjectID        string                  `json:"projectId,omitempty"`
-	ContainerName    string                  `json:"containerName"`
+	ProjectRef
 	WorktreeID       string                  `json:"worktreeId"`
 	NeedsInput       bool                    `json:"needsInput"`
 	NotificationType engine.NotificationType `json:"notificationType,omitempty"`
@@ -94,14 +96,22 @@ type WorktreeStatePayload struct {
 // parsed from the event payload. sessionID and cost are zero when the
 // event carried no cost data. Set via [Store.SetStopCallback].
 // projectID is the deterministic project identifier (from WARDEN_PROJECT_ID).
+// agentType is the agent type identifier (from WARDEN_AGENT_TYPE).
 // containerName is the Docker container name (from WARDEN_CONTAINER_NAME).
-type StopCallbackFunc func(projectID, containerName, sessionID string, cost float64, isEstimated bool)
+type StopCallbackFunc func(projectID, agentType, containerName, sessionID string, cost float64, isEstimated bool)
 
 // StaleCallbackFunc is called when a container stops sending heartbeats
 // and is marked stale. The service layer uses this to write an audit
 // entry with full project context (project ID and name). Set via
 // [Store.SetStaleCallback].
 type StaleCallbackFunc func(containerName string)
+
+// AliveCallbackFunc is called when a container transitions from
+// unknown/stale to alive. Fires on the first lifecycle event
+// (heartbeat or session_start) for a container not in lastEvents.
+// The service layer uses this to reactively start session watchers.
+// Set via [Store.SetAliveCallback].
+type AliveCallbackFunc func(projectID, agentType, containerName string)
 
 // Store holds in-memory state derived from container events.
 //
@@ -118,6 +128,7 @@ type Store struct {
 	auditWriter        *db.AuditWriter
 	onStop             StopCallbackFunc
 	onStale            StaleCallbackFunc
+	onAlive            AliveCallbackFunc
 }
 
 // NewStore creates an empty event store. If broker is non-nil,
@@ -155,6 +166,16 @@ func (s *Store) SetStaleCallback(fn StaleCallbackFunc) {
 	s.onStale = fn
 }
 
+// SetAliveCallback registers a function called when a container
+// transitions from unknown/stale to alive. Only fires on lifecycle
+// events (heartbeat or session_start), not on arbitrary events that
+// might arrive for a container before it is fully running.
+func (s *Store) SetAliveCallback(fn AliveCallbackFunc) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.onAlive = fn
+}
+
 // HandleEvent processes a container event, updates state, and
 // broadcasts changes to SSE clients. This is the callback passed
 // to the Watcher.
@@ -165,6 +186,9 @@ func (s *Store) HandleEvent(event ContainerEvent) {
 		containerName: event.ContainerName,
 		worktreeID:    event.WorktreeID,
 	}
+
+	_, wasKnown := s.lastEvents[event.ContainerName]
+	isLifecycleEvent := event.Type == EventHeartbeat || event.Type == EventSessionStart
 	s.lastEvents[event.ContainerName] = event.Timestamp
 
 	var broadcasts []pendingBroadcast
@@ -201,6 +225,16 @@ func (s *Store) HandleEvent(event ContainerEvent) {
 		// No state change — task completion is logged for audit.
 	case EventElicitation, EventElicitationResult:
 		// No state change — MCP elicitation events are logged for audit.
+	case EventTurnComplete, EventTurnDuration:
+		// No state change — turn lifecycle is logged for audit.
+	case EventApiMetrics:
+		// No state change — API performance metrics are logged for audit.
+	case EventPermissionGrant:
+		// No state change — permission grants are logged for audit.
+	case EventContextCompact:
+		// No state change — context compaction is logged for audit.
+	case EventSystemInfo:
+		// No state change — informational system messages are logged for audit.
 	case EventTerminalConnected:
 		broadcasts = s.handleTerminalConnected(key, event)
 	case EventTerminalDisconnected:
@@ -215,6 +249,7 @@ func (s *Store) HandleEvent(event ContainerEvent) {
 
 	writer := s.auditWriter
 	onStop := s.onStop
+	onAlive := s.onAlive
 	s.mu.Unlock()
 
 	// Broadcast first so SSE notifications reach frontends before the
@@ -228,7 +263,14 @@ func (s *Store) HandleEvent(event ContainerEvent) {
 	// budget enforcement. Uses cost data already parsed by handleStop.
 	// Runs outside the lock because enforcement may call back into docker.
 	if event.Type == EventStop && onStop != nil {
-		onStop(event.ProjectID, event.ContainerName, stopCost.SessionID, stopCost.TotalCost, stopCost.IsEstimated)
+		onStop(event.ProjectID, event.AgentType, event.ContainerName, stopCost.SessionID, stopCost.TotalCost, stopCost.IsEstimated)
+	}
+
+	// Fire alive callback when a container appears for the first time
+	// (or reappears after being marked stale). Only lifecycle events
+	// trigger this to avoid spurious watcher starts from stray events.
+	if !wasKnown && isLifecycleEvent && onAlive != nil {
+		onAlive(event.ProjectID, event.AgentType, event.ContainerName)
 	}
 }
 
@@ -302,8 +344,8 @@ func (s *Store) handleAttention(key worktreeKey, event ContainerEvent) []pending
 	s.attention[key] = att
 
 	return []pendingBroadcast{
-		buildWorktreeBroadcast(event.ProjectID, event.ContainerName, event.WorktreeID, att, s.terminals[key]),
-		s.buildProjectBroadcast(event.ProjectID, event.ContainerName),
+		buildWorktreeBroadcast(event.Ref(), event.WorktreeID, att, s.terminals[key]),
+		s.buildProjectBroadcast(event.Ref()),
 	}
 }
 
@@ -321,8 +363,8 @@ func (s *Store) handleAttentionClear(key worktreeKey, event ContainerEvent) []pe
 	s.attention[key] = att
 
 	return []pendingBroadcast{
-		buildWorktreeBroadcast(event.ProjectID, event.ContainerName, event.WorktreeID, att, s.terminals[key]),
-		s.buildProjectBroadcast(event.ProjectID, event.ContainerName),
+		buildWorktreeBroadcast(event.Ref(), event.WorktreeID, att, s.terminals[key]),
+		s.buildProjectBroadcast(event.Ref()),
 	}
 }
 
@@ -340,8 +382,8 @@ func (s *Store) handleNeedsAnswer(key worktreeKey, event ContainerEvent) []pendi
 	s.attention[key] = att
 
 	return []pendingBroadcast{
-		buildWorktreeBroadcast(event.ProjectID, event.ContainerName, event.WorktreeID, att, s.terminals[key]),
-		s.buildProjectBroadcast(event.ProjectID, event.ContainerName),
+		buildWorktreeBroadcast(event.Ref(), event.WorktreeID, att, s.terminals[key]),
+		s.buildProjectBroadcast(event.Ref()),
 	}
 }
 
@@ -358,9 +400,9 @@ func (s *Store) handleSessionStart(key worktreeKey, event ContainerEvent) []pend
 	state := &WorktreeState{SessionActive: true, UpdatedAt: event.Timestamp}
 	s.attention[key] = state
 
-	broadcasts := []pendingBroadcast{buildWorktreeBroadcast(event.ProjectID, event.ContainerName, event.WorktreeID, state, s.terminals[key])}
+	broadcasts := []pendingBroadcast{buildWorktreeBroadcast(event.Ref(), event.WorktreeID, state, s.terminals[key])}
 	if hadAttention {
-		broadcasts = append(broadcasts, s.buildProjectBroadcast(event.ProjectID, event.ContainerName))
+		broadcasts = append(broadcasts, s.buildProjectBroadcast(event.Ref()))
 	}
 	return broadcasts
 }
@@ -378,9 +420,9 @@ func (s *Store) handleSessionEnd(key worktreeKey, event ContainerEvent) []pendin
 	state := &WorktreeState{SessionActive: false, UpdatedAt: event.Timestamp}
 	s.attention[key] = state
 
-	broadcasts := []pendingBroadcast{buildWorktreeBroadcast(event.ProjectID, event.ContainerName, event.WorktreeID, state, s.terminals[key])}
+	broadcasts := []pendingBroadcast{buildWorktreeBroadcast(event.Ref(), event.WorktreeID, state, s.terminals[key])}
 	if hadAttention {
-		broadcasts = append(broadcasts, s.buildProjectBroadcast(event.ProjectID, event.ContainerName))
+		broadcasts = append(broadcasts, s.buildProjectBroadcast(event.Ref()))
 	}
 	return broadcasts
 }
@@ -403,7 +445,7 @@ func (s *Store) handleStop(key worktreeKey, event ContainerEvent) ([]pendingBroa
 				UpdatedAt:    event.Timestamp,
 			}
 			s.costs[event.ContainerName] = cost
-			broadcasts = append(broadcasts, s.buildProjectBroadcast(event.ProjectID, event.ContainerName))
+			broadcasts = append(broadcasts, s.buildProjectBroadcast(event.Ref()))
 		}
 	}
 
@@ -415,7 +457,7 @@ func (s *Store) handleStop(key worktreeKey, event ContainerEvent) ([]pendingBroa
 			UpdatedAt:     event.Timestamp,
 		}
 		s.attention[key] = att
-		broadcasts = append(broadcasts, buildWorktreeBroadcast(event.ProjectID, event.ContainerName, event.WorktreeID, att, s.terminals[key]))
+		broadcasts = append(broadcasts, buildWorktreeBroadcast(event.Ref(), event.WorktreeID, att, s.terminals[key]))
 	}
 
 	return broadcasts, parsed
@@ -432,7 +474,7 @@ func (s *Store) handleTerminalConnected(key worktreeKey, event ContainerEvent) [
 	s.terminals[key] = ts
 	s.terminalContainers[event.ContainerName] = struct{}{}
 
-	return []pendingBroadcast{buildWorktreeBroadcast(event.ProjectID, event.ContainerName, event.WorktreeID, s.attention[key], ts)}
+	return []pendingBroadcast{buildWorktreeBroadcast(event.Ref(), event.WorktreeID, s.attention[key], ts)}
 }
 
 // handleTerminalDisconnected marks the viewer as disconnected.
@@ -453,7 +495,7 @@ func (s *Store) handleTerminalDisconnected(key worktreeKey, event ContainerEvent
 	s.terminals[key] = ts
 	s.terminalContainers[event.ContainerName] = struct{}{}
 
-	return []pendingBroadcast{buildWorktreeBroadcast(event.ProjectID, event.ContainerName, event.WorktreeID, s.attention[key], ts)}
+	return []pendingBroadcast{buildWorktreeBroadcast(event.Ref(), event.WorktreeID, s.attention[key], ts)}
 }
 
 // handleProcessKilled marks both ttyd and abduco as dead.
@@ -465,7 +507,7 @@ func (s *Store) handleProcessKilled(key worktreeKey, event ContainerEvent) []pen
 	s.terminals[key] = ts
 	s.terminalContainers[event.ContainerName] = struct{}{}
 
-	return []pendingBroadcast{buildWorktreeBroadcast(event.ProjectID, event.ContainerName, event.WorktreeID, s.attention[key], ts)}
+	return []pendingBroadcast{buildWorktreeBroadcast(event.Ref(), event.WorktreeID, s.attention[key], ts)}
 }
 
 // handleSessionExit records Claude's exit code.
@@ -493,7 +535,7 @@ func (s *Store) handleSessionExit(key worktreeKey, event ContainerEvent) []pendi
 	s.terminals[key] = ts
 	s.terminalContainers[event.ContainerName] = struct{}{}
 
-	return []pendingBroadcast{buildWorktreeBroadcast(event.ProjectID, event.ContainerName, event.WorktreeID, s.attention[key], ts)}
+	return []pendingBroadcast{buildWorktreeBroadcast(event.Ref(), event.WorktreeID, s.attention[key], ts)}
 }
 
 // GetTerminalState returns the terminal lifecycle state for a worktree.
@@ -537,7 +579,7 @@ func (s *Store) EvictWorktree(containerName, worktreeID string) {
 
 	// Broadcast cleared state so frontends drop the worktree immediately.
 	// TODO(Phase 5): pass projectID through EvictWorktree so SSE events carry it.
-	s.broadcast([]pendingBroadcast{buildWorktreeBroadcast("", containerName, worktreeID, nil, nil)})
+	s.broadcast([]pendingBroadcast{buildWorktreeBroadcast(ProjectRef{ContainerName: containerName}, worktreeID, nil, nil)})
 }
 
 // HasTerminalData reports whether the store has any terminal lifecycle
@@ -583,7 +625,7 @@ func (s *Store) MarkContainerStale(containerName string) {
 
 		cleared := &WorktreeState{UpdatedAt: now}
 		ts := s.terminals[key]
-		broadcasts = append(broadcasts, buildWorktreeBroadcast("", containerName, key.worktreeID, cleared, ts))
+		broadcasts = append(broadcasts, buildWorktreeBroadcast(ProjectRef{ContainerName: containerName}, key.worktreeID, cleared, ts))
 		broadcastedKeys[key] = struct{}{}
 	}
 
@@ -592,7 +634,7 @@ func (s *Store) MarkContainerStale(containerName string) {
 			continue
 		}
 		if _, alreadySent := broadcastedKeys[key]; !alreadySent {
-			broadcasts = append(broadcasts, buildWorktreeBroadcast("", containerName, key.worktreeID, nil, nil))
+			broadcasts = append(broadcasts, buildWorktreeBroadcast(ProjectRef{ContainerName: containerName}, key.worktreeID, nil, nil))
 		}
 	}
 
@@ -622,51 +664,69 @@ func (s *Store) MarkContainerStale(containerName string) {
 	}
 }
 
+// RemoveContainer clears all in-memory state for a container without
+// triggering the stale callback. Called when a container is deliberately
+// deleted — prevents the liveness checker from later finding a stale entry
+// for the old container name and inadvertently stopping a newly created
+// container's session watcher.
+func (s *Store) RemoveContainer(containerName string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	for key := range s.attention {
+		if key.containerName == containerName {
+			delete(s.attention, key)
+		}
+	}
+	for key := range s.terminals {
+		if key.containerName == containerName {
+			delete(s.terminals, key)
+		}
+	}
+	delete(s.costs, containerName)
+	delete(s.terminalContainers, containerName)
+	delete(s.lastEvents, containerName)
+}
+
 // BroadcastWorktreeListChanged sends a worktree_list_changed event to all
 // SSE clients so they can refresh the worktree list for the given container.
-func (s *Store) BroadcastWorktreeListChanged(containerName string) {
+func (s *Store) BroadcastWorktreeListChanged(ref ProjectRef) {
 	s.broadcast([]pendingBroadcast{{
 		event: SSEWorktreeListChanged,
-		data: struct {
-			ContainerName string `json:"containerName"`
-		}{
-			ContainerName: containerName,
-		},
+		data:  ref,
 	}})
 }
 
 // broadcastBudgetEvent sends a budget enforcement SSE event with the shared
 // [BudgetEventPayload] to all connected frontends.
-func (s *Store) broadcastBudgetEvent(event SSEEventType, projectID, containerName string, totalCost, budget float64) {
+func (s *Store) broadcastBudgetEvent(event SSEEventType, ref ProjectRef, totalCost, budget float64) {
 	s.broadcast([]pendingBroadcast{{
 		event: event,
 		data: BudgetEventPayload{
-			ProjectID:     projectID,
-			ContainerName: containerName,
-			TotalCost:     totalCost,
-			Budget:        budget,
+			ProjectRef: ref,
+			TotalCost:  totalCost,
+			Budget:     budget,
 		},
 	}})
 }
 
 // BroadcastBudgetExceeded sends a budget_exceeded SSE event to all
 // connected frontends so they can show a notification.
-func (s *Store) BroadcastBudgetExceeded(projectID, containerName string, totalCost, budget float64) {
-	s.broadcastBudgetEvent(SSEBudgetExceeded, projectID, containerName, totalCost, budget)
+func (s *Store) BroadcastBudgetExceeded(ref ProjectRef, totalCost, budget float64) {
+	s.broadcastBudgetEvent(SSEBudgetExceeded, ref, totalCost, budget)
 }
 
 // BroadcastBudgetContainerStopped sends a budget_container_stopped SSE event
 // after a container is stopped due to budget enforcement, so frontends can
 // redirect users away from the now-stopped project.
-func (s *Store) BroadcastBudgetContainerStopped(projectID, containerName, containerID string, totalCost, budget float64) {
+func (s *Store) BroadcastBudgetContainerStopped(ref ProjectRef, containerID string, totalCost, budget float64) {
 	s.broadcast([]pendingBroadcast{{
 		event: SSEBudgetContainerStopped,
 		data: BudgetContainerStoppedPayload{
 			BudgetEventPayload: BudgetEventPayload{
-				ProjectID:     projectID,
-				ContainerName: containerName,
-				TotalCost:     totalCost,
-				Budget:        budget,
+				ProjectRef: ref,
+				TotalCost:  totalCost,
+				Budget:     budget,
 			},
 			ContainerID: containerID,
 		},
@@ -675,11 +735,10 @@ func (s *Store) BroadcastBudgetContainerStopped(projectID, containerName, contai
 
 // buildWorktreeBroadcast creates a pending broadcast for a worktree state change,
 // including both attention and terminal lifecycle data when available.
-func buildWorktreeBroadcast(projectID, containerName, worktreeID string, att *WorktreeState, ts *TerminalState) pendingBroadcast {
+func buildWorktreeBroadcast(ref ProjectRef, worktreeID string, att *WorktreeState, ts *TerminalState) pendingBroadcast {
 	payload := WorktreeStatePayload{
-		ProjectID:     projectID,
-		ContainerName: containerName,
-		WorktreeID:    worktreeID,
+		ProjectRef: ref,
+		WorktreeID: worktreeID,
 	}
 
 	if att != nil {
@@ -699,8 +758,7 @@ func buildWorktreeBroadcast(projectID, containerName, worktreeID string, att *Wo
 // ProjectStatePayload is the JSON shape sent over SSE for project_state events.
 // Carries both cost and attention state so the home page can update in real time.
 type ProjectStatePayload struct {
-	ProjectID        string                  `json:"projectId,omitempty"`
-	ContainerName    string                  `json:"containerName"`
+	ProjectRef
 	TotalCost        float64                 `json:"totalCost"`
 	MessageCount     int                     `json:"messageCount"`
 	NeedsInput       bool                    `json:"needsInput"`
@@ -711,17 +769,16 @@ type ProjectStatePayload struct {
 // aggregated attention across all worktrees plus current cost. Every project_state
 // event carries the full snapshot so the frontend can apply it unconditionally.
 // Must be called under lock.
-func (s *Store) buildProjectBroadcast(projectID, containerName string) pendingBroadcast {
-	needsInput, highestType := s.aggregateContainerAttention(containerName)
+func (s *Store) buildProjectBroadcast(ref ProjectRef) pendingBroadcast {
+	needsInput, highestType := s.aggregateContainerAttention(ref.ContainerName)
 
 	payload := ProjectStatePayload{
-		ProjectID:        projectID,
-		ContainerName:    containerName,
+		ProjectRef:       ref,
 		NeedsInput:       needsInput,
 		NotificationType: highestType,
 	}
 
-	if cost, ok := s.costs[containerName]; ok {
+	if cost, ok := s.costs[ref.ContainerName]; ok {
 		payload.TotalCost = cost.TotalCost
 		payload.MessageCount = cost.MessageCount
 	}
@@ -754,11 +811,15 @@ func (s *Store) aggregateContainerAttention(containerName string) (needsInput bo
 }
 
 // writeToAuditLog persists a container event to the audit log via the
-// AuditWriter. Skips heartbeat and attention_clear events — heartbeats
-// are too frequent, and attention_clear fires on every user prompt with
-// no independent audit value (the user_prompt event already captures this).
+// AuditWriter. Skips events that are too noisy or have no independent
+// audit value:
+//   - heartbeat: fires every 30s per container
+//   - attention_clear: fires on every user prompt (user_prompt captures this)
+//   - stop: fires on every assistant message with token usage; cost data is
+//     already persisted via handleStop → PersistSessionCost, so the audit
+//     entry adds noise without value
 func (s *Store) writeToAuditLog(writer *db.AuditWriter, event ContainerEvent) {
-	if writer == nil || event.Type == EventHeartbeat || event.Type == EventAttentionClear {
+	if writer == nil || event.Type == EventHeartbeat || event.Type == EventAttentionClear || event.Type == EventStop {
 		return
 	}
 
@@ -845,11 +906,20 @@ func (s *Store) writeToAuditLog(writer *db.AuditWriter, event ContainerEvent) {
 		Source:        source,
 		Level:         level,
 		ProjectID:     event.ProjectID,
+		AgentType:     event.AgentType,
 		ContainerName: event.ContainerName,
 		Worktree:      event.WorktreeID,
 		Event:         eventName,
 		Message:       message,
 		Data:          event.Data,
+	}
+
+	// Compute content hash for JSONL-sourced event dedup.
+	if len(event.SourceLine) > 0 {
+		h := fnv.New64a()
+		h.Write(event.SourceLine)
+		h.Write([]byte(strconv.Itoa(event.SourceIndex)))
+		entry.SourceID = hex.EncodeToString(h.Sum(nil))
 	}
 
 	writer.Write(entry)

@@ -16,19 +16,10 @@ set -euo pipefail
 
 INTERVAL=10
 
-CONTAINER_NAME="${WARDEN_CONTAINER_NAME:-}"
-if [ -z "$CONTAINER_NAME" ]; then
-  exit 0
-fi
-
-PROJECT_ID="${WARDEN_PROJECT_ID:-}"
-
-if [ -z "${WARDEN_EVENT_DIR:-}" ]; then
-  exit 0
-fi
-
 # shellcheck source=warden-write-event.sh
 source /usr/local/bin/warden-write-event.sh
+
+warden_check_event_env || exit 0
 
 while true; do
   sleep "$INTERVAL"

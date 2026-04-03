@@ -93,7 +93,7 @@ Key directories for contributors:
 | `api/`               | API contract types (request/response structs)    |
 | `db/`                | SQLite database store                            |
 | `eventbus/`          | File-based event system (watcher, SSE broker)    |
-| `agent/`             | Claude status detection                          |
+| `agent/`             | Multi-agent abstraction (registry, parsers, status providers) |
 | `internal/server/`   | HTTP server, API routes, middleware              |
 | `internal/terminal/` | WebSocket-to-PTY proxy                           |
 | `web/`               | React + Vite frontend                            |
@@ -107,9 +107,12 @@ These rules are important to follow when contributing:
 
 1. **The web SPA must only use HTTP calls to `/api/v1/*`** — it serves as a reference implementation for developers building their own frontends.
 2. **The TUI must be written against a `Client` interface** — satisfiable by both the embedded service and the HTTP client.
-3. **New API types go in `api/`** — shared by `service/`, `client/`, and the TUI.
-4. **`internal/` packages stay internal** — `server/` and `terminal/` are HTTP plumbing, not public API.
-5. **All audit writes go through `db.AuditWriter`** — never call `db.Store.Write()` directly for audit events.
+3. **API routes include agentType as a path segment** — all project-scoped routes follow the pattern `/api/v1/projects/{projectId}/{agentType}/...` to enforce the compound primary key (projectID + agentType).
+4. **New API types go in `api/`** — shared by `service/`, `client/`, and the TUI.
+5. **`internal/` packages stay internal** — `server/` and `terminal/` are HTTP plumbing, not public API.
+6. **All audit writes go through `db.AuditWriter`** — never call `db.Store.Write()` directly for audit events.
+7. **PRs touching `agent/` should include tests for both parsers** — Claude Code and Codex each have their own JSONL parser in `agent/claudecode/` and `agent/codex/`. Changes to shared parsing logic must be validated against both.
+8. **Container install scripts are composable** — CLI-specific install scripts (`install-claude.sh`, `install-codex.sh`) are called separately for Docker layer caching. Agent-specific event scripts live in `container/scripts/claude/` and `container/scripts/codex/`.
 
 ## Submitting a pull request
 
@@ -151,6 +154,7 @@ Your PR will be checked by these workflows:
 | `ci.yml`              | PRs targeting `main`             | Go tests, TS typecheck, TS tests                                                     |
 | `release-please.yml`  | Push to `main`                   | Automated releases, cross-platform binary builds (linux/darwin/windows × amd64/arm64) |
 | `container.yml`       | Push to `main` (`container/**`), release | Build container image + devcontainer feature (`:latest` on push, semver on release)   |
+| `container-scheduled.yml` | Daily schedule (5 AM UTC)    | Validates container image, builds CLIs, validates JSONL parsers, pushes only on success |
 
 ## Stack
 
@@ -160,7 +164,7 @@ Your PR will be checked by these workflows:
 | Frontend  | React 19, Vite 7, TypeScript              |
 | UI        | shadcn/ui, Tailwind CSS v4                |
 | Terminal  | xterm.js via WebSocket to Go proxy        |
-| Container | Ubuntu 24.04, abduco, Claude Code CLI     |
+| Container | Ubuntu 24.04, abduco, Claude Code CLI, Codex CLI |
 | Dev tools | just (task runner)                        |
 
 ## More resources

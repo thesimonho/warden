@@ -2,9 +2,9 @@
 set -euo pipefail
 
 # -------------------------------------------------------------------
-# User-phase entrypoint — runs as the unprivileged dev user after
+# User-phase entrypoint — runs as the unprivileged warden user after
 # the root-phase entrypoint (entrypoint.sh) drops privileges via
-# gosu. PID 1 runs as dev from this point onward.
+# gosu. PID 1 runs as warden from this point onward.
 #
 # Responsibilities:
 #   - Forward container env vars into login shell sessions
@@ -24,7 +24,7 @@ WORKSPACE_DIR="${WARDEN_WORKSPACE_DIR:-/project}"
 export TERM="xterm-256color"
 
 # -------------------------------------------------------------------
-# Forward all env vars passed to the container into the dev user's
+# Forward all env vars passed to the container into the warden user's
 # shell session. gosu creates a clean environment, so vars like
 # ANTHROPIC_API_KEY would otherwise be lost. We write them to a file
 # that .bashrc sources on every new shell.
@@ -40,15 +40,15 @@ export TERM="xterm-256color"
     esac
     printf 'export %s=%q\n' "$key" "$value"
   done < <(printenv)
-} > /home/dev/.docker_env
+} > /home/warden/.docker_env
 
 # -------------------------------------------------------------------
 # Git: include host gitconfig (user.name, user.email, etc.) and mark
 # workspace paths as safe. The host file is mounted read-only at
-# /home/dev/.gitconfig.host; we include it via git's [include] so
+# /home/warden/.gitconfig.host; we include it via git's [include] so
 # the container can layer its own settings on top.
 # -------------------------------------------------------------------
-GITCONFIG_HOST="/home/dev/.gitconfig.host"
+GITCONFIG_HOST="/home/warden/.gitconfig.host"
 if [ -f "$GITCONFIG_HOST" ]; then
   git config --global include.path "${GITCONFIG_HOST}"
 fi
@@ -66,7 +66,14 @@ if [ -f "$SSHCONFIG_HOST" ]; then
   mkdir -p "$HOME/.ssh"
   # SSH has no include mechanism like git, so we copy and filter instead.
   # Case-insensitive match (/I) because OpenSSH keywords are case-insensitive.
-  (umask 077; sed '/^[[:space:]]*IdentitiesOnly/Id' "$SSHCONFIG_HOST" > "$HOME/.ssh/config")
+  # Write to a temp file first — the .ssh directory may be root-owned when
+  # Docker auto-creates it for bind-mounted files (known_hosts, config.host).
+  # If the write fails (permission denied), skip silently rather than crashing.
+  if (umask 077; sed '/^[[:space:]]*IdentitiesOnly/Id' "$SSHCONFIG_HOST" > "$HOME/.ssh/config") 2>/dev/null; then
+    : # success
+  else
+    echo "[warden] warning: could not write SSH config (permission denied), skipping"
+  fi
 fi
 
 # -------------------------------------------------------------------
@@ -75,9 +82,10 @@ fi
 # its port number and attention state. Stale entries are harmless and
 # cleared here on startup.
 # -------------------------------------------------------------------
-rm -rf "${WORKSPACE_DIR}/.warden-terminals"
-mkdir -p "${WORKSPACE_DIR}/.warden-terminals"
-echo '*' > "${WORKSPACE_DIR}/.warden-terminals/.gitignore"
+mkdir -p "${WORKSPACE_DIR}/.warden"
+echo '*' > "${WORKSPACE_DIR}/.warden/.gitignore"
+rm -rf "${WORKSPACE_DIR}/.warden/terminals"
+mkdir -p "${WORKSPACE_DIR}/.warden/terminals"
 
 # -------------------------------------------------------------------
 # Heartbeat — ping the host event bus periodically so the backend can
@@ -92,8 +100,9 @@ fi
 # create-terminal.sh when the user connects to a worktree.
 #
 # On SIGTERM (container stop), forward the signal to all child
-# processes owned by dev. Docker's 30s stop timeout handles anything
-# that doesn't respond (e.g. root-owned dnsmasq from restricted mode).
+# processes owned by warden. Docker's 30s stop timeout handles
+# anything that doesn't respond (e.g. root-owned dnsmasq from
+# restricted mode).
 # -------------------------------------------------------------------
 shutdown() {
   kill -TERM -1 2>/dev/null

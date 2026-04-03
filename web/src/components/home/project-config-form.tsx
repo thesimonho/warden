@@ -1,6 +1,14 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ArrowRight, Info, Loader2, Plus, Trash2 } from 'lucide-react'
-import type { AccessItemResponse, ContainerConfig, Mount, NetworkMode } from '@/lib/types'
+import type {
+  AccessItemResponse,
+  AgentType,
+  ContainerConfig,
+  Mount,
+  NetworkMode,
+} from '@/lib/types'
+import type { DefaultMount } from '@/lib/api'
+import { agentTypeLabels, agentTypeOptions, DEFAULT_AGENT_TYPE } from '@/lib/types'
 import { fetchAccessItems, fetchDefaults, fetchSettings } from '@/lib/api'
 import { containerPathToDisplay, containerPathToAbsolute } from '@/lib/utils'
 import { restrictedDomains } from '@/lib/domain-groups'
@@ -10,7 +18,15 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Switch } from '@/components/ui/switch'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { AgentIcon } from '@/components/ui/agent-icons'
 import DirectoryBrowser from '@/components/ui/directory-browser'
 
 /** A single key-value pair for environment variables. */
@@ -40,6 +56,7 @@ export interface ProjectConfigFormData {
   name: string
   image: string
   projectPath: string
+  agentType: AgentType
   envVars?: Record<string, string>
   mounts?: Mount[]
   skipPermissions: boolean
@@ -54,6 +71,40 @@ const DEFAULT_IMAGE = 'ghcr.io/thesimonho/warden:latest'
 
 /** Default allowed domains for restricted network mode. */
 const DEFAULT_ALLOWED_DOMAINS = restrictedDomains.join('\n')
+
+/** Returns true if a default mount belongs to the given agent type. */
+function isMountForAgent(m: DefaultMount, type: AgentType): boolean {
+  if (m.agentType) return m.agentType === type
+  return true // non-agent mount, always include
+}
+
+/** Returns the required default mount for the given agent type, if any. */
+function findRequiredMount(defaults: DefaultMount[], type: AgentType): DefaultMount | undefined {
+  return defaults.find((m) => m.required && isMountForAgent(m, type))
+}
+
+/**
+ * Returns a mount list with the required agent config mount prepended if missing.
+ * Returns the input array unchanged (same reference) when already present.
+ */
+function withRequiredMount(
+  currentMounts: Mount[],
+  defaults: DefaultMount[],
+  type: AgentType,
+): Mount[] {
+  const required = findRequiredMount(defaults, type)
+  if (!required) return currentMounts
+  const hasIt = currentMounts.some((m) => m.containerPath === required.containerPath)
+  if (hasIt) return currentMounts
+  return [
+    {
+      hostPath: required.hostPath,
+      containerPath: required.containerPath,
+      readOnly: required.readOnly,
+    },
+    ...currentMounts,
+  ]
+}
 
 /**
  * Reusable form for creating or editing a project container.
@@ -74,9 +125,12 @@ export default function ProjectConfigForm({
   disabled = false,
   error: externalError,
 }: ProjectConfigFormProps) {
+  const [agentType, setAgentType] = useState<AgentType>(
+    initialValues?.agentType ?? DEFAULT_AGENT_TYPE,
+  )
   const [name, setName] = useState(initialValues?.name ?? '')
   const [projectPath, setProjectPath] = useState(initialValues?.projectPath ?? '')
-  const [image, setImage] = useState(initialValues?.image ?? DEFAULT_IMAGE)
+  const [image, setImage] = useState(initialValues?.image || DEFAULT_IMAGE)
   const [mounts, setMounts] = useState<Mount[]>(initialValues?.mounts ?? [])
   const [skipPermissions, setSkipPermissions] = useState(initialValues?.skipPermissions ?? false)
   const [networkMode, setNetworkMode] = useState<NetworkMode>(
@@ -103,7 +157,9 @@ export default function ProjectConfigForm({
   const [advancedOpen, setAdvancedOpen] = useState(false)
   const [homeDir, setHomeDir] = useState('')
   const [containerHomeDir, setContainerHomeDir] = useState('')
+  const [requiredContainerPath, setRequiredContainerPath] = useState<string | null>(null)
   const defaultsLoaded = useRef(false)
+  const defaultMountsRef = useRef<DefaultMount[]>([])
 
   /** Fetches server-resolved defaults and access items on first render. */
   useEffect(() => {
@@ -118,13 +174,22 @@ export default function ProjectConfigForm({
         if (defaults.containerHomeDir) {
           setContainerHomeDir(defaults.containerHomeDir)
         }
+        if (defaults.mounts?.length > 0) {
+          defaultMountsRef.current = defaults.mounts
+          const req = findRequiredMount(defaults.mounts, agentType)
+          setRequiredContainerPath(req?.containerPath ?? null)
+        }
         if (mode === 'create') {
           if (defaults.mounts?.length > 0) {
-            setMounts(defaults.mounts)
+            setMounts(defaults.mounts.filter((m) => isMountForAgent(m, agentType)))
           }
           if (defaults.envVars?.length) {
             setEnvVars(defaults.envVars)
           }
+        } else if (defaults.mounts?.length > 0) {
+          // Ensure the required agent config mount is present (covers
+          // projects created before this mount was mandatory).
+          setMounts((prev) => withRequiredMount(prev, defaults.mounts, agentType))
         }
       })
       .catch(() => {})
@@ -163,6 +228,16 @@ export default function ProjectConfigForm({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- initialValues is stable across renders; only mode determines create/edit behavior
   }, [mode])
+
+  /** Updates agent type and re-filters default mounts. */
+  const handleAgentTypeChange = (newType: AgentType) => {
+    setAgentType(newType)
+    const req = findRequiredMount(defaultMountsRef.current, newType)
+    setRequiredContainerPath(req?.containerPath ?? null)
+    if (mode === 'create' && defaultMountsRef.current.length > 0) {
+      setMounts(defaultMountsRef.current.filter((m) => isMountForAgent(m, newType)))
+    }
+  }
 
   /** Adds a blank env var row. */
   const handleAddEnvVar = () => {
@@ -224,6 +299,7 @@ export default function ProjectConfigForm({
       name: name.trim(),
       image: image.trim(),
       projectPath: projectPath.trim(),
+      agentType,
       envVars: Object.keys(envMap).length > 0 ? envMap : undefined,
       mounts: validMounts.length > 0 ? validMounts : undefined,
       skipPermissions,
@@ -260,6 +336,38 @@ export default function ProjectConfigForm({
 
   return (
     <div className="space-y-8">
+      <FormField label="Agent" required>
+        <Select
+          value={agentType}
+          onValueChange={(val) => handleAgentTypeChange(val as AgentType)}
+          disabled={isSubmitting || isEditMode}
+        >
+          <SelectTrigger className="w-full">
+            <SelectValue>
+              <span className="flex items-center gap-2">
+                <AgentIcon type={agentType} className="h-4 w-4 shrink-0" />
+                {agentTypeLabels[agentType]}
+              </span>
+            </SelectValue>
+          </SelectTrigger>
+          <SelectContent>
+            {agentTypeOptions.map((type) => (
+              <SelectItem key={type} value={type}>
+                <span className="flex items-center gap-2">
+                  <AgentIcon type={type} className="h-4 w-4 shrink-0" />
+                  {agentTypeLabels[type]}
+                </span>
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        {isEditMode && (
+          <p className="text-muted-foreground text-sm">
+            Agent type cannot be changed after creation.
+          </p>
+        )}
+      </FormField>
+
       <FormField label="Container Name" required>
         <Input
           placeholder="my-project"
@@ -296,7 +404,13 @@ export default function ProjectConfigForm({
             Skip permission prompts
           </label>
           <p className="text-muted-foreground text-sm">
-            Auto-approve all actions (<code>--dangerously-skip-permissions</code>).
+            Auto-approve all actions (
+            <code>
+              {agentType === 'codex'
+                ? '--dangerously-bypass-approvals-and-sandbox'
+                : '--dangerously-skip-permissions'}
+            </code>
+            ).
           </p>
         </div>
         <Switch
@@ -527,67 +641,80 @@ export default function ProjectConfigForm({
                 </span>
                 <span />
                 <span />
-                {visibleMounts.map(({ mount, index: mountIndex }) => (
-                  <Fragment key={mountIndex}>
-                    <DirectoryBrowser
-                      value={mount.hostPath}
-                      onChange={(val) =>
-                        setMounts((prev) =>
-                          prev.map((m, i) => (i === mountIndex ? { ...m, hostPath: val } : m)),
-                        )
-                      }
-                      disabled={isSubmitting || disabled}
-                      defaultPath={homeDir}
-                      placeholder="/host/path"
-                      mode="file"
-                    />
-                    <ArrowRight className="text-muted-foreground h-3.5 w-3.5 shrink-0" />
-                    <Input
-                      placeholder="/container/path"
-                      value={containerToDisplay(mount.containerPath)}
-                      onChange={(e) => {
-                        const absolutePath = containerToAbsolute(e.target.value)
-                        setMounts((prev) =>
-                          prev.map((m, i) =>
-                            i === mountIndex ? { ...m, containerPath: absolutePath } : m,
-                          ),
-                        )
-                      }}
-                      className="font-mono text-sm"
-                      disabled={isSubmitting || disabled}
-                    />
-                    <Tooltip>
-                      <TooltipTrigger asChild>
+                {visibleMounts.map(({ mount, index: mountIndex }) => {
+                  const isRequired = mount.containerPath === requiredContainerPath
+                  return (
+                    <Fragment key={mountIndex}>
+                      <DirectoryBrowser
+                        value={mount.hostPath}
+                        onChange={(val) =>
+                          setMounts((prev) =>
+                            prev.map((m, i) => (i === mountIndex ? { ...m, hostPath: val } : m)),
+                          )
+                        }
+                        disabled={isSubmitting || disabled}
+                        defaultPath={homeDir}
+                        placeholder="/host/path"
+                        mode="file"
+                      />
+                      <ArrowRight className="text-muted-foreground h-3.5 w-3.5 shrink-0" />
+                      <Input
+                        placeholder="/container/path"
+                        value={containerToDisplay(mount.containerPath)}
+                        onChange={(e) => {
+                          const absolutePath = containerToAbsolute(e.target.value)
+                          setMounts((prev) =>
+                            prev.map((m, i) =>
+                              i === mountIndex ? { ...m, containerPath: absolutePath } : m,
+                            ),
+                          )
+                        }}
+                        className="font-mono text-sm"
+                        disabled={isSubmitting || disabled || isRequired}
+                      />
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant={mount.readOnly ? 'ghost' : 'secondary'}
+                            onClick={() =>
+                              setMounts((prev) =>
+                                prev.map((m, i) =>
+                                  i === mountIndex ? { ...m, readOnly: !m.readOnly } : m,
+                                ),
+                              )
+                            }
+                            disabled={isSubmitting || disabled}
+                            className="shrink-0 px-2 font-mono text-sm"
+                          >
+                            {mount.readOnly ? 'RO' : 'RW'}
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          {mount.readOnly ? 'Read-only' : 'Read-write'}
+                        </TooltipContent>
+                      </Tooltip>
+                      {isRequired ? (
+                        <span className="text-muted-foreground shrink-0 px-2 text-xs">
+                          Required
+                        </span>
+                      ) : (
                         <Button
                           type="button"
                           size="sm"
-                          variant={mount.readOnly ? 'ghost' : 'secondary'}
+                          variant="ghost"
                           onClick={() =>
-                            setMounts((prev) =>
-                              prev.map((m, i) =>
-                                i === mountIndex ? { ...m, readOnly: !m.readOnly } : m,
-                              ),
-                            )
+                            setMounts((prev) => prev.filter((_, i) => i !== mountIndex))
                           }
                           disabled={isSubmitting || disabled}
-                          className="shrink-0 px-2 font-mono text-sm"
-                        >
-                          {mount.readOnly ? 'RO' : 'RW'}
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent>{mount.readOnly ? 'Read-only' : 'Read-write'}</TooltipContent>
-                    </Tooltip>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => setMounts((prev) => prev.filter((_, i) => i !== mountIndex))}
-                      disabled={isSubmitting || disabled}
-                      className="shrink-0 px-2"
-                      icon={Trash2}
-                    />
-                  </Fragment>
-                ))}
+                          className="shrink-0 px-2"
+                          icon={Trash2}
+                        />
+                      )}
+                    </Fragment>
+                  )
+                })}
               </div>
             )}
           </div>
@@ -657,7 +784,7 @@ export default function ProjectConfigForm({
               {isEditMode ? 'Saving...' : 'Creating...'}
             </>
           ) : isEditMode ? (
-            'Save Changes'
+            'Save'
           ) : (
             'Create'
           )}

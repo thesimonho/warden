@@ -144,10 +144,10 @@ func TestProjectMountPaths(t *testing.T) {
 		{
 			name: "modern workspace mount",
 			mounts: []container.MountPoint{
-				{Source: "/home/user/project", Destination: "/home/dev/test-project"},
+				{Source: "/home/user/project", Destination: "/home/warden/test-project"},
 			},
 			wantSource: "/home/user/project",
-			wantDest:   "/home/dev/test-project",
+			wantDest:   "/home/warden/test-project",
 		},
 		{
 			name: "legacy /project mount",
@@ -192,8 +192,8 @@ func TestCheckIsGitRepo_True(t *testing.T) {
 	mock := newExecMockAPI()
 	mock.onCmd("git", "true\n")
 
-	dc := newTestClient(mock)
-	result := dc.checkIsGitRepo(context.Background(), "ctr-git")
+	ec := newTestClient(mock)
+	result := ec.checkIsGitRepo(context.Background(), "ctr-git")
 
 	if !result {
 		t.Error("expected checkIsGitRepo to return true")
@@ -213,8 +213,8 @@ func TestCheckIsGitRepo_False(t *testing.T) {
 	mock := newExecMockAPI()
 	mock.onCmd("git", "")
 
-	dc := newTestClient(mock)
-	result := dc.checkIsGitRepo(context.Background(), "ctr-nogit")
+	ec := newTestClient(mock)
+	result := ec.checkIsGitRepo(context.Background(), "ctr-nogit")
 
 	if result {
 		t.Error("expected checkIsGitRepo to return false for empty output")
@@ -227,12 +227,12 @@ func TestCheckIsGitRepo_CachesResult(t *testing.T) {
 	mock := newExecMockAPI()
 	mock.onCmd("git", "true\n")
 
-	dc := newTestClient(mock)
+	ec := newTestClient(mock)
 
 	// First call should exec.
-	dc.checkIsGitRepo(context.Background(), "ctr-cache")
+	ec.checkIsGitRepo(context.Background(), "ctr-cache")
 	// Second call should use cache.
-	dc.checkIsGitRepo(context.Background(), "ctr-cache")
+	ec.checkIsGitRepo(context.Background(), "ctr-cache")
 
 	gitCalls := 0
 	for _, call := range mock.getCalls() {
@@ -245,31 +245,31 @@ func TestCheckIsGitRepo_CachesResult(t *testing.T) {
 	}
 }
 
-func TestCheckClaudeStatus_Working(t *testing.T) {
+func TestCheckAgentStatus_Working(t *testing.T) {
 	t.Parallel()
 
 	mock := newExecMockAPI()
 	mock.onCmd("pgrep", "12345\n")
 
-	dc := newTestClient(mock)
-	status := dc.checkClaudeStatus(context.Background(), "ctr-claude")
+	ec := newTestClient(mock)
+	status := ec.checkAgentStatus(context.Background(), "ctr-claude")
 
-	if status != ClaudeStatusWorking {
-		t.Errorf("expected ClaudeStatusWorking, got %q", status)
+	if status != AgentStatusWorking {
+		t.Errorf("expected AgentStatusWorking, got %q", status)
 	}
 }
 
-func TestCheckClaudeStatus_Idle(t *testing.T) {
+func TestCheckAgentStatus_Idle(t *testing.T) {
 	t.Parallel()
 
 	mock := newExecMockAPI()
 	mock.onCmd("pgrep", "")
 
-	dc := newTestClient(mock)
-	status := dc.checkClaudeStatus(context.Background(), "ctr-idle")
+	ec := newTestClient(mock)
+	status := ec.checkAgentStatus(context.Background(), "ctr-idle")
 
-	if status != ClaudeStatusIdle {
-		t.Errorf("expected ClaudeStatusIdle, got %q", status)
+	if status != AgentStatusIdle {
+		t.Errorf("expected AgentStatusIdle, got %q", status)
 	}
 }
 
@@ -280,8 +280,8 @@ func TestValidateInfrastructure_AllPresent(t *testing.T) {
 	// All binaries exist — test -x succeeds, no echo output.
 	mock.onCmd("test", "")
 
-	dc := newTestClient(mock)
-	valid, missing, err := dc.ValidateInfrastructure(context.Background(), "ctr-valid")
+	ec := newTestClient(mock)
+	valid, missing, err := ec.ValidateInfrastructure(context.Background(), "ctr-valid")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -300,8 +300,8 @@ func TestValidateInfrastructure_MissingBinaries(t *testing.T) {
 	// ttyd and create-terminal.sh are missing.
 	mock.onCmd("test", "/usr/local/bin/ttyd\n/usr/local/bin/create-terminal.sh\n")
 
-	dc := newTestClient(mock)
-	valid, missing, err := dc.ValidateInfrastructure(context.Background(), "ctr-missing")
+	ec := newTestClient(mock)
+	valid, missing, err := ec.ValidateInfrastructure(context.Background(), "ctr-missing")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -322,8 +322,8 @@ func TestConnectTerminal_FreshSession(t *testing.T) {
 	// create-terminal.sh returns JSON.
 	mock.onCmd(createTerminalScript, `{"worktreeId":"feature-x"}`)
 
-	dc := newTestClient(mock)
-	resp, err := dc.ConnectTerminal(context.Background(), "ctr-connect", "feature-x", false)
+	ec := newTestClient(mock)
+	resp, err := ec.ConnectTerminal(context.Background(), "ctr-connect", "feature-x", false)
 	if err != nil {
 		t.Fatalf("ConnectTerminal failed: %v", err)
 	}
@@ -347,7 +347,7 @@ func TestConnectTerminal_FreshSession(t *testing.T) {
 	if len(createCall.Cmd) < 2 || createCall.Cmd[1] != "feature-x" {
 		t.Errorf("expected create-terminal.sh feature-x, got %v", createCall.Cmd)
 	}
-	// Without User: "dev", Docker exec defaults to root which doesn't have
+	// Without User: "warden", Docker exec defaults to root which doesn't have
 	// ~/.local/bin in PATH (where Claude Code is installed).
 	if createCall.User != ContainerUser {
 		t.Errorf("expected exec User %q, got %q", ContainerUser, createCall.User)
@@ -361,9 +361,9 @@ func TestConnectTerminal_SkipPermissions(t *testing.T) {
 	mock.onCmd("pgrep", "0\n")
 	mock.onCmd(createTerminalScript, `{"worktreeId":"main"}`)
 
-	dc := newTestClient(mock)
+	ec := newTestClient(mock)
 	// Pass skipPermissions=true directly.
-	_, err := dc.ConnectTerminal(context.Background(), "ctr-skip", "main", true)
+	_, err := ec.ConnectTerminal(context.Background(), "ctr-skip", "main", true)
 	if err != nil {
 		t.Fatalf("ConnectTerminal failed: %v", err)
 	}
@@ -391,8 +391,8 @@ func TestConnectTerminal_ReconnectBackground(t *testing.T) {
 	// isAbducoSessionAlive returns true.
 	mock.onCmd("pgrep", "1\n")
 
-	dc := newTestClient(mock)
-	resp, err := dc.ConnectTerminal(context.Background(), "ctr-bg", "bg-task", false)
+	ec := newTestClient(mock)
+	resp, err := ec.ConnectTerminal(context.Background(), "ctr-bg", "bg-task", false)
 	if err != nil {
 		t.Fatalf("ConnectTerminal failed: %v", err)
 	}
@@ -413,9 +413,9 @@ func TestConnectTerminal_InvalidWorktreeID(t *testing.T) {
 	t.Parallel()
 
 	mock := newExecMockAPI()
-	dc := newTestClient(mock)
+	ec := newTestClient(mock)
 
-	_, err := dc.ConnectTerminal(context.Background(), "ctr-bad", "../../../etc/passwd", false)
+	_, err := ec.ConnectTerminal(context.Background(), "ctr-bad", "../../../etc/passwd", false)
 	if err == nil {
 		t.Fatal("expected error for invalid worktree ID")
 	}
@@ -428,8 +428,8 @@ func TestCreateWorktree_DelegatesToConnect(t *testing.T) {
 	mock.onCmd("pgrep", "0\n")
 	mock.onCmd(createTerminalScript, `{"worktreeId":"new-wt"}`)
 
-	dc := newTestClient(mock)
-	resp, err := dc.CreateWorktree(context.Background(), "ctr-create", "new-wt", false)
+	ec := newTestClient(mock)
+	resp, err := ec.CreateWorktree(context.Background(), "ctr-create", "new-wt", false)
 	if err != nil {
 		t.Fatalf("CreateWorktree failed: %v", err)
 	}
@@ -443,9 +443,9 @@ func TestCreateWorktree_InvalidName(t *testing.T) {
 	t.Parallel()
 
 	mock := newExecMockAPI()
-	dc := newTestClient(mock)
+	ec := newTestClient(mock)
 
-	_, err := dc.CreateWorktree(context.Background(), "ctr-bad", "-invalid", false)
+	_, err := ec.CreateWorktree(context.Background(), "ctr-bad", "-invalid", false)
 	if err == nil {
 		t.Fatal("expected error for invalid worktree name")
 	}

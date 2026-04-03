@@ -1,6 +1,5 @@
 import { useNavigate } from 'react-router-dom'
 import {
-  ExternalLink,
   Square,
   Check,
   Loader2,
@@ -14,26 +13,27 @@ import {
   RotateCcw,
   Play,
 } from 'lucide-react'
-import type { Project } from '@/lib/types'
+import type { AgentType, Project } from '@/lib/types'
 import { formatCost } from '@/lib/cost'
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { abbreviateHomePath, cn } from '@/lib/utils'
 import StatusBadge from '@/components/home/status-badge'
-import ClaudeStatusIndicator from '@/components/home/claude-status-indicator'
+import AgentStatusIndicator from '@/components/home/agent-status-indicator'
+import { AgentIcon } from '@/components/ui/agent-icons'
 
 /** Props for the ProjectCard component. */
 interface ProjectCardProps {
   project: Project
-  onStop: (id: string) => void
-  onRestart: (id: string) => void
+  onStop: (id: string, agentType: AgentType) => void
+  onRestart: (id: string, agentType: AgentType) => void
   onRemove: (project: Project) => void
   onEdit: (project: Project) => void
   /** When true, clicking the card toggles selection instead of navigating. */
   isSelectable?: boolean
   isSelected?: boolean
-  onToggleSelect?: (id: string) => void
+  onToggleSelect?: (id: string, agentType: AgentType) => void
   /** Whether a stop action is in flight for this project. */
   isStopPending?: boolean
   /** Whether a restart action is in flight for this project. */
@@ -76,14 +76,17 @@ export default function ProjectCard({
     budgetActionPreventStart && project.costBudget > 0 && project.totalCost > project.costBudget
 
   const handleCardClick = () => {
-    if (isSelectable) onToggleSelect?.(project.projectId)
+    if (isSelectable) onToggleSelect?.(project.projectId, project.agentType)
   }
 
   if (isNotFound) {
     return (
       <Card data-testid={`project-card-${project.name}`} className="opacity-75">
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-xl font-semibold">{project.name}</CardTitle>
+          <CardTitle className="flex items-center gap-2 text-xl font-semibold">
+            <AgentIcon type={project.agentType} className="h-4 w-4 shrink-0" />
+            {project.name}
+          </CardTitle>
           <StatusBadge state="no container" />
         </CardHeader>
         <CardContent className="space-y-1.5">
@@ -129,7 +132,10 @@ export default function ProjectCard({
       onClick={isSelectable ? handleCardClick : undefined}
     >
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-xl font-semibold">{project.name || project.projectId}</CardTitle>
+        <CardTitle className="flex items-center gap-2 text-xl font-semibold">
+          <AgentIcon type={project.agentType} className="h-4 w-4 shrink-0" />
+          {project.name || project.projectId}
+        </CardTitle>
         <div className="flex items-center gap-2">
           {isRunning ? (
             <div className="flex gap-0">
@@ -140,7 +146,7 @@ export default function ProjectCard({
                     size="sm"
                     variant="ghost"
                     color="muted"
-                    onClick={() => onRestart(project.projectId)}
+                    onClick={() => onRestart(project.projectId, project.agentType)}
                     disabled={isStopPending || isRestartPending || isOverBudget}
                     icon={isRestartPending ? Loader2 : RotateCcw}
                     loading={isRestartPending}
@@ -157,7 +163,7 @@ export default function ProjectCard({
                     size="sm"
                     variant="ghost"
                     color="error"
-                    onClick={() => onStop(project.projectId)}
+                    onClick={() => onStop(project.projectId, project.agentType)}
                     disabled={isStopPending || isRestartPending}
                     icon={isStopPending ? Loader2 : Square}
                     loading={isStopPending}
@@ -174,7 +180,7 @@ export default function ProjectCard({
                   size="sm"
                   variant="ghost"
                   color="success"
-                  onClick={() => onRestart(project.projectId)}
+                  onClick={() => onRestart(project.projectId, project.agentType)}
                   disabled={isStopPending || isRestartPending || isOverBudget}
                   icon={isRestartPending ? Loader2 : Play}
                   loading={isRestartPending}
@@ -209,8 +215,8 @@ export default function ProjectCard({
           <p className="text-muted-foreground text-sm">{project.status}</p>
           {(project.totalCost > 0.001 || project.costBudget > 0) && <CostBadge project={project} />}
           {isRunning && (
-            <ClaudeStatusIndicator
-              status={project.claudeStatus}
+            <AgentStatusIndicator
+              status={project.agentStatus}
               needsInput={project.needsInput}
               notificationType={project.notificationType}
             />
@@ -268,9 +274,8 @@ export default function ProjectCard({
             data-testid="view-button"
             size="sm"
             variant="default"
-            onClick={() => navigate(`/projects/${project.projectId}`)}
+            onClick={() => navigate(`/projects/${project.projectId}/${project.agentType}`)}
             disabled={!isRunning || isOverBudget}
-            icon={ExternalLink}
           >
             View
           </Button>

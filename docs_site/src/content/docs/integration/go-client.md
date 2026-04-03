@@ -23,19 +23,23 @@ if err != nil {
     return err
 }
 for _, proj := range projects {
-    fmt.Printf("%s: %s\n", proj.Name, proj.State)
+    fmt.Printf("%s (%s): %s\n", proj.Name, proj.AgentType, proj.State)
 }
 ```
+
+Each project includes an `AgentType` field (`"claude-code"` or `"codex"`) that identifies which CLI agent it runs.
 
 ## Example: Create a worktree
 
 ```go
-resp, err := c.CreateWorktree(ctx, projectID, "feature-branch")
+resp, err := c.CreateWorktree(ctx, projectID, "claude-code", "feature-branch")
 if err != nil {
     return err
 }
 fmt.Printf("Created worktree: %s\n", resp.WorktreeID)
 ```
+
+The `agentType` parameter identifies which agent the project runs (`"claude-code"` or `"codex"`). When creating a worktree for an existing project, use the same agent type as the project.
 
 ## Example: Manage a project
 
@@ -43,17 +47,19 @@ The client exposes the same four management actions as the web and TUI dashboard
 
 ```go
 // Reset all cost tracking data for a project.
-err := c.ResetProjectCosts(ctx, projectID)
+err := c.ResetProjectCosts(ctx, projectID, agentType)
 
 // Purge all audit events for a project.
-err := c.PurgeProjectAudit(ctx, projectID)
+err := c.PurgeProjectAudit(ctx, projectID, agentType)
 
 // Delete a project's container (stop + remove).
-_, err := c.DeleteContainer(ctx, projectID)
+_, err := c.DeleteContainer(ctx, projectID, agentType)
 
 // Remove a project from Warden (untrack).
-_, err := c.RemoveProject(ctx, projectID)
+_, err := c.RemoveProject(ctx, projectID, agentType)
 ```
+
+All management operations require both the `projectID` and `agentType` to uniquely identify the project.
 
 ## Error handling
 
@@ -77,14 +83,13 @@ See the [HTTP API error codes](../http-api/#error-codes) for the full list.
 
 ## When to use the client vs. the library
 
-| `client.New()` (typed HTTP wrapper) | `warden.New()` (direct import) |
-| ----------------------------------- | ------------------------------ |
-| Requires `warden` binary running    | No binary needed               |
-| Multi-process or remote             | Single-process deployment      |
-| Simpler integration                 | Full control over lifecycle    |
+| Approach                          | Setup                           | Use when                              |
+| --------------------------------- | ------------------------------- | ------------------------------------- |
+| `client.New()` (HTTP wrapper)     | Run `warden` binary separately  | Multi-process, remote server, or when the binary is already running |
+| `warden.New()` (Layer 1 import)   | No binary needed                | Single-process deployment, embedded applications, full control |
 
 If you don't want to run a separate server process, you can import the library directly — see the [Go Library](../go-library/) guide.
 
 ## Reference implementation
 
-This is the same approach the TUI binary uses internally. See [`internal/tui/`](https://github.com/thesimonho/warden/tree/main/internal/tui) for the reference implementation — specifically the Client interface, data loading patterns, and terminal attachment.
+This is the same approach the TUI binary uses internally. The TUI wraps the service via a `Client` interface and delegates to it. See [`internal/tui/`](https://github.com/thesimonho/warden/tree/main/internal/tui) for the reference implementation — the `Client` interface shows the abstraction boundary, and `ServiceAdapter` shows how to adapt the Layer 1 service to the interface for embedded use.

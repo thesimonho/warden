@@ -1,6 +1,23 @@
 import { forwardRef, useImperativeHandle, useState, type ReactNode } from 'react'
-import { GitBranch, Unplug, Terminal, GitCompareArrows } from 'lucide-react'
+import {
+  GitBranch,
+  Unplug,
+  Terminal,
+  GitCompareArrows,
+  Copy,
+  Clipboard,
+  BoxSelect,
+  Image,
+} from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator,
+  ContextMenuShortcut,
+  ContextMenuTrigger,
+} from '@/components/ui/context-menu'
 import { cn } from '@/lib/utils'
 import { useTerminal } from '@/hooks/use-terminal'
 import { ChangesView } from '@/components/project/changes-view'
@@ -21,6 +38,8 @@ export interface TerminalCardHandle {
 export interface TerminalCardProps {
   /** Container ID for the project. */
   projectId: string
+  /** CLI agent type for this project. */
+  agentType: string
   /** Worktree identifier within the project. */
   worktreeId: string
   /** Project display name shown in the title bar. */
@@ -71,6 +90,7 @@ export interface TerminalCardProps {
 const TerminalCard = forwardRef<TerminalCardHandle, TerminalCardProps>(function TerminalCard(
   {
     projectId,
+    agentType,
     worktreeId,
     projectName,
     branch,
@@ -93,8 +113,9 @@ const TerminalCard = forwardRef<TerminalCardHandle, TerminalCardProps>(function 
 ) {
   const [activeTab, setActiveTab] = useState<TerminalTab>('terminal')
 
-  const { containerRef, detach, focus, fit } = useTerminal({
+  const { containerRef, detach, focus, fit, clipboard } = useTerminal({
     projectId,
+    agentType,
     worktreeId,
     isActive,
     isFocused: isFocused && activeTab === 'terminal',
@@ -208,20 +229,47 @@ const TerminalCard = forwardRef<TerminalCardHandle, TerminalCardProps>(function 
 
       {/* Terminal content — kept mounted but hidden when Changes tab is active */}
       {isActive ? (
-        <div
-          className={cn(
-            'min-h-0 flex-1',
-            terminalInert && 'pointer-events-none',
-            activeTab !== 'terminal' && 'hidden',
-          )}
-        >
-          <div
-            ref={containerRef}
-            data-testid="terminal-container"
-            className="h-full w-full overflow-hidden border-0"
-            style={{ backgroundColor: 'var(--terminal-background)' }}
-          />
-        </div>
+        <ContextMenu>
+          <ContextMenuTrigger asChild>
+            <div
+              className={cn(
+                'min-h-0 flex-1',
+                terminalInert && 'pointer-events-none',
+                activeTab !== 'terminal' && 'hidden',
+              )}
+            >
+              <div
+                ref={containerRef}
+                data-testid="terminal-container"
+                className="h-full w-full overflow-hidden border-0"
+                style={{ backgroundColor: 'var(--terminal-background)' }}
+              />
+            </div>
+          </ContextMenuTrigger>
+          <ContextMenuContent className="w-64">
+            <ContextMenuItem onClick={clipboard.copySelection}>
+              <Copy className="size-4" />
+              Copy
+              <ContextMenuShortcut>Ctrl+Shift+C</ContextMenuShortcut>
+            </ContextMenuItem>
+            <ContextMenuItem onClick={clipboard.pasteText}>
+              <Clipboard className="size-4" />
+              Paste
+              <ContextMenuShortcut>Ctrl+Shift+V</ContextMenuShortcut>
+            </ContextMenuItem>
+            <ContextMenuItem onClick={() => clipboard.pasteImageFromClipboard()}>
+              <Image className="size-4" />
+              Paste Image
+              <ContextMenuShortcut>Ctrl+V</ContextMenuShortcut>
+            </ContextMenuItem>
+            <ContextMenuSeparator />
+            <ContextMenuItem onClick={clipboard.selectAll}>
+              <BoxSelect className="size-4" />
+              Select All
+              <ContextMenuShortcut>Ctrl+Shift+A</ContextMenuShortcut>
+            </ContextMenuItem>
+          </ContextMenuContent>
+        </ContextMenu>
       ) : (
         activeTab === 'terminal' && (
           <div
@@ -236,7 +284,7 @@ const TerminalCard = forwardRef<TerminalCardHandle, TerminalCardProps>(function 
       {/* Changes tab — only rendered when active */}
       {activeTab === 'changes' && (
         <div className="min-h-0 flex-1">
-          <ChangesView projectId={projectId} worktreeId={worktreeId} />
+          <ChangesView projectId={projectId} agentType={agentType} worktreeId={worktreeId} />
         </div>
       )}
     </div>

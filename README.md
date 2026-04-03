@@ -89,8 +89,9 @@ You can easily use it from Day 1 as its own agent orchestrator, running as a web
 
 ### Prerequisites
 
+- [Git](https://git-scm.com/downloads) — required for worktree support
 - [Docker](https://docs.docker.com/get-docker/) or [Podman](https://podman.io/docs/installation)
-- [Claude Code](https://docs.anthropic.com/en/docs/agents-and-tools/claude-code/overview) — currently the only supported agent (more coming soon)
+- An AI coding agent: [Claude Code](https://docs.anthropic.com/en/docs/agents-and-tools/claude-code/overview) or [OpenAI Codex](https://github.com/openai/codex)
 
 ### Download
 
@@ -128,9 +129,9 @@ Warden's engine is a Go library and HTTP API. You get container lifecycle, workt
 
 ```go
 // Embed the engine directly
-app, err := warden.New(warden.Options{})
-defer app.Close()
-projects, _ := app.Service.ListProjects(ctx)
+w, err := warden.New(warden.Options{})
+defer w.Close()
+projects, _ := w.Service.ListProjects(ctx)
 ```
 
 ```bash

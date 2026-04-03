@@ -327,15 +327,26 @@ func (v *AccessFormView) startCredEdit() (View, tea.Cmd) {
 
 // handleCredEditKey processes keys during credential inline editing.
 func (v *AccessFormView) handleCredEditKey(msg tea.KeyPressMsg) (View, tea.Cmd) {
+	isOnTypeField := v.credFieldIdx == credFieldSourceType || v.credFieldIdx == credFieldInjType
 	switch msg.String() {
 	case "enter":
+		if isOnTypeField {
+			return v.cycleCredType()
+		}
 		v.saveCredEdit()
 		return v, nil
+	case " ":
+		if isOnTypeField {
+			return v.cycleCredType()
+		}
 	case "esc":
 		v.cancelCredEdit()
 		return v, nil
 	case "tab":
 		return v.nextCredField()
+	}
+	if isOnTypeField {
+		return v, nil // ignore text input on type selector fields
 	}
 	return v.updateActiveInput(msg)
 }
@@ -350,14 +361,11 @@ const (
 	credFieldCount       = 5
 )
 
-// nextCredField cycles through credential editing fields, skipping
-// type fields (they use space to cycle, not text input).
+// nextCredField cycles through all credential editing fields including
+// type selectors.
 func (v *AccessFormView) nextCredField() (View, tea.Cmd) {
 	v.blurCredField()
 	v.credFieldIdx = (v.credFieldIdx + 1) % credFieldCount
-	if v.credFieldIdx == credFieldSourceType || v.credFieldIdx == credFieldInjType {
-		v.credFieldIdx++
-	}
 	return v, v.focusCredField()
 }
 
@@ -600,12 +608,20 @@ func (v *AccessFormView) renderCredentialEditing(prefix string) string {
 	}
 
 	srcType := sourceTypeLabels[c.sourceType]
+	srcTypeView := Styles.Muted.Render(srcType)
+	if v.credFieldIdx == credFieldSourceType {
+		srcTypeView = formCursor.Render("[" + srcType + "]")
+	}
 	srcView := v.credSourceInput.View()
 	if v.credFieldIdx != credFieldSourceValue {
 		srcView = orEmpty(v.credSourceInput.Value())
 	}
 
 	injType := injectionTypeLabels[c.injType]
+	injTypeView := Styles.Muted.Render(injType)
+	if v.credFieldIdx == credFieldInjType {
+		injTypeView = formCursor.Render("[" + injType + "]")
+	}
 	injView := v.credInjInput.View()
 	if v.credFieldIdx != credFieldInjKey {
 		injView = orEmpty(v.credInjInput.Value())
@@ -614,18 +630,21 @@ func (v *AccessFormView) renderCredentialEditing(prefix string) string {
 	return fmt.Sprintf(
 		"%s%s  %s:%s → %s:%s",
 		prefix, labelView,
-		Styles.Muted.Render(srcType), srcView,
-		Styles.Muted.Render(injType), injView,
+		srcTypeView, srcView,
+		injTypeView, injView,
 	)
 }
 
 // HelpKeyMap returns the form's key bindings for the help bar.
 func (v *AccessFormView) HelpKeyMap() help.KeyMap {
 	if v.editingCred {
-		return inlineEditHelpKeyMap
+		return credEditHelpKeyMap
 	}
 	if v.editing {
 		return editingHelpKeyMap
+	}
+	if v.cursor == accessFieldCredentials && v.credCursor >= 0 {
+		return formWithRemoveKeyMap{keys: v.keys}
 	}
 	return v.keys
 }

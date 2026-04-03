@@ -1,15 +1,30 @@
-# Hooks
+# Hooks & Types
 
-| File | Purpose |
-| --- | --- |
-| `hooks/use-projects.ts` | Polls `/api/v1/projects` at configurable interval, provides loading/refreshing/error/refetch. Applies `project_state` SSE events for real-time cost and attention updates (`needsInput`, `notificationType`). Handles `budget_exceeded` SSE events with toast notification and auto-refetch. |
-| `hooks/use-event-source.ts` | SSE subscription helper — wraps `EventSource`, manages connect/reconnect, dispatches typed events to callers. Used by `project-page.tsx` for `budget_container_stopped` redirect. |
-| `hooks/use-diff.ts` | On-demand diff fetch for the Changes tab. Fetches when `enabled` is true, returns `{ diff, isLoading, error, refetch }`. No polling/SSE. |
-| `hooks/use-worktrees.ts` | Polls `/api/projects/{id}/worktrees` for worktree state; applies push-based terminal state from SSE `WorktreeStateEvent` |
-| `hooks/use-terminal.ts` | xterm.js lifecycle: create/attach xterm instance, WebSocket connection to `/api/projects/{id}/ws/{wid}`, resize events, reconnect logic, cleanup on unmount. Buffers incoming WebSocket messages and flushes to xterm.js once per `requestAnimationFrame` to prevent rapid output bursts from blocking the main thread. |
-| `hooks/use-notifications.ts` | Browser notifications for worktree events (needs input, all worktrees complete) |
-| `hooks/use-theme.ts` | Theme persistence to localStorage (`warden-theme`) |
-| `hooks/use-recent-workspaces.ts` | Tracks recently visited workspace projects |
-| `hooks/use-canvas-pan-zoom.ts` | Pan-zoom state for infinite canvas: Ctrl+left-drag pan, Ctrl+wheel zoom, trackpad two-finger scroll pan, trackpad pinch zoom, plain wheel pass-through to xterm.js on panels, `fitAll` (animated), `panTo`, `viewportToCanvas` coordinate conversion. Middle-click is freed for native behavior. |
-| `hooks/use-reveal-in-file-manager.ts` | Returns a stable callback (or undefined) to open a worktree's host directory in the system file manager. Takes a `WorkspaceMount` to map container paths to host paths. |
-| `hooks/use-canvas-worktree-state.ts` | Derives worktree visual state (dots, labels, attention) for canvas panels; applies push-based terminal state from SSE `WorktreeStateEvent` |
+## Types (`lib/types.ts`)
+
+| Export                             | Purpose                                                         |
+| ---------------------------------- | --------------------------------------------------------------- |
+| `AgentType`                        | Union type: `'claude-code' \| 'codex'`                          |
+| `DEFAULT_AGENT_TYPE`               | Default agent type for new projects/containers                  |
+| `agentTypeOptions`                 | Array of `{ value: AgentType, label: string }` for UI selectors |
+| `agentTypeLabels`                  | Map of agent type → display label                               |
+| `Project.agentType`                | Agent type field (changed from `string` to `AgentType`)         |
+| `CreateContainerRequest.agentType` | Optional agent type for container creation                      |
+| `ContainerConfig.agentType`        | Required agent type field                                       |
+
+## Hooks
+
+| File                                  | Purpose                                                                                                                                                                                                                                                                                                                                                                     |
+| ------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `hooks/use-projects.ts`               | Polls `/api/v1/projects` at configurable interval, provides loading/refreshing/error/refetch. Applies `project_state` SSE events for real-time cost and attention updates (`needsInput`, `notificationType`), matching by `(projectId, agentType)` compound key. Handles `budget_exceeded` SSE events with toast notification and auto-refetch.                             |
+| `hooks/use-event-source.ts`           | SSE subscription helper — wraps `EventSource`, manages connect/reconnect, dispatches typed events to callers. Used by `project-page.tsx` for `budget_container_stopped` redirect.                                                                                                                                                                                           |
+| `hooks/use-diff.ts`                   | On-demand diff fetch for the Changes tab. Fetches when `enabled` is true, returns `{ diff, isLoading, error, refetch }`. No polling/SSE.                                                                                                                                                                                                                                    |
+| `hooks/use-worktrees.ts`              | Polls `/api/projects/{id}/{agentType}/worktrees` for worktree state; applies push-based terminal state from SSE `WorktreeStateEvent`, filtering by `(projectId, agentType)` compound key                                                                                                                                                                                    |
+| `hooks/use-terminal.ts`               | xterm.js lifecycle: create/attach xterm instance, WebSocket connection to `/api/projects/{id}/ws/{wid}`, resize events, reconnect logic, cleanup on unmount. Buffers incoming WebSocket messages and flushes to xterm.js once per `requestAnimationFrame` to prevent rapid output bursts from blocking the main thread. Delegates clipboard to `use-terminal-clipboard.ts`. |
+| `hooks/use-terminal-clipboard.ts`     | Terminal clipboard operations: text copy (xterm.js selection or OSC 52 for agent fullscreen mode), text paste with trailing newline stripping, image paste via `POST /api/v1/projects/{projectId}/clipboard` + xclip shim, select all + copy, and bidirectional OSC 52 handler registration. Each instance gets its own explicit-copy tracker for multi-terminal isolation. |
+| `hooks/use-notifications.ts`          | Browser notifications for worktree events (needs input, all worktrees complete)                                                                                                                                                                                                                                                                                             |
+| `hooks/use-theme.ts`                  | Theme persistence to localStorage (`warden-theme`)                                                                                                                                                                                                                                                                                                                          |
+| `hooks/use-recent-workspaces.ts`      | Tracks recently visited workspace projects                                                                                                                                                                                                                                                                                                                                  |
+| `hooks/use-canvas-pan-zoom.ts`        | Pan-zoom state for infinite canvas: Ctrl+left-drag pan, Ctrl+wheel zoom, trackpad two-finger scroll pan, trackpad pinch zoom, plain wheel pass-through to xterm.js on panels, `fitAll` (animated), `panTo`, `viewportToCanvas` coordinate conversion. Middle-click is freed for native behavior.                                                                            |
+| `hooks/use-reveal-in-file-manager.ts` | Returns a stable callback (or undefined) to open a worktree's host directory in the system file manager. Takes a `WorkspaceMount` to map container paths to host paths.                                                                                                                                                                                                     |
+| `hooks/use-canvas-worktree-state.ts`  | Derives worktree visual state (dots, labels, attention) for canvas panels; applies push-based terminal state from SSE `WorktreeStateEvent`, filtering by `(projectId, agentType, worktreeId)` compound key                                                                                                                                                                  |
