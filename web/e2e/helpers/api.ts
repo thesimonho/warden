@@ -57,6 +57,8 @@ async function apiFetch(path: string, options?: RequestInit): Promise<Response> 
 export interface ApiProject {
   /** Deterministic project ID (12-char hex hash of host path). */
   projectId: string
+  /** Agent type (e.g. "claude-code", "codex"). */
+  agentType: string
   /** Docker container ID (empty when no container exists). */
   id: string
   name: string
@@ -88,8 +90,8 @@ export interface ValidateResult {
 }
 
 /** Validates container infrastructure (tmux, scripts). */
-export async function validateContainer(projectId: string): Promise<ValidateResult> {
-  const response = await apiFetch(`/api/v1/projects/${projectId}/container/validate`)
+export async function validateContainer(projectId: string, agentType = 'claude-code'): Promise<ValidateResult> {
+  const response = await apiFetch(`/api/v1/projects/${projectId}/${agentType}/container/validate`)
   return response.json() as Promise<ValidateResult>
 }
 
@@ -100,8 +102,8 @@ export async function fetchProjects(): Promise<ApiProject[]> {
 }
 
 /** Fetches worktrees for a project. */
-export async function fetchWorktrees(projectId: string): Promise<ApiWorktree[]> {
-  const response = await apiFetch(`/api/v1/projects/${projectId}/worktrees`)
+export async function fetchWorktrees(projectId: string, agentType = 'claude-code'): Promise<ApiWorktree[]> {
+  const response = await apiFetch(`/api/v1/projects/${projectId}/${agentType}/worktrees`)
   return response.json() as Promise<ApiWorktree[]>
 }
 
@@ -151,8 +153,9 @@ export async function createTestProject(
   const projectResult = (await addResponse.json()) as ProjectResult
 
   /* Step 2: Create a container for the project. */
+  const agentType = options?.agentType ?? 'claude-code'
   const createResponse = await apiFetch(
-    `/api/v1/projects/${projectResult.projectId}/container`,
+    `/api/v1/projects/${projectResult.projectId}/${agentType}/container`,
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -180,35 +183,36 @@ export async function createTestProject(
  *
  * @param projectId - The stable project ID (12-char hex hash).
  */
-export async function removeTestProject(projectId: string): Promise<void> {
+export async function removeTestProject(projectId: string, agentType = 'claude-code'): Promise<void> {
   try {
-    await apiFetch(`/api/v1/projects/${projectId}/container`, { method: 'DELETE' })
+    await apiFetch(`/api/v1/projects/${projectId}/${agentType}/container`, { method: 'DELETE' })
   } catch {
     /* Container may already be gone. */
   }
   try {
-    await apiFetch(`/api/v1/projects/${projectId}`, { method: 'DELETE' })
+    await apiFetch(`/api/v1/projects/${projectId}/${agentType}`, { method: 'DELETE' })
   } catch {
     /* Project may already be removed. */
   }
 }
 
 /** Stops a project container. */
-export async function stopProject(projectId: string): Promise<void> {
-  await apiFetch(`/api/v1/projects/${projectId}/stop`, { method: 'POST' })
+export async function stopProject(projectId: string, agentType = 'claude-code'): Promise<void> {
+  await apiFetch(`/api/v1/projects/${projectId}/${agentType}/stop`, { method: 'POST' })
 }
 
 /** Restarts a project container. */
-export async function restartProject(projectId: string): Promise<void> {
-  await apiFetch(`/api/v1/projects/${projectId}/restart`, { method: 'POST' })
+export async function restartProject(projectId: string, agentType = 'claude-code'): Promise<void> {
+  await apiFetch(`/api/v1/projects/${projectId}/${agentType}/restart`, { method: 'POST' })
 }
 
 /** Connects a terminal to a worktree. */
 export async function connectTerminal(
   projectId: string,
   worktreeId: string,
+  agentType = 'claude-code',
 ): Promise<{ worktreeId: string }> {
-  const response = await apiFetch(`/api/v1/projects/${projectId}/worktrees/${worktreeId}/connect`, {
+  const response = await apiFetch(`/api/v1/projects/${projectId}/${agentType}/worktrees/${worktreeId}/connect`, {
     method: 'POST',
   })
   return response.json() as Promise<{ worktreeId: string }>
@@ -218,8 +222,9 @@ export async function connectTerminal(
 export async function createWorktree(
   projectId: string,
   name: string,
+  agentType = 'claude-code',
 ): Promise<{ worktreeId: string }> {
-  const response = await apiFetch(`/api/v1/projects/${projectId}/worktrees`, {
+  const response = await apiFetch(`/api/v1/projects/${projectId}/${agentType}/worktrees`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ name }),
@@ -228,13 +233,13 @@ export async function createWorktree(
 }
 
 /** Kills all processes for a worktree (tmux session + Claude). Fully stops the worktree. */
-export async function killWorktreeProcess(projectId: string, worktreeId: string): Promise<void> {
-  await apiFetch(`/api/v1/projects/${projectId}/worktrees/${worktreeId}/kill`, { method: 'POST' })
+export async function killWorktreeProcess(projectId: string, worktreeId: string, agentType = 'claude-code'): Promise<void> {
+  await apiFetch(`/api/v1/projects/${projectId}/${agentType}/worktrees/${worktreeId}/kill`, { method: 'POST' })
 }
 
 /** Disconnects a terminal from a worktree. */
-export async function disconnectTerminal(projectId: string, worktreeId: string): Promise<void> {
-  await apiFetch(`/api/v1/projects/${projectId}/worktrees/${worktreeId}/disconnect`, {
+export async function disconnectTerminal(projectId: string, worktreeId: string, agentType = 'claude-code'): Promise<void> {
+  await apiFetch(`/api/v1/projects/${projectId}/${agentType}/worktrees/${worktreeId}/disconnect`, {
     method: 'POST',
   })
 }
@@ -275,11 +280,12 @@ export async function waitForWorktreeState(
   worktreeId: string,
   expectedState: string | string[],
   timeoutMs = 30_000,
+  agentType = 'claude-code',
 ): Promise<ApiWorktree> {
   const validStates = Array.isArray(expectedState) ? expectedState : [expectedState]
   const deadline = Date.now() + timeoutMs
   while (Date.now() < deadline) {
-    const worktrees = await fetchWorktrees(projectId)
+    const worktrees = await fetchWorktrees(projectId, agentType)
     const wt = worktrees.find((w) => w.id === worktreeId)
     if (wt && validStates.includes(wt.state)) return wt
     await new Promise((r) => setTimeout(r, 1000))

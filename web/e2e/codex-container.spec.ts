@@ -77,7 +77,7 @@ const codexTest = base.extend<
       await waitForProjectState(name, 'running', 60_000)
       await use({ id: projectId!, name, runtime: codexRuntime })
     } finally {
-      if (projectId) await removeTestProject(projectId)
+      if (projectId) await removeTestProject(projectId, 'codex')
       if (existsSync(workerWorkspace)) rmSync(workerWorkspace, { recursive: true, force: true })
     }
   }, { scope: 'worker' }],
@@ -86,17 +86,17 @@ const codexTest = base.extend<
     await use()
 
     try {
-      const worktrees = await fetchWorktrees(codexProject.id)
+      const worktrees = await fetchWorktrees(codexProject.id, 'codex')
       const active = worktrees.filter((wt) =>
         wt.state === 'connected' || wt.state === 'shell' || wt.state === 'background',
       )
       if (active.length > 0) {
         await Promise.all(
-          active.map((wt) => killWorktreeProcess(codexProject.id, wt.id).catch(() => {})),
+          active.map((wt) => killWorktreeProcess(codexProject.id, wt.id, 'codex').catch(() => {})),
         )
         await Promise.all(
           active.map((wt) =>
-            waitForWorktreeState(codexProject.id, wt.id, 'disconnected', 10_000).catch(() => {}),
+            waitForWorktreeState(codexProject.id, wt.id, 'disconnected', 10_000, 'codex').catch(() => {}),
           ),
         )
       }
@@ -116,27 +116,28 @@ codexTest.describe('Codex container integration', () => {
   })
 
   codexTest('should have all required Warden binaries installed', async ({ codexProject }) => {
-    const result = await validateContainer(codexProject.id)
+    const result = await validateContainer(codexProject.id, 'codex')
 
     expect(result.valid).toBe(true)
     expect(result.missing).toBeNull()
   })
 
   codexTest('should support terminal connection', async ({ codexProject }) => {
-    await connectTerminal(codexProject.id, 'main')
-    await waitForWorktreeState(codexProject.id, 'main', 'connected', 30_000)
+    await connectTerminal(codexProject.id, 'main', 'codex')
+    await waitForWorktreeState(codexProject.id, 'main', 'connected', 30_000, 'codex')
   })
 
   codexTest('should reflect terminal state transitions via event bus', async ({ codexProject }) => {
-    await connectTerminal(codexProject.id, 'main')
-    await waitForWorktreeState(codexProject.id, 'main', 'connected', 30_000)
+    await connectTerminal(codexProject.id, 'main', 'codex')
+    await waitForWorktreeState(codexProject.id, 'main', 'connected', 30_000, 'codex')
 
-    await disconnectTerminal(codexProject.id, 'main')
+    await disconnectTerminal(codexProject.id, 'main', 'codex')
     await waitForWorktreeState(
       codexProject.id,
       'main',
       ['background', 'shell'],
       30_000,
+      'codex',
     )
   })
 })

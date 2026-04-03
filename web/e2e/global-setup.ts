@@ -108,7 +108,7 @@ export default async function globalSetup() {
     const projects = await fetchProjects()
     const stale = projects.filter((p) => p.name.startsWith('warden-e2e-'))
 
-    await Promise.all(stale.map(async (project) => removeTestProject(project.projectId)))
+    await Promise.all(stale.map(async (project) => removeTestProject(project.projectId, project.agentType)))
 
     if (stale.length > 0) {
       console.log(`[E2E] Cleaned up ${stale.length} stale container(s)`)
