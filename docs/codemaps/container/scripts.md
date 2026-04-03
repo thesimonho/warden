@@ -5,7 +5,7 @@ Scripts are organized into subdirectories under `container/scripts/` and copied 
 ```
 container/scripts/
   install-tools.sh              # Wrapper for devcontainer path (calls sub-scripts)
-  install-system-deps.sh        # System packages, GitHub CLI, Node.js, abduco/gosu, bubblewrap (devcontainer)
+  install-system-deps.sh        # System packages, GitHub CLI, Node.js, tmux/gosu, bubblewrap (devcontainer)
   install-user.sh               # warden user, workspace dirs, .profile env forwarding
   install-claude.sh             # Claude Code CLI + managed-settings.json hooks
   install-codex.sh              # Codex CLI (npm install -g @openai/codex)
@@ -14,8 +14,8 @@ container/scripts/
     entrypoint.sh               # Root-phase: UID remapping, iptables, exec gosu
     user-entrypoint.sh          # User-phase (PID 1): env forwarding, git config, heartbeat
     create-terminal.sh          # Agent-aware terminal creation (branches on WARDEN_AGENT_TYPE)
-    disconnect-terminal.sh      # Disconnect viewer, abduco continues
-    kill-worktree.sh            # Kill abduco + all processes for a worktree
+    disconnect-terminal.sh      # Disconnect viewer, tmux session continues
+    kill-worktree.sh            # Kill the tmux session + all processes for a worktree
     warden-write-event.sh       # Shared atomic event file write library
     warden-push-event.sh        # Terminal lifecycle event helper
     warden-heartbeat.sh         # Background heartbeat (every 10s)
@@ -52,11 +52,11 @@ When the agent exits: records exit code, pushes `session_exit` event, drops to `
 
 ### disconnect-terminal.sh
 
-Pushes `terminal_disconnected` event. Removes terminal tracking state. Abduco continues running.
+Pushes `terminal_disconnected` event. Removes terminal tracking state. Tmux session continues running.
 
 ### kill-worktree.sh
 
-Kills abduco for a worktree. Pushes `process_killed` event. Removes all terminal tracking state.
+Kills the tmux session for a worktree. Pushes `process_killed` event. Removes all terminal tracking state.
 
 ## Event Scripts
 

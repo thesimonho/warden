@@ -24,10 +24,10 @@ const ContainerHomeDir = constants.ContainerHomeDir
 const createTerminalScript = "/usr/local/bin/create-terminal.sh"
 
 // disconnectTerminalScript pushes a disconnect event and cleans up tracking state.
-// The abduco session and everything inside it continues running.
+// The tmux session and everything inside it continues running.
 const disconnectTerminalScript = "/usr/local/bin/disconnect-terminal.sh"
 
-// killWorktreeScript kills both ttyd and abduco — the worktree process is fully destroyed.
+// killWorktreeScript kills the tmux session — the worktree process is fully destroyed.
 const killWorktreeScript = "/usr/local/bin/kill-worktree.sh"
 
 // terminalsDirSuffix is appended to the workspace dir for terminal tracking.
@@ -71,9 +71,9 @@ func (ec *EngineClient) CreateWorktree(ctx context.Context, containerID, name st
 }
 
 // ConnectTerminal starts a terminal for a worktree inside the container.
-// If an abduco session is still alive (background state), reconnects ttyd
-// to it instead of creating a fresh session. Otherwise runs create-terminal.sh
-// which allocates a port, starts ttyd + abduco, and launches Claude Code.
+// If a tmux session is still alive (background state), the WebSocket proxy
+// will attach to it. Otherwise runs create-terminal.sh which starts a tmux
+// session and launches the agent.
 // When skipPermissions is true, Claude Code runs with --dangerously-skip-permissions.
 func (ec *EngineClient) ConnectTerminal(ctx context.Context, containerID, worktreeID string, skipPermissions bool) (string, error) {
 	if !IsValidWorktreeID(worktreeID) {
@@ -88,8 +88,8 @@ func (ec *EngineClient) ConnectTerminal(ctx context.Context, containerID, worktr
 // When isCreate is true, the git worktree orphan check is skipped because Claude
 // Code's --worktree flag will create the worktree.
 func (ec *EngineClient) connectTerminal(ctx context.Context, containerID, worktreeID string, skipPermissions, isCreate bool) (string, error) {
-	// Check if an abduco session is still alive (background state)
-	isBackground := ec.isAbducoSessionAlive(ctx, containerID, worktreeID)
+	// Check if a tmux session is still alive (background state)
+	isBackground := ec.isSessionAlive(ctx, containerID, worktreeID)
 
 	// For reconnects (not creates), verify the worktree exists in git.
 	// Prevents launching a broken terminal for orphaned worktree directories
@@ -100,7 +100,7 @@ func (ec *EngineClient) connectTerminal(ctx context.Context, containerID, worktr
 		}
 	}
 
-	// For background state, the abduco session is already running. The WebSocket
+	// For background state, the tmux session is already running. The WebSocket
 	// proxy will attach to it via docker exec — no script needed. Return early
 	// so the frontend knows it can open a WebSocket immediately.
 	if isBackground {
@@ -153,11 +153,12 @@ func (ec *EngineClient) isGitWorktreeKnown(ctx context.Context, containerID, wor
 	return false
 }
 
-// isAbducoSessionAlive checks if an abduco session for the worktree is running.
-// Uses [a]bduco character-class trick so pgrep doesn't match its own process.
-func (ec *EngineClient) isAbducoSessionAlive(ctx context.Context, containerID, worktreeID string) bool {
+// isSessionAlive checks if a tmux session for the worktree is running.
+// Uses `tmux has-session` which returns exit code 0 if the session exists.
+func (ec *EngineClient) isSessionAlive(ctx context.Context, containerID, worktreeID string) bool {
+	sessionName := fmt.Sprintf("warden-%s", worktreeID)
 	output, err := ec.execAndCapture(ctx, containerID, container.ExecOptions{
-		Cmd:          []string{"sh", "-c", fmt.Sprintf(`pgrep -f "[a]bduco.*warden-%s" >/dev/null 2>&1 && echo 1 || echo 0`, worktreeID)},
+		Cmd:          []string{"sh", "-c", fmt.Sprintf(`tmux has-session -t "%s" 2>/dev/null && echo 1 || echo 0`, sessionName)},
 		AttachStdout: true,
 		AttachStderr: true,
 	})
@@ -371,7 +372,7 @@ func worktreeIDFromPath(path, wsDir string) string {
 }
 
 // enrichWorktreeState reads terminal tracking data from .warden/terminals/
-// to determine each worktree's terminal state (port, liveness, abduco session).
+// to determine each worktree's terminal state (liveness, exit code).
 // Attention state is handled separately via the event bus push path.
 func (ec *EngineClient) enrichWorktreeState(ctx context.Context, containerID string, worktrees []Worktree) {
 	if len(worktrees) == 0 {
@@ -379,19 +380,20 @@ func (ec *EngineClient) enrichWorktreeState(ctx context.Context, containerID str
 	}
 
 	// Build a batch command to read terminal state for all worktrees.
-	// Checks abduco session liveness and exit code. Port checking is no longer
-	// needed since the WebSocket proxy connects directly via docker exec.
-	// pgrep uses [a]bduco character-class trick to avoid matching its own process.
+	// First lists all tmux sessions, then checks exit code and session
+	// liveness for each worktree using grep against the session list.
 	//
 	// Attention state is NOT read here — it's handled by the event bus push path.
 	wsDir := ec.workspaceDir(ctx, containerID)
 	termDir := wsDir + terminalsDirSuffix
 
 	var cmdParts []string
+	// Prepend a single tmux list-sessions call and store the result.
+	cmdParts = append(cmdParts, `TMUX_SESSIONS=$(tmux list-sessions -F '#{session_name}' 2>/dev/null || true)`)
 	for _, wt := range worktrees {
 		cmdParts = append(cmdParts,
 			fmt.Sprintf(
-				`echo "---WT_START:%s---" && (cat %s/%s/exit_code 2>/dev/null || true) && echo "---EXIT_END---" && pgrep -f "[a]bduco.*warden-%s" >/dev/null 2>&1 && echo 1 || echo 0 && echo "---ABDUCO_END---"`,
+				`echo "---WT_START:%s---" && (cat %s/%s/exit_code 2>/dev/null || true) && echo "---EXIT_END---" && echo "$TMUX_SESSIONS" | grep -qx "warden-%s" && echo 1 || echo 0 && echo "---SESSION_END---"`,
 				wt.ID, termDir, wt.ID, wt.ID,
 			),
 		)
@@ -416,7 +418,7 @@ func (ec *EngineClient) enrichWorktreeState(ctx context.Context, containerID str
 			continue
 		}
 
-		if ts.abducoAlive {
+		if ts.sessionAlive {
 			if ts.exitCode >= 0 {
 				// Agent exited but shell is still alive
 				worktrees[i].State = WorktreeStateShell
@@ -431,8 +433,8 @@ func (ec *EngineClient) enrichWorktreeState(ctx context.Context, containerID str
 
 // terminalState holds parsed terminal tracking data for a worktree.
 type terminalState struct {
-	exitCode    int // -1 means not set (Claude still running)
-	abducoAlive bool
+	exitCode     int // -1 means not set (Claude still running)
+	sessionAlive bool
 }
 
 // parseTerminalBatch parses the batched output from the terminal state read command.
@@ -463,9 +465,9 @@ func parseTerminalBatch(output string) map[string]*terminalState {
 			rest = rest[exitEnd+len("---EXIT_END---"):]
 		}
 
-		// Parse abduco session alive check
-		if abducoEnd := strings.Index(rest, "---ABDUCO_END---"); abducoEnd >= 0 {
-			ts.abducoAlive = strings.TrimSpace(rest[:abducoEnd]) == "1"
+		// Parse session alive check
+		if sessionEnd := strings.Index(rest, "---SESSION_END---"); sessionEnd >= 0 {
+			ts.sessionAlive = strings.TrimSpace(rest[:sessionEnd]) == "1"
 		}
 
 		states[worktreeID] = ts
@@ -479,9 +481,9 @@ func parseTerminalBatch(output string) map[string]*terminalState {
 //  1. Prunes git worktree metadata for directories that no longer exist on disk.
 //  2. Removes .claude/worktrees/ directories not tracked by git (leftovers from
 //     kill-worktree.sh running before Claude could call `git worktree remove`).
-//  3. Removes .warden/terminals/<id>/ directories whose abduco sessions are dead
+//  3. Removes .warden/terminals/<id>/ directories whose tmux sessions are dead
 //     OR whose worktree directories no longer exist on disk (orphaned by Claude
-//     running `git worktree remove` inside the container). Kills orphaned abduco
+//     running `git worktree remove` inside the container). Kills orphaned tmux
 //     sessions before removing their tracking directories.
 //
 // Returns the deduplicated list of removed worktree IDs from steps 2 and 3.
@@ -499,7 +501,7 @@ func (ec *EngineClient) CleanupOrphanedWorktrees(ctx context.Context, containerI
 		return nil, err
 	}
 
-	// Step 3: Remove .warden/terminals/<id>/ directories with no live abduco
+	// Step 3: Remove .warden/terminals/<id>/ directories with no live tmux session
 	// OR whose worktree directory no longer exists.
 	staleTerminals := ec.cleanupStaleTerminals(ctx, containerID)
 
@@ -580,12 +582,12 @@ func (ec *EngineClient) cleanupOrphanedWorktreeDirs(ctx context.Context, contain
 
 // cleanupStaleTerminals removes .warden/terminals/<id>/ directories that are
 // stale. A terminal is stale when either:
-//   - The abduco session is dead (normal exit, Ctrl-C, container restart).
+//   - The tmux session is dead (normal exit, Ctrl-C, container restart).
 //   - The worktree directory no longer exists on disk (removed by Claude inside
 //     the container without Warden knowing).
 //
-// For orphaned terminals with a live abduco session but no worktree directory,
-// abduco is killed before removing the tracking directory.
+// For orphaned terminals with a live tmux session but no worktree directory,
+// the session is killed before removing the tracking directory.
 //
 // Returns the list of cleaned-up worktree IDs so the caller can evict
 // their cached state from the event store.
@@ -595,12 +597,14 @@ func (ec *EngineClient) cleanupStaleTerminals(ctx context.Context, containerID s
 	claudePrefix := wsDir + claudeWorktreesPrefixSuffix
 	wardenPrefix := wsDir + wardenWorktreesPrefixSuffix
 
-	// Single exec: for each terminal dir, check if abduco is alive AND if the
-	// worktree directory exists in either worktree location. Print "<id> dead"
-	// if abduco is dead, or "<id> orphan" if abduco is alive but no worktree dir.
+	// Single exec: list all tmux sessions, then for each terminal dir, check
+	// session liveness and worktree directory existence. Print "<id> dead"
+	// if the session is dead, or "<id> orphan" if the session is alive but
+	// no worktree dir exists.
 	cmd := fmt.Sprintf(
-		`for d in %s/*/; do [ -d "$d" ] || continue; id=$(basename "$d"); `+
-			`alive=0; pgrep -f "[a]bduco.*warden-$id" >/dev/null 2>&1 && alive=1; `+
+		`TMUX_SESSIONS=$(tmux list-sessions -F '#{session_name}' 2>/dev/null || true); `+
+			`for d in %s/*/; do [ -d "$d" ] || continue; id=$(basename "$d"); `+
+			`alive=0; echo "$TMUX_SESSIONS" | grep -qx "warden-$id" && alive=1; `+
 			`has_dir=0; { [ -d "%s$id" ] || [ -d "%s$id" ] || [ "$id" = "main" ]; } && has_dir=1; `+
 			`if [ "$alive" = "0" ]; then echo "$id dead"; `+
 			`elif [ "$has_dir" = "0" ]; then echo "$id orphan"; fi; done`,
@@ -635,7 +639,7 @@ func (ec *EngineClient) cleanupStaleTerminals(ctx context.Context, containerID s
 		}
 	}
 
-	// Kill abduco for orphaned worktrees (live session, no directory).
+	// Kill tmux sessions for orphaned worktrees (live session, no directory).
 	for _, name := range orphans {
 		_ = ec.KillWorktreeProcess(ctx, containerID, name)
 		slog.Info("killed orphaned worktree process", "container", containerID, "worktree", name)
@@ -648,7 +652,7 @@ func (ec *EngineClient) cleanupStaleTerminals(ctx context.Context, containerID s
 
 	if err := ec.removeDirs(ctx, containerID, termDir, all); err != nil {
 		slog.Warn("failed to remove stale terminal directories", "container", containerID, "err", err)
-		// Still return IDs — abduco was already killed for orphans, so callers
+		// Still return IDs — tmux was already killed for orphans, so callers
 		// need these to evict cached state even if dir removal failed.
 		return all
 	}
@@ -660,8 +664,8 @@ func (ec *EngineClient) cleanupStaleTerminals(ctx context.Context, containerID s
 	return all
 }
 
-// DisconnectTerminal kills the ttyd viewer for a worktree, freeing the port.
-// The abduco session (and Claude/bash running inside it) continues in the background.
+// DisconnectTerminal pushes a disconnect event and cleans up tracking state.
+// The tmux session (and Claude/bash running inside it) continues in the background.
 func (ec *EngineClient) DisconnectTerminal(ctx context.Context, containerID, worktreeID string) error {
 	if !IsValidWorktreeID(worktreeID) {
 		return fmt.Errorf("invalid worktree ID: %q", worktreeID)
@@ -680,7 +684,7 @@ func (ec *EngineClient) DisconnectTerminal(ctx context.Context, containerID, wor
 	return nil
 }
 
-// RemoveWorktree fully removes a worktree: kills any running abduco session,
+// RemoveWorktree fully removes a worktree: kills any running tmux session,
 // runs `git worktree remove --force`, and cleans up the .warden/terminals/
 // tracking directory. Cannot remove the "main" worktree.
 //
@@ -695,7 +699,7 @@ func (ec *EngineClient) RemoveWorktree(ctx context.Context, containerID, worktre
 		return fmt.Errorf("cannot remove the main worktree")
 	}
 
-	// Kill abduco unconditionally (ignore errors — it may already be dead).
+	// Kill tmux session unconditionally (ignore errors — it may already be dead).
 	_ = ec.KillWorktreeProcess(ctx, containerID, worktreeID)
 
 	// Prune stale git metadata first — if Claude already removed the worktree
@@ -728,9 +732,9 @@ func (ec *EngineClient) RemoveWorktree(ctx context.Context, containerID, worktre
 	return nil
 }
 
-// KillWorktreeProcess kills both ttyd and abduco for a worktree, destroying the
+// KillWorktreeProcess kills the tmux session for a worktree, destroying the
 // process entirely. The git worktree directory on disk is preserved.
-// Use DisconnectTerminal to only kill the viewer and keep the process alive.
+// Use DisconnectTerminal to only disconnect the viewer and keep the session alive.
 func (ec *EngineClient) KillWorktreeProcess(ctx context.Context, containerID, worktreeID string) error {
 	if !IsValidWorktreeID(worktreeID) {
 		return fmt.Errorf("invalid worktree ID: %q", worktreeID)

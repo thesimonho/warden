@@ -317,8 +317,8 @@ func TestConnectTerminal_FreshSession(t *testing.T) {
 	t.Parallel()
 
 	mock := newExecMockAPI()
-	// isAbducoSessionAlive returns false (abduco not running).
-	mock.onCmd("pgrep", "0\n")
+	// isSessionAlive returns false (tmux session not running).
+	mock.onCmd("tmux", "0\n")
 	// create-terminal.sh returns JSON.
 	mock.onCmd(createTerminalScript, `{"worktreeId":"feature-x"}`)
 
@@ -358,7 +358,7 @@ func TestConnectTerminal_SkipPermissions(t *testing.T) {
 	t.Parallel()
 
 	mock := newExecMockAPI()
-	mock.onCmd("pgrep", "0\n")
+	mock.onCmd("tmux", "0\n")
 	mock.onCmd(createTerminalScript, `{"worktreeId":"main"}`)
 
 	ec := newTestClient(mock)
@@ -388,8 +388,8 @@ func TestConnectTerminal_ReconnectBackground(t *testing.T) {
 	t.Parallel()
 
 	mock := newExecMockAPI()
-	// isAbducoSessionAlive returns true.
-	mock.onCmd("pgrep", "1\n")
+	// isSessionAlive returns true (tmux session running).
+	mock.onCmd("tmux", "1\n")
 
 	ec := newTestClient(mock)
 	resp, err := ec.ConnectTerminal(context.Background(), "ctr-bg", "bg-task", false)
@@ -404,7 +404,7 @@ func TestConnectTerminal_ReconnectBackground(t *testing.T) {
 	// Verify create script was NOT called (background reconnect returns early).
 	for _, call := range mock.getCalls() {
 		if len(call.Cmd) > 0 && call.Cmd[0] == createTerminalScript {
-			t.Error("create-terminal.sh should not be called when abduco is alive")
+			t.Error("create-terminal.sh should not be called when tmux session is alive")
 		}
 	}
 }
@@ -425,7 +425,7 @@ func TestCreateWorktree_DelegatesToConnect(t *testing.T) {
 	t.Parallel()
 
 	mock := newExecMockAPI()
-	mock.onCmd("pgrep", "0\n")
+	mock.onCmd("tmux", "0\n")
 	mock.onCmd(createTerminalScript, `{"worktreeId":"new-wt"}`)
 
 	ec := newTestClient(mock)

@@ -1,5 +1,5 @@
 // Package terminal provides a WebSocket-to-PTY proxy that bridges browser
-// terminals to abduco sessions running inside containers via the Docker exec API.
+// terminals to tmux sessions running inside containers via the Docker exec API.
 package terminal
 
 import (
@@ -59,9 +59,12 @@ func NewProxy(api ExecAPI) *Proxy {
 	return &Proxy{api: api}
 }
 
-// ServeWS upgrades the HTTP request to a WebSocket and bridges it to an abduco
+// ServeWS upgrades the HTTP request to a WebSocket and bridges it to a tmux
 // session inside the container. The connection stays open until the browser
 // disconnects or the exec process exits.
+//
+// For reconnects (query param reconnect=1), scrollback is captured from the
+// tmux pane and sent to the client before attaching the live stream.
 //
 // The caller is responsible for validating containerID and worktreeID.
 func (p *Proxy) ServeWS(w http.ResponseWriter, r *http.Request, containerID, worktreeID string) {
@@ -79,11 +82,20 @@ func (p *Proxy) ServeWS(w http.ResponseWriter, r *http.Request, containerID, wor
 
 	ctx := r.Context()
 
-	// Create a docker exec with TTY that attaches to the abduco session.
-	// abduco -a is the viewer — killing it won't affect the session owner (abduco -n).
+	// For reconnects, capture tmux scrollback and send it before attaching
+	// the live stream. This fills the gap between the user's last disconnect and now.
 	sessionName := fmt.Sprintf("warden-%s", worktreeID)
+	if r.URL.Query().Get("reconnect") == "1" {
+		scrollback, scrollErr := p.captureScrollback(ctx, containerID, sessionName)
+		if scrollErr == nil && len(scrollback) > 0 {
+			conn.Write(ctx, websocket.MessageBinary, scrollback) //nolint:errcheck
+		}
+	}
+
+	// Create a docker exec with TTY that attaches to the tmux session.
+	// tmux attach-session is the viewer — killing it won't affect the server session.
 	execResp, err := p.api.ContainerExecCreate(ctx, containerID, container.ExecOptions{
-		Cmd:          []string{"abduco", "-a", sessionName},
+		Cmd:          []string{"tmux", "attach-session", "-t", sessionName},
 		User:         containerUser,
 		Env:          []string{"TERM=xterm-256color"},
 		AttachStdin:  true,
@@ -235,6 +247,37 @@ func (p *Proxy) handleControlMessage(ctx context.Context, data []byte, execID st
 	}); err != nil {
 		slog.Debug("exec resize failed", "err", err, "cols", msg.Cols, "rows", msg.Rows)
 	}
+}
+
+// captureScrollback runs `tmux capture-pane` inside the container to grab the
+// session's scrollback buffer. Returns the raw output bytes suitable for
+// writing directly to the WebSocket as a binary frame.
+func (p *Proxy) captureScrollback(ctx context.Context, containerID, sessionName string) ([]byte, error) {
+	execResp, err := p.api.ContainerExecCreate(ctx, containerID, container.ExecOptions{
+		Cmd:          []string{"tmux", "capture-pane", "-t", sessionName, "-p", "-S", "-50000"},
+		User:         containerUser,
+		AttachStdout: true,
+		AttachStderr: true,
+		Tty:          false,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("scrollback exec create: %w", err)
+	}
+
+	hijacked, err := p.api.ContainerExecAttach(ctx, execResp.ID, container.ExecStartOptions{
+		Tty: false,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("scrollback exec attach: %w", err)
+	}
+	defer hijacked.Close()
+
+	data, err := io.ReadAll(hijacked.Reader)
+	if err != nil {
+		return nil, fmt.Errorf("scrollback read: %w", err)
+	}
+
+	return data, nil
 }
 
 // pingLoop sends WebSocket pings at regular intervals to detect dead connections.

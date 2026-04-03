@@ -34,7 +34,7 @@ var containerUser = engine.ContainerUser
 //   - [ServiceAdapter.SubscribeEvents]: subscribes to the in-process event
 //     broker directly (no SSE/HTTP involved)
 //   - [ServiceAdapter.AttachTerminal]: creates a docker exec session attached
-//     to the worktree's abduco viewer (no WebSocket involved)
+//     to the worktree's tmux session (no WebSocket involved)
 //
 // This is the counterpart to [client.Client] (HTTP mode). Both satisfy
 // the same [Client] interface, so the TUI works identically in either mode.
@@ -281,7 +281,7 @@ func (a *ServiceAdapter) SubscribeEvents(_ context.Context) (<-chan eventbus.SSE
 // --- Terminal Attachment ---
 
 // AttachTerminal creates a docker exec session attached to the
-// worktree's abduco viewer. This replicates the pattern from
+// worktree's tmux session. This replicates the pattern from
 // internal/terminal/proxy.go but returns an io.ReadWriteCloser
 // instead of bridging to WebSocket.
 func (a *ServiceAdapter) AttachTerminal(ctx context.Context, projectID, worktreeID string) (client.TerminalConnection, error) {
@@ -289,7 +289,7 @@ func (a *ServiceAdapter) AttachTerminal(ctx context.Context, projectID, worktree
 
 	sessionName := fmt.Sprintf("warden-%s", worktreeID)
 	execResp, err := dockerAPI.ContainerExecCreate(ctx, projectID, container.ExecOptions{
-		Cmd:          []string{"abduco", "-a", sessionName},
+		Cmd:          []string{"tmux", "attach-session", "-t", sessionName},
 		User:         containerUser,
 		Env:          []string{"TERM=xterm-256color"},
 		AttachStdin:  true,

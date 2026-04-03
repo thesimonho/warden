@@ -81,7 +81,7 @@ export interface ValidateResult {
   missing: string[] | null
 }
 
-/** Validates container infrastructure (abduco, scripts). */
+/** Validates container infrastructure (tmux, scripts). */
 export async function validateContainer(projectId: string): Promise<ValidateResult> {
   const response = await apiFetch(`/api/v1/projects/${projectId}/container/validate`)
   return response.json() as Promise<ValidateResult>
@@ -221,7 +221,7 @@ export async function createWorktree(
   return response.json() as Promise<{ worktreeId: string }>
 }
 
-/** Kills all processes for a worktree (abduco + Claude). Fully stops the worktree. */
+/** Kills all processes for a worktree (tmux session + Claude). Fully stops the worktree. */
 export async function killWorktreeProcess(projectId: string, worktreeId: string): Promise<void> {
   await apiFetch(`/api/v1/projects/${projectId}/worktrees/${worktreeId}/kill`, { method: 'POST' })
 }

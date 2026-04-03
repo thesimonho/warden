@@ -359,8 +359,8 @@ func TestStore_HandleTerminalConnected(t *testing.T) {
 	if !ts.ViewerConnected {
 		t.Error("expected ViewerConnected true")
 	}
-	if !ts.AbducoAlive {
-		t.Error("expected AbducoAlive true")
+	if !ts.SessionAlive {
+		t.Error("expected SessionAlive true")
 	}
 	if ts.ExitCode != -1 {
 		t.Errorf("expected ExitCode -1, got %d", ts.ExitCode)
@@ -391,8 +391,8 @@ func TestStore_HandleTerminalDisconnected(t *testing.T) {
 	if ts.ViewerConnected {
 		t.Error("expected ViewerConnected false after disconnect")
 	}
-	if !ts.AbducoAlive {
-		t.Error("expected AbducoAlive true (abduco survives disconnect)")
+	if !ts.SessionAlive {
+		t.Error("expected SessionAlive true (session survives disconnect)")
 	}
 }
 
@@ -420,8 +420,8 @@ func TestStore_HandleProcessKilled(t *testing.T) {
 	if ts.ViewerConnected {
 		t.Error("expected ViewerConnected false after kill")
 	}
-	if ts.AbducoAlive {
-		t.Error("expected AbducoAlive false after kill")
+	if ts.SessionAlive {
+		t.Error("expected SessionAlive false after kill")
 	}
 }
 
@@ -563,8 +563,8 @@ func TestStore_MarkContainerStale(t *testing.T) {
 	if ts.ViewerConnected {
 		t.Error("expected ViewerConnected false after stale")
 	}
-	if ts.AbducoAlive {
-		t.Error("expected AbducoAlive false after stale")
+	if ts.SessionAlive {
+		t.Error("expected SessionAlive false after stale")
 	}
 
 	// Container should be fully removed from all tracking maps.
@@ -634,30 +634,30 @@ func TestDeriveWorktreeState(t *testing.T) {
 			expected: "",
 		},
 		{
-			name: "viewer connected and abduco alive, no exit code",
+			name: "viewer connected and session alive, no exit code",
 			ts: &TerminalState{
 				ViewerConnected: true,
-				AbducoAlive:     true,
+				SessionAlive:     true,
 				ExitCode:        -1,
 				UpdatedAt:       time.Now(),
 			},
 			expected: engine.WorktreeStateConnected,
 		},
 		{
-			name: "viewer connected and abduco alive, Claude exited",
+			name: "viewer connected and session alive, Claude exited",
 			ts: &TerminalState{
 				ViewerConnected: true,
-				AbducoAlive:     true,
+				SessionAlive:     true,
 				ExitCode:        0,
 				UpdatedAt:       time.Now(),
 			},
 			expected: engine.WorktreeStateShell,
 		},
 		{
-			name: "only abduco alive (background)",
+			name: "only session alive (background)",
 			ts: &TerminalState{
 				ViewerConnected: false,
-				AbducoAlive:     true,
+				SessionAlive:     true,
 				ExitCode:        -1,
 				UpdatedAt:       time.Now(),
 			},
@@ -667,7 +667,7 @@ func TestDeriveWorktreeState(t *testing.T) {
 			name: "both dead",
 			ts: &TerminalState{
 				ViewerConnected: false,
-				AbducoAlive:     false,
+				SessionAlive:     false,
 				ExitCode:        -1,
 				UpdatedAt:       time.Now(),
 			},
@@ -697,7 +697,7 @@ func TestBuildWorktreeBroadcast_IncludesTerminalState(t *testing.T) {
 	}
 	ts := &TerminalState{
 		ViewerConnected: true,
-		AbducoAlive:     true,
+		SessionAlive:     true,
 		ExitCode:        -1,
 		UpdatedAt:       time.Now(),
 	}
@@ -785,7 +785,7 @@ func TestStore_EvictWorktree_ClearsAllState(t *testing.T) {
 		t.Fatal("precondition: expected attention state before eviction")
 	}
 	ts := store.GetTerminalState("proj-1", "wt-1")
-	if !ts.AbducoAlive {
+	if !ts.SessionAlive {
 		t.Fatal("precondition: expected terminal state before eviction")
 	}
 
@@ -798,7 +798,7 @@ func TestStore_EvictWorktree_ClearsAllState(t *testing.T) {
 		t.Error("expected attention state to be cleared after eviction")
 	}
 	ts = store.GetTerminalState("proj-1", "wt-1")
-	if ts.AbducoAlive || !ts.UpdatedAt.IsZero() {
+	if ts.SessionAlive || !ts.UpdatedAt.IsZero() {
 		t.Error("expected terminal state to be cleared after eviction")
 	}
 }
@@ -821,7 +821,7 @@ func TestStore_EvictWorktree_PreservesOtherWorktrees(t *testing.T) {
 
 	// wt-2 should be unaffected.
 	ts := store.GetTerminalState("proj-1", "wt-2")
-	if !ts.AbducoAlive {
+	if !ts.SessionAlive {
 		t.Error("expected wt-2 terminal state to be preserved")
 	}
 

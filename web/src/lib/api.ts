@@ -203,7 +203,7 @@ export async function connectTerminal(
 
 /**
  * Disconnects the terminal viewer from a worktree.
- * The abduco session (and Claude/bash) continues running in the background.
+ * The tmux session (and Claude/bash) continues running in the background.
  *
  * @param projectId - The project the worktree belongs to.
  * @param agentType - The CLI agent type for this project.
@@ -223,7 +223,7 @@ export async function disconnectTerminal(
 }
 
 /**
- * Kills abduco and all child processes for a worktree.
+ * Kills the tmux session and all child processes for a worktree.
  * This is destructive — the terminal session is destroyed and cannot be reconnected.
  *
  * @param projectId - The project the worktree belongs to.

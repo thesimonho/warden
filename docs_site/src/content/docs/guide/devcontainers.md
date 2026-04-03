@@ -48,7 +48,7 @@ Always switch back to `USER warden` at the end of your Dockerfile. Warden's term
 
 ## Option B: Devcontainer feature
 
-If you use [devcontainers](https://containers.dev/), add the Warden feature to your `.devcontainer/devcontainer.json`. This bakes Warden's terminal infrastructure (abduco, Claude Code CLI, hooks, network isolation) into whatever image your devcontainer config produces.
+If you use [devcontainers](https://containers.dev/), add the Warden feature to your `.devcontainer/devcontainer.json`. This bakes Warden's terminal infrastructure (tmux, Claude Code CLI, hooks, network isolation) into whatever image your devcontainer config produces.
 
 ### Starter devcontainer.json
 
@@ -79,7 +79,7 @@ Then select `my-project:latest` as the image when creating a project in Warden.
 
 ### What the feature installs
 
-- **abduco** — terminal session manager for persistent sessions across disconnects
+- **tmux** — terminal session manager for persistent sessions across disconnects
 - **gosu** — lightweight privilege drop for the container entrypoint
 - **Claude Code CLI** — the AI coding agent
 - **GitHub CLI** — for `gh` commands inside the container
@@ -96,7 +96,7 @@ All tools are installed idempotently — running the feature on an image that al
 If you need a completely different base image (Alpine, Fedora, a corporate base, etc.), you have two choices:
 
 1. **Use the devcontainer feature** (Option B) — it works on any Debian/Ubuntu-based image.
-2. **Manually install Warden's infrastructure** — copy the patterns from `container/scripts/install-tools.sh` in the Warden repo. The key requirements are: gosu, abduco, Claude Code CLI, the entrypoint and terminal lifecycle scripts, and a `warden` non-root user. See the required binaries below.
+2. **Manually install Warden's infrastructure** — copy the patterns from `container/scripts/install-tools.sh` in the Warden repo. The key requirements are: gosu, tmux, Claude Code CLI, the entrypoint and terminal lifecycle scripts, and a `warden` non-root user. See the required binaries below.
 
 ## Required Binaries
 
@@ -107,8 +107,8 @@ When you create a container, Warden validates that these binaries exist at `/usr
 | `gosu` | Privilege drop in entrypoint |
 | `entrypoint.sh` | Root-phase setup (UID remapping, network isolation) |
 | `user-entrypoint.sh` | User-phase setup (env forwarding, git/ssh config) |
-| `create-terminal.sh` | Start abduco session + Claude Code |
-| `disconnect-terminal.sh` | Clean disconnect (kill viewer, keep abduco) |
+| `create-terminal.sh` | Start tmux session + Claude Code |
+| `disconnect-terminal.sh` | Clean disconnect (kill viewer, keep tmux session) |
 | `kill-worktree.sh` | Kill all processes for a worktree |
 
 Options A and B install all of these automatically. Option C requires you to provide them.

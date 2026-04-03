@@ -3,7 +3,7 @@
 package constants
 
 // ContainerUser is the non-root user inside project containers. All terminal
-// processes (abduco, the agent, bash) run as this user.
+// processes (tmux, the agent, bash) run as this user.
 const ContainerUser = "warden"
 
 // ContainerHomeDir is the home directory for [ContainerUser] inside containers.

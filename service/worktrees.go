@@ -79,7 +79,7 @@ func (s *Service) CreateWorktree(ctx context.Context, projectID, agentType, name
 }
 
 // ConnectTerminal starts a terminal for a worktree in the given
-// container. For background reconnects (abduco alive, no script
+// container. For background reconnects (tmux session alive, no script
 // needed), pushes a synthetic terminal_connected event so the store
 // transitions from background to connected.
 func (s *Service) ConnectTerminal(ctx context.Context, projectID, agentType, worktreeID string) (*WorktreeResult, error) {
@@ -118,8 +118,8 @@ func (s *Service) ConnectTerminal(ctx context.Context, projectID, agentType, wor
 	return &WorktreeResult{WorktreeID: resultID, ProjectID: project.ProjectID}, nil
 }
 
-// DisconnectTerminal kills the terminal viewer for a worktree. The
-// abduco session continues running in the background. Pushes a
+// DisconnectTerminal disconnects the terminal viewer for a worktree. The
+// tmux session continues running in the background. Pushes a
 // synthetic terminal_disconnected event so the store transitions
 // from connected to background without relying on the container
 // script's async curl delivery.
@@ -158,7 +158,7 @@ func (s *Service) DisconnectTerminal(ctx context.Context, projectID, agentType, 
 	return &WorktreeResult{WorktreeID: worktreeID, ProjectID: project.ProjectID}, nil
 }
 
-// KillWorktreeProcess kills abduco and all child processes for a
+// KillWorktreeProcess kills the tmux session and all child processes for a
 // worktree, destroying the terminal entirely.
 func (s *Service) KillWorktreeProcess(ctx context.Context, projectID, agentType, worktreeID string) (*WorktreeResult, error) {
 	project, err := s.resolveProject(projectID, agentType)

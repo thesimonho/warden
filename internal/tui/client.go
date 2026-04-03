@@ -59,7 +59,7 @@ type Client interface {
 	// API: POST /api/v1/projects/{projectId}/{agentType}/worktrees/{wid}/disconnect
 	DisconnectTerminal(ctx context.Context, projectID, agentType, worktreeID string) (*api.WorktreeResult, error)
 
-	// KillWorktreeProcess kills the abduco session and all child processes.
+	// KillWorktreeProcess kills the tmux session and all child processes.
 	// API: POST /api/v1/projects/{projectId}/{agentType}/worktrees/{wid}/kill
 	KillWorktreeProcess(ctx context.Context, projectID, agentType, worktreeID string) (*api.WorktreeResult, error)
 
@@ -183,7 +183,7 @@ type Client interface {
 	SubscribeEvents(ctx context.Context) (<-chan eventbus.SSEEvent, func(), error)
 
 	// AttachTerminal returns a bidirectional connection to a worktree's
-	// abduco session. In embedded mode this uses docker exec; in HTTP
+	// tmux session. In embedded mode this uses docker exec; in HTTP
 	// mode this uses WebSocket to /api/v1/projects/{id}/ws/{wid}.
 	AttachTerminal(ctx context.Context, projectID, worktreeID string) (client.TerminalConnection, error)
 }

@@ -62,7 +62,7 @@ You can easily use it from Day 1 as its own agent orchestrator, running as a web
 
 - **Real-time agent status** — idle, working, needs permission, needs input, needs answer — across every agent at a glance.
 - **Worktree orchestration** — isolated git worktrees allows for parallel development.
-- **Session persistence** — terminals survive disconnects via abduco. Close the tab, agent keeps working. Reconnect later.
+- **Session persistence** — terminals survive disconnects via tmux. Close the tab, agent keeps working. Reconnect later.
 - **Attention notifications** — know exactly which agent needs you without checking each terminal.
 
 ### Developer experience

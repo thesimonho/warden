@@ -9,7 +9,7 @@ import { test, expect } from '@playwright/test'
  *
  * Verifies that adding the Warden devcontainer feature to a
  * devcontainer.json produces a working container with all required
- * infrastructure (abduco, terminal scripts, Claude Code CLI).
+ * infrastructure (tmux, terminal scripts, Claude Code CLI).
  *
  * This test exercises the user workflow directly:
  * 1. Write a devcontainer.json with the Warden feature
@@ -143,9 +143,9 @@ test.describe('Devcontainer feature', () => {
     }
   })
 
-  test('should have abduco installed', () => {
-    const result = execInContainer('which abduco')
-    expect(result).toContain('abduco')
+  test('should have tmux installed', () => {
+    const result = execInContainer('which tmux')
+    expect(result).toContain('tmux')
   })
 
   test('should have dev user created', () => {

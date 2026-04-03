@@ -68,7 +68,7 @@ WebSocket-to-PTY proxy for terminal connections.
 
 | File | Purpose |
 | --- | --- |
-| `proxy.go` | `Proxy` type with `ServeWS()` — upgrades HTTP to WebSocket, creates docker exec with TTY attached to abduco, bridges bytes bidirectionally. Handles resize via text frames, ping/pong heartbeat (30s), graceful close. PTY output is filtered through `AltScreenFilter` to enable scrollback. The HTTP handler (`handleTerminalWS`) lives in `internal/server/routes.go`. |
+| `proxy.go` | `Proxy` type with `ServeWS()` — upgrades HTTP to WebSocket, creates docker exec with TTY attached to tmux, bridges bytes bidirectionally. Handles resize via text frames, ping/pong heartbeat (30s), graceful close. PTY output is filtered through `AltScreenFilter` to enable scrollback. The HTTP handler (`handleTerminalWS`) lives in `internal/server/routes.go`. |
 | `altscreen.go` | `AltScreenFilter` — an `io.Reader` wrapper that strips alternate screen escape sequences (DECSET/DECRST 47, 1047, 1049) from the PTY output stream. Forces applications like Claude Code (via Ink) to render in the normal buffer where xterm.js scrollback works. Handles combined DECSET params and sequences split across read boundaries. |
 | `proxy_test.go` | Tests for bidirectional data, resize, browser disconnect, PTY exit, malformed messages, exec errors, alt-screen stripping |
 | `altscreen_test.go` | Comprehensive tests for alt-screen filter: passthrough, simple/combined stripping, split boundaries, large throughput |

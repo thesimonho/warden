@@ -349,7 +349,7 @@ func TestValidateContainer(t *testing.T) {
 func TestValidateContainer_Missing(t *testing.T) {
 	t.Parallel()
 
-	mock := &mockEngine{validateValid: false, validateMissing: []string{"abduco", "create-terminal.sh"}}
+	mock := &mockEngine{validateValid: false, validateMissing: []string{"tmux", "create-terminal.sh"}}
 	database := testDB(t)
 	svc := New(ServiceDeps{Engine: mock, DB: database})
 

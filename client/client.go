@@ -156,7 +156,7 @@ func (c *Client) CreateWorktree(ctx context.Context, projectID, agentType, name 
 	return &resp, nil
 }
 
-// ConnectTerminal starts or reconnects the terminal process (abduco session)
+// ConnectTerminal starts or reconnects the terminal process (tmux session)
 // for a worktree. Must be called before [AttachTerminal] to ensure the
 // process exists. The terminal process continues running in the background
 // even if no viewer is attached, allowing Claude Code to work independently.
@@ -612,17 +612,17 @@ func readSSEStream(ctx context.Context, body io.ReadCloser, ch chan<- eventbus.S
 // and returns a [TerminalConnection] for bidirectional PTY I/O.
 //
 // Prerequisites: [ConnectTerminal] must be called first to ensure the
-// terminal process (abduco session) is running. AttachTerminal creates
+// terminal process (tmux session) is running. AttachTerminal creates
 // a viewer into the existing session.
 //
 // The terminal lifecycle:
-//  1. [ConnectTerminal] — start the abduco session (idempotent)
+//  1. [ConnectTerminal] — start the tmux session (idempotent)
 //  2. AttachTerminal — open a viewer connection
 //  3. Read/Write on the [TerminalConnection] — PTY I/O
 //  4. Close the connection (or the user presses the disconnect key)
 //  5. [DisconnectTerminal] — notify the server the viewer closed
 //
-// The abduco session survives viewer disconnects. Call
+// The tmux session survives viewer disconnects. Call
 // [KillWorktreeProcess] to fully terminate the session.
 func (c *Client) AttachTerminal(ctx context.Context, projectID, worktreeID string) (TerminalConnection, error) {
 	wsURL := strings.Replace(c.baseURL, "http://", "ws://", 1)
@@ -693,7 +693,7 @@ func (w *wsTerminalConn) Resize(cols, rows uint) error {
 //
 // In HTTP mode, this wraps a WebSocket connection (binary frames for I/O,
 // text frames for resize commands). In embedded mode, this wraps a docker
-// exec session attached to the abduco viewer.
+// exec session attached to the tmux session.
 //
 // Example:
 //

@@ -31,11 +31,11 @@ const (
 	EventUserPrompt ContainerEventType = "user_prompt"
 	// EventHeartbeat is a periodic keepalive from the container.
 	EventHeartbeat ContainerEventType = "heartbeat"
-	// EventTerminalConnected means an abduco session was created for a worktree.
+	// EventTerminalConnected means a tmux session was created for a worktree.
 	EventTerminalConnected ContainerEventType = "terminal_connected"
 	// EventTerminalDisconnected means the terminal viewer was disconnected.
 	EventTerminalDisconnected ContainerEventType = "terminal_disconnected"
-	// EventProcessKilled means abduco was killed — the worktree is fully dead.
+	// EventProcessKilled means the tmux session was killed — the worktree is fully dead.
 	EventProcessKilled ContainerEventType = "process_killed"
 	// EventSessionExit means the agent exited inside a terminal (exit code available).
 	EventSessionExit ContainerEventType = "session_exit"

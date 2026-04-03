@@ -15,7 +15,7 @@ Documented during event bus validation testing on 2026-03-18.
 | `PreToolUse` | Yes | Fires before tool execution. Includes `tool_name` and `tool_input`. |
 | `PostToolUse` | Yes | Fires after tool execution. Includes full `tool_response`. Very verbose — not recommended for production logging. |
 | `Notification` | **No** | Never fired in any test, even without skip-permissions. May require specific conditions not triggered in Warden's terminal architecture. |
-| `WorktreeCreate` | **No** | Registering this hook **replaces** Claude Code's default `git worktree add`. Even with a correct reimplementation that outputs the worktree path, it fails silently inside abduco sessions. Claude hangs with no worktree created. |
+| `WorktreeCreate` | **No** | Registering this hook **replaces** Claude Code's default `git worktree add`. Even with a correct reimplementation that outputs the worktree path, it fails silently inside tmux sessions. Claude hangs with no worktree created. |
 | `WorktreeRemove` | **No** | Never fired on `/exit` or any exit method (Ctrl-C, `/clear`, `/exit`). Likely only fires for subagent `isolation: "worktree"` sessions, not external `--worktree` launches. The docs say it fires "when you exit a `--worktree` session and choose to remove it" but no removal prompt was ever shown. |
 
 ## Managed Settings & User Settings Merge

@@ -89,7 +89,7 @@ func TestCleanupStaleTerminals_KillsOrphanedSessions(t *testing.T) {
 	t.Parallel()
 
 	mock := newExecMockAPI()
-	// Batched check: abduco alive but worktree directory gone.
+	// Batched check: tmux session alive but worktree directory gone.
 	mock.onCmd("for d in", "orphan-wt orphan\n")
 	// kill-worktree.sh for the orphaned session.
 	mock.onCmd(killWorktreeScript, "")
@@ -222,8 +222,8 @@ func TestCleanupOrphanedWorktrees_RunsAllSteps(t *testing.T) {
 	mock.onCmd("git", "worktree /project\nHEAD abc123\nbranch refs/heads/main\n")
 	// ls matches both .claude/worktrees/ and .warden/terminals/ queries.
 	mock.onCmd("ls", "")
-	// pgrep for abduco check.
-	mock.onCmd("pgrep", "0\n")
+	// tmux has-session check.
+	mock.onCmd("tmux", "0\n")
 
 	ec := newTestClient(mock)
 	primeGitRepoCache(ec, "ctr-full", true)
@@ -354,7 +354,7 @@ func TestRemoveWorktree_AlwaysCallsKill(t *testing.T) {
 	t.Parallel()
 
 	mock := newExecMockAPI()
-	// kill-worktree.sh runs unconditionally (even if abduco is dead).
+	// kill-worktree.sh runs unconditionally (even if tmux session is dead).
 	mock.onCmd(killWorktreeScript, "")
 	// git worktree remove succeeds.
 	mock.onCmd("git", "")

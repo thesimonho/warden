@@ -6,7 +6,7 @@ set -euo pipefail
 #
 # Usage: kill-worktree.sh <worktree-id>
 #
-# Kills the abduco session and everything running inside it (Claude
+# Kills the tmux session and everything running inside it (Claude
 # Code, bash shell). Removes the terminal tracking directory entry.
 #
 # This does NOT remove the git worktree directory — worktrees persist
@@ -25,10 +25,9 @@ WORKSPACE_DIR="${WARDEN_WORKSPACE_DIR:-/project}"
 TERMINAL_DIR="${WORKSPACE_DIR}/.warden/terminals/${WORKTREE_ID}"
 
 # -------------------------------------------------------------------
-# Kill abduco session
+# Kill tmux session
 # -------------------------------------------------------------------
-# Match both -n (new) and -A (legacy) flags
-pkill -f "abduco -[nA] .*warden-${WORKTREE_ID}" 2>/dev/null || true
+tmux kill-session -t "warden-${WORKTREE_ID}" 2>/dev/null || true
 
 # -------------------------------------------------------------------
 # Remove terminal tracking directory entry

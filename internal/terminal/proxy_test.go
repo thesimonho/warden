@@ -253,7 +253,7 @@ func TestProxyClosesOnPTYExit(t *testing.T) {
 	defer srv.Close()
 	defer conn.CloseNow() //nolint:errcheck
 
-	// Close the PTY side (simulates abduco session ending).
+	// Close the PTY side (simulates tmux session ending).
 	ptyWriter.Close() //nolint:errcheck
 
 	// The WebSocket should receive a close or error.
@@ -306,9 +306,9 @@ func TestProxyIgnoresMalformedControlMessages(t *testing.T) {
 	ptyWriter.Close() //nolint:errcheck
 }
 
-// TestProxyExecRunsAsContainerUser verifies that the abduco viewer exec runs as
+// TestProxyExecRunsAsContainerUser verifies that the tmux attach exec runs as
 // the warden user, not root. Without this, Docker exec defaults to root which can't
-// find abduco sockets owned by dev (they live under the user's home directory).
+// access the tmux server socket owned by the warden user.
 func TestProxyExecRunsAsContainerUser(t *testing.T) {
 	hijacked, ptyWriter, _ := hijackedPipe()
 	created := make(chan struct{})
