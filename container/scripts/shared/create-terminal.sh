@@ -156,11 +156,15 @@ chmod +x "$INNER_SCRIPT"
 # -------------------------------------------------------------------
 SESSION_NAME="warden-${WORKTREE_ID}"
 
-bash -lc "tmux new-session -d -s '${SESSION_NAME}' bash '${INNER_SCRIPT}'"
+bash -lc "tmux new-session -d -s '${SESSION_NAME}' -x 200 -y 50 bash '${INNER_SCRIPT}'"
 
-tmux set-option -t "${SESSION_NAME}" status off
-tmux set-option -t "${SESSION_NAME}" mouse off
-tmux set-option -t "${SESSION_NAME}" history-limit 50000
+# Configure session for embedded use.
+# window-size=latest: resize to the most recently attached client's
+# dimensions so the terminal matches the browser viewport on connect.
+tmux set-option -t "${SESSION_NAME}" window-size latest 2>/dev/null || true
+tmux set-option -t "${SESSION_NAME}" status off 2>/dev/null || true
+tmux set-option -t "${SESSION_NAME}" mouse off 2>/dev/null || true
+tmux set-option -t "${SESSION_NAME}" history-limit 50000 2>/dev/null || true
 
 # Push terminal_connected event to the event bus
 /usr/local/bin/warden-push-event.sh terminal_connected "$WORKTREE_ID" &
