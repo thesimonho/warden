@@ -96,7 +96,7 @@ const codexTest = base.extend<
         )
         await Promise.all(
           active.map((wt) =>
-            waitForWorktreeState(codexProject.id, wt.id, 'disconnected', 10_000, 'codex').catch(() => {}),
+            waitForWorktreeState(codexProject.id, wt.id, 'stopped', 10_000, 'codex').catch(() => {}),
           ),
         )
       }

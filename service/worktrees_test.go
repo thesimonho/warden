@@ -38,7 +38,7 @@ func TestListWorktrees(t *testing.T) {
 	mock := &mockEngine{
 		worktrees: []engine.Worktree{
 			{ID: "main", Path: "/project", Branch: "main", State: engine.WorktreeStateConnected},
-			{ID: "feature-x", Path: "/project/.claude/worktrees/feature-x", Branch: "feature-x", State: engine.WorktreeStateDisconnected},
+			{ID: "feature-x", Path: "/project/.claude/worktrees/feature-x", Branch: "feature-x", State: engine.WorktreeStateStopped},
 		},
 	}
 	database := testDB(t)

@@ -20,6 +20,8 @@ The `Stop` hook is backgrounded in `warden-event-claude.sh` so it doesn't block 
 
 Every attention state change emits both a `worktree_state` SSE event (per-worktree) and a `project_state` SSE event (aggregated across all worktrees, with the highest-priority notification type). This keeps project cards and browser notifications in sync without the frontend needing to aggregate.
 
+Attention state is set from two sources: real-time hook events (`attention`, `needs_answer`) AND JSONL-parsed `turn_complete` events. The `turn_complete` handler sets `NeedsInput=true` with `idle_prompt` notification type when the agent finishes a turn during an active session, supplementing the hook path which may not fire in all cases (e.g. after `--continue` resume). Stale `turn_complete` events (older than the current attention state) are ignored to prevent race conditions between the hook and JSONL channels.
+
 ## Hook data enrichment
 
 `warden-event-claude.sh` forwards additional data from Claude Code hooks:

@@ -197,7 +197,7 @@ func (ec *EngineClient) listWorktreesWithHint(ctx context.Context, containerID s
 				ID:        "main",
 				ProjectID: containerID,
 				Path:      ec.workspaceDir(ctx, containerID),
-				State:     WorktreeStateDisconnected,
+				State:     WorktreeStateStopped,
 			},
 		}
 	}
@@ -276,7 +276,7 @@ func (ec *EngineClient) mergeTerminalWorktrees(ctx context.Context, containerID 
 			ID:        name,
 			ProjectID: containerID,
 			Path:      prefix + name,
-			State:     WorktreeStateDisconnected,
+			State:     WorktreeStateStopped,
 		})
 	}
 }
@@ -352,7 +352,7 @@ func parseGitWorktreeList(containerID, output, wsDir string) []Worktree {
 			ProjectID: containerID,
 			Path:      path,
 			Branch:    branch,
-			State:     WorktreeStateDisconnected, // default, enriched later
+			State:     WorktreeStateStopped, // default, enriched later
 		})
 	}
 

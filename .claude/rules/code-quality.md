@@ -6,6 +6,6 @@ Run the relevant quality checks after making changes. Do not leave formatting, l
 
 If `just` is installed, run `just format check test` after making changes. Otherwise, the individual commands can be found in @justfile
 
-Before a PR or merge, also run `just test-e2e-matrix` to make sure both runtimes pass.
+Also run `just test-e2e-matrix` to make sure both runtimes pass. These should pass within 5mins - if not, there is a failing test somewhere.
 
 Always fix issues before committing.

@@ -195,6 +195,127 @@ func TestStore_SessionActive_PreservedAcrossAttentionEvents(t *testing.T) {
 	}
 }
 
+func TestStore_HandleTurnComplete_SetsIdlePromptAttention(t *testing.T) {
+	store := NewStore(nil, nil)
+
+	// Start session first — turn_complete only fires during an active session.
+	store.HandleEvent(ContainerEvent{
+		Type:          EventSessionStart,
+		ContainerName: "proj-1",
+		WorktreeID:    "main",
+		Timestamp:     time.Now().Add(-2 * time.Second),
+	})
+
+	// Turn completes — agent is now waiting for input.
+	store.HandleEvent(ContainerEvent{
+		Type:          EventTurnComplete,
+		ContainerName: "proj-1",
+		WorktreeID:    "main",
+		Timestamp:     time.Now().Add(-1 * time.Second),
+	})
+
+	ws := store.GetWorktreeState("proj-1", "main")
+	if !ws.NeedsInput {
+		t.Error("expected NeedsInput to be true after turn_complete")
+	}
+	if ws.NotificationType != engine.NotificationIdlePrompt {
+		t.Errorf("expected idle_prompt, got %q", ws.NotificationType)
+	}
+	if !ws.SessionActive {
+		t.Error("expected SessionActive to remain true")
+	}
+}
+
+func TestStore_HandleTurnComplete_SkipsWhenNoActiveSession(t *testing.T) {
+	store := NewStore(nil, nil)
+
+	// Turn complete without an active session — should be a no-op.
+	store.HandleEvent(ContainerEvent{
+		Type:          EventTurnComplete,
+		ContainerName: "proj-1",
+		WorktreeID:    "main",
+		Timestamp:     time.Now(),
+	})
+
+	ws := store.GetWorktreeState("proj-1", "main")
+	if ws.NeedsInput {
+		t.Error("expected NeedsInput to be false — no active session")
+	}
+}
+
+func TestStore_HandleTurnComplete_SkipsWhenAlreadyNeedsInput(t *testing.T) {
+	store := NewStore(nil, nil)
+
+	// Start session, then set permission attention.
+	store.HandleEvent(ContainerEvent{
+		Type:          EventSessionStart,
+		ContainerName: "proj-1",
+		WorktreeID:    "main",
+		Timestamp:     time.Now().Add(-3 * time.Second),
+	})
+	store.HandleEvent(ContainerEvent{
+		Type:          EventAttention,
+		ContainerName: "proj-1",
+		WorktreeID:    "main",
+		Data:          mustMarshal(t, AttentionData{NotificationType: engine.NotificationPermissionPrompt}),
+		Timestamp:     time.Now().Add(-2 * time.Second),
+	})
+
+	// Turn complete should NOT downgrade permission_prompt to idle_prompt.
+	store.HandleEvent(ContainerEvent{
+		Type:          EventTurnComplete,
+		ContainerName: "proj-1",
+		WorktreeID:    "main",
+		Timestamp:     time.Now().Add(-1 * time.Second),
+	})
+
+	ws := store.GetWorktreeState("proj-1", "main")
+	if ws.NotificationType != engine.NotificationPermissionPrompt {
+		t.Errorf("expected permission_prompt preserved, got %q", ws.NotificationType)
+	}
+}
+
+func TestStore_HandleTurnComplete_SkipsStaleEvent(t *testing.T) {
+	store := NewStore(nil, nil)
+
+	// Start session.
+	store.HandleEvent(ContainerEvent{
+		Type:          EventSessionStart,
+		ContainerName: "proj-1",
+		WorktreeID:    "main",
+		Timestamp:     time.Now().Add(-3 * time.Second),
+	})
+
+	// Set and clear attention (simulates user sending a new prompt).
+	store.HandleEvent(ContainerEvent{
+		Type:          EventAttention,
+		ContainerName: "proj-1",
+		WorktreeID:    "main",
+		Data:          mustMarshal(t, AttentionData{NotificationType: engine.NotificationIdlePrompt}),
+		Timestamp:     time.Now().Add(-2 * time.Second),
+	})
+	clearTime := time.Now()
+	store.HandleEvent(ContainerEvent{
+		Type:          EventAttentionClear,
+		ContainerName: "proj-1",
+		WorktreeID:    "main",
+		Timestamp:     clearTime,
+	})
+
+	// Stale turn_complete from before the clear — should be ignored.
+	store.HandleEvent(ContainerEvent{
+		Type:          EventTurnComplete,
+		ContainerName: "proj-1",
+		WorktreeID:    "main",
+		Timestamp:     clearTime.Add(-1 * time.Second),
+	})
+
+	ws := store.GetWorktreeState("proj-1", "main")
+	if ws.NeedsInput {
+		t.Error("expected NeedsInput to be false — stale turn_complete should be ignored")
+	}
+}
+
 func TestStore_HandleCostUpdate_UpdatesCost(t *testing.T) {
 	store := NewStore(nil, nil)
 
@@ -236,7 +357,7 @@ func TestStore_HandleCostUpdate_ClearsAttention(t *testing.T) {
 
 	att := store.GetWorktreeState("proj-1", "main")
 	if att.NeedsInput {
-		t.Error("expected NeedsInput to be false after stop")
+		t.Error("expected NeedsInput to be false after cost_update")
 	}
 }
 
@@ -671,7 +792,7 @@ func TestDeriveWorktreeState(t *testing.T) {
 				ExitCode:        -1,
 				UpdatedAt:       time.Now(),
 			},
-			expected: engine.WorktreeStateDisconnected,
+			expected: engine.WorktreeStateStopped,
 		},
 	}
 

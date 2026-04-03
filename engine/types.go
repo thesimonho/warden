@@ -63,8 +63,8 @@ const (
 	// WorktreeStateBackground means the tmux session is alive but no viewer is
 	// connected (e.g. browser closed). Claude Code may still be working.
 	WorktreeStateBackground WorktreeState = "background"
-	// WorktreeStateDisconnected means no terminal process is running.
-	WorktreeStateDisconnected WorktreeState = "disconnected"
+	// WorktreeStateStopped means no terminal process is running.
+	WorktreeStateStopped WorktreeState = "stopped"
 )
 
 // NetworkMode controls the container's network isolation level.
@@ -150,7 +150,7 @@ type Worktree struct {
 	Path string `json:"path"`
 	// Branch is the git branch checked out in this worktree.
 	Branch string `json:"branch,omitempty"`
-	// State is the terminal connection state (connected, shell, disconnected).
+	// State is the terminal connection state (connected, shell, background, stopped).
 	State WorktreeState `json:"state"`
 	// ExitCode is the agent's exit code when in shell state.
 	// Nil means the agent is still running (or no exit code captured).

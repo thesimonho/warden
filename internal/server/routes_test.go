@@ -1068,7 +1068,7 @@ func TestHandleListWorktrees_OverlaysAttentionFromStore(t *testing.T) {
 	mock := &mockEngineClient{
 		worktrees: []engine.Worktree{
 			{ID: "main", ProjectID: testContainerID, State: engine.WorktreeStateConnected},
-			{ID: "feature-x", ProjectID: testContainerID, State: engine.WorktreeStateDisconnected},
+			{ID: "feature-x", ProjectID: testContainerID, State: engine.WorktreeStateStopped},
 		},
 		inspectConfig: &engine.ContainerConfig{Name: "test-project"},
 	}

@@ -744,18 +744,19 @@ components:
           $ref: '#/components/schemas/engine.WorktreeState'
       type: object
     engine.WorktreeState:
-      description: State is the terminal connection state (connected, shell, disconnected).
+      description: State is the terminal connection state (connected, shell, background,
+        stopped).
       enum:
       - connected
       - shell
       - background
-      - disconnected
+      - stopped
       type: string
       x-enum-varnames:
       - WorktreeStateConnected
       - WorktreeStateShell
       - WorktreeStateBackground
-      - WorktreeStateDisconnected
+      - WorktreeStateStopped
     runtime.Runtime:
       description: Name is the runtime identifier ("docker" or "podman").
       enum:

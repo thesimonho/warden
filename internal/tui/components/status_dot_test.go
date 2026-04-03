@@ -17,7 +17,7 @@ func TestWorktreeStateDot(t *testing.T) {
 		{"connected", engine.WorktreeStateConnected, "●"},
 		{"shell", engine.WorktreeStateShell, "●"},
 		{"background", engine.WorktreeStateBackground, "●"},
-		{"disconnected", engine.WorktreeStateDisconnected, "○"},
+		{"stopped", engine.WorktreeStateStopped, "○"},
 		{"unknown", engine.WorktreeState("unknown"), "○"},
 	}
 	for _, tt := range tests {

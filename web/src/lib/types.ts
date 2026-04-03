@@ -30,7 +30,7 @@ export type NotificationType =
   | 'elicitation_dialog'
 
 /** Terminal connection state of a worktree. */
-export type WorktreeState = 'connected' | 'shell' | 'background' | 'disconnected'
+export type WorktreeState = 'connected' | 'shell' | 'background' | 'stopped'
 
 /** Maps worktree state to a colored dot indicator, text color, and label. */
 export const worktreeStateIndicator: Record<
@@ -44,10 +44,10 @@ export const worktreeStateIndicator: Record<
     textClass: 'text-active',
     label: 'Active in background',
   },
-  disconnected: {
+  stopped: {
     dotClass: 'bg-muted-foreground/40',
     textClass: 'text-muted-foreground',
-    label: 'Disconnected',
+    label: 'Stopped',
   },
 }
 
@@ -74,7 +74,7 @@ export function isConnectedWorktree(worktree: { state: WorktreeState }): boolean
 
 /** Returns true if the worktree has a live process (connected, shell, or background). */
 export function isWorktreeAlive(worktree: { state: WorktreeState }): boolean {
-  return worktree.state !== 'disconnected'
+  return worktree.state !== 'stopped'
 }
 
 /** Represents a project managed by the dashboard. */
@@ -156,7 +156,7 @@ export interface Worktree {
   path: string
   /** Git branch checked out in this worktree. */
   branch?: string
-  /** Terminal connection state (connected, shell, disconnected). */
+  /** Terminal connection state (connected, shell, background, stopped). */
   state: WorktreeState
   /** Claude's exit code when in shell state. */
   exitCode?: number

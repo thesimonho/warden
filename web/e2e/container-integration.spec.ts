@@ -56,7 +56,7 @@ test.describe('Container integration', () => {
   })
 
   test.describe('Worktree state machine', () => {
-    test('should transition: disconnected → connected → background → connected', async ({
+    test('should transition: stopped → connected → background → connected', async ({
       testProject,
     }) => {
       await connectTerminal(testProject.id, 'main', testProject.agentType)

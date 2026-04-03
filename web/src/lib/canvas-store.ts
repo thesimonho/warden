@@ -337,7 +337,7 @@ export function useCanvasStore() {
   /**
    * Syncs canvas panels with live worktree state for a given project.
    *
-   * Removes panels whose worktrees have disconnected. Called by the
+   * Removes panels whose worktrees have stopped. Called by the
    * sidebar on each worktree poll cycle.
    */
   const syncWorktrees = useCallback((projectId: string, worktrees: Worktree[]) => {
@@ -353,7 +353,7 @@ export function useCanvasStore() {
 
         const worktree = worktreeMap.get(panel.worktreeId)
 
-        // Worktree gone or disconnected — remove the panel.
+        // Worktree gone or stopped — remove the panel.
         if (!worktree || !isWorktreeAlive(worktree)) {
           changed = true
           return acc

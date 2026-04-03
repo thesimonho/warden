@@ -290,11 +290,11 @@ function ProjectWorktreeList({
 
   /**
    * Adds a worktree panel to the canvas, auto-connecting if the
-   * worktree is disconnected or in background state.
+   * worktree is stopped or in background state.
    */
   const handleAddPanel = useCallback(
     async (worktree: Worktree) => {
-      const shouldConnect = worktree.state === 'disconnected' || worktree.state === 'background'
+      const shouldConnect = worktree.state === 'stopped' || worktree.state === 'background'
 
       if (shouldConnect) {
         setConnectingId(worktree.id)
