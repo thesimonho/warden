@@ -49,7 +49,7 @@ var auditEventsByCategory = map[api.AuditCategory][]string{
 	},
 	api.AuditCategorySystem: {
 		string(eventbus.EventProcessKilled), "restart_blocked_stale_mounts",
-		"project_removed", "container_deleted", "audit_purged",
+		"project_removed", "container_deleted", "container_updated", "audit_purged",
 		"access_item_created", "access_item_updated", "access_item_deleted", "access_item_reset",
 		string(eventbus.EventApiMetrics),
 	},
