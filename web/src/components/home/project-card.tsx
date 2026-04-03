@@ -1,7 +1,6 @@
 import { useNavigate } from 'react-router-dom'
 import {
   Square,
-  Check,
   Loader2,
   FolderOpen,
   Terminal,
@@ -31,7 +30,6 @@ interface ProjectCardProps {
   onRemove: (project: Project) => void
   onEdit: (project: Project) => void
   /** When true, clicking the card toggles selection instead of navigating. */
-  isSelectable?: boolean
   isSelected?: boolean
   onToggleSelect?: (id: string, agentType: AgentType) => void
   /** Whether a stop action is in flight for this project. */
@@ -51,7 +49,6 @@ interface ProjectCardProps {
  * @param props.project - The project to display.
  * @param props.onStop - Callback when the stop button is clicked.
  * @param props.onRestart - Callback when the restart button is clicked.
- * @param props.isSelectable - Whether the card is in selection mode.
  * @param props.isSelected - Whether the card is currently selected.
  * @param props.onToggleSelect - Callback when the card selection is toggled.
  */
@@ -62,7 +59,6 @@ export default function ProjectCard({
   onRestart,
   onRemove,
   onEdit,
-  isSelectable = false,
   isSelected = false,
   onToggleSelect,
   isStopPending = false,
@@ -75,8 +71,10 @@ export default function ProjectCard({
   const isOverBudget =
     budgetActionPreventStart && project.costBudget > 0 && project.totalCost > project.costBudget
 
-  const handleCardClick = () => {
-    if (isSelectable) onToggleSelect?.(project.projectId, project.agentType)
+  const handleCardClick = (e: React.MouseEvent) => {
+    // Don't toggle selection when clicking interactive elements inside the card.
+    if ((e.target as HTMLElement).closest('button, a')) return
+    onToggleSelect?.(project.projectId, project.agentType)
   }
 
   if (isNotFound) {
@@ -125,11 +123,10 @@ export default function ProjectCard({
     <Card
       data-testid={`project-card-${project.name}`}
       className={cn(
-        'rounded',
-        isSelectable && 'cursor-pointer transition-all',
+        'cursor-pointer rounded transition-all',
         isSelected && 'ring-primary ring-2',
       )}
-      onClick={isSelectable ? handleCardClick : undefined}
+      onClick={handleCardClick}
     >
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <CardTitle className="flex items-center gap-2 text-xl font-semibold">
@@ -194,18 +191,6 @@ export default function ProjectCard({
 
           <StatusBadge data-testid="status-badge" state={project.state} />
 
-          {isSelectable && (
-            <div
-              className={cn(
-                'flex h-5 w-5 items-center justify-center rounded border-2 transition-colors',
-                isSelected
-                  ? 'border-primary bg-primary text-primary-foreground'
-                  : 'border-muted-foreground',
-              )}
-            >
-              {isSelected && <Check className="h-3 w-3" />}
-            </div>
-          )}
         </div>
       </CardHeader>
 
@@ -269,7 +254,6 @@ export default function ProjectCard({
       </CardContent>
 
       <CardFooter className="gap-2">
-        {!isSelectable && (
           <Button
             data-testid="view-button"
             size="sm"
@@ -279,9 +263,7 @@ export default function ProjectCard({
           >
             View
           </Button>
-        )}
 
-        {!isSelectable && (
           <div className="ml-auto flex items-center gap-1">
             <Tooltip>
               <TooltipTrigger asChild>
@@ -310,7 +292,6 @@ export default function ProjectCard({
               <TooltipContent>Manage</TooltipContent>
             </Tooltip>
           </div>
-        )}
       </CardFooter>
     </Card>
   )

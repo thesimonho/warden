@@ -10,7 +10,6 @@ interface ProjectGridProps {
   onRestart: (id: string, agentType: AgentType) => void
   onRemove: (project: Project) => void
   onEdit: (project: Project) => void
-  isSelectable?: boolean
   selectedIds?: Set<string>
   onToggleSelect?: (id: string, agentType: AgentType) => void
   /** Compound keys (projectId:agentType) of projects with a stop action in flight. */
@@ -28,7 +27,6 @@ interface ProjectGridProps {
  * @param props.isLoading - Whether the initial load is in progress.
  * @param props.onStop - Callback when a project's stop button is clicked.
  * @param props.onRestart - Callback when a project's restart button is clicked.
- * @param props.isSelectable - Whether cards are in selection mode.
  * @param props.selectedIds - Set of currently selected project IDs.
  * @param props.onToggleSelect - Callback when a project's selection is toggled.
  * @param props.pendingStopIds - IDs of projects with a stop action in flight.
@@ -41,7 +39,6 @@ export default function ProjectGrid({
   onRestart,
   onRemove,
   onEdit,
-  isSelectable = false,
   selectedIds = new Set(),
   onToggleSelect,
   pendingStopIds = new Set(),
@@ -83,7 +80,6 @@ export default function ProjectGrid({
             onRestart={onRestart}
             onRemove={onRemove}
             onEdit={onEdit}
-            isSelectable={isSelectable}
             isSelected={selectedIds.has(key)}
             onToggleSelect={onToggleSelect}
             isStopPending={pendingStopIds.has(key)}
