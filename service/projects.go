@@ -201,7 +201,8 @@ func (s *Service) StopProject(ctx context.Context, projectID, agentType string) 
 		return nil, err
 	}
 	containerName := effectiveContainerName(project)
-	s.readAndPersistAgentCost(ctx, project.ProjectID, project.AgentType, project.ContainerID, containerName)
+	costResult := s.readAndPersistAgentCost(ctx, project.ProjectID, project.AgentType, project.ContainerID, containerName)
+	s.writeCostSnapshot(project.ProjectID, project.AgentType, containerName, costResult)
 
 	if err := s.docker.StopProject(ctx, project.ContainerID); err != nil {
 		return nil, err
@@ -457,8 +458,51 @@ func (s *Service) readAndPersistAgentCost(ctx context.Context, projectID, agentT
 				}
 			}
 		}
+
 	}
 	s.enforceBudget(projectID, agentType)
 
 	return result
+}
+
+// writeCostSnapshot writes a cost_snapshot audit entry at container stop.
+// Uses the docker exec result if available (Claude Code), otherwise falls
+// back to the DB for agents that only report cost via JSONL (Codex).
+func (s *Service) writeCostSnapshot(projectID, agentType, containerName string, costResult *engine.AgentCostResult) {
+	totalCost := 0.0
+	sessionCount := 0
+	isEstimated := true
+
+	if costResult != nil && costResult.TotalCost > 0 {
+		totalCost = costResult.TotalCost
+		sessionCount = len(costResult.Sessions)
+		isEstimated = costResult.IsEstimated
+	} else if s.db != nil {
+		// Fallback: query DB for cost already persisted via JSONL token updates.
+		costRow, err := s.db.GetProjectTotalCost(projectID, agentType)
+		if err != nil {
+			slog.Warn("failed to query project cost for snapshot", "projectID", projectID, "err", err)
+			return
+		}
+		totalCost = costRow.TotalCost
+		isEstimated = costRow.IsEstimated
+	}
+
+	if totalCost <= 0 {
+		return
+	}
+	s.audit.Write(db.Entry{
+		Source:        db.SourceBackend,
+		Level:         db.LevelInfo,
+		ProjectID:     projectID,
+		AgentType:     agentType,
+		ContainerName: containerName,
+		Event:         "cost_snapshot",
+		Message:       fmt.Sprintf("cost at container stop: $%.4f (sessions: %d, estimated: %v)", totalCost, sessionCount, isEstimated),
+		Attrs: map[string]any{
+			"totalCost":    totalCost,
+			"sessionCount": sessionCount,
+			"isEstimated":  isEstimated,
+		},
+	})
 }

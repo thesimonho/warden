@@ -113,11 +113,11 @@ Warden runs as a host process that manages project containers. Communication flo
 
 3. **JSONL session parsing** — the primary data source for agent events. Each agent writes JSONL session files to its config directory (`~/.claude/` or `~/.codex/`), which is bind-mounted to the host. The backend watches these locations with `agent.SessionWatcher`, which discovers session files via agent-specific `FindSessionFiles()` methods and tails new lines (polling every 2 seconds). Session discovery is agent-aware: Claude Code scans a per-project directory; Codex reads shell snapshots to filter by project ID. The watcher feeds lines through agent-specific parsers (`agent/claudecode/`, `agent/codex/`) that produce uniform `ParsedEvent` values. These events flow into the event bus for SSE broadcast and audit logging.
 
-    ```
-    FindSessionFiles() → SessionWatcher (polling every 2s) → SessionParser.ParseLine() → ParsedEvent → eventbus → SSE
-    ```
+   ```
+   FindSessionFiles() → SessionWatcher (polling every 2s) → SessionParser.ParseLine() → ParsedEvent → eventbus → SSE
+   ```
 
-    JSONL parsing provides session lifecycle, tool use, cost, and prompt events for both agents. Hook-based events (attention/notification state) are supplementary and only available for Claude Code.
+   JSONL parsing provides session lifecycle, tool use, cost, and prompt events for both agents. Hook-based events (attention/notification state) are supplementary and only available for Claude Code.
 
 4. **SSE + WebSocket** — the event bus fans out state changes to all connected browsers via Server-Sent Events (`worktree_state` for per-worktree attention/terminal changes, `project_state` for aggregated cost + attention per project, `worktree_list_changed`, `budget_exceeded`, `budget_container_stopped`). Terminal I/O streams over WebSocket with binary frames for PTY data and text frames for control messages (resize).
 
@@ -130,9 +130,9 @@ Two critical write paths are enforced through single gateways to guarantee invar
 All cost data flows through one function regardless of source. This guarantees budget enforcement is never bypassed.
 
 ```
-JSONL session parser          ─┐
-Container hook (stop event)    ├──► PersistSessionCost() ──► DB write
-docker exec fallback read     ─┘         │
+JSONL token updates (cost_update) ─┐
+docker exec fallback read          ├──► PersistSessionCost() ──► DB write
+                                  ─┘         │
                                         ▼
                                   enforceBudget()
                                     ├── warn (SSE broadcast)

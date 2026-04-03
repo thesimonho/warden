@@ -17,7 +17,7 @@ paths:
 
 Claude Code writes metrics to `~/.claude.json` inside the container, keyed by workspace path (unique per container via `WARDEN_WORKSPACE_DIR`). Cost is stored in the `session_costs` DB table keyed by `(project_id, agent_type, session_id)` with `created_at` (first seen) and `updated_at` (last upsert) timestamps — cost per session is monotonically non-decreasing so upsert is always safe. Project+agent total = `SUM(cost)` across all sessions for a `(project_id, agent_type)` pair. Time-filtered cost (used by audit summary) queries sessions whose time span (`created_at`..`updated_at`) overlaps the requested range.
 
-For running containers with no DB data yet, `ReadAgentCostAndBillingType` reads via docker exec and persists via `PersistSessionCost`. Cost is captured at multiple points: stop events (via hooks with `sessionId`), session start/end, after Claude exits (`warden-capture-cost.sh`), and before container stop (`readAndPersistAgentCost`). All paths funnel through `PersistSessionCost(projectID, agentType, sessionID, cost, isEstimated)` which handles both DB writes (keyed by `(projectID, agentType)`) and budget enforcement. The in-memory event store broadcasts `project_state` SSE events for real-time frontend updates (carrying `totalCost`, `messageCount`, `needsInput`, `notificationType`) but is not used as a read source. The `IsEstimatedCost` flag is derived from `oauthAccount.billingType` in `.claude.json`.
+For running containers with no DB data yet, `ReadAgentCostAndBillingType` reads via docker exec and persists via `PersistSessionCost`. Cost is captured at multiple points: cost update events (from JSONL token counts), session start/end, after Claude exits (`warden-capture-cost.sh`), and before container stop (`readAndPersistAgentCost`). All paths funnel through `PersistSessionCost(projectID, agentType, sessionID, cost, isEstimated)` which handles both DB writes (keyed by `(projectID, agentType)`) and budget enforcement. The in-memory event store broadcasts `project_state` SSE events for real-time frontend updates (carrying `totalCost`, `messageCount`, `needsInput`, `notificationType`) but is not used as a read source. The `IsEstimatedCost` flag is derived from `oauthAccount.billingType` in `.claude.json`.
 
 ## Cost budgets
 
@@ -25,7 +25,7 @@ All cost writes MUST go through `service.PersistSessionCost(projectID, agentType
 
 Three entry points all funnel through it:
 
-1. Event bus stop callback on every stop event (`StopCallbackFunc` signature: `(projectID, containerName, sessionID string, cost float64, isEstimated bool)`)
+1. Event bus cost update callback (`CostUpdateCallbackFunc` signature: `(projectID, agentType, containerName, sessionID string, cost float64, isEstimated bool)`)
 2. `readAndPersistAgentCost` docker exec fallback per session
 3. Explicit calls with empty data for enforcement-only checks
 
