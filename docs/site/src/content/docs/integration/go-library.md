@@ -55,7 +55,7 @@ result, err := w.Service.CreateContainer(ctx, engine.CreateContainerRequest{
     AgentType:   "claude-code",  // "claude-code" (default) or "codex"
     Image:       "ubuntu:24.04",
     EnvVars:     map[string]string{"USER": "alice", "OPENAI_API_KEY": os.Getenv("OPENAI_API_KEY")},
-    Mounts:      []string{"/data:/data"},
+    Mounts:      []engine.Mount{{HostPath: "/data", ContainerPath: "/data"}},
     NetworkMode: engine.NetworkModeFull,
     AllowedDomains: []string{"api.example.com"},
 })
@@ -237,7 +237,7 @@ Service methods return `error`. Check for sentinel errors:
 ```go
 import "github.com/thesimonho/warden/service"
 
-_, err := w.Service.RemoveProject("project-id")
+_, err := w.Service.RemoveProject("project-id", "claude-code")
 if errors.Is(err, service.ErrNotFound) {
     fmt.Println("Project not found")
 }
@@ -275,7 +275,7 @@ func main() {
         ProjectPath: "/home/user/projects/my-app",
         ProjectName: "my-app",
         Image:       "ubuntu:24.04",
-        Mounts:      []string{"/data:/data"},
+        Mounts:      []engine.Mount{{HostPath: "/data", ContainerPath: "/data"}},
         NetworkMode: engine.NetworkModeFull,
     })
     if err != nil {
