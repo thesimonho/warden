@@ -2,6 +2,7 @@ package claudecode
 
 import (
 	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/thesimonho/warden/agent"
@@ -526,6 +527,34 @@ func TestSessionDir(t *testing.T) {
 	want := "/home/user/.claude/projects/-home-warden-my-project"
 	if dir != want {
 		t.Errorf("SessionDir = %q, want %q", dir, want)
+	}
+}
+
+// TestSessionDetectionGlob verifies that the glob pattern used in
+// create-terminal.sh matches files at the actual Claude Code session path
+// depth (project-dir/*.jsonl — 2 levels under ~/.claude/projects/).
+func TestSessionDetectionGlob(t *testing.T) {
+	t.Parallel()
+
+	home := t.TempDir()
+	projectDir := filepath.Join(home, ".claude", "projects", "-home-warden-my-project")
+	if err := os.MkdirAll(projectDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	sessionFile := filepath.Join(projectDir, "abc123-session.jsonl")
+	if err := os.WriteFile(sessionFile, []byte("{}"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	// This glob must match the pattern in create-terminal.sh:
+	//   ls ~/.claude/projects/*/*.jsonl
+	glob := filepath.Join(home, ".claude", "projects", "*", "*.jsonl")
+	matches, err := filepath.Glob(glob)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(matches) != 1 {
+		t.Errorf("expected 1 match for session glob, got %d (glob: %s)", len(matches), glob)
 	}
 }
 

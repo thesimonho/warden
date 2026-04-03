@@ -3,6 +3,7 @@ package codex
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/thesimonho/warden/agent"
@@ -316,6 +317,34 @@ func TestSessionDir(t *testing.T) {
 	want := "/home/user/.codex/sessions"
 	if dir != want {
 		t.Errorf("SessionDir = %q, want %q", dir, want)
+	}
+}
+
+// TestSessionDetectionGlob verifies that the glob pattern used in
+// create-terminal.sh matches files at the actual Codex session path depth
+// (year/month/day/file.jsonl — 4 levels under ~/.codex/sessions/).
+func TestSessionDetectionGlob(t *testing.T) {
+	t.Parallel()
+
+	home := t.TempDir()
+	sessionsDir := filepath.Join(home, ".codex", "sessions", "2026", "04", "02")
+	if err := os.MkdirAll(sessionsDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	sessionFile := filepath.Join(sessionsDir, "rollout-2026-04-02T08-40-23-abc123.jsonl")
+	if err := os.WriteFile(sessionFile, []byte("{}"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	// This glob must match the pattern in create-terminal.sh:
+	//   ls ~/.codex/sessions/*/*/*/*.jsonl
+	glob := filepath.Join(home, ".codex", "sessions", "*", "*", "*", "*.jsonl")
+	matches, err := filepath.Glob(glob)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(matches) != 1 {
+		t.Errorf("expected 1 match for session glob, got %d (glob: %s)", len(matches), glob)
 	}
 }
 
