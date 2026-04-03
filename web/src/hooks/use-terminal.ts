@@ -130,6 +130,7 @@ export function useTerminal({
   const resizeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const observerRef = useRef<ResizeObserver | null>(null)
   const themeObserverRef = useRef<MutationObserver | null>(null)
+  const eventCleanupRef = useRef<(() => void) | null>(null)
   const isDisposedRef = useRef(false)
   const writeBufferRef = useRef<Uint8Array[]>([])
   const flushRafRef = useRef(0)
@@ -317,6 +318,10 @@ export function useTerminal({
       themeObserverRef.current.disconnect()
       themeObserverRef.current = null
     }
+    if (eventCleanupRef.current) {
+      eventCleanupRef.current()
+      eventCleanupRef.current = null
+    }
 
     const ws = wsRef.current
     if (ws) {
@@ -482,10 +487,11 @@ export function useTerminal({
           return false
         }
 
-        // Plain Ctrl+V: check for image data on clipboard. If found,
-        // upload to the container's xclip staging dir, then send Ctrl+V
-        // so the agent reads it via the shim. For text-only clipboard,
-        // send the raw Ctrl+V byte so the agent handles it.
+        // Plain Ctrl+V: return false so xterm.js doesn't process it
+        // (which would send ^V and preventDefault), but don't call
+        // preventDefault ourselves — this lets the browser fire a native
+        // paste event. Our capture-phase paste listener intercepts images;
+        // xterm.js handles text paste via its own paste event handler.
         if (
           event.key === 'v' &&
           event.ctrlKey &&
@@ -493,15 +499,30 @@ export function useTerminal({
           !event.altKey &&
           !event.metaKey
         ) {
-          clipboard.pasteImageFromClipboard().then((handled) => {
-            if (!handled) clipboard.sendToPty('\x16')
-          })
-          event.preventDefault()
           return false
         }
 
         return true
       })
+
+      // Intercept native paste events for image paste. Capture phase
+      // runs before xterm.js's own paste handler — images are uploaded
+      // to the container's xclip staging dir, text propagates to xterm.
+      const handlePaste = (e: ClipboardEvent) => clipboard.handlePasteEvent(e)
+      container.addEventListener('paste', handlePaste as EventListener, true)
+
+      // Allow image drag-and-drop onto the terminal. The dragover handler
+      // must preventDefault to signal that the drop target accepts files.
+      const handleDragOver = (e: DragEvent) => e.preventDefault()
+      const handleDrop = (e: DragEvent) => clipboard.handleDropEvent(e)
+      container.addEventListener('dragover', handleDragOver as EventListener)
+      container.addEventListener('drop', handleDrop as EventListener)
+
+      eventCleanupRef.current = () => {
+        container.removeEventListener('paste', handlePaste as EventListener, true)
+        container.removeEventListener('dragover', handleDragOver as EventListener)
+        container.removeEventListener('drop', handleDrop as EventListener)
+      }
 
       // Initial fit after the terminal is rendered.
       requestAnimationFrame(() => {

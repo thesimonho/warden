@@ -80,7 +80,7 @@ const (
 type ContainerEvent struct {
 	// Type identifies the event kind.
 	Type ContainerEventType `json:"type"`
-	// ContainerName is the Docker/Podman container name (set via WARDEN_CONTAINER_NAME env).
+	// ContainerName is the Docker container name (set via WARDEN_CONTAINER_NAME env).
 	ContainerName string `json:"containerName"`
 	// ProjectID is the deterministic project identifier (set via WARDEN_PROJECT_ID env).
 	ProjectID string `json:"projectId,omitempty"`

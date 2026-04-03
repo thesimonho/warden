@@ -73,7 +73,7 @@ func AttentionDot(notificationType engine.NotificationType) string {
 	}
 }
 
-// Container state strings as reported by Docker/Podman.
+// Container state strings as reported by Docker.
 const (
 	ContainerStateRunning = "running"
 	ContainerStateExited  = "exited"

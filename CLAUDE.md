@@ -2,7 +2,7 @@
 
 ## What is Warden
 
-A container engine and control plane for running AI coding agents (Claude Code and OpenAI Codex) in isolated containers. Shipped as three binaries: `warden` (headless API server), `warden-desktop` (web UI), and `warden-tui` (terminal UI). The engine is also importable as a Go library. Supports Docker and Podman.
+A container engine and control plane for running AI coding agents (Claude Code and OpenAI Codex) in isolated containers. Shipped as three binaries: `warden` (headless API server), `warden-desktop` (web UI), and `warden-tui` (terminal UI). The engine is also importable as a Go library. Requires Docker.
 
 ## Terminology (MUST follow)
 
@@ -55,9 +55,7 @@ npm --prefix web run test -- --run lib/cost.test.ts
 E2E tests (auto-builds frontend and starts Go backend if no server is running):
 
 ```bash
-npm --prefix web run test:e2e              # Current runtime
-just test-e2e-matrix                       # Both Docker and Podman (4min timeout per runtime)
-WARDEN_RUNTIME=podman npm --prefix web run test:e2e   # Specific runtime
+npm --prefix web run test:e2e
 ```
 
 If the Vite dev server (`:5173`) or Go backend (`:8090`) is already running, E2E tests reuse it. Otherwise Playwright builds the frontend and starts `warden-desktop` automatically. No manual server setup required.

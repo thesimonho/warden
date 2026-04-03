@@ -6,19 +6,19 @@ Every Warden container is hardened with three layers of process isolation, appli
 
 All default Linux capabilities are dropped (`CapDrop: ALL`), then only the minimum required set is re-added:
 
-| Capability | Why needed | When |
-| --- | --- | --- |
-| CHOWN | Entrypoint chown of bind mounts | Always |
-| DAC_OVERRIDE | Root reading/writing files owned by warden user | Always |
-| FOWNER | Entrypoint file ownership operations | Always |
-| FSETID | Preserve setuid/setgid bits during chown | Always |
-| KILL | Shutdown handler: kill -TERM -1 | Always |
-| SETUID | gosu privilege drop (setuid syscall) | Always |
-| SETGID | gosu privilege drop (setgid syscall) | Always |
-| NET_BIND_SERVICE | Dev servers binding to ports < 1024 | Always |
-| NET_RAW | Ping and network diagnostics | Always |
-| SYS_CHROOT | Some tools (e.g. npm) use chroot | Always |
-| NET_ADMIN | iptables for network isolation | restricted/none |
+| Capability       | Why needed                                      | When            |
+| ---------------- | ----------------------------------------------- | --------------- |
+| CHOWN            | Entrypoint chown of bind mounts                 | Always          |
+| DAC_OVERRIDE     | Root reading/writing files owned by warden user | Always          |
+| FOWNER           | Entrypoint file ownership operations            | Always          |
+| FSETID           | Preserve setuid/setgid bits during chown        | Always          |
+| KILL             | Shutdown handler: kill -TERM -1                 | Always          |
+| SETUID           | gosu privilege drop (setuid syscall)            | Always          |
+| SETGID           | gosu privilege drop (setgid syscall)            | Always          |
+| NET_BIND_SERVICE | Dev servers binding to ports < 1024             | Always          |
+| NET_RAW          | Ping and network diagnostics                    | Always          |
+| SYS_CHROOT       | Some tools (e.g. npm) use chroot                | Always          |
+| NET_ADMIN        | iptables for network isolation                  | restricted/none |
 
 Dropped from Docker defaults: SETPCAP, MKNOD, SETFCAP, AUDIT_WRITE.
 
@@ -35,19 +35,15 @@ A denylist-based seccomp profile (`SCMP_ACT_ALLOW` default) blocks dangerous sys
 
 The `no-new-privileges` flag prevents privilege escalation via setuid/setgid binaries inside the container. The entrypoint starts as root for privileged setup (UID remapping, iptables), then permanently drops to the `warden` user via `exec gosu`. PID 1 runs as `warden` — no root process remains after startup.
 
-## Podman Compatibility
-
-All three security layers work with both Docker and Podman. When Podman uses `--userns=keep-id` (rootless mode), capabilities are limited by the user namespace — the CapDrop/CapAdd settings are accepted but the effective capability set is further constrained by rootless restrictions. This is additive security, not a conflict.
-
 ## Network Isolation
 
 Container network modes are passed as environment variables to enforce isolation at container start:
 
-| Mode | Env Var | Behavior |
-| --- | --- | --- |
-| `full` | `WARDEN_NETWORK_MODE=full` | Unrestricted internet access (default) |
+| Mode         | Env Var                          | Behavior                                    |
+| ------------ | -------------------------------- | ------------------------------------------- |
+| `full`       | `WARDEN_NETWORK_MODE=full`       | Unrestricted internet access (default)      |
 | `restricted` | `WARDEN_NETWORK_MODE=restricted` | Outbound traffic limited to allowed domains |
-| `none` | `WARDEN_NETWORK_MODE=none` | All outbound traffic blocked (air-gapped) |
+| `none`       | `WARDEN_NETWORK_MODE=none`       | All outbound traffic blocked (air-gapped)   |
 
 For `restricted` mode, allowed domains are passed as `WARDEN_ALLOWED_DOMAINS=domain1.com,domain2.com`. The `setup-network-isolation.sh` script runs in the entrypoint (before user code executes) and configures iptables OUTPUT rules based on the network mode:
 

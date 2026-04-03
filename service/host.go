@@ -152,7 +152,7 @@ func (s *Service) RevealInFileManager(path string) error {
 	return nil
 }
 
-// ListRuntimes returns available container runtimes (Docker, Podman).
+// ListRuntimes returns available container runtimes.
 func (s *Service) ListRuntimes(ctx context.Context) []runtime.RuntimeInfo {
 	return runtime.DetectAvailable(ctx)
 }

@@ -10,28 +10,24 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/thesimonho/warden/api"
-	"github.com/thesimonho/warden/runtime"
 )
 
 // SettingsView displays and allows editing of server settings.
 type SettingsView struct {
-	client          Client
-	settings        *api.SettingsResponse
-	runtimes        []runtime.RuntimeInfo
-	loading         bool
-	err             error
-	cursor          int
-	restartRequired bool
-	keys            SettingsKeyMap
-	capturingKey    bool // true when waiting for a ctrl+key press for disconnect key
-	editingBudget   bool // true when the budget text input is focused
-	budgetInput     textinput.Model
+	client        Client
+	settings      *api.SettingsResponse
+	loading       bool
+	err           error
+	cursor        int
+	keys          SettingsKeyMap
+	capturingKey  bool // true when waiting for a ctrl+key press for disconnect key
+	editingBudget bool // true when the budget text input is focused
+	budgetInput   textinput.Model
 }
 
 // settings menu items.
 const (
 	settingsItemAuditLogMode = iota
-	settingsItemRuntime
 	settingsItemDisconnectKey
 	settingsItemDefaultBudget
 	settingsItemBudgetActionWarn
@@ -55,13 +51,10 @@ func NewSettingsView(client Client) *SettingsView {
 	}
 }
 
-// Init fetches settings and runtimes.
+// Init fetches settings.
 func (v *SettingsView) Init() tea.Cmd {
 	v.loading = true
-	return tea.Batch(
-		loadSettings(v.client),
-		loadRuntimes(v.client),
-	)
+	return loadSettings(v.client)
 }
 
 // Update handles messages for the settings view.
@@ -74,21 +67,7 @@ func (v *SettingsView) Update(msg tea.Msg) (View, tea.Cmd) {
 			return v, nil
 		}
 		v.settings = msg.Settings
-		if v.runtimes != nil {
-			v.loading = false
-		}
-		return v, nil
-
-	case RuntimesLoadedMsg:
-		if msg.Err != nil {
-			v.err = msg.Err
-			v.loading = false
-			return v, nil
-		}
-		v.runtimes = msg.Runtimes
-		if v.settings != nil {
-			v.loading = false
-		}
+		v.loading = false
 		return v, nil
 
 	case OperationResultMsg:
@@ -193,23 +172,6 @@ func (v *SettingsView) activateItem() (View, tea.Cmd) {
 			return OperationResultMsg{Operation: "change_auditlogmode", Err: err}
 		}
 
-	case settingsItemRuntime:
-		// Cycle through available runtimes.
-		if len(v.runtimes) < 2 {
-			return v, nil
-		}
-		nextRuntime := v.nextAvailableRuntime()
-		if nextRuntime == "" {
-			return v, nil
-		}
-		v.restartRequired = true
-		return v, func() tea.Msg {
-			_, err := v.client.UpdateSettings(context.Background(), api.UpdateSettingsRequest{
-				Runtime: &nextRuntime,
-			})
-			return OperationResultMsg{Operation: "change_runtime", Err: err}
-		}
-
 	case settingsItemDisconnectKey:
 		// Enter capture mode — next ctrl+key press sets the disconnect key.
 		v.capturingKey = true
@@ -292,19 +254,6 @@ func (v *SettingsView) handleBudgetEdit(msg tea.KeyPressMsg) (View, tea.Cmd) {
 	return v, cmd
 }
 
-func (v *SettingsView) nextAvailableRuntime() string {
-	if v.settings == nil {
-		return ""
-	}
-	current := v.settings.Runtime
-	for _, rt := range v.runtimes {
-		if string(rt.Name) != current && rt.Available {
-			return string(rt.Name)
-		}
-	}
-	return ""
-}
-
 // Render renders the settings view.
 func (v *SettingsView) Render(_, _ int) string {
 	if v.loading {
@@ -338,19 +287,6 @@ func (v *SettingsView) Render(_, _ int) string {
 		}
 		s += "\n"
 		s += "    " + Styles.Muted.Render("off = disabled, standard = sessions/lifecycle, detailed = all events") + "\n"
-
-		// Runtime selector.
-		cursor = "  "
-		if v.cursor == settingsItemRuntime {
-			cursor = "> "
-		}
-		line = cursor + Styles.Bold.Render("Runtime: ") + v.settings.Runtime
-		if v.cursor == settingsItemRuntime {
-			s += Styles.Bold.Render(line)
-		} else {
-			s += line
-		}
-		s += "\n"
 
 		// Disconnect key selector.
 		cursor = "  "
@@ -422,11 +358,6 @@ func (v *SettingsView) Render(_, _ int) string {
 		}
 	}
 
-	// Restart warning.
-	if v.restartRequired {
-		s += "\n" + Styles.Warning.Render("Restart required for runtime change to take effect.")
-	}
-
 	return s
 }
 
@@ -441,12 +372,5 @@ func loadSettings(client Client) tea.Cmd {
 	return func() tea.Msg {
 		settings, err := client.GetSettings(context.Background())
 		return SettingsLoadedMsg{Settings: settings, Err: err}
-	}
-}
-
-func loadRuntimes(client Client) tea.Cmd {
-	return func() tea.Msg {
-		runtimes, err := client.ListRuntimes(context.Background())
-		return RuntimesLoadedMsg{Runtimes: runtimes, Err: err}
 	}
 }

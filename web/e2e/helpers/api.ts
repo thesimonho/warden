@@ -77,7 +77,7 @@ export interface ApiWorktree {
 
 /** Runtime info from the API. */
 export interface ApiRuntime {
-  name: 'docker' | 'podman'
+  name: string
   available: boolean
   socketPath: string
   version?: string

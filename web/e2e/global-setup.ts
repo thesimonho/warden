@@ -2,7 +2,7 @@ import { execSync } from 'child_process'
 import { existsSync, mkdirSync, writeFileSync } from 'fs'
 import path from 'path'
 import { fileURLToPath } from 'url'
-import { getBaseURL, fetchProjects, fetchRuntimes, removeTestProject } from './helpers/api'
+import { getBaseURL, fetchProjects, removeTestProject } from './helpers/api'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -84,24 +84,8 @@ export default async function globalSetup() {
     )
   }
 
-  /* Build the test container image from local source.
-     WARDEN_RUNTIME overrides the runtime (used by the test matrix). */
-  const runtimeOverride = process.env.WARDEN_RUNTIME
-  let activeRuntime: string
-
-  if (runtimeOverride) {
-    console.log(`[E2E] Using runtime from WARDEN_RUNTIME: ${runtimeOverride}`)
-    activeRuntime = runtimeOverride
-  } else {
-    const runtimes = await fetchRuntimes()
-    const available = runtimes.find((r) => r.available)
-    if (!available) {
-      throw new Error('No container runtime available. Install Docker or Podman.')
-    }
-    activeRuntime = available.name
-  }
-
-  buildTestImage(activeRuntime)
+  /* Build the test container image from local source. */
+  buildTestImage('docker')
 
   /* Clean up leftover E2E containers from previous interrupted runs.
      Two-layer cleanup: API first (removes DB entries + containers), then

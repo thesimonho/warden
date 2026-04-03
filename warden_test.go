@@ -64,14 +64,3 @@ func TestWarden_CloseIdempotent(t *testing.T) {
 	w.Close()
 }
 
-func TestNew_RuntimeOverride(t *testing.T) {
-	t.Parallel()
-
-	w := newTestWarden(t, Options{Runtime: "podman"})
-
-	// Verify the override was applied — the DB still has the default,
-	// but the engine was created with the overridden runtime.
-	if w.Service == nil {
-		t.Error("expected non-nil Service with runtime override")
-	}
-}

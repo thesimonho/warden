@@ -95,17 +95,21 @@ Placeholder. Codex does not currently support hooks (upstream gap). When hook su
 
 ### install-clipboard-shim.sh
 
-Installs an xclip wrapper shim at `~/.local/bin/xclip` that intercepts clipboard operations for web terminal image paste support. When the web frontend uploads an image:
+Installs an xclip wrapper shim at `~/.local/bin/xclip` that intercepts clipboard operations for web terminal image paste support. Images can be pasted via Ctrl+V (native paste event) or dragged and dropped onto the terminal. Non-PNG images are auto-converted to PNG before staging (both Claude Code and Codex expect PNG).
 
-1. Browser uploads image via `POST /api/v1/projects/{projectId}/clipboard`
+When the web frontend uploads an image:
+
+1. Browser uploads image via `POST /api/v1/projects/{projectId}/{agentType}/clipboard`
 2. Service stages the file in `/tmp/warden-clipboard/`
-3. User sends Ctrl+V to the terminal
-4. Agent calls `xclip` to read the clipboard
-5. Shim detects the staged image and returns it (via TARGETS or image read calls)
-6. Agent receives the image for processing
-7. Shim cleans up stale files older than 5 minutes
+3. Agent-specific paste behavior triggers (see below)
+4. Shim cleans up stale files older than 5 minutes
 
-The shim is agent-agnostic — any tool that reads the clipboard via xclip will pick up staged content. Falls back to the real xclip binary for all other operations.
+**Agent-specific behavior:**
+
+- **Claude Code**: Uses the xclip shim. User sends Ctrl+V to the terminal, Claude calls `xclip` to read the clipboard, and the shim returns the staged image (via TARGETS or image read calls).
+- **Codex**: Receives the staged file path as text input (since Codex uses arboard for clipboard access, which requires X11 — not available in containers). The file path is sent directly to the terminal's stdin.
+
+The xclip shim falls back to the real xclip binary for all non-image clipboard operations.
 
 ## Attention Tracking
 

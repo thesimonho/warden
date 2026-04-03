@@ -14,15 +14,6 @@ func TestSocketCandidates_Docker(t *testing.T) {
 	}
 }
 
-func TestSocketCandidates_Podman(t *testing.T) {
-	t.Parallel()
-
-	candidates := socketCandidates(RuntimePodman)
-	if len(candidates) == 0 {
-		t.Fatal("expected at least one Podman socket candidate")
-	}
-}
-
 func TestSocketCandidates_Unknown(t *testing.T) {
 	t.Parallel()
 
@@ -92,8 +83,5 @@ func TestRuntimeConstants(t *testing.T) {
 
 	if RuntimeDocker != "docker" {
 		t.Errorf("expected 'docker', got %s", RuntimeDocker)
-	}
-	if RuntimePodman != "podman" {
-		t.Errorf("expected 'podman', got %s", RuntimePodman)
 	}
 }

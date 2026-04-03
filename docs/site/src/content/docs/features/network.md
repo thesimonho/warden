@@ -41,7 +41,6 @@ Use this for air-gapped operation — when Claude should work entirely with loca
 
 ## Limitations
 
-- **Restricted/None modes may not work with rootless Podman** depending on your configuration.
 - **Domain IPs are resolved dynamically**, but if a domain's IP changes and DNS caching hasn't refreshed, there may be a brief interruption. Restart the container to force re-resolution.
 
 ## For Developers

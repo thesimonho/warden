@@ -19,7 +19,7 @@ import { test, expect } from '@playwright/test'
  *
  * Prerequisites:
  * - `devcontainer` CLI installed on the host
- * - Docker or Podman running
+ * - Docker running
  */
 
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..')

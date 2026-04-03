@@ -12,7 +12,7 @@ Thanks for your interest in contributing to Warden! This guide covers everything
 
 - [Go 1.26+](https://go.dev/dl/)
 - [Node.js 24+](https://nodejs.org/)
-- [Docker](https://docs.docker.com/get-docker/) or [Podman](https://podman.io/docs/installation) (for running containers locally)
+- [Docker](https://docs.docker.com/get-docker/) (for running containers locally)
 - [Dev Container CLI](https://github.com/devcontainers/cli) (for E2E tests)
 - [just](https://just.systems/) (optional task runner — see `justfile` for available recipes)
 
@@ -86,18 +86,18 @@ For architecture diagrams, project structure, and how the engine, API, and clien
 
 Key directories for contributors:
 
-| Directory            | What lives here                                  |
-| -------------------- | ------------------------------------------------ |
-| `engine/`            | Container engine API wrapper (Docker/Podman)     |
-| `service/`           | Business logic layer                             |
-| `api/`               | API contract types (request/response structs)    |
-| `db/`                | SQLite database store                            |
-| `eventbus/`          | File-based event system (watcher, SSE broker)    |
+| Directory            | What lives here                                               |
+| -------------------- | ------------------------------------------------------------- |
+| `engine/`            | Container engine API wrapper (Docker)                         |
+| `service/`           | Business logic layer                                          |
+| `api/`               | API contract types (request/response structs)                 |
+| `db/`                | SQLite database store                                         |
+| `eventbus/`          | File-based event system (watcher, SSE broker)                 |
 | `agent/`             | Multi-agent abstraction (registry, parsers, status providers) |
-| `internal/server/`   | HTTP server, API routes, middleware              |
-| `internal/terminal/` | WebSocket-to-PTY proxy                           |
-| `web/`               | React + Vite frontend                            |
-| `container/`         | Project container image and devcontainer feature |
+| `internal/server/`   | HTTP server, API routes, middleware                           |
+| `internal/terminal/` | WebSocket-to-PTY proxy                                        |
+| `web/`               | React + Vite frontend                                         |
+| `container/`         | Project container image and devcontainer feature              |
 
 For detailed code maps, see [`docs/codemaps/README.md`](docs/codemaps/README.md) for an index of all maps.
 
@@ -149,23 +149,23 @@ test: add E2E tests for worktree lifecycle
 
 Your PR will be checked by these workflows:
 
-| Workflow              | Trigger                          | What it does                                                                          |
-| --------------------- | -------------------------------- | ------------------------------------------------------------------------------------- |
-| `ci.yml`              | PRs targeting `main`             | Go tests, TS typecheck, TS tests                                                     |
-| `release-please.yml`  | Push to `main`                   | Automated releases, cross-platform binary builds (linux/darwin/windows × amd64/arm64) |
-| `container.yml`       | Push to `main` (`container/**`), release | Build container image + devcontainer feature (`:latest` on push, semver on release)   |
-| `container-scheduled.yml` | Daily schedule (5 AM UTC)    | Validates container image, builds CLIs, validates JSONL parsers, pushes only on success |
+| Workflow                  | Trigger                                  | What it does                                                                            |
+| ------------------------- | ---------------------------------------- | --------------------------------------------------------------------------------------- |
+| `ci.yml`                  | PRs targeting `main`                     | Go tests, TS typecheck, TS tests                                                        |
+| `release-please.yml`      | Push to `main`                           | Automated releases, cross-platform binary builds (linux/darwin/windows × amd64/arm64)   |
+| `container.yml`           | Push to `main` (`container/**`), release | Build container image + devcontainer feature (`:latest` on push, semver on release)     |
+| `container-scheduled.yml` | Daily schedule (5 AM UTC)                | Validates container image, builds CLIs, validates JSONL parsers, pushes only on success |
 
 ## Stack
 
-| Layer     | Technology                                |
-| --------- | ----------------------------------------- |
-| Backend   | Go (`net/http`), Docker/Podman Engine API |
-| Frontend  | React 19, Vite 7, TypeScript              |
-| UI        | shadcn/ui, Tailwind CSS v4                |
-| Terminal  | xterm.js via WebSocket to Go proxy        |
+| Layer     | Technology                                     |
+| --------- | ---------------------------------------------- |
+| Backend   | Go (`net/http`), Docker Engine API             |
+| Frontend  | React 19, Vite 7, TypeScript                   |
+| UI        | shadcn/ui, Tailwind CSS v4                     |
+| Terminal  | xterm.js via WebSocket to Go proxy             |
 | Container | Ubuntu 24.04, tmux, Claude Code CLI, Codex CLI |
-| Dev tools | just (task runner)                        |
+| Dev tools | just (task runner)                             |
 
 ## More resources
 

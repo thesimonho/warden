@@ -37,7 +37,6 @@ body:
       label: Container runtime
       options:
         - Docker
-        - Podman
     validations:
       required: true
   - type: input

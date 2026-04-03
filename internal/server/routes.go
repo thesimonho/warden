@@ -1397,10 +1397,10 @@ func (rt *routes) handleDefaults(w http.ResponseWriter, _ *http.Request) {
 	writeJSON(w, rt.svc.GetDefaults())
 }
 
-// handleListRuntimes returns available container runtimes (Docker, Podman).
+// handleListRuntimes returns available container runtimes.
 //
 //	@Summary		List runtimes
-//	@Description	Detects and returns available container runtimes (Docker, Podman) with
+//	@Description	Detects and returns available container runtimes with
 //	@Description	their socket paths and API versions.
 //	@Tags			host
 //	@Success		200	{array}	runtime.RuntimeInfo

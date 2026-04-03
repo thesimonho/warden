@@ -4,8 +4,8 @@ package runtime
 
 import "os"
 
-// socketCandidates returns the ordered list of socket/pipe paths to try for a
-// runtime on Windows. Docker Desktop and Podman machine both expose named pipes.
+// socketCandidates returns the ordered list of Docker named pipe paths to try
+// on Windows.
 func socketCandidates(rt Runtime) []string {
 	switch rt {
 	case RuntimeDocker:
@@ -16,13 +16,6 @@ func socketCandidates(rt Runtime) []string {
 		candidates = append(candidates,
 			`//./pipe/docker_engine`,
 			`//./pipe/dockerDesktopLinuxEngine`,
-		)
-		return candidates
-
-	case RuntimePodman:
-		var candidates []string
-		candidates = append(candidates,
-			`//./pipe/podman-machine-default`,
 		)
 		return candidates
 

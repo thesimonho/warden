@@ -757,7 +757,7 @@ func (c *Client) UploadClipboard(ctx context.Context, projectID, agentType strin
 //   - "NOT_FOUND": resource (project, worktree, container) does not exist
 //   - "NAME_TAKEN": container or project name is already in use
 //   - "INVALID_BODY": malformed request body
-//   - "NOT_CONFIGURED": Docker/Podman runtime not available
+//   - "NOT_CONFIGURED": Docker runtime not available
 //   - "INTERNAL": unexpected server error
 //
 // Code may be empty for non-JSON error responses. See the integration

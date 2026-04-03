@@ -44,7 +44,7 @@ async function detectRuntime(): Promise<ApiRuntime> {
   const runtimes = await fetchRuntimes()
   const active = runtimes.find((r) => r.available)
   if (!active) {
-    throw new Error('No container runtime available. Install Docker or Podman.')
+    throw new Error('No container runtime available. Install Docker.')
   }
   return active
 }
@@ -56,7 +56,7 @@ async function detectRuntime(): Promise<ApiRuntime> {
  * shared across all tests assigned to that worker. This avoids the ~30s
  * container startup per test.
  *
- * `runtime` — the detected container runtime (docker or podman).
+ * `runtime` — the detected container runtime (docker).
  */
 export const test = base.extend<
   { cleanupTerminals: void },

@@ -13,7 +13,6 @@ func newTestClient(mockAPI *execMockAPI) *EngineClient {
 	return &EngineClient{
 		api:           mockAPI,
 		agentRegistry: agent.NewRegistry(),
-		runtimeName:   "podman",
 	}
 }
 

@@ -6,7 +6,6 @@ import (
 	"github.com/thesimonho/warden/db"
 	"github.com/thesimonho/warden/engine"
 	"github.com/thesimonho/warden/eventbus"
-	"github.com/thesimonho/warden/runtime"
 )
 
 // Tab identifies the top-level navigation tabs.
@@ -50,12 +49,6 @@ type WorktreesLoadedMsg struct {
 // SettingsLoadedMsg carries the result of a GetSettings call.
 type SettingsLoadedMsg struct {
 	Settings *api.SettingsResponse
-	Err      error
-}
-
-// RuntimesLoadedMsg carries the result of a ListRuntimes call.
-type RuntimesLoadedMsg struct {
-	Runtimes []runtime.RuntimeInfo
 	Err      error
 }
 

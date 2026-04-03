@@ -7,9 +7,8 @@ import (
 	"path/filepath"
 )
 
-// socketCandidates returns the ordered list of socket paths to try for a
-// runtime on macOS. Covers Docker Desktop, Colima, OrbStack, and Podman
-// machine — the common Docker-compatible runtimes on macOS.
+// socketCandidates returns the ordered list of Docker socket paths to try on
+// macOS. Covers Docker Desktop, Colima, and OrbStack.
 func socketCandidates(rt Runtime) []string {
 	home, _ := os.UserHomeDir()
 
@@ -27,16 +26,6 @@ func socketCandidates(rt Runtime) []string {
 			)
 		}
 		candidates = append(candidates, "/var/run/docker.sock")
-		return candidates
-
-	case RuntimePodman:
-		var candidates []string
-		if home != "" {
-			candidates = append(candidates,
-				filepath.Join(home, ".local", "share", "containers", "podman", "machine", "podman.sock"),
-			)
-		}
-		candidates = append(candidates, "/var/run/podman/podman.sock")
 		return candidates
 
 	default:

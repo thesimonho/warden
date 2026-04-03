@@ -758,14 +758,12 @@ components:
       - WorktreeStateBackground
       - WorktreeStateStopped
     runtime.Runtime:
-      description: Name is the runtime identifier ("docker" or "podman").
+      description: Name is the runtime identifier ("docker").
       enum:
       - docker
-      - podman
       type: string
       x-enum-varnames:
       - RuntimeDocker
-      - RuntimePodman
     runtime.RuntimeInfo:
       properties:
         available:
@@ -969,8 +967,6 @@ components:
         defaultProjectBudget:
           type: number
         disconnectKey:
-          type: string
-        runtime:
           type: string
       type: object
     service.WorktreeResult:
@@ -2574,7 +2570,7 @@ paths:
   /api/v1/runtimes:
     get:
       description: |-
-        Detects and returns available container runtimes (Docker, Podman) with
+        Detects and returns available container runtimes with
         their socket paths and API versions.
       responses:
         "200":
