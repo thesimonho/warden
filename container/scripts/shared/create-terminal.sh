@@ -6,14 +6,14 @@ set -euo pipefail
 #
 # Usage: create-terminal.sh <worktree-id> [--skip-permissions]
 #
-# Starts an abduco session running the configured agent (Claude Code
+# Starts a tmux session running the configured agent (Claude Code
 # or Codex) for the given worktree. When the agent exits, the bash
 # shell stays alive so the user can run follow-up commands.
 #
 # The worktree-id is either a git worktree name (for git repos) or
 # "main" for non-git repos (the workspace root).
 #
-# The Go backend connects to this abduco session via docker exec with
+# The Go backend connects to this tmux session via docker exec with
 # TTY mode, proxied over WebSocket to the browser's xterm.js.
 #
 # Outputs JSON to stdout: {"worktreeId":"..."}
@@ -45,6 +45,28 @@ if git -C "$WORKSPACE_DIR" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
   IS_GIT_REPO=true
 fi
 
+# -------------------------------------------------------------------
+# Auto-resume: detect previous session via exit_code + JSONL files.
+# Only resume if the agent exited normally (exit_code file exists
+# from a prior run). Do NOT resume if the worktree was explicitly
+# killed (no exit_code, terminal dir is fresh).
+# -------------------------------------------------------------------
+RESUME_FLAG=""
+if [ -f "${TERMINAL_DIR}/exit_code" ]; then
+  case "$AGENT_TYPE" in
+    claude-code)
+      if find ~/.claude/projects -maxdepth 2 -name '*.jsonl' -print -quit 2>/dev/null | grep -q .; then
+        RESUME_FLAG="--continue"
+      fi
+      ;;
+    codex)
+      if find ~/.codex/sessions -maxdepth 4 -name '*.jsonl' -print -quit 2>/dev/null | grep -q .; then
+        RESUME_FLAG="resume --last"
+      fi
+      ;;
+  esac
+fi
+
 # Clear stale state from any previous run
 rm -f "${TERMINAL_DIR}/exit_code"
 
@@ -74,9 +96,14 @@ case "$AGENT_TYPE" in
       fi
     fi
 
-    AGENT_CMD="codex --no-alt-screen"
+    # resume is a subcommand — must come before flags
+    if [ -n "$RESUME_FLAG" ]; then
+      AGENT_CMD="codex ${RESUME_FLAG} --no-alt-screen"
+    else
+      AGENT_CMD="codex --no-alt-screen"
+    fi
     if [ "$SKIP_PERMISSIONS" = "--skip-permissions" ]; then
-      AGENT_CMD="codex --no-alt-screen --dangerously-bypass-approvals-and-sandbox"
+      AGENT_CMD="${AGENT_CMD} --dangerously-bypass-approvals-and-sandbox"
     fi
     ;;
 
@@ -88,22 +115,29 @@ case "$AGENT_TYPE" in
     if [ "$SKIP_PERMISSIONS" = "--skip-permissions" ]; then
       AGENT_CMD="${AGENT_CMD} --dangerously-skip-permissions"
     fi
+    if [ -n "$RESUME_FLAG" ]; then
+      AGENT_CMD="${AGENT_CMD} ${RESUME_FLAG}"
+    fi
     ;;
 esac
 
 # -------------------------------------------------------------------
-# Build the inner script to run inside abduco.
+# Build the inner script to run inside tmux.
 #
 # Written to a file instead of a bash -c string to avoid nested
 # quoting issues (single quotes in the command break when placed
 # inside bash -c '...'). The script launches the agent interactively.
 # When the user exits, we capture the exit code, push a session_exit
-# event, and drop to a bash shell so the abduco session stays alive
+# event, and drop to a bash shell so the tmux session stays alive
 # for follow-up work (inspect output, run commands, etc).
 # -------------------------------------------------------------------
 INNER_SCRIPT="${TERMINAL_DIR}/inner-cmd.sh"
 cat > "$INNER_SCRIPT" << EOF
 #!/usr/bin/env bash
+# Unset TMUX so agents don't detect they're inside tmux. This prevents
+# Claude Code from showing tmux-specific hints and ensures agents
+# behave as if they're not inside tmux (no TMUX env var).
+unset TMUX
 cd '${WORK_DIR}' && ${AGENT_CMD}
 EXIT_CODE=\$?
 echo \$EXIT_CODE > '${TERMINAL_DIR}/exit_code'
@@ -113,23 +147,30 @@ EOF
 chmod +x "$INNER_SCRIPT"
 
 # -------------------------------------------------------------------
-# Start abduco as a detached daemon (-n: create session, don't attach).
+# Start tmux as a detached session.
 #
-# abduco holds the PTY alive across viewer disconnections. The Go
-# backend attaches to this session via docker exec with TTY mode
-# using "abduco -a" (separate attach command with a real TTY).
+# tmux new-session -d is inherently detached — no nohup or
+# backgrounding needed. The Go backend attaches to this session via
+# docker exec with TTY mode using "tmux attach-session -t".
 #
-# IMPORTANT: Do NOT use -A (create+attach). With -A, abduco enters
-# client_mainloop reading from stdin. Since nohup redirects stdin to
-# /dev/null, pselect() returns immediately every iteration (dev/null
-# is always readable, read returns 0), causing a 100% CPU busy-wait.
+# Per-session options:
+#   status off      — hide the status bar (terminal is full-screen)
+#   mouse off       — let xterm.js handle mouse events
+#   history-limit   — 50000 lines of scrollback for replay on reconnect
+#
 # Uses bash -l so the login environment (PATH, .docker_env) is loaded.
 # -------------------------------------------------------------------
-nohup bash -lc "exec abduco -n 'warden-${WORKTREE_ID}' bash '${INNER_SCRIPT}'" \
-  > /dev/null 2>&1 &
+SESSION_NAME="warden-${WORKTREE_ID}"
 
-# Give abduco a moment to start the session
-sleep 0.3
+bash -lc "tmux -u new-session -d -s '${SESSION_NAME}' -x 200 -y 50 bash '${INNER_SCRIPT}'"
+
+# Configure session for embedded use.
+# window-size=latest: resize to the most recently attached client's
+# dimensions so the terminal matches the browser viewport on connect.
+tmux set-option -t "${SESSION_NAME}" window-size latest 2>/dev/null || true
+tmux set-option -t "${SESSION_NAME}" status off 2>/dev/null || true
+tmux set-option -t "${SESSION_NAME}" mouse off 2>/dev/null || true
+tmux set-option -t "${SESSION_NAME}" history-limit 50000 2>/dev/null || true
 
 # Push terminal_connected event to the event bus
 /usr/local/bin/warden-push-event.sh terminal_connected "$WORKTREE_ID" &

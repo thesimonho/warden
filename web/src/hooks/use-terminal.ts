@@ -544,7 +544,7 @@ export function useTerminal({
       })
 
       // Restore saved scrollback before connecting the WebSocket so
-      // abduco's visible-screen replay appends after the historical content.
+      // tmux's visible-screen replay appends after the historical content.
       // Fetch worktree state in parallel to check if the agent has exited —
       // stale scrollback from a finished session should not be restored.
       const sbKey = scrollbackKey(projectId, agentType, worktreeId)

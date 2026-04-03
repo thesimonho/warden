@@ -19,7 +19,7 @@ Warden is a three-layer system. Each layer is independently usable and testable:
 │  Business logic (project/worktree    │  ← Go library (direct import)
 │  lifecycle, cost tracking, audit)    │  ← Go client (typed HTTP wrapper)
 ├─────────────────────────────────────┤
-│  Container image                    │  ← Agent CLIs + abduco + isolation
+│  Container image                    │  ← Agent CLIs + tmux + isolation
 └─────────────────────────────────────┘
 ```
 
@@ -97,7 +97,7 @@ Warden runs as a host process that manages project containers. Communication flo
 │  │                                                          │    │
 │  │  ┌──────────────────┐  ┌──────────────────┐              │    │
 │  │  │  project-a       │  │  project-b       │              │    │
-│  │  │  abduco          │  │  abduco          │              │    │
+│  │  │  tmux             │  │  tmux             │              │    │
 │  │  │  hook scripts    │  │  hook scripts    │              │    │
 │  │  │  iptables rules  │  │  iptables rules  │              │    │
 │  │  └──────────────────┘  └──────────────────┘              │    │
@@ -107,7 +107,7 @@ Warden runs as a host process that manages project containers. Communication flo
 
 ### Communication pathways
 
-1. **Docker/Podman API** — the backend manages container lifecycle (create, start, stop, remove) and runs exec commands via the container runtime socket. Terminal WebSocket connections are bridged to `abduco -a` sessions inside containers via `docker exec` with TTY mode. Exec is also used to read agent config files (e.g., `.claude.json`) for status and cost data.
+1. **Docker/Podman API** — the backend manages container lifecycle (create, start, stop, remove) and runs exec commands via the container runtime socket. Terminal WebSocket connections are bridged to `tmux attach-session -t` sessions inside containers via `docker exec` with TTY mode. Exec is also used to read agent config files (e.g., `.claude.json`) for status and cost data.
 
 2. **File-based event delivery** — each container has a host directory bind-mounted at `/var/warden/events/`. Claude Code hook scripts (`warden-event-claude.sh`) write atomic JSON files (`.tmp` → rename to `.json`) containing attention state, session lifecycle, tool use, cost updates, and heartbeats. The backend watches all event directories using fsnotify (sub-millisecond on Linux) with a polling fallback every 2 seconds (reliable on all platforms including Docker Desktop). Filesystem permissions handle access control — no network listener or auth token is needed.
 

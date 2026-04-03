@@ -132,7 +132,7 @@ export const test = base.extend<
 
     /* After the test: kill every active worktree process so the next test
        starts from a clean "disconnected" state. Using kill instead of
-       disconnect ensures abduco is fully stopped — a background abduco
+       disconnect ensures the tmux session is fully stopped — a background
        session would cause connectTerminal to skip create-terminal.sh,
        which means no terminal_connected event fires. */
     try {

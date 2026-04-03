@@ -52,8 +52,8 @@ type pendingBroadcast struct {
 
 // TerminalState holds push-based terminal lifecycle data for a worktree.
 type TerminalState struct {
-	// AbducoAlive is true when the abduco session is running.
-	AbducoAlive bool
+	// SessionAlive is true when the tmux session is running.
+	SessionAlive bool
 	// ViewerConnected is true when a browser is connected via WebSocket.
 	ViewerConnected bool
 	// ExitCode is Claude's exit code (-1 means not set / still running).
@@ -68,7 +68,7 @@ func (ts *TerminalState) DeriveWorktreeState() engine.WorktreeState {
 	if ts == nil || ts.UpdatedAt.IsZero() {
 		return ""
 	}
-	if ts.AbducoAlive {
+	if ts.SessionAlive {
 		if !ts.ViewerConnected {
 			return engine.WorktreeStateBackground
 		}
@@ -463,10 +463,10 @@ func (s *Store) handleStop(key worktreeKey, event ContainerEvent) ([]pendingBroa
 	return broadcasts, parsed
 }
 
-// handleTerminalConnected sets terminal state when an abduco session starts.
+// handleTerminalConnected sets terminal state when a tmux session starts.
 func (s *Store) handleTerminalConnected(key worktreeKey, event ContainerEvent) []pendingBroadcast {
 	ts := &TerminalState{
-		AbducoAlive:     true,
+		SessionAlive:     true,
 		ViewerConnected: true,
 		ExitCode:        -1,
 		UpdatedAt:       event.Timestamp,
@@ -478,18 +478,18 @@ func (s *Store) handleTerminalConnected(key worktreeKey, event ContainerEvent) [
 }
 
 // handleTerminalDisconnected marks the viewer as disconnected.
-// The abduco session continues running in the background.
+// The tmux session continues running in the background.
 func (s *Store) handleTerminalDisconnected(key worktreeKey, event ContainerEvent) []pendingBroadcast {
 	existing := s.terminals[key]
 
 	ts := &TerminalState{
-		AbducoAlive: true,
+		SessionAlive: true,
 		ExitCode:    -1,
 		UpdatedAt:   event.Timestamp,
 	}
-	// Preserve abduco and exit code from existing state if available.
+	// Preserve session alive and exit code from existing state if available.
 	if existing != nil {
-		ts.AbducoAlive = existing.AbducoAlive
+		ts.SessionAlive = existing.SessionAlive
 		ts.ExitCode = existing.ExitCode
 	}
 	s.terminals[key] = ts
@@ -498,7 +498,7 @@ func (s *Store) handleTerminalDisconnected(key worktreeKey, event ContainerEvent
 	return []pendingBroadcast{buildWorktreeBroadcast(event.Ref(), event.WorktreeID, s.attention[key], ts)}
 }
 
-// handleProcessKilled marks both ttyd and abduco as dead.
+// handleProcessKilled marks the tmux session as dead.
 func (s *Store) handleProcessKilled(key worktreeKey, event ContainerEvent) []pendingBroadcast {
 	ts := &TerminalState{
 		ExitCode:  -1,
@@ -511,7 +511,7 @@ func (s *Store) handleProcessKilled(key worktreeKey, event ContainerEvent) []pen
 }
 
 // handleSessionExit records Claude's exit code.
-// session_exit fires inside the running abduco session, so if we have no
+// session_exit fires inside the running tmux session, so if we have no
 // prior terminal state the terminal must have been connected.
 func (s *Store) handleSessionExit(key worktreeKey, event ContainerEvent) []pendingBroadcast {
 	var data SessionExitData
@@ -523,13 +523,13 @@ func (s *Store) handleSessionExit(key worktreeKey, event ContainerEvent) []pendi
 
 	existing := s.terminals[key]
 	ts := &TerminalState{
-		AbducoAlive:     true,
+		SessionAlive:     true,
 		ViewerConnected: true,
 		ExitCode:        data.ExitCode,
 		UpdatedAt:       event.Timestamp,
 	}
 	if existing != nil {
-		ts.AbducoAlive = existing.AbducoAlive
+		ts.SessionAlive = existing.SessionAlive
 		ts.ViewerConnected = existing.ViewerConnected
 	}
 	s.terminals[key] = ts

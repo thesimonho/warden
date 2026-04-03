@@ -60,8 +60,8 @@ const (
 	WorktreeStateConnected WorktreeState = "connected"
 	// WorktreeStateShell means the agent exited but the bash shell is still alive.
 	WorktreeStateShell WorktreeState = "shell"
-	// WorktreeStateBackground means the abduco session is alive but ttyd is not
-	// serving (e.g. browser closed). Claude Code may still be working.
+	// WorktreeStateBackground means the tmux session is alive but no viewer is
+	// connected (e.g. browser closed). Claude Code may still be working.
 	WorktreeStateBackground WorktreeState = "background"
 	// WorktreeStateDisconnected means no terminal process is running.
 	WorktreeStateDisconnected WorktreeState = "disconnected"
@@ -279,11 +279,11 @@ type Client interface {
 	// Returns the worktree ID on success.
 	ConnectTerminal(ctx context.Context, containerID, worktreeID string, skipPermissions bool) (string, error)
 
-	// DisconnectTerminal kills the ttyd viewer for a worktree, freeing the port.
-	// The abduco session (and Claude/bash) continues running in the background.
+	// DisconnectTerminal pushes a disconnect event and cleans up tracking state.
+	// The tmux session (and Claude/bash) continues running in the background.
 	DisconnectTerminal(ctx context.Context, containerID, worktreeID string) error
 
-	// KillWorktreeProcess kills both ttyd and abduco for a worktree, destroying
+	// KillWorktreeProcess kills the tmux session for a worktree, destroying
 	// the process entirely. The git worktree directory on disk is preserved.
 	KillWorktreeProcess(ctx context.Context, containerID, worktreeID string) error
 
@@ -297,7 +297,7 @@ type Client interface {
 	CleanupOrphanedWorktrees(ctx context.Context, containerID string) ([]string, error)
 
 	// ValidateInfrastructure checks whether a container has the required Warden
-	// terminal infrastructure installed (ttyd, abduco, create-terminal.sh).
+	// terminal infrastructure installed (tmux, gosu, create-terminal.sh, etc).
 	// Returns true if all binaries are present, along with the list of missing items.
 	ValidateInfrastructure(ctx context.Context, containerID string) (bool, []string, error)
 

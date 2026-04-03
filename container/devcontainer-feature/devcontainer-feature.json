@@ -2,13 +2,8 @@
   "id": "session-tools",
   "version": "0.5.1",
   "name": "Warden Session Infrastructure",
-  "description": "Installs abduco, Claude Code CLI, Codex CLI, and terminal management scripts for Warden project containers",
+  "description": "Installs tmux, Claude Code CLI, Codex CLI, and terminal management scripts for Warden project containers",
   "options": {
-    "abducoVersion": {
-      "type": "string",
-      "default": "0.6",
-      "description": "Version of abduco to install"
-    },
     "gosuVersion": {
       "type": "string",
       "default": "1.17",
@@ -18,7 +13,5 @@
   "containerEnv": {
     "WARDEN_MANAGED": "true"
   },
-  "installsAfter": [
-    "ghcr.io/devcontainers/features/common-utils"
-  ]
+  "installsAfter": ["ghcr.io/devcontainers/features/common-utils"]
 }

@@ -28,7 +28,7 @@ export default async function globalTeardown() {
 
     await Promise.all(leaked.map(async (project) => {
       console.warn(`[E2E] Cleaning up leaked container: ${project.name}`)
-      await removeTestProject(project.projectId)
+      await removeTestProject(project.projectId, project.agentType)
     }))
 
     if (leaked.length > 0) {

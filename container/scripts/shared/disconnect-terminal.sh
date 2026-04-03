@@ -8,10 +8,10 @@ set -euo pipefail
 #
 # With the WebSocket proxy architecture, the Go backend manages viewer
 # connections via docker exec. This script just pushes the disconnect
-# event and cleans up tracking state. The abduco session and everything
+# event and cleans up tracking state. The tmux session and everything
 # running inside it (Claude, bash) continue running in the background.
 #
-# Use kill-worktree.sh to kill abduco and destroy the process entirely.
+# Use kill-worktree.sh to kill the tmux session and destroy the process entirely.
 # -------------------------------------------------------------------
 
 WORKTREE_ID="${1:?Usage: disconnect-terminal.sh <worktree-id>}"

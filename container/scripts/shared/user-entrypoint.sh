@@ -84,7 +84,21 @@ fi
 # -------------------------------------------------------------------
 mkdir -p "${WORKSPACE_DIR}/.warden"
 echo '*' > "${WORKSPACE_DIR}/.warden/.gitignore"
-rm -rf "${WORKSPACE_DIR}/.warden/terminals"
+# Clean up stale terminal state but preserve exit_code files so
+# auto-resume can recover sessions after container restart.
+# For terminal dirs that have no exit_code (agent was killed by
+# container stop, not by normal exit or Stop button), write one
+# so auto-resume can recover the session.
+if [ -d "${WORKSPACE_DIR}/.warden/terminals" ]; then
+  for d in "${WORKSPACE_DIR}/.warden/terminals"/*/; do
+    [ -d "$d" ] || continue
+    if [ ! -f "${d}exit_code" ]; then
+      echo "137" > "${d}exit_code"
+    fi
+  done
+  find "${WORKSPACE_DIR}/.warden/terminals" -name "inner-cmd.sh" -delete 2>/dev/null || true
+  find "${WORKSPACE_DIR}/.warden/terminals" -name "port" -delete 2>/dev/null || true
+fi
 mkdir -p "${WORKSPACE_DIR}/.warden/terminals"
 
 # -------------------------------------------------------------------

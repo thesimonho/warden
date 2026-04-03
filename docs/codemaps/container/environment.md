@@ -7,14 +7,14 @@ The container entrypoint starts as root for privileged setup (UID remapping, ipt
 Each worktree has one process layer in the container:
 
 ```
-abduco (process manager — holds the PTY alive)
+tmux (session manager — holds the PTY alive)
  └── bash
       └── claude/codex (or just bash if the agent exited)
 ```
 
 | Component | Role | Can be killed without losing work? |
 | --- | --- | --- |
-| **abduco** | Holds the PTY session alive across viewer disconnects. | No — kills Claude and bash. |
+| **tmux** | Holds the PTY session alive across viewer disconnects. | No — kills Claude and bash. |
 
 The browser connects via `GET /api/v1/projects/{projectID}/ws/{wid}` (WebSocket), which the Go backend proxies to `docker exec` with TTY mode. The connection is kept alive with periodic ping/pong heartbeats (30s).
 
@@ -62,8 +62,8 @@ This ensures all vars passed via `docker run -e` or `podman run -e` are availabl
 
 Terminal lifecycle events and hook events are pushed to the host via file-based delivery. Containers write JSON event files to a bind-mounted directory (`WARDEN_EVENT_DIR=/var/warden/events`). The host watches this directory using fsnotify (fast path) + polling every 2s (reliable fallback):
 
-- `terminal_connected` — abduco session created, terminal ready
-- `terminal_disconnected` — terminal viewer disconnected, abduco continues
+- `terminal_connected` — tmux session created, terminal ready
+- `terminal_disconnected` — terminal viewer disconnected, tmux session continues
 - `process_killed` — all processes for a worktree terminated
 - `session_exit` — Claude Code exited (includes exit code)
 - `heartbeat` — periodic liveness signal (every 10s)

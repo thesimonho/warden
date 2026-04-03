@@ -54,7 +54,7 @@ test.describe('Container integration', () => {
       await disconnectTerminal(testProject.id, 'main')
 
       /* Backend should receive terminal_disconnected event. State will be
-         "background" (abduco alive) or "shell" (Claude exited, bash still running). */
+         "background" (tmux session alive) or "shell" (Claude exited, bash still running). */
       await waitForWorktreeState(testProject.id, 'main', ['background', 'shell'], 30_000)
     })
   })
@@ -67,15 +67,15 @@ test.describe('Container integration', () => {
       await connectTerminal(testProject.id, 'main')
       await waitForWorktreeState(testProject.id, 'main', 'connected', 45_000)
 
-      /* connected → background/shell (disconnect closes viewer, abduco keeps running) */
+      /* connected → background/shell (disconnect closes viewer, tmux session keeps running) */
       await disconnectTerminal(testProject.id, 'main')
       await waitForWorktreeState(testProject.id, 'main', ['background', 'shell'], 30_000)
 
       /* Small delay before reconnect — Docker needs time to clean up the
-         previous exec attachment before a new one can attach to abduco. */
+         previous exec attachment before a new one can attach to the tmux session. */
       await new Promise((r) => setTimeout(r, 2000))
 
-      /* background/shell → connected (reconnect — new docker exec attaches to existing abduco) */
+      /* background/shell → connected (reconnect — new docker exec attaches to existing tmux session) */
       await connectTerminal(testProject.id, 'main')
       await waitForWorktreeState(testProject.id, 'main', 'connected', 45_000)
     })

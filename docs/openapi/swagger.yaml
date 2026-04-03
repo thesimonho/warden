@@ -2005,7 +2005,7 @@ paths:
     get:
       description: |-
         Checks whether the project's running container has the required Warden terminal
-        infrastructure installed (abduco, create-terminal.sh).
+        infrastructure installed (tmux, create-terminal.sh).
       parameters:
       - description: Project ID
         in: path
@@ -2298,7 +2298,7 @@ paths:
   /api/v1/projects/{projectId}/{agentType}/worktrees/{wid}/connect:
     post:
       description: |-
-        Starts an abduco terminal session for the given worktree. If a background session
+        Starts a tmux terminal session for the given worktree. If a background session
         already exists, reconnects to it instead of creating a new one.
       parameters:
       - description: Project ID
@@ -2390,7 +2390,7 @@ paths:
   /api/v1/projects/{projectId}/{agentType}/worktrees/{wid}/disconnect:
     post:
       description: |-
-        Closes the terminal viewer WebSocket. The abduco session (and Claude/bash)
+        Closes the terminal viewer WebSocket. The tmux session (and Claude/bash)
         continues running in the background.
       parameters:
       - description: Project ID
@@ -2436,7 +2436,7 @@ paths:
   /api/v1/projects/{projectId}/{agentType}/worktrees/{wid}/kill:
     post:
       description: |-
-        Kills the abduco session and all child processes for the worktree.
+        Kills the tmux session and all child processes for the worktree.
         The git worktree directory on disk is preserved. This is destructive —
         any running Claude session is terminated immediately.
       parameters:
@@ -2483,7 +2483,7 @@ paths:
   /api/v1/projects/{projectId}/{agentType}/worktrees/cleanup:
     post:
       description: |-
-        Removes worktree directories that are not tracked by git, kills orphaned abduco
+        Removes worktree directories that are not tracked by git, kills orphaned tmux
         sessions, and prunes stale git worktree metadata.
       parameters:
       - description: Project ID
@@ -2523,7 +2523,7 @@ paths:
   /api/v1/projects/{projectId}/{agentType}/ws/{wid}:
     get:
       description: |-
-        Upgrades to a WebSocket connection and bridges it to an abduco terminal session
+        Upgrades to a WebSocket connection and bridges it to a tmux terminal session
         inside the container via docker exec. Binary frames carry raw PTY data;
         text frames carry JSON control messages (e.g. {"type":"resize","cols":80,"rows":24}).
       parameters:

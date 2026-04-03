@@ -455,7 +455,7 @@ func (rt *routes) handleCreateWorktree(w http.ResponseWriter, r *http.Request) {
 // handleConnectTerminal starts a terminal for a worktree in the given project.
 //
 //	@Summary		Connect terminal
-//	@Description	Starts an abduco terminal session for the given worktree. If a background session
+//	@Description	Starts a tmux terminal session for the given worktree. If a background session
 //	@Description	already exists, reconnects to it instead of creating a new one.
 //	@Tags			worktrees
 //	@Param			projectId	path		string	true	"Project ID"
@@ -496,7 +496,7 @@ func (rt *routes) handleConnectTerminal(w http.ResponseWriter, r *http.Request) 
 // handleDisconnectTerminal kills the terminal viewer for a worktree.
 //
 //	@Summary		Disconnect terminal
-//	@Description	Closes the terminal viewer WebSocket. The abduco session (and Claude/bash)
+//	@Description	Closes the terminal viewer WebSocket. The tmux session (and Claude/bash)
 //	@Description	continues running in the background.
 //	@Tags			worktrees
 //	@Param			projectId	path		string	true	"Project ID"
@@ -534,10 +534,10 @@ func (rt *routes) handleDisconnectTerminal(w http.ResponseWriter, r *http.Reques
 	writeJSON(w, result)
 }
 
-// handleKillWorktreeProcess kills abduco and all child processes for a worktree.
+// handleKillWorktreeProcess kills the tmux session and all child processes for a worktree.
 //
 //	@Summary		Kill worktree process
-//	@Description	Kills the abduco session and all child processes for the worktree.
+//	@Description	Kills the tmux session and all child processes for the worktree.
 //	@Description	The git worktree directory on disk is preserved. This is destructive —
 //	@Description	any running Claude session is terminated immediately.
 //	@Tags			worktrees
@@ -621,7 +621,7 @@ func (rt *routes) handleRemoveWorktree(w http.ResponseWriter, r *http.Request) {
 // handleCleanupWorktrees removes orphaned worktree directories.
 //
 //	@Summary		Cleanup orphaned worktrees
-//	@Description	Removes worktree directories that are not tracked by git, kills orphaned abduco
+//	@Description	Removes worktree directories that are not tracked by git, kills orphaned tmux
 //	@Description	sessions, and prunes stale git worktree metadata.
 //	@Tags			worktrees
 //	@Param			projectId	path		string	true	"Project ID"
@@ -822,7 +822,7 @@ func (rt *routes) handleInspectContainer(w http.ResponseWriter, r *http.Request)
 //
 //	@Summary		Validate container infrastructure
 //	@Description	Checks whether the project's running container has the required Warden terminal
-//	@Description	infrastructure installed (abduco, create-terminal.sh).
+//	@Description	infrastructure installed (tmux, create-terminal.sh).
 //	@Tags			containers
 //	@Param			projectId	path		string	true	"Project ID"
 //	@Success		200			{object}	validateContainerResponse
@@ -1609,11 +1609,11 @@ func (rt *routes) handleUploadClipboard(w http.ResponseWriter, r *http.Request) 
 	writeJSON(w, resp)
 }
 
-// handleTerminalWS upgrades to a WebSocket and bridges it to an abduco session
+// handleTerminalWS upgrades to a WebSocket and bridges it to a tmux session
 // inside the project's container via docker exec.
 //
 //	@Summary		Terminal WebSocket
-//	@Description	Upgrades to a WebSocket connection and bridges it to an abduco terminal session
+//	@Description	Upgrades to a WebSocket connection and bridges it to a tmux terminal session
 //	@Description	inside the container via docker exec. Binary frames carry raw PTY data;
 //	@Description	text frames carry JSON control messages (e.g. {"type":"resize","cols":80,"rows":24}).
 //	@Tags			streaming

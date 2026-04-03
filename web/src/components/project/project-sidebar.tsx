@@ -368,7 +368,7 @@ function ProjectWorktreeList({
     [projectId, agentType, onRemovePanel, refetch],
   )
 
-  /** Stops the agent process for a worktree (kills abduco + children). */
+  /** Stops the agent process for a worktree (kills tmux session + children). */
   const handleStop = useCallback(
     async (worktreeId: string) => {
       try {

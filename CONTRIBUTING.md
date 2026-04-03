@@ -164,7 +164,7 @@ Your PR will be checked by these workflows:
 | Frontend  | React 19, Vite 7, TypeScript              |
 | UI        | shadcn/ui, Tailwind CSS v4                |
 | Terminal  | xterm.js via WebSocket to Go proxy        |
-| Container | Ubuntu 24.04, abduco, Claude Code CLI, Codex CLI |
+| Container | Ubuntu 24.04, tmux, Claude Code CLI, Codex CLI |
 | Dev tools | just (task runner)                        |
 
 ## More resources

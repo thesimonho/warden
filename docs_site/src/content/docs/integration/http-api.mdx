@@ -276,11 +276,11 @@ This is transparent to agents — Claude Code's fullscreen mode automatically us
 
 Terminal interaction requires two steps:
 
-1. **Connect** (`POST /api/v1/projects/{projectId}/{agentType}/worktrees/{wid}/connect`) — starts the terminal process (abduco session) if not already running. This is idempotent — calling it on a running terminal is safe.
+1. **Connect** (`POST /api/v1/projects/{projectId}/{agentType}/worktrees/{wid}/connect`) — starts the terminal process (tmux session) if not already running. This is idempotent — calling it on a running terminal is safe.
 
 2. **Attach** (`GET /api/v1/projects/{projectId}/{agentType}/ws/{wid}`) — opens a WebSocket viewer into the running session. Binary frames carry PTY I/O; text frames carry JSON control messages (resize).
 
-The abduco session survives viewer disconnects. After the viewer closes:
+The tmux session survives viewer disconnects. After the viewer closes:
 
 3. **Disconnect** (`POST /api/v1/projects/{projectId}/{agentType}/worktrees/{wid}/disconnect`) — notifies the server the viewer closed (triggers state update events).
 

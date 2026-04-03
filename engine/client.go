@@ -518,6 +518,7 @@ var requiredBinaries = []string{
 	"/usr/local/bin/create-terminal.sh",
 	"/usr/local/bin/disconnect-terminal.sh",
 	"/usr/local/bin/kill-worktree.sh",
+	"/usr/bin/tmux",
 }
 
 // ValidateInfrastructure checks whether a container has the required Warden

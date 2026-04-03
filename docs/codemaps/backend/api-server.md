@@ -31,8 +31,8 @@
 | POST | `/api/v1/projects/{projectID}/{agentType}/worktrees` | `handleCreateWorktree` | Create git worktree + connect terminal |
 | POST | `/api/v1/projects/{projectID}/{agentType}/worktrees/{wid}/connect` | `handleConnectTerminal` | Start terminal for a worktree |
 | POST | `/api/v1/projects/{projectID}/{agentType}/worktrees/{wid}/disconnect` | `handleDisconnectTerminal` | Close terminal WebSocket for a worktree |
-| DELETE | `/api/v1/projects/{projectID}/{agentType}/worktrees/{wid}` | `handleRemoveWorktree` | Fully remove worktree (kill abduco, git worktree remove, cleanup) |
-| GET | `/api/v1/projects/{projectID}/{agentType}/ws/{wid}` | `handleTerminalWebSocket` | WebSocket terminal proxy — connects to abduco via docker exec |
+| DELETE | `/api/v1/projects/{projectID}/{agentType}/worktrees/{wid}` | `handleRemoveWorktree` | Fully remove worktree (kill tmux, git worktree remove, cleanup) |
+| GET | `/api/v1/projects/{projectID}/{agentType}/ws/{wid}` | `handleTerminalWebSocket` | WebSocket terminal proxy — connects to tmux session via docker exec |
 | GET | `/api/v1/projects/{projectID}/{agentType}/worktrees/{wid}/diff` | `handleGetWorktreeDiff` | Uncommitted changes as unified diff with per-file stats |
 | POST | `/api/v1/projects/{projectID}/{agentType}/worktrees/cleanup` | `handleCleanupWorktrees` | Remove orphaned worktree directories not tracked by git |
 | GET | `/api/v1/runtimes` | `handleListRuntimes` | Detect available container runtimes (Docker/Podman) |

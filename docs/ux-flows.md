@@ -170,8 +170,8 @@ A worktree is a unit of independent work. The user creates worktrees to have the
 | State            | Meaning                                        | What happens on click                                 |
 | ---------------- | ---------------------------------------------- | ----------------------------------------------------- |
 | **connected**    | Terminal running, Claude active                | Show the existing terminal                            |
-| **shell**        | Agent exited, bash shell still alive in abduco | Show the terminal (with "Agent exited" indicator)     |
-| **background**   | abduco alive, WebSocket closed (viewer disconnected) | Reconnect: reconnect WebSocket to existing abduco |
+| **shell**        | Agent exited, bash shell still alive in tmux | Show the terminal (with "Agent exited" indicator)     |
+| **background**   | tmux session alive, WebSocket closed (viewer disconnected) | Reconnect: reconnect WebSocket to existing tmux session |
 | **disconnected** | No processes running                           | Connect: start new terminal, launch agent              |
 
 ### 6a. Create Worktree
@@ -182,7 +182,7 @@ A worktree is a unit of independent work. The user creates worktrees to have the
 
 1. Dialog opens with optional name field.
 2. On create: for Claude Code, `claude --worktree <id>` creates the checkout at `<workspace>/.claude/worktrees/{id}/`. For Codex, Warden runs `git worktree add` to create the checkout at `<workspace>/.warden/worktrees/{id}/`, then launches `codex --no-alt-screen` in the worktree directory.
-3. abduco session started, agent launched in the worktree.
+3. tmux session started, agent launched in the worktree.
 4. If skip permissions enabled, the agent runs with `--dangerously-skip-permissions` (Claude) or `--dangerously-bypass-approvals-and-sandbox` (Codex).
 5. Worktree appears in sidebar as "connected" with a green dot.
 6. Terminal loads and connects via WebSocket.
@@ -204,14 +204,14 @@ A worktree is a unit of independent work. The user creates worktrees to have the
 
 **Expected behavior:**
 
-1. Terminal shows the active abduco session via xterm.js.
+1. Terminal shows the active tmux session via xterm.js.
 2. Green "Connected" dot shown.
 3. Switching between worktrees preserves terminal state (terminals stay alive, hidden via CSS).
 4. If Claude needs attention, notification dot shown on the worktree card.
 
 ### 6c. Click Worktree (Shell — Claude exited, terminal alive)
 
-**Trigger:** Click a worktree where Claude exited but the abduco bash shell is still running.
+**Trigger:** Click a worktree where Claude exited but the tmux bash shell is still running.
 
 **Expected behavior:**
 
@@ -220,13 +220,13 @@ A worktree is a unit of independent work. The user creates worktrees to have the
 3. User can type commands in the shell, run `claude --resume` (or start a new Codex session), or start a fresh agent conversation.
 4. The worktree card shows an amber/yellow dot to distinguish from fully connected.
 
-### 6d. Click Worktree (Background — abduco alive, WebSocket closed)
+### 6d. Click Worktree (Background — tmux session alive, WebSocket closed)
 
-**Trigger:** Click a worktree where the WebSocket was closed but abduco is still running.
+**Trigger:** Click a worktree where the WebSocket was closed but the tmux session is still running.
 
 **Expected behavior:**
 
-1. A new WebSocket connection is established to the existing abduco session.
+1. A new WebSocket connection is established to the existing tmux session.
 2. The user sees the terminal resume where it was — same Claude process, same output.
 3. Worktree state becomes "connected" or "shell" depending on whether Claude is still running.
 
@@ -237,7 +237,7 @@ A worktree is a unit of independent work. The user creates worktrees to have the
 **Expected behavior:**
 
 1. Automatically starts a new terminal — no intermediate screen or button.
-2. Starts abduco with the agent launched in the worktree directory (`--worktree <id>` for Claude Code git repos, or in the worktree path for Codex).
+2. Starts tmux session with the agent launched in the worktree directory (`--worktree <id>` for Claude Code git repos, or in the worktree path for Codex).
 3. This is a fresh agent conversation. The user can `/resume` a previous conversation if they want — that's the agent's UX, not Warden's.
 4. Worktree state becomes "connected", terminal loads via WebSocket.
 
@@ -248,7 +248,7 @@ A worktree is a unit of independent work. The user creates worktrees to have the
 **Expected behavior:**
 
 1. The WebSocket connection is closed.
-2. The abduco session continues running in the background. The agent (if running) is unaffected.
+2. The tmux session continues running in the background. The agent (if running) is unaffected.
 3. Worktree transitions to "background" state.
 4. The worktree remains in the sidebar — clicking it reconnects (see 6d).
 5. No confirmation dialog needed — this is a non-destructive action.
@@ -259,7 +259,7 @@ A worktree is a unit of independent work. The user creates worktrees to have the
 
 **Expected behavior:**
 
-1. The abduco process is killed. The agent receives SIGHUP/SIGTERM.
+1. The tmux session is killed. The agent receives SIGHUP/SIGTERM.
 2. Terminal tracking directory is removed.
 3. Worktree transitions to "disconnected" state.
 4. The worktree card shows a grey dot.
@@ -271,7 +271,7 @@ There is no "delete worktree" action through Warden's UI. Worktrees persist as l
 
 | Container Event | Impact on Terminals                             | Impact on Worktrees                                                                          |
 | --------------- | ----------------------------------------------- | -------------------------------------------------------------------------------------------- |
-| Stop            | All abduco killed. WebSocket connections closed. | Git worktrees preserved on bind mount. All become "disconnected".                            |
+| Stop            | All tmux sessions killed. WebSocket connections closed. | Git worktrees preserved on bind mount. All become "disconnected".                            |
 | Start / Restart | Entrypoint runs. Terminal tracking state reset. | Worktrees rediscovered from filesystem. All start as "disconnected".                         |
 | Recreate (edit) | Old container removed.                          | Worktrees preserved on bind mount. Reconnectable in new container.                           |
 | Delete          | Container removed.                              | Worktrees preserved on bind mount. Available when a new container mounts the same project directory. |
@@ -340,7 +340,7 @@ The `.warden/terminals/` directory only tracks which worktrees have active termi
 
 ### WebSocket Connections
 
-Terminal connections are proxied through the Go backend via WebSocket at `/api/projects/{id}/ws/{wid}`. The backend connects to the container's abduco session via `docker exec` with TTY mode. WebSocket connections are not port-limited — the backend can proxy unlimited concurrent connections.
+Terminal connections are proxied through the Go backend via WebSocket at `/api/projects/{id}/ws/{wid}`. The backend connects to the container's tmux session via `docker exec` with TTY mode. WebSocket connections are not port-limited — the backend can proxy unlimited concurrent connections.
 
 ### Worktree discovery
 

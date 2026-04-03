@@ -44,7 +44,7 @@ chown -R warden:warden /home/warden
 # Forward container env vars into the warden user's shell session.
 # entrypoint.sh writes /home/warden/.docker_env at startup; source it
 # from .profile so login shells (including non-interactive ones like
-# bash -lc used by abduco) pick up TERM, API keys, etc.
+# bash -lc used by tmux) pick up TERM, API keys, etc.
 # -------------------------------------------------------------------
 if ! grep -q '.docker_env' /home/warden/.profile 2>/dev/null; then
   echo '[ -f /home/warden/.docker_env ] && . /home/warden/.docker_env' >> /home/warden/.profile

@@ -10,8 +10,7 @@ set -euo pipefail
 # instruction for layer caching.
 #
 # Environment variables (all optional):
-#   ABDUCO_VERSION — abduco version to install (default: 0.6)
-#   GOSU_VERSION   — gosu version to install (default: 1.17)
+#   GOSU_VERSION — gosu version to install (default: 1.17)
 # -------------------------------------------------------------------
 
 SCRIPTS_DIR="$(cd "$(dirname "$0")" && pwd)"

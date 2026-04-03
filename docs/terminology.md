@@ -29,14 +29,14 @@ The container entrypoint starts as root for privileged setup (UID remapping, ipt
 Each worktree has one process layer in the container. The browser connects to it via WebSocket through the Go backend proxy.
 
 ```
-abduco (process manager — holds the PTY alive)
+tmux (session manager — holds the PTY alive)
  └── bash
       └── claude/codex (or just bash if the agent exited)
 ```
 
 | Component  | Role                                                   | Can be killed without losing work? |
 | ---------- | ------------------------------------------------------ | ---------------------------------- |
-| **abduco** | Holds the PTY session alive across viewer disconnects. | No — kills the agent and bash.     |
+| **tmux** | Holds the PTY session alive across viewer disconnects. | No — kills the agent and bash.     |
 
 The browser connects via `GET /api/v1/projects/{projectID}/{agentType}/ws/{wid}` (WebSocket), which the Go backend proxies to `docker exec` with TTY mode. The connection is kept alive with periodic ping/pong heartbeats (30s).
 
@@ -44,14 +44,14 @@ The browser connects via `GET /api/v1/projects/{projectID}/{agentType}/ws/{wid}`
 
 | Action         | Verb                                     | What happens                                                     | Destructive? |
 | -------------- | ---------------------------------------- | ---------------------------------------------------------------- | ------------ |
-| **Connect**    | `connectTerminal`                        | Start abduco, launch the agent. Browser connects via WebSocket.  | No           |
-| **Disconnect** | `disconnectTerminal`                     | Close WebSocket. Abduco keeps running.                           | No           |
-| **Reconnect**  | `connectTerminal` (on existing worktree) | Browser reconnects via new WebSocket to existing abduco session. | No           |
-| **Kill**       | `killWorktreeProcess`                    | Kill abduco + everything. Process destroyed.                     | Yes          |
+| **Connect**    | `connectTerminal`                        | Start tmux session, launch the agent. Browser connects via WebSocket.  | No           |
+| **Disconnect** | `disconnectTerminal`                     | Close WebSocket. Tmux session keeps running.                           | No           |
+| **Reconnect**  | `connectTerminal` (on existing worktree) | Browser reconnects via new WebSocket to existing tmux session. | No           |
+| **Kill**       | `killWorktreeProcess`                    | Kill tmux session + everything. Process destroyed.                     | Yes          |
 
 ## Worktree states
 
-| State            | abduco                | WebSocket | What user sees                          |
+| State            | tmux                  | WebSocket | What user sees                          |
 | ---------------- | --------------------- | --------- | --------------------------------------- |
 | **connected**    | Running, agent active | Connected | Green dot, live terminal                |
 | **shell**        | Running, agent exited | Connected | Amber dot, bash prompt. Can `--resume`. |

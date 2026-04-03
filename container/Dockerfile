@@ -1,38 +1,26 @@
 # Project container image for Warden.
-# Provides abduco (session persistence), Claude Code CLI, Codex CLI,
-# and terminal management scripts. The Go backend connects to abduco
+# Provides tmux (session persistence), Claude Code CLI, Codex CLI,
+# and terminal management scripts. The Go backend connects to tmux
 # sessions via docker exec, proxied over WebSocket to the browser.
 #
 # Build:  docker build -t warden-project ./container
 #
-# Multi-stage: build deps (build-essential, pkg-config, libssl-dev)
-# stay in the builder stage. Only the compiled abduco binary and
-# pre-fetched gosu are copied to the runtime image.
-#
-# Layer order is optimized for caching: system deps and user setup
-# change rarely, CLI installs change on upstream releases, and Warden
-# scripts change on every release (last layer, smallest invalidation).
+# Multi-stage: the builder stage fetches gosu. tmux is installed via
+# apt in the runtime image. Layer order is optimized for caching:
+# system deps and user setup change rarely, CLI installs change on
+# upstream releases, and Warden scripts change on every release
+# (last layer, smallest invalidation).
 
-# ---- builder: compile abduco from source + fetch gosu ----
+# ---- builder: fetch gosu ----
 FROM ubuntu:24.04 AS builder
 
-ARG ABDUCO_VERSION=0.6
 ARG GOSU_VERSION=1.17
 
 RUN apt-get update \
   && apt-get install -y --no-install-recommends \
     curl \
     ca-certificates \
-    build-essential \
-    pkg-config \
-    libssl-dev \
   && rm -rf /var/lib/apt/lists/*
-
-RUN curl -fsSL -o /tmp/abduco.tar.gz \
-    "https://github.com/martanne/abduco/releases/download/v${ABDUCO_VERSION}/abduco-${ABDUCO_VERSION}.tar.gz" \
-  && tar -xzf /tmp/abduco.tar.gz -C /tmp \
-  && make -C "/tmp/abduco-${ABDUCO_VERSION}" \
-  && cp "/tmp/abduco-${ABDUCO_VERSION}/abduco" /usr/local/bin/abduco
 
 # gosu — lightweight setuid/setgid + exec for the entrypoint privilege drop.
 RUN arch="$(dpkg --print-architecture)" \
@@ -45,7 +33,6 @@ RUN arch="$(dpkg --print-architecture)" \
 # ---- runtime: layered for optimal caching ----
 FROM ubuntu:24.04
 
-COPY --from=builder /usr/local/bin/abduco /usr/local/bin/abduco
 COPY --from=builder /usr/local/bin/gosu /usr/local/bin/gosu
 
 # Layer 1: system deps (changes rarely — only on new apt packages)

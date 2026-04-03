@@ -33,8 +33,8 @@ branch refs/heads/feature-x
 	mock.onCmd("ls", "")
 	// enrichWorktreeState batch command
 	mock.onCmd("echo", "")
-	// pgrep for abduco check (returns 0 = not alive)
-	mock.onCmd("pgrep", "0\n")
+	// tmux has-session check (returns 0 = not alive)
+	mock.onCmd("tmux", "0\n")
 
 	ec := newTestClient(mock)
 
@@ -161,7 +161,7 @@ branch refs/heads/main
 	}
 }
 
-func TestEnrichWorktreeState_PgrepUsesCharClassTrick(t *testing.T) {
+func TestEnrichWorktreeState_UsesTmuxListSessions(t *testing.T) {
 	t.Parallel()
 
 	mock := newExecMockAPI()
@@ -170,37 +170,37 @@ func TestEnrichWorktreeState_PgrepUsesCharClassTrick(t *testing.T) {
 	ec := newTestClient(mock)
 
 	worktrees := []Worktree{
-		{ID: "feature-x", ProjectID: "ctr-pgrep", State: WorktreeStateDisconnected},
+		{ID: "feature-x", ProjectID: "ctr-tmux", State: WorktreeStateDisconnected},
 	}
 
-	ec.enrichWorktreeState(context.Background(), "ctr-pgrep", worktrees)
+	ec.enrichWorktreeState(context.Background(), "ctr-tmux", worktrees)
 
-	// Verify the batch command uses [a]bduco, not abduco.
+	// Verify the batch command uses tmux list-sessions.
 	for _, call := range mock.getCalls() {
 		if len(call.Cmd) >= 3 && call.Cmd[0] == "sh" && call.Cmd[1] == "-c" {
 			shellCmd := call.Cmd[2]
-			if strings.Contains(shellCmd, "abduco") && !strings.Contains(shellCmd, "[a]bduco") {
-				t.Errorf("pgrep command uses bare 'abduco' instead of '[a]bduco' which causes self-matching: %s", shellCmd)
+			if !strings.Contains(shellCmd, "tmux list-sessions") {
+				t.Errorf("batch command should use 'tmux list-sessions', got: %s", shellCmd)
 			}
 		}
 	}
 }
 
-func TestIsAbducoSessionAlive_PgrepUsesCharClassTrick(t *testing.T) {
+func TestIsSessionAlive_UsesTmuxHasSession(t *testing.T) {
 	t.Parallel()
 
 	mock := newExecMockAPI()
-	mock.onCmd("pgrep", "0\n")
+	mock.onCmd("tmux", "0\n")
 
 	ec := newTestClient(mock)
 
-	ec.isAbducoSessionAlive(context.Background(), "ctr-abduco", "test-wt")
+	ec.isSessionAlive(context.Background(), "ctr-tmux", "test-wt")
 
 	for _, call := range mock.getCalls() {
 		if len(call.Cmd) >= 3 && call.Cmd[0] == "sh" && call.Cmd[1] == "-c" {
 			shellCmd := call.Cmd[2]
-			if strings.Contains(shellCmd, `"abduco`) && !strings.Contains(shellCmd, `"[a]bduco`) {
-				t.Errorf("pgrep command uses bare 'abduco' instead of '[a]bduco': %s", shellCmd)
+			if !strings.Contains(shellCmd, "tmux has-session") {
+				t.Errorf("session alive check should use 'tmux has-session', got: %s", shellCmd)
 			}
 		}
 	}

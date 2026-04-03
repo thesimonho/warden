@@ -18,11 +18,14 @@ import { defineConfig, devices, type PlaywrightTestConfig } from '@playwright/te
  * if Vite isn't running.
  */
 
-/** Check if a server is already running at a URL. */
+/** Check if a server is already running at a URL and returning valid JSON. */
 async function isServerUp(url: string): Promise<boolean> {
   try {
-    const response = await fetch(url, { signal: AbortSignal.timeout(1000) })
-    return response.ok
+    const response = await fetch(url, { signal: AbortSignal.timeout(2000) })
+    if (!response.ok) return false
+    // Validate JSON — Vite returns index.html (200) when the Go backend is down.
+    const body = await response.json() as { status?: string }
+    return body.status === 'ok'
   } catch {
     return false
   }

@@ -4,27 +4,15 @@ set -euo pipefail
 # -------------------------------------------------------------------
 # Install system dependencies for Warden containers.
 #
-# Installs: git, curl, jq, iptables, GitHub CLI, Node.js LTS, and
-# optionally compiles abduco and fetches gosu (for the devcontainer
-# feature path — the Dockerfile pre-builds these in the builder stage).
+# Installs: git, curl, jq, iptables, tmux, GitHub CLI, Node.js LTS,
+# and optionally fetches gosu (for the devcontainer feature path —
+# the Dockerfile pre-builds gosu in the builder stage).
 #
 # Idempotent: checks for existing binaries before installing.
 #
 # Environment variables (all optional):
-#   ABDUCO_VERSION — abduco version to install (default: 0.6)
-#   GOSU_VERSION   — gosu version to install (default: 1.17)
+#   GOSU_VERSION — gosu version to install (default: 1.17)
 # -------------------------------------------------------------------
-
-ABDUCO_VERSION="${ABDUCO_VERSION:-0.6}"
-
-# -------------------------------------------------------------------
-# Build deps are only needed to compile abduco. When the pre-built
-# binary exists (multi-stage Dockerfile), skip them entirely.
-# -------------------------------------------------------------------
-NEED_BUILD_DEPS=false
-if [ ! -f /usr/local/bin/abduco ]; then
-  NEED_BUILD_DEPS=true
-fi
 
 apt-get update
 apt-get install -y --no-install-recommends \
@@ -44,14 +32,8 @@ apt-get install -y --no-install-recommends \
   iptables \
   ipset \
   dnsmasq-base \
-  bubblewrap
-
-if [ "$NEED_BUILD_DEPS" = true ]; then
-  apt-get install -y --no-install-recommends \
-    build-essential \
-    pkg-config \
-    libssl-dev
-fi
+  bubblewrap \
+  tmux
 
 # -------------------------------------------------------------------
 # gosu — lightweight privilege drop (setuid/setgid + exec).
@@ -64,23 +46,6 @@ if [ ! -f /usr/local/bin/gosu ]; then
   curl -fsSL -o /usr/local/bin/gosu \
     "https://github.com/tianon/gosu/releases/download/${GOSU_VERSION}/gosu-${arch}"
   chmod +x /usr/local/bin/gosu
-fi
-
-# -------------------------------------------------------------------
-# abduco — session management with exit status tracking.
-# Pre-built in the multi-stage Dockerfile; compiled here for the
-# devcontainer feature path.
-# -------------------------------------------------------------------
-if [ "$NEED_BUILD_DEPS" = true ]; then
-  curl -fsSL -o /tmp/abduco.tar.gz \
-    "https://github.com/martanne/abduco/releases/download/v${ABDUCO_VERSION}/abduco-${ABDUCO_VERSION}.tar.gz"
-  tar -xzf /tmp/abduco.tar.gz -C /tmp
-  make -C "/tmp/abduco-${ABDUCO_VERSION}"
-  cp "/tmp/abduco-${ABDUCO_VERSION}/abduco" /usr/local/bin/abduco
-
-  rm -rf /tmp/abduco.tar.gz "/tmp/abduco-${ABDUCO_VERSION}"
-  apt-get purge -y build-essential pkg-config libssl-dev
-  apt-get autoremove -y
 fi
 
 # -------------------------------------------------------------------

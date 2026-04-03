@@ -15,7 +15,7 @@ For a detailed feature-by-feature breakdown, see the [Comparison](/warden/compar
 
 ## How does Warden differ from running Docker manually?
 
-Warden handles the infrastructure that's tedious to wire up yourself: worktree orchestration, session persistence (via abduco), terminal multiplexing, network isolation policies, real-time agent status detection, cost tracking, and an event bus for monitoring.
+Warden handles the infrastructure that's tedious to wire up yourself: worktree orchestration, session persistence (via tmux), terminal multiplexing, network isolation policies, real-time agent status detection, cost tracking, and an event bus for monitoring.
 
 ## Can I use my own Docker image?
 
@@ -62,4 +62,4 @@ Cost accuracy depends on the agent and billing method. Claude Code with an API k
 
 ## Why does a worktree still show "connected" after I closed the tab?
 
-Closing your browser tab disconnects the WebSocket viewer but does **not** stop the agent. The abduco process manager keeps the agent running in the background — that's by design so agents can work autonomously. The worktree will show "active in background". To fully stop a worktree's process, use the right-click context menu to Disconnect and Remove the worktree.
+Closing your browser tab disconnects the WebSocket viewer but does **not** stop the agent. The tmux session manager keeps the agent running in the background — that's by design so agents can work autonomously. The worktree will show "active in background". To fully stop a worktree's process, use the right-click context menu to Disconnect and Remove the worktree.

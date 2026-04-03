@@ -225,9 +225,9 @@ func TestParseTerminalBatch(t *testing.T) {
 
 	output := `---WT_START:main---
 ---EXIT_END---1
----ABDUCO_END------WT_START:feature-x---0
+---SESSION_END------WT_START:feature-x---0
 ---EXIT_END---1
----ABDUCO_END---`
+---SESSION_END---`
 
 	states := parseTerminalBatch(output)
 
@@ -235,7 +235,7 @@ func TestParseTerminalBatch(t *testing.T) {
 		t.Fatalf("expected 2 terminal states, got %d", len(states))
 	}
 
-	// Main worktree: no exit code, abduco alive
+	// Main worktree: no exit code, session alive
 	mainState := states["main"]
 	if mainState == nil {
 		t.Fatal("expected state for 'main'")
@@ -244,11 +244,11 @@ func TestParseTerminalBatch(t *testing.T) {
 	if mainState.exitCode != -1 {
 		t.Errorf("expected exit code -1 (not set), got %d", mainState.exitCode)
 	}
-	if !mainState.abducoAlive {
-		t.Error("expected abducoAlive=true")
+	if !mainState.sessionAlive {
+		t.Error("expected sessionAlive=true")
 	}
 
-	// Feature worktree: exit code 0, abduco alive
+	// Feature worktree: exit code 0, session alive
 	featureState := states["feature-x"]
 	if featureState == nil {
 		t.Fatal("expected state for 'feature-x'")
@@ -257,8 +257,8 @@ func TestParseTerminalBatch(t *testing.T) {
 	if featureState.exitCode != 0 {
 		t.Errorf("expected exit code 0, got %d", featureState.exitCode)
 	}
-	if !featureState.abducoAlive {
-		t.Error("expected abducoAlive=true")
+	if !featureState.sessionAlive {
+		t.Error("expected sessionAlive=true")
 	}
 }
 
@@ -276,7 +276,7 @@ func TestParseTerminalBatch_NoExitCode(t *testing.T) {
 
 	output := `---WT_START:orphan---
 ---EXIT_END---0
----ABDUCO_END---`
+---SESSION_END---`
 
 	states := parseTerminalBatch(output)
 
@@ -288,18 +288,18 @@ func TestParseTerminalBatch_NoExitCode(t *testing.T) {
 	if orphan.exitCode != -1 {
 		t.Errorf("expected exit code -1, got %d", orphan.exitCode)
 	}
-	if orphan.abducoAlive {
-		t.Error("expected abducoAlive=false")
+	if orphan.sessionAlive {
+		t.Error("expected sessionAlive=false")
 	}
 }
 
-func TestParseTerminalBatch_AbducoAlive(t *testing.T) {
+func TestParseTerminalBatch_SessionAlive(t *testing.T) {
 	t.Parallel()
 
-	// Simulate: abduco alive
+	// Simulate: session alive
 	output := `---WT_START:bg-task---
 ---EXIT_END---1
----ABDUCO_END---`
+---SESSION_END---`
 
 	states := parseTerminalBatch(output)
 
@@ -308,18 +308,18 @@ func TestParseTerminalBatch_AbducoAlive(t *testing.T) {
 		t.Fatal("expected state for 'bg-task'")
 		return // unreachable — staticcheck SA5011
 	}
-	if !bg.abducoAlive {
-		t.Error("expected abducoAlive=true")
+	if !bg.sessionAlive {
+		t.Error("expected sessionAlive=true")
 	}
 }
 
-func TestParseTerminalBatch_AbducoDead(t *testing.T) {
+func TestParseTerminalBatch_SessionDead(t *testing.T) {
 	t.Parallel()
 
-	// Simulate: abduco dead
+	// Simulate: session dead
 	output := `---WT_START:dead-task---
 ---EXIT_END---0
----ABDUCO_END---`
+---SESSION_END---`
 
 	states := parseTerminalBatch(output)
 
@@ -328,18 +328,18 @@ func TestParseTerminalBatch_AbducoDead(t *testing.T) {
 		t.Fatal("expected state for 'dead-task'")
 		return // unreachable — staticcheck SA5011
 	}
-	if dead.abducoAlive {
-		t.Error("expected abducoAlive=false")
+	if dead.sessionAlive {
+		t.Error("expected sessionAlive=false")
 	}
 }
 
-func TestParseTerminalBatch_ConnectedWithAbduco(t *testing.T) {
+func TestParseTerminalBatch_ConnectedWithSession(t *testing.T) {
 	t.Parallel()
 
-	// Simulate: abduco alive (normal connected state)
+	// Simulate: session alive (normal connected state)
 	output := `---WT_START:active---
 ---EXIT_END---1
----ABDUCO_END---`
+---SESSION_END---`
 
 	states := parseTerminalBatch(output)
 
@@ -348,27 +348,8 @@ func TestParseTerminalBatch_ConnectedWithAbduco(t *testing.T) {
 		t.Fatal("expected state for 'active'")
 		return // unreachable — staticcheck SA5011
 	}
-	if !active.abducoAlive {
-		t.Error("expected abducoAlive=true")
-	}
-}
-
-func TestParseTerminalBatch_BackwardsCompatible(t *testing.T) {
-	t.Parallel()
-
-	// Output without ABDUCO_END marker (old container image)
-	output := `---WT_START:legacy---
----EXIT_END---`
-
-	states := parseTerminalBatch(output)
-
-	legacy := states["legacy"]
-	if legacy == nil {
-		t.Fatal("expected state for 'legacy'")
-		return // unreachable — staticcheck SA5011
-	}
-	if legacy.abducoAlive {
-		t.Error("expected abducoAlive=false for legacy output")
+	if !active.sessionAlive {
+		t.Error("expected sessionAlive=true")
 	}
 }
 

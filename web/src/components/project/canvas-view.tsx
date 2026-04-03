@@ -53,7 +53,7 @@ const MIN_HEIGHT = 240
  * store. Layout animations are applied via CSS transitions when
  * isLayoutAnimating is true.
  *
- * The disconnect button closes the terminal viewer. The abduco session
+ * The disconnect button closes the terminal viewer. The tmux session
  * and Claude continue running in the background. The worktree reappears
  * in the sidebar as reconnectable.
  */

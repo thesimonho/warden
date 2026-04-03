@@ -6,10 +6,10 @@ The `container/` directory defines the container image used by project container
 
 ```
 container/
-├── Dockerfile                          # Multi-stage build: builder compiles abduco, runtime uses layered installs
+├── Dockerfile                          # Multi-stage build: builder compiles tmux, runtime uses layered installs
 ├── scripts/
 │   ├── install-tools.sh                # Wrapper for devcontainer feature (calls sub-scripts in order)
-│   ├── install-system-deps.sh          # System packages, GitHub CLI, Node.js, abduco/gosu (devcontainer)
+│   ├── install-system-deps.sh          # System packages, GitHub CLI, Node.js, tmux/gosu (devcontainer)
 │   ├── install-user.sh                 # warden user, workspace dirs, .profile env forwarding
 │   ├── install-claude.sh               # Claude Code CLI + managed-settings.json hooks
 │   ├── install-codex.sh                # Codex CLI (npm install -g @openai/codex)
@@ -30,7 +30,7 @@ The install pipeline is split into composable sub-scripts. The Dockerfile calls 
 ### Dockerfile Layer Order
 
 ```
-builder stage:  compile abduco + fetch gosu
+builder stage:  fetch gosu (tmux installed via apt)
 runtime stage:
   Layer 1: install-system-deps.sh  (system packages — rarely changes)
   Layer 2: install-user.sh         (warden user — rarely changes)
@@ -43,13 +43,13 @@ Most Warden releases only invalidate Layer 5. CLI updates only invalidate from t
 
 ### Sub-Script Responsibilities
 
-- **install-system-deps.sh** — apt packages (git, curl, jq, iptables, etc.), GitHub CLI, Node.js LTS. Compiles abduco and fetches gosu when pre-built binaries aren't available (devcontainer path). Cleans up apt lists.
+- **install-system-deps.sh** — apt packages (git, curl, jq, iptables, etc.), GitHub CLI, Node.js LTS. Compiles tmux and fetches gosu when pre-built binaries aren't available (devcontainer path). Cleans up apt lists.
 - **install-user.sh** — creates `warden` user (prefers UID 1000), sets up `~/.local/bin`, creates workspace and agent config directories (`~/.claude`, `~/.codex`), configures `.profile` env forwarding.
 - **install-claude.sh** — installs Claude Code CLI via official installer, writes managed-settings.json with attention state hooks (Notification, PreToolUse, UserPromptSubmit).
 - **install-codex.sh** — installs Codex CLI via `npm install -g @openai/codex`, creates `~/.codex` config directory.
 - **install-warden.sh** — copies runtime scripts from `shared/`, `claude/`, `codex/` to `/usr/local/bin/`, calls `install-clipboard-shim.sh` to set up the xclip wrapper. Detects directory layout (subdirectories for Dockerfile, flat for devcontainer). Creates `/project` workspace.
 
-All steps are idempotent. Environment variables: `ABDUCO_VERSION` (default: `0.6`), `GOSU_VERSION` (default: `1.17`).
+All steps are idempotent. Environment variables: `TMUX_VERSION` (default: `0.6`), `GOSU_VERSION` (default: `1.17`).
 
 ## Devcontainer Feature
 

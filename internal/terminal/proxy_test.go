@@ -75,28 +75,37 @@ func (pipeAddr) Network() string { return "pipe" }
 func (pipeAddr) String() string  { return "pipe" }
 
 // mockExecAPI implements ExecAPI for testing.
+// The first exec create/attach pair is consumed by scrollback capture
+// (returns an empty pipe that closes immediately). The second pair is
+// the actual tmux attach (uses the provided hijacked pipe).
 type mockExecAPI struct {
 	mu          sync.Mutex
 	hijacked    dtypes.HijackedResponse
 	resizes     []container.ResizeOptions
 	lastCreate  container.ExecOptions
 	createFn    func(ctx context.Context, containerID string, opts container.ExecOptions) (container.ExecCreateResponse, error)
-	created     chan struct{} // closed after first ContainerExecCreate call
+	created     chan struct{} // closed after the attach exec create (second call)
 	createdOnce sync.Once
+	createCount int
+	attachCount int
 }
 
 func (m *mockExecAPI) ContainerExecCreate(_ context.Context, _ string, opts container.ExecOptions) (container.ExecCreateResponse, error) {
 	m.mu.Lock()
+	m.createCount++
+	count := m.createCount
 	m.lastCreate = opts
 	m.mu.Unlock()
-
-	if m.created != nil {
-		m.createdOnce.Do(func() { close(m.created) })
-	}
 
 	if m.createFn != nil {
 		return m.createFn(context.Background(), "", opts)
 	}
+
+	// Second create call is the actual attach — signal readiness.
+	if count >= 2 && m.created != nil {
+		m.createdOnce.Do(func() { close(m.created) })
+	}
+
 	return container.ExecCreateResponse{ID: "test-exec-id"}, nil
 }
 
@@ -107,6 +116,23 @@ func (m *mockExecAPI) getLastCreate() container.ExecOptions {
 }
 
 func (m *mockExecAPI) ContainerExecAttach(_ context.Context, _ string, _ container.ExecStartOptions) (dtypes.HijackedResponse, error) {
+	m.mu.Lock()
+	m.attachCount++
+	count := m.attachCount
+	m.mu.Unlock()
+
+	// First attach is scrollback capture — return an empty pipe that closes immediately.
+	if count == 1 {
+		r, w := io.Pipe()
+		w.Close()
+		emptyConn := &pipeConn{Reader: r, Writer: io.Discard}
+		return dtypes.HijackedResponse{
+			Conn:   emptyConn,
+			Reader: bufio.NewReader(r),
+		}, nil
+	}
+
+	// Second attach is the actual tmux session.
 	return m.hijacked, nil
 }
 
@@ -253,7 +279,7 @@ func TestProxyClosesOnPTYExit(t *testing.T) {
 	defer srv.Close()
 	defer conn.CloseNow() //nolint:errcheck
 
-	// Close the PTY side (simulates abduco session ending).
+	// Close the PTY side (simulates tmux session ending).
 	ptyWriter.Close() //nolint:errcheck
 
 	// The WebSocket should receive a close or error.
@@ -306,9 +332,9 @@ func TestProxyIgnoresMalformedControlMessages(t *testing.T) {
 	ptyWriter.Close() //nolint:errcheck
 }
 
-// TestProxyExecRunsAsContainerUser verifies that the abduco viewer exec runs as
+// TestProxyExecRunsAsContainerUser verifies that the tmux attach exec runs as
 // the warden user, not root. Without this, Docker exec defaults to root which can't
-// find abduco sockets owned by dev (they live under the user's home directory).
+// access the tmux server socket owned by the warden user.
 func TestProxyExecRunsAsContainerUser(t *testing.T) {
 	hijacked, ptyWriter, _ := hijackedPipe()
 	created := make(chan struct{})

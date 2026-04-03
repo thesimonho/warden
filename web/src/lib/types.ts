@@ -51,7 +51,7 @@ export const worktreeStateIndicator: Record<
   },
 }
 
-/** Returns true if the worktree has a connectable terminal (abduco alive). */
+/** Returns true if the worktree has a connectable terminal (tmux session alive). */
 export function hasActiveTerminal(worktree: { state: WorktreeState }): boolean {
   return (
     worktree.state === 'connected' || worktree.state === 'shell' || worktree.state === 'background'

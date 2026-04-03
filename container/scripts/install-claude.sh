@@ -32,7 +32,7 @@ fi
 #
 # NOTE: WorktreeCreate is NOT hooked — it replaces Claude Code's
 # default git worktree creation and doesn't work reliably inside
-# abduco terminal sessions.
+# tmux terminal sessions.
 # -------------------------------------------------------------------
 mkdir -p /etc/claude-code
 cat > /etc/claude-code/managed-settings.json <<'MANAGED_EOF'
