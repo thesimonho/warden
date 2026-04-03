@@ -190,7 +190,6 @@ func TestListRuntimes(t *testing.T) {
 
 	runtimes := []runtime.RuntimeInfo{
 		{Name: "docker", Available: true},
-		{Name: "podman", Available: false},
 	}
 	c := newTestServer(t, "GET", "/api/v1/runtimes", http.StatusOK, runtimes)
 
@@ -198,8 +197,8 @@ func TestListRuntimes(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if len(result) != 2 {
-		t.Fatalf("expected 2 runtimes, got %d", len(result))
+	if len(result) != 1 {
+		t.Fatalf("expected 1 runtime, got %d", len(result))
 	}
 	if !result[0].Available {
 		t.Error("expected docker to be available")

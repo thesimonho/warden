@@ -34,11 +34,6 @@ import (
 // Options configures the Warden application. All fields are optional
 // and have sensible defaults.
 type Options struct {
-	// Runtime overrides the configured container runtime. Takes precedence
-	// over the WARDEN_RUNTIME env var and the database setting. When empty,
-	// WARDEN_RUNTIME is checked, then the database setting (default: "docker").
-	Runtime runtime.Runtime
-
 	// DBDir overrides the directory containing the SQLite database.
 	// Takes precedence over the WARDEN_DB_DIR env var. When both are
 	// empty, the platform-default config directory is used
@@ -91,32 +86,17 @@ func New(opts Options) (*Warden, error) {
 		return nil, fmt.Errorf("opening database: %w", err)
 	}
 
-	// Determine runtime: env var > explicit option > DB setting.
-	runtimeName := runtime.Runtime(database.GetSetting("runtime", "docker"))
-	if envRT := os.Getenv("WARDEN_RUNTIME"); envRT != "" {
-		runtimeName = runtime.Runtime(envRT)
-	}
-	if opts.Runtime != "" {
-		runtimeName = opts.Runtime
-	}
-
-	seccompPath, err := seccomp.WriteProfileFile(dbDir)
-	if err != nil {
-		_ = database.Close()
-		return nil, fmt.Errorf("writing seccomp profile: %w", err)
-	}
-
 	agentRegistry := agent.NewRegistry()
 	agentRegistry.Register(agent.ClaudeCode, claudecode.NewProvider())
 	agentRegistry.Register(agent.Codex, codex.NewProvider())
 
-	socketPath := runtime.SocketForRuntime(context.Background(), runtimeName)
-	engineClient, err := engine.NewClient(socketPath, string(runtimeName), agentRegistry)
+	socketPath := runtime.SocketForRuntime(context.Background())
+	engineClient, err := engine.NewClient(socketPath, agentRegistry)
 	if err != nil {
 		_ = database.Close()
 		return nil, err
 	}
-	engineClient.SetSeccompProfile(seccompPath, seccomp.ProfileJSON())
+	engineClient.SetSeccompProfile(seccomp.ProfileJSON())
 
 	auditModeStr := database.GetSetting("auditLogMode", "")
 	auditMode := db.AuditMode(auditModeStr)
@@ -132,8 +112,7 @@ func New(opts Options) (*Warden, error) {
 	// Container events are delivered via bind-mounted directories instead
 	// of TCP, so no network listener or auth token is needed.
 	// Event dirs live under the config directory (not /tmp) so the current
-	// user always owns them — avoids permission failures when switching
-	// between Docker and rootless Podman.
+	// user always owns them.
 	eventBaseDir := filepath.Join(dbDir, "events")
 	broker := eventbus.NewBroker()
 	store := eventbus.NewStore(broker, auditWriter)

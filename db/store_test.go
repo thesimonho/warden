@@ -1045,12 +1045,12 @@ func TestGetSetSetting(t *testing.T) {
 	}
 
 	// Set and read back.
-	if err := store.SetSetting("runtime", "podman"); err != nil {
+	if err := store.SetSetting("runtime", "custom-value"); err != nil {
 		t.Fatalf("SetSetting() error: %v", err)
 	}
 	val = store.GetSetting("runtime", "docker")
-	if val != "podman" {
-		t.Errorf("expected 'podman', got %q", val)
+	if val != "custom-value" {
+		t.Errorf("expected 'custom-value', got %q", val)
 	}
 
 	// Upsert.

@@ -14,8 +14,8 @@ import { TEST_WORKSPACE } from './global-setup'
  * Access item integration tests.
  *
  * These tests verify that containers with SSH and Git access items enabled
- * start successfully on both Docker and Podman. The entrypoint must handle
- * bind-mount directory ownership correctly regardless of runtime.
+ * start successfully on Docker. The entrypoint must handle
+ * bind-mount directory ownership correctly.
  */
 base.describe('Access items', () => {
   let projectId: string | undefined

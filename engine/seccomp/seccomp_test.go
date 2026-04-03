@@ -2,8 +2,6 @@ package seccomp
 
 import (
 	"encoding/json"
-	"os"
-	"path/filepath"
 	"testing"
 )
 
@@ -52,28 +50,6 @@ func TestProfile_HasBothArchitectures(t *testing.T) {
 		if !archSet[want] {
 			t.Errorf("profile missing architecture %q", want)
 		}
-	}
-}
-
-func TestWriteProfileFile_CreatesValidFile(t *testing.T) {
-	dir := t.TempDir()
-	path, err := WriteProfileFile(dir)
-	if err != nil {
-		t.Fatalf("WriteProfileFile() error: %v", err)
-	}
-
-	wantPath := filepath.Join(dir, "seccomp.json")
-	if path != wantPath {
-		t.Errorf("path = %q, want %q", path, wantPath)
-	}
-
-	contents, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("reading written file: %v", err)
-	}
-
-	if string(contents) != string(profileBytes) {
-		t.Error("written file contents do not match embedded profile")
 	}
 }
 

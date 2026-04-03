@@ -431,8 +431,8 @@ export interface ResolvedItem {
 
 /** Information about a detected container runtime. */
 export interface RuntimeInfo {
-  /** Runtime identifier ("docker" or "podman"). */
-  name: 'docker' | 'podman'
+  /** Runtime identifier. */
+  name: string
   /** Whether the runtime's API socket is reachable. */
   available: boolean
   /** Filesystem path to the runtime's API socket. */
@@ -447,7 +447,7 @@ export type AuditLogMode = 'off' | 'standard' | 'detailed'
 /** Server-side settings. */
 export interface ServerSettings {
   /** Active container runtime. */
-  runtime: 'docker' | 'podman'
+  runtime: string
   /** Server working directory (used for resolving relative paths). */
   workingDirectory: string
   /** Audit log mode (off/standard/detailed). */

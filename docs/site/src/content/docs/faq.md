@@ -21,14 +21,6 @@ Warden handles the infrastructure that's tedious to wire up yourself: worktree o
 
 Yes. You can extend the base image with a `FROM ghcr.io/thesimonho/warden` Dockerfile, use the devcontainer feature to bake Warden infrastructure into any image, or build a fully custom image. See [Custom Images](../guide/devcontainers/) for all approaches.
 
-## What container runtimes are supported?
-
-Warden supports both [Docker](https://docs.docker.com/get-docker/) and [Podman](https://podman.io/docs/installation). It detects the available runtime automatically. If both are available, Docker is preferred by default.
-
-## Does network isolation work with rootless Podman?
-
-Restricted and none network modes use iptables inside the container, which requires `NET_ADMIN` capability. This may not work with rootless Podman depending on your configuration. Full network mode works without any special capabilities.
-
 ## Why do I need to install my project dependencies again in each worktree?
 
 Git worktrees are independent working directories — they share the `.git` history but each gets its own copy of the source tree. Dependency directories like `node_modules/`, Python virtualenvs, or Go build caches are not shared across worktrees, so each one starts without them.

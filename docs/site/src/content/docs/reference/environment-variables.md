@@ -7,12 +7,11 @@ Environment variables configure Warden's server binaries at startup. None are re
 
 ## Server configuration
 
-| Variable           | Default             | Description                                                                      |
-| ------------------ | ------------------- | -------------------------------------------------------------------------------- |
-| `ADDR`             | `127.0.0.1:8090`    | Listen address for the HTTP API server.                                          |
-| `WARDEN_RUNTIME`   | `docker`            | Container runtime to use (`docker` or `podman`). Overrides the database setting. |
-| `WARDEN_DB_DIR`    | `~/.config/warden/` | Directory for the SQLite database and event files.                               |
-| `WARDEN_LOG_LEVEL` | `info`              | Log level (`debug`, `info`, `warn`, `error`).                                    |
+| Variable           | Default             | Description                                        |
+| ------------------ | ------------------- | -------------------------------------------------- |
+| `ADDR`             | `127.0.0.1:8090`    | Listen address for the HTTP API server.            |
+| `WARDEN_DB_DIR`    | `~/.config/warden/` | Directory for the SQLite database and event files. |
+| `WARDEN_LOG_LEVEL` | `info`              | Log level (`debug`, `info`, `warn`, `error`).      |
 
 ## Behavior toggles
 
@@ -23,10 +22,9 @@ Environment variables configure Warden's server binaries at startup. None are re
 
 ## Runtime detection
 
-| Variable          | Default           | Description                                                                         |
-| ----------------- | ----------------- | ----------------------------------------------------------------------------------- |
-| `DOCKER_HOST`     | _(auto-detected)_ | Overrides the Docker daemon socket path.                                            |
-| `XDG_RUNTIME_DIR` | _(auto-detected)_ | Used on Linux to locate the Podman socket at `$XDG_RUNTIME_DIR/podman/podman.sock`. |
+| Variable      | Default           | Description                              |
+| ------------- | ----------------- | ---------------------------------------- |
+| `DOCKER_HOST` | _(auto-detected)_ | Overrides the Docker daemon socket path. |
 
 ## Container-internal variables
 

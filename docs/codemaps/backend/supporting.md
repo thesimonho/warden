@@ -70,15 +70,15 @@ Multi-agent abstraction for status extraction, session parsing, and event transl
 
 ## runtime/
 
-Container runtime detection (Docker/Podman/Windows named pipes).
+Container runtime detection (Docker).
 
-| File                 | Purpose                                                                                                                                                                                              |
-| -------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `detect.go`          | `Runtime` type (`docker`/`podman`), `DetectAvailable` (probe all runtimes), `SocketForRuntime` (first reachable socket), `probeSocket` (ping API supporting `unix://`, `tcp://`, `npipe://` schemes) |
-| `sockets_linux.go`   | Linux socket candidates: `/var/run/docker.sock`, `$XDG_RUNTIME_DIR/podman/podman.sock` (build-tagged `linux`)                                                                                        |
-| `sockets_darwin.go`  | macOS socket candidates: `~/.docker/run/docker.sock`, `~/.colima/default/docker.sock`, `~/.orbstack/run/docker.sock`, Podman machine (build-tagged `darwin`)                                         |
-| `sockets_windows.go` | Windows named pipe candidates: `//./pipe/docker_engine`, `//./pipe/podman-machine-default` (build-tagged `windows`)                                                                                  |
-| `detect_test.go`     | Runtime detection tests                                                                                                                                                                              |
+| File                 | Purpose                                                                                                                                                                          |
+| -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `detect.go`          | `Runtime` type, `DetectAvailable` (probe all runtimes), `SocketForRuntime` (first reachable socket), `probeSocket` (ping API supporting `unix://`, `tcp://`, `npipe://` schemes) |
+| `sockets_linux.go`   | Linux socket candidates: `/var/run/docker.sock` (build-tagged `linux`)                                                                                                           |
+| `sockets_darwin.go`  | macOS socket candidates: `~/.docker/run/docker.sock`, `~/.colima/default/docker.sock`, `~/.orbstack/run/docker.sock` (build-tagged `darwin`)                                     |
+| `sockets_windows.go` | Windows named pipe candidates: `//./pipe/docker_engine` (build-tagged `windows`)                                                                                                 |
+| `detect_test.go`     | Runtime detection tests                                                                                                                                                          |
 
 ## internal/terminal/
 

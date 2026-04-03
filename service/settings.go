@@ -24,7 +24,6 @@ func formatFloat(f float64) string {
 
 // Settings keys stored in the database.
 const (
-	settingRuntime              = "runtime"
 	settingAuditLogMode         = "auditLogMode"
 	settingDisconnectKey        = "disconnectKey"
 	settingDefaultProjectBudget = "defaultProjectBudget"
@@ -38,7 +37,7 @@ const (
 // GetSettings returns the current server-side settings.
 func (s *Service) GetSettings() SettingsResponse {
 	return SettingsResponse{
-		Runtime:              s.db.GetSetting(settingRuntime, "docker"),
+		Runtime:              "docker",
 		AuditLogMode:         api.AuditLogMode(s.db.GetSetting(settingAuditLogMode, string(api.AuditLogOff))),
 		DisconnectKey:        s.db.GetSetting(settingDisconnectKey, engine.DefaultDisconnectKey),
 		DefaultProjectBudget: parseFloat(s.db.GetSetting(settingDefaultProjectBudget, "0")),
@@ -68,17 +67,6 @@ func (s *Service) GetDefaultProjectBudget() float64 {
 // restart is required.
 func (s *Service) UpdateSettings(ctx context.Context, req UpdateSettingsRequest) (*UpdateSettingsResult, error) {
 	restartRequired := false
-
-	if req.Runtime != nil {
-		rt := *req.Runtime
-		if rt != "docker" && rt != "podman" {
-			return nil, fmt.Errorf("invalid runtime: %q (must be \"docker\" or \"podman\")", rt)
-		}
-		if err := s.db.SetSetting(settingRuntime, rt); err != nil {
-			return nil, err
-		}
-		restartRequired = true
-	}
 
 	if req.AuditLogMode != nil {
 		mode := *req.AuditLogMode

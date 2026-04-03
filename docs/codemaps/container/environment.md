@@ -12,9 +12,9 @@ tmux (session manager — holds the PTY alive)
       └── claude/codex (or just bash if the agent exited)
 ```
 
-| Component | Role | Can be killed without losing work? |
-| --- | --- | --- |
-| **tmux** | Holds the PTY session alive across viewer disconnects. | No — kills Claude and bash. |
+| Component | Role                                                   | Can be killed without losing work? |
+| --------- | ------------------------------------------------------ | ---------------------------------- |
+| **tmux**  | Holds the PTY session alive across viewer disconnects. | No — kills Claude and bash.        |
 
 The browser connects via `GET /api/v1/projects/{projectID}/ws/{wid}` (WebSocket), which the Go backend proxies to `docker exec` with TTY mode. The connection is kept alive with periodic ping/pong heartbeats (30s).
 
@@ -25,7 +25,7 @@ The `gosu` exec creates a clean environment, stripping container env vars. The u
 1. Writing all env vars to `/home/warden/.docker_env` at startup (excluding `HOME`, `USER`, `SHELL`, etc.)
 2. `.bashrc` sources this file on every new shell
 
-This ensures all vars passed via `docker run -e` or `podman run -e` are available in terminal sessions.
+This ensures all vars passed via `docker run -e` are available in terminal sessions.
 
 **Key environment variables set by Warden:**
 

@@ -68,7 +68,7 @@ Inside containers, Warden stores agent-specific files and state at dedicated pat
 
 ## Infrastructure layout
 
-Warden runs as a host process that manages project containers. Communication flows in three directions: the backend talks to containers via the Docker/Podman API, containers write events to a bind-mounted directory that the backend watches, and the backend fans out state to browsers via SSE and WebSocket.
+Warden runs as a host process that manages project containers. Communication flows in three directions: the backend talks to containers via the Docker API, containers write events to a bind-mounted directory that the backend watches, and the backend fans out state to browsers via SSE and WebSocket.
 
 ```
 ┌──────────────────────────────────────────────────────────────────┐
@@ -93,7 +93,7 @@ Warden runs as a host process that manages project containers. Communication flo
 │          │  status read)   │                                     │
 │          │                 │                                     │
 │  ┌───────▼─────────────────┴────────────────────────────────┐    │
-│  │  Docker / Podman containers                              │    │
+│  │  Docker containers                                       │    │
 │  │                                                          │    │
 │  │  ┌──────────────────┐  ┌──────────────────┐              │    │
 │  │  │  project-a       │  │  project-b       │              │    │
@@ -107,7 +107,7 @@ Warden runs as a host process that manages project containers. Communication flo
 
 ### Communication pathways
 
-1. **Docker/Podman API** — the backend manages container lifecycle (create, start, stop, remove) and runs exec commands via the container runtime socket. Terminal WebSocket connections are bridged to `tmux attach-session -t` sessions inside containers via `docker exec` with TTY mode. Exec is also used to read agent config files (e.g., `.claude.json`) for status and cost data.
+1. **Docker API** — the backend manages container lifecycle (create, start, stop, remove) and runs exec commands via the container runtime socket. Terminal WebSocket connections are bridged to `tmux attach-session -t` sessions inside containers via `docker exec` with TTY mode. Exec is also used to read agent config files (e.g., `.claude.json`) for status and cost data.
 
 2. **File-based event delivery** — each container has a host directory bind-mounted at `/var/warden/events/`. Claude Code hook scripts (`warden-event-claude.sh`) write atomic JSON files (`.tmp` → rename to `.json`) containing attention state, session lifecycle, tool use, cost updates, and heartbeats. The backend watches all event directories using fsnotify (sub-millisecond on Linux) with a polling fallback every 2 seconds (reliable on all platforms including Docker Desktop). Filesystem permissions handle access control — no network listener or auth token is needed.
 

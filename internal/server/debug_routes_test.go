@@ -71,31 +71,6 @@ func TestHandleUpdateSettings_AuditLogMode(t *testing.T) {
 	}
 }
 
-func TestHandleUpdateSettings_RuntimeStillRequiresRestart(t *testing.T) {
-	t.Parallel()
-
-	mock := &mockEngineClient{}
-	mux := http.NewServeMux()
-	registerAPIRoutes(mux, service.New(service.ServiceDeps{Engine: mock, DB: testDB(t)}), nil, nil)
-
-	body := strings.NewReader(`{"runtime":"podman"}`)
-	req := httptest.NewRequest(http.MethodPut, "/api/v1/settings", body)
-	rec := httptest.NewRecorder()
-	mux.ServeHTTP(rec, req)
-
-	if rec.Code != http.StatusOK {
-		t.Fatalf("expected 200, got %d", rec.Code)
-	}
-
-	var resp map[string]bool
-	if err := json.NewDecoder(rec.Body).Decode(&resp); err != nil {
-		t.Fatalf("failed to decode response: %v", err)
-	}
-	if !resp["restartRequired"] {
-		t.Error("runtime change should require restart")
-	}
-}
-
 func TestHandlePostAuditEvent(t *testing.T) {
 	t.Parallel()
 

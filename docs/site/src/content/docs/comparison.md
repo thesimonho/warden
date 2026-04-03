@@ -18,12 +18,12 @@ There are several tools for running AI coding agents. This page compares Warden 
 | Background agents          |           Yes           |         Yes         |  tmux detach  |          No          |
 | Embeddable engine / API    |           Yes           |         No          |      No       |          No          |
 | Web UI                     |           Yes           |         No          |      No       |      Yes (IDE)       |
-| Multi-agent support        | Claude Code + Codex     |   Multiple agents   |  Claude Code  |          No          |
+| Multi-agent support        |   Claude Code + Codex   |   Multiple agents   |  Claude Code  |          No          |
 | Git worktree orchestration |           Yes           |         No          |      No       |          No          |
 | GPU passthrough            |           No            | Yes (experimental)  |      No       |          No          |
 | Custom environment         | Dockerfile/devcontainer | Dockerfile/catalog  |      No       |     Devcontainer     |
 | Setup                      |      Single binary      |  CLI + k3s cluster  | Single binary | Full IDE + extension |
-| Infrastructure required    |      Docker/Podman      | Docker + Kubernetes |     None      |     Docker + IDE     |
+| Infrastructure required    |         Docker          | Docker + Kubernetes |     None      |     Docker + IDE     |
 
 ## When to choose what
 

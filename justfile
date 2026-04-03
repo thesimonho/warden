@@ -73,7 +73,7 @@ build: build-web
     go build -o bin/warden-desktop ./cmd/warden-desktop
     go build -o bin/warden-tui ./cmd/warden-tui
 
-# Build project container image for available runtimes
+# Build project container image
 build-container:
     #!/usr/bin/env bash
     # Query latest CLI versions so Docker only rebuilds those layers when
@@ -83,14 +83,7 @@ build-container:
     CODEX_V=$(npm view @openai/codex version 2>/dev/null || echo "unknown")
     echo "CLI versions: claude=${CLAUDE_V} codex=${CODEX_V}"
     BUILD_ARGS="--build-arg CLAUDE_VERSION=${CLAUDE_V} --build-arg CODEX_VERSION=${CODEX_V}"
-    if command -v docker >/dev/null 2>&1; then
-        echo "Building with Docker..."
-        docker build --platform "linux/$(uname -m | sed 's/x86_64/amd64/' | sed 's/aarch64/arm64/')" ${BUILD_ARGS} -t ghcr.io/thesimonho/warden:latest ./container
-    fi
-    if command -v podman >/dev/null 2>&1; then
-        echo "Building with Podman..."
-        podman build ${BUILD_ARGS} -t ghcr.io/thesimonho/warden:latest ./container
-    fi
+    docker build --platform "linux/$(uname -m | sed 's/x86_64/amd64/' | sed 's/aarch64/arm64/')" ${BUILD_ARGS} -t ghcr.io/thesimonho/warden:latest ./container
 
 # ── Quality ──────────────────────────────────────────────────────────────────
 
@@ -136,74 +129,13 @@ test-e2e:
     just clean-e2e
     npm --prefix web run test:e2e
 
-# Per-runtime timeout for E2E matrix (seconds). A healthy run takes ~3 minutes;
-# exceeding this indicates a hang that needs manual inspection.
-e2e_timeout := "240"
-
-# Run E2E tests against available runtimes (docker + podman)
-test-e2e-matrix:
-    #!/usr/bin/env bash
-    set -euo pipefail
-
-    runtimes=()
-    for rt in docker podman; do
-        if command -v "$rt" >/dev/null 2>&1 && "$rt" info >/dev/null 2>&1; then
-            runtimes+=("$rt")
-        fi
-    done
-
-    if [ ${#runtimes[@]} -eq 0 ]; then
-        echo "No container runtimes available"
-        exit 1
-    fi
-
-    if [ ${#runtimes[@]} -eq 1 ]; then
-        echo "Only ${runtimes[0]} is available — run 'just test-e2e' instead for single-runtime tests"
-        exit 1
-    fi
-
-    echo "Running E2E matrix for: ${runtimes[*]}"
-    echo ""
-
-    failed=()
-    for rt in "${runtimes[@]}"; do
-        echo "══════════════════════════════════════"
-        echo "  E2E: $rt (timeout: {{ e2e_timeout }}s)"
-        echo "══════════════════════════════════════"
-
-        just clean-e2e >/dev/null 2>&1
-        just kill >/dev/null 2>&1 || true
-
-        if timeout {{ e2e_timeout }} env WARDEN_RUNTIME="$rt" npm --prefix web --silent run test:e2e; then
-            echo "✓ $rt passed"
-        elif [ $? -eq 124 ]; then
-            echo "✗ $rt timed out after {{ e2e_timeout }}s — likely hung, needs inspection"
-            failed+=("$rt")
-        else
-            echo "✗ $rt failed"
-            failed+=("$rt")
-        fi
-
-        just kill >/dev/null 2>&1 || true
-        echo ""
-    done
-
-    if [ ${#failed[@]} -gt 0 ]; then
-        echo "FAILED runtimes: ${failed[*]}"
-        exit 1
-    fi
-
-    echo "All runtimes passed: ${runtimes[*]}"
-
 # Clean up E2E test containers
 clean-e2e:
     #!/usr/bin/env bash
-    for runtime in podman docker; do
-        if command -v "$runtime" >/dev/null 2>&1; then
-            "$runtime" ps -a --filter "name=warden-e2e-" --format '{{{{.Names}}' | \
-                xargs -r "$runtime" rm -f 2>/dev/null
-        fi
-    done
+    if command -v docker >/dev/null 2>&1; then
+        docker ps -a --filter "name=warden-e2e-" --format '{{{{.Names}}' | \
+            xargs -r docker rm -f 2>/dev/null
+    fi
     rm -rf /tmp/warden-e2e-workspace /tmp/warden-e2e-db
     echo "E2E cleanup complete"
 

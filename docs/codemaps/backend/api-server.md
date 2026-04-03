@@ -41,7 +41,7 @@
 | GET    | `/api/v1/projects/{projectId}/{agentType}/container/config`           | `handleInspectContainer`    | Inspect container configuration                                                                 |
 | PUT    | `/api/v1/projects/{projectId}/{agentType}/container`                  | `handleUpdateContainer`     | Update container configuration (rebuild)                                                        |
 | GET    | `/api/v1/projects/{projectId}/{agentType}/container/validate`         | `handleValidateContainer`   | Validate container infrastructure                                                               |
-| GET    | `/api/v1/runtimes`                                                    | `handleListRuntimes`        | Detect available container runtimes (Docker/Podman)                                             |
+| GET    | `/api/v1/runtimes`                                                    | `handleListRuntimes`        | Detect available container runtimes (Docker)                                                    |
 | GET    | `/api/v1/settings`                                                    | `handleGetSettings`         | Return server-side settings (runtime, auditLogMode, budget)                                     |
 | PUT    | `/api/v1/settings`                                                    | `handleUpdateSettings`      | Update settings (runtime, auditLogMode, budget actions)                                         |
 | GET    | `/api/v1/audit`                                                       | `handleGetAuditLog`         | Audit events with category/project/worktree/source/level/time filters                           |

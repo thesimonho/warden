@@ -7,8 +7,8 @@ import { Input } from '@/components/ui/input'
 import { Info, Loader2, Settings as SettingsIcon } from 'lucide-react'
 import { Separator } from '@/components/ui/separator'
 import { type Settings } from '@/lib/settings'
-import { fetchRuntimes, fetchSettings, updateSettings } from '@/lib/api'
-import type { AuditLogMode, RuntimeInfo } from '@/lib/types'
+import { fetchSettings, updateSettings } from '@/lib/api'
+import type { AuditLogMode } from '@/lib/types'
 
 /** Props for the SettingsDialog component. */
 interface SettingsDialogProps {
@@ -24,7 +24,7 @@ interface SettingsDialogProps {
  * Modal dialog for configuring dashboard preferences.
  *
  * Changes are applied immediately and persisted to localStorage via
- * the onSettingsChange callback. Server-side settings (like runtime)
+ * the onSettingsChange callback. Server-side settings (like audit mode)
  * are fetched and updated via the API.
  *
  * @param props.settings - Current settings values.
@@ -38,9 +38,6 @@ export default function SettingsDialog({
   auditLogMode,
   onAuditLogModeChange,
 }: SettingsDialogProps) {
-  const [runtimes, setRuntimes] = useState<RuntimeInfo[]>([])
-  const [currentRuntime, setCurrentRuntime] = useState<string>('')
-  const [restartNeeded, setRestartNeeded] = useState(false)
   const [isAuditLogModePending, setIsAuditLogModePending] = useState(false)
   const [defaultBudget, setDefaultBudget] = useState('')
   const [budgetActions, setBudgetActions] = useState({
@@ -50,11 +47,10 @@ export default function SettingsDialog({
     budgetActionPreventStart: false,
   })
 
-  /** Loads runtime availability and current setting when dialog opens. */
+  /** Loads server-side settings when dialog opens. */
   const loadServerData = useCallback(async () => {
     try {
-      const [runtimeList, serverSettings] = await Promise.all([fetchRuntimes(), fetchSettings()])
-      setRuntimes(runtimeList)
+      const serverSettings = await fetchSettings()
       setDefaultBudget(
         serverSettings.defaultProjectBudget > 0 ? String(serverSettings.defaultProjectBudget) : '',
       )
@@ -64,22 +60,8 @@ export default function SettingsDialog({
         budgetActionStopContainer: serverSettings.budgetActionStopContainer,
         budgetActionPreventStart: serverSettings.budgetActionPreventStart,
       })
-
-      // If the saved runtime is unavailable, fall back to the first available one.
-      const savedRuntime = serverSettings.runtime
-      const isSavedAvailable = runtimeList.some((rt) => rt.name === savedRuntime && rt.available)
-      if (isSavedAvailable) {
-        setCurrentRuntime(savedRuntime)
-      } else {
-        const firstAvailable = runtimeList.find((rt) => rt.available)
-        if (firstAvailable) {
-          setCurrentRuntime(firstAvailable.name)
-          await updateSettings({ runtime: firstAvailable.name })
-        }
-      }
-      setRestartNeeded(false)
     } catch {
-      // Silently ignore — runtimes section won't render
+      // Silently ignore — settings section won't render
     }
   }, [])
 
@@ -99,19 +81,6 @@ export default function SettingsDialog({
     onSettingsChange({ ...settings, notificationsEnabled: enabling })
   }
 
-  /** Updates the container runtime setting on the server. */
-  const handleRuntimeChange = async (runtime: RuntimeInfo['name']) => {
-    try {
-      const result = await updateSettings({ runtime })
-      setCurrentRuntime(runtime)
-      if (result.restartRequired) {
-        setRestartNeeded(true)
-      }
-    } catch {
-      // Ignore — user can retry
-    }
-  }
-
   /** Cycles audit log mode: off → standard → detailed → off. */
   const handleAuditLogModeChange = async (mode: AuditLogMode) => {
     setIsAuditLogModePending(true)
@@ -125,12 +94,6 @@ export default function SettingsDialog({
     }
   }
 
-  /** Returns whether a runtime option should be disabled. */
-  const isRuntimeDisabled = (rt: RuntimeInfo): boolean => !rt.available
-
-  /** Returns whether a runtime was detected via binary but has no active socket. */
-  const isSocketInactive = (rt: RuntimeInfo): boolean => rt.available && !rt.socketPath
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-xl" aria-describedby={undefined}>
@@ -142,52 +105,6 @@ export default function SettingsDialog({
         </DialogHeader>
 
         <div className="max-h-[70vh] space-y-6 overflow-y-auto py-2">
-          {runtimes.length > 0 && (
-            <div className="space-y-2">
-              <p className="font-medium">Container runtime</p>
-              <p className="text-muted-foreground text-sm">
-                Select which container engine to use. Requires a restart to take effect.
-              </p>
-              <RadioGroup
-                value={currentRuntime}
-                onValueChange={(v) => handleRuntimeChange(v as RuntimeInfo['name'])}
-              >
-                {runtimes.map((rt) => (
-                  <label
-                    key={rt.name}
-                    className={`flex items-center gap-2 ${
-                      isRuntimeDisabled(rt) ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'
-                    }`}
-                  >
-                    <RadioGroupItem value={rt.name} disabled={isRuntimeDisabled(rt)} />
-                    <span className="capitalize">{rt.name}</span>
-                    {isRuntimeDisabled(rt) && (
-                      <span className="text-muted-foreground text-sm">(not detected)</span>
-                    )}
-                    {rt.available && rt.version && (
-                      <span className="text-muted-foreground text-sm">v{rt.version}</span>
-                    )}
-                  </label>
-                ))}
-              </RadioGroup>
-              {runtimes.some((rt) => rt.name === currentRuntime && isSocketInactive(rt)) && (
-                <p className="text-warning text-sm">
-                  No active socket found. Start the service first, e.g.{' '}
-                  <code className="bg-muted text-foreground rounded px-1 py-0.5 font-mono text-sm">
-                    systemctl --user enable --now {currentRuntime}.socket
-                  </code>
-                </p>
-              )}
-              {restartNeeded && (
-                <p className="text-warning text-sm">
-                  Restart the dashboard to apply the runtime change.
-                </p>
-              )}
-            </div>
-          )}
-
-          {runtimes.length > 0 && <Separator />}
-
           <div className="space-y-2">
             <p className="font-medium">Browser notifications</p>
             <p className="text-muted-foreground text-sm">Get notified when agents need input.</p>

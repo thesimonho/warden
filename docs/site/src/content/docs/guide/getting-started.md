@@ -6,7 +6,7 @@ description: Get up and running with Warden in under a minute.
 ## Prerequisites
 
 - [Git](https://git-scm.com/downloads) — required for worktree support
-- [Docker](https://docs.docker.com/get-docker/) or [Podman](https://podman.io/docs/installation)
+- [Docker](https://docs.docker.com/get-docker/)
 - An agent CLI account — [Claude Code](https://docs.anthropic.com/en/docs/agents-and-tools/claude-code/overview) (Anthropic) or [Codex](https://github.com/openai/codex) (OpenAI)
 
 ## Choose your binary

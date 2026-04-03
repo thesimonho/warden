@@ -20,7 +20,7 @@ The following are in scope:
 The following are out of scope:
 
 - Vulnerabilities in Claude Code itself (report to [Anthropic](https://www.anthropic.com/responsible-disclosure))
-- Vulnerabilities in Docker or Podman (report to the respective projects)
+- Vulnerabilities in Docker (report to the Docker project)
 - Denial of service against the local Warden process (it runs on localhost by default)
 
 ## Supported Versions

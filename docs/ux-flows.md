@@ -129,7 +129,7 @@ This directory is ephemeral — stale entries are harmless and reset on containe
 **Expected behavior:**
 
 1. Confirmation dialog opens.
-2. Checkbox option: "Also delete container" (stop + remove the Docker/Podman container).
+2. Checkbox option: "Also delete container" (stop + remove the Docker container).
 3. If checkbox is unchecked: project is removed from the dashboard config only. Container continues to exist.
 4. If checkbox is checked: container is deleted first (may take up to 30s), then project is removed from config.
 5. Dialog shows loading state (spinner, disabled buttons) while operation runs.
@@ -316,15 +316,12 @@ For projects with multiple worktrees, cost is the sum across all worktree sessio
 
 **Settings:**
 
-- Runtime selection (Docker/Podman) — shows available runtimes with socket status.
 - Notification poll interval.
 - Browser notifications toggle.
 
 **Edge cases:**
 
-- Selected runtime becomes unavailable: auto-falls back to first available runtime.
-- Runtime change requires dashboard restart (banner shown).
-- Podman socket inactive: hint shown to enable via `systemctl --user enable --now podman.socket`.
+- Docker socket inactive: hint shown to start the Docker daemon.
 
 ---
 

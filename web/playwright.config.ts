@@ -6,12 +6,7 @@ import { defineConfig, devices, type PlaywrightTestConfig } from '@playwright/te
  * Tests are split into two projects:
  * - **ui**: Lightweight tests that use at most one worktree. Run in parallel.
  * - **container**: Tests that spin up multiple worktrees or exercise container
- *   internals. Serialized to avoid Docker/Podman resource contention.
- *
- * Set `WARDEN_RUNTIME` to override the container runtime (docker | podman).
- * When set, project names are prefixed with the runtime (e.g. `docker-ui`,
- * `podman-container`) for clearer reporting in multi-runtime test runs.
- * See `just test-e2e-matrix` for running the full suite against both runtimes.
+ *   internals. Serialized to avoid Docker resource contention.
  *
  * Prefers the Vite dev server at :5173 (fastest iteration, always up-to-date).
  * Falls back to building the frontend and starting the Go backend at :8090
@@ -64,11 +59,7 @@ async function resolveServer(): Promise<{
 
 const serverConfig = await resolveServer()
 
-/**
- * When WARDEN_RUNTIME is set, prefix project names so multi-runtime
- * reports clearly distinguish Docker vs Podman results.
- */
-const runtimePrefix = process.env.WARDEN_RUNTIME ? `${process.env.WARDEN_RUNTIME}-` : ''
+const runtimePrefix = ''
 
 /** Test-file patterns for the two project tiers. */
 const uiTestMatch = /home-page|navigation|project-page|project-lifecycle|panel-maximize|terminal-connection/

@@ -34,7 +34,7 @@ const readLimit = 128 * 1024 // 128 KB
 var containerUser = engine.ContainerUser
 
 // ExecAPI is the subset of the Docker client used by the proxy.
-// Both Docker and Podman implement these through the same SDK.
+// Docker implements these through the SDK.
 type ExecAPI interface {
 	ContainerExecCreate(ctx context.Context, container string, options container.ExecOptions) (container.ExecCreateResponse, error)
 	ContainerExecAttach(ctx context.Context, execID string, options container.ExecStartOptions) (dtypes.HijackedResponse, error)
@@ -54,7 +54,7 @@ type Proxy struct {
 	api ExecAPI
 }
 
-// NewProxy creates a terminal proxy backed by the given Docker/Podman exec API.
+// NewProxy creates a terminal proxy backed by the given Docker exec API.
 func NewProxy(api ExecAPI) *Proxy {
 	return &Proxy{api: api}
 }

@@ -191,11 +191,7 @@ func (ec *EngineClient) CreateContainer(ctx context.Context, req api.CreateConta
 		binds = append(binds, fmt.Sprintf("%s:%s", eventHostDir, containerEventDir))
 	}
 
-	seccompValue := ec.seccompProfileJSON
-	if ec.runtimeName == "podman" {
-		seccompValue = ec.seccompProfilePath
-	}
-	capDrop, capAdd, securityOpts := buildSecurityConfig(networkMode, seccompValue)
+	capDrop, capAdd, securityOpts := buildSecurityConfig(networkMode, ec.seccompProfileJSON)
 
 	pidsLimit := defaultPidsLimit
 	hostConfig := &container.HostConfig{
@@ -212,13 +208,6 @@ func (ec *EngineClient) CreateContainer(ctx context.Context, req api.CreateConta
 		CapDrop:     capDrop,
 		CapAdd:      capAdd,
 		SecurityOpt: securityOpts,
-	}
-
-	// Rootless Podman maps the host UID to root inside the container,
-	// breaking bind mount ownership for the warden user. --userns=keep-id
-	// preserves the host UID mapping so bind mounts work the same as Docker.
-	if ec.runtimeName == "podman" {
-		hostConfig.UsernsMode = "keep-id"
 	}
 
 	resp, err := ec.api.ContainerCreate(ctx, containerConfig, hostConfig, nil, nil, req.Name)
@@ -292,7 +281,6 @@ func (ec *EngineClient) InspectContainer(ctx context.Context, id string) (*api.C
 	}
 
 	// Parse binds for project path and additional mounts.
-	// Check both HostConfig.Binds (Docker) and Mounts (Podman).
 	if info.HostConfig != nil {
 		for _, bind := range info.HostConfig.Binds {
 			parts := strings.SplitN(bind, ":", 2)
@@ -317,7 +305,7 @@ func (ec *EngineClient) InspectContainer(ctx context.Context, id string) (*api.C
 		}
 	}
 
-	// Podman populates Mounts instead of HostConfig.Binds.
+	// Fallback: check Mounts field for legacy/discovered containers.
 	if cfg.ProjectPath == "" {
 		for _, m := range info.Mounts {
 			if m.Destination == wsDir || m.Destination == "/project" {
@@ -436,14 +424,10 @@ var baseCapabilities = []string{
 //   - CapDrop ALL (drop all default capabilities)
 //   - CapAdd with baseCapabilities (re-add only what's needed)
 //   - no-new-privileges (prevent setuid binary escalation)
-//   - Custom seccomp profile (denylist of dangerous syscalls) — passed as inline
-//     JSON for Docker or a file path for Podman
+//   - Custom seccomp profile (denylist of dangerous syscalls) as inline JSON
 //
 // Containers with restricted or none network modes additionally get
 // NET_ADMIN for iptables-based network isolation.
-//
-// The seccompValue is either inline JSON (Docker) or a host-side file path
-// (Podman). The caller resolves which form to pass based on the runtime.
 func buildSecurityConfig(networkMode api.NetworkMode, seccompValue string) (capDrop, capAdd []string, securityOpts []string) {
 	capDrop = []string{"ALL"}
 

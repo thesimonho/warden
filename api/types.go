@@ -87,7 +87,6 @@ type SettingsResponse struct {
 // UpdateSettingsRequest holds the fields that can be updated.
 // Pointer fields allow distinguishing "not provided" from zero values.
 type UpdateSettingsRequest struct {
-	Runtime              *string       `json:"runtime"`
 	AuditLogMode         *AuditLogMode `json:"auditLogMode"`
 	DisconnectKey        *string       `json:"disconnectKey"`
 	DefaultProjectBudget *float64      `json:"defaultProjectBudget"`

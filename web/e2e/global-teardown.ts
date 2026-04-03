@@ -43,21 +43,19 @@ export default async function globalTeardown() {
   }
 
   /* Layer 2: CLI fallback — force-remove orphaned containers directly. */
-  for (const runtime of ['docker', 'podman']) {
-    try {
-      const containers = execSync(
-        `${runtime} ps -a --filter "name=warden-e2e-" --format "{{.Names}}"`,
-        { stdio: 'pipe', timeout: 10_000 },
-      ).toString().trim()
-      if (containers) {
-        const names = containers.split('\n').filter(Boolean)
-        for (const name of names) {
-          execSync(`${runtime} rm -f ${name}`, { stdio: 'pipe', timeout: 10_000 })
-        }
-        console.warn(`[E2E] Force-removed ${names.length} orphaned container(s) via ${runtime}`)
+  try {
+    const containers = execSync(
+      'docker ps -a --filter "name=warden-e2e-" --format "{{.Names}}"',
+      { stdio: 'pipe', timeout: 10_000 },
+    ).toString().trim()
+    if (containers) {
+      const names = containers.split('\n').filter(Boolean)
+      for (const name of names) {
+        execSync(`docker rm -f ${name}`, { stdio: 'pipe', timeout: 10_000 })
       }
-    } catch {
-      /* Runtime not available or no containers — skip. */
+      console.warn(`[E2E] Force-removed ${names.length} orphaned container(s) via docker`)
     }
+  } catch {
+    /* Docker not available or no containers — skip. */
   }
 }
