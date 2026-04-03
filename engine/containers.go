@@ -351,6 +351,25 @@ func (ec *EngineClient) RenameContainer(ctx context.Context, id string, newName 
 	return ec.api.ContainerRename(ctx, id, newName)
 }
 
+// ReloadAllowedDomains re-runs the network isolation script inside a running
+// container to update the allowed domain list without recreation. Runs as
+// root via docker exec with env var overrides (since the container's baked-in
+// WARDEN_ALLOWED_DOMAINS env var can't be changed at runtime).
+func (ec *EngineClient) ReloadAllowedDomains(ctx context.Context, containerID string, domains []string) error {
+	cfg := container.ExecOptions{
+		Cmd:          []string{"/usr/local/bin/setup-network-isolation.sh"},
+		User:         "root",
+		Env:          []string{"WARDEN_NETWORK_MODE=restricted", "WARDEN_ALLOWED_DOMAINS=" + strings.Join(domains, ",")},
+		AttachStdout: true,
+		AttachStderr: true,
+	}
+	_, err := ec.execAndCaptureStrict(ctx, containerID, cfg)
+	if err != nil {
+		return fmt.Errorf("reloading allowed domains: %w", err)
+	}
+	return nil
+}
+
 // RecreateContainer replaces a stopped container with a new one using updated config.
 // The old container is renamed to a temporary name before creating the replacement,
 // so it can be restored if the create fails (atomic swap).

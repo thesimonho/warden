@@ -664,8 +664,8 @@ func (l *Store) UpdateProjectContainer(projectID, agentType, containerID, contai
 
 // UpdateProjectSettings updates lightweight project settings that do not
 // require container recreation (name, skip_permissions, cost_budget,
-// container_name). All other fields remain unchanged.
-func (l *Store) UpdateProjectSettings(projectID, agentType, name, containerName string, skipPermissions bool, costBudget float64) error {
+// container_name, allowed_domains). All other fields remain unchanged.
+func (l *Store) UpdateProjectSettings(projectID, agentType, name, containerName string, skipPermissions bool, costBudget float64, allowedDomains string) error {
 	if l == nil {
 		return nil
 	}
@@ -675,9 +675,9 @@ func (l *Store) UpdateProjectSettings(projectID, agentType, name, containerName 
 
 	_, err := l.db.Exec(
 		`UPDATE projects
-		 SET name = ?, container_name = ?, skip_permissions = ?, cost_budget = ?
+		 SET name = ?, container_name = ?, skip_permissions = ?, cost_budget = ?, allowed_domains = ?
 		 WHERE project_id = ? AND agent_type = ?`,
-		name, containerName, skipPermissions, costBudget, projectID, agentType,
+		name, containerName, skipPermissions, costBudget, allowedDomains, projectID, agentType,
 	)
 	if err != nil {
 		return fmt.Errorf("updating settings for project %q/%s: %w", projectID, agentType, err)

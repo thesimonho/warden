@@ -166,7 +166,9 @@ func (s *Service) UpdateContainer(ctx context.Context, projectID, agentType stri
 }
 
 // updateContainerSettings applies lightweight setting changes (name,
-// skipPermissions, costBudget) without recreating the container.
+// skipPermissions, costBudget, allowedDomains) without recreating the
+// container. Domain changes are hot-reloaded via docker exec on running
+// restricted-mode containers.
 func (s *Service) updateContainerSettings(ctx context.Context, project *db.ProjectRow, req api.CreateContainerRequest) (*ContainerResult, error) {
 	containerName := effectiveContainerName(project)
 
@@ -190,6 +192,20 @@ func (s *Service) updateContainerSettings(ctx context.Context, project *db.Proje
 		s.startProjectWatcher(project.ProjectID, containerName, project.AgentType)
 	}
 
+	// Hot-reload allowed domains if they changed on a restricted-mode container.
+	// Best-effort: if the exec fails (e.g. container stopped), the DB is still
+	// updated so the correct domains apply on next container start/recreation.
+	newDomains := strings.Join(req.AllowedDomains, ",")
+	existingMode := api.NetworkMode(project.NetworkMode)
+	if existingMode == "" {
+		existingMode = api.NetworkModeFull
+	}
+	if newDomains != project.AllowedDomains && existingMode == api.NetworkModeRestricted {
+		if err := s.docker.ReloadAllowedDomains(ctx, project.ContainerID, req.AllowedDomains); err != nil {
+			slog.Warn("failed to hot-reload domains (container may be stopped)", "err", err)
+		}
+	}
+
 	if err := s.db.UpdateProjectSettings(
 		project.ProjectID,
 		project.AgentType,
@@ -197,9 +213,12 @@ func (s *Service) updateContainerSettings(ctx context.Context, project *db.Proje
 		containerName,
 		req.SkipPermissions,
 		req.CostBudget,
+		newDomains,
 	); err != nil {
 		return nil, fmt.Errorf("updating project settings: %w", err)
 	}
+
+	s.auditContainerUpdate(project, req, "settings", containerName)
 
 	return &ContainerResult{
 		ContainerID: project.ContainerID,
@@ -256,6 +275,8 @@ func (s *Service) recreateContainer(ctx context.Context, project *db.ProjectRow,
 	}
 	s.startProjectWatcher(row.ProjectID, req.Name, string(req.AgentType))
 
+	s.auditContainerUpdate(project, req, "recreated", req.Name)
+
 	return &ContainerResult{ContainerID: newID, Name: req.Name, ProjectID: row.ProjectID}, nil
 }
 
@@ -294,9 +315,8 @@ func needsRecreation(project *db.ProjectRow, req api.CreateContainerRequest) boo
 		return true
 	}
 
-	if !stringSlicesEqual(req.AllowedDomains, splitCSV(project.AllowedDomains)) {
-		return true
-	}
+	// AllowedDomains is NOT checked here — domain changes are hot-reloaded
+	// via docker exec (ReloadAllowedDomains) in the light update path.
 
 	if !stringSlicesEqual(req.EnabledAccessItems, splitCSV(project.EnabledAccessItems)) {
 		return true
@@ -373,6 +393,60 @@ func stringSlicesEqual(a, b []string) bool {
 		}
 	}
 	return true
+}
+
+// containerChange records a single field that changed between old and new values.
+type containerChange struct {
+	Field string `json:"field"`
+	From  any    `json:"from"`
+	To    any    `json:"to"`
+}
+
+// auditContainerUpdate writes a container_updated audit event with the
+// changes between the old project state and the new request.
+func (s *Service) auditContainerUpdate(old *db.ProjectRow, req api.CreateContainerRequest, method, containerName string) {
+	var changes []containerChange
+
+	if req.Name != "" && req.Name != old.Name {
+		changes = append(changes, containerChange{"name", old.Name, req.Name})
+	}
+	if req.SkipPermissions != old.SkipPermissions {
+		changes = append(changes, containerChange{"skipPermissions", old.SkipPermissions, req.SkipPermissions})
+	}
+	if req.CostBudget != old.CostBudget {
+		changes = append(changes, containerChange{"costBudget", old.CostBudget, req.CostBudget})
+	}
+	newDomains := strings.Join(req.AllowedDomains, ",")
+	if newDomains != old.AllowedDomains {
+		changes = append(changes, containerChange{"allowedDomains", splitCSV(old.AllowedDomains), req.AllowedDomains})
+	}
+	if req.Image != "" && req.Image != old.Image {
+		changes = append(changes, containerChange{"image", old.Image, req.Image})
+	}
+	reqNetwork := string(req.NetworkMode)
+	if reqNetwork != "" && reqNetwork != old.NetworkMode {
+		changes = append(changes, containerChange{"networkMode", old.NetworkMode, reqNetwork})
+	}
+
+	if len(changes) == 0 {
+		return
+	}
+
+	data, _ := json.Marshal(map[string]any{
+		"method":  method,
+		"changes": changes,
+	})
+
+	s.audit.Write(db.Entry{
+		Source:        db.SourceBackend,
+		Level:         db.LevelInfo,
+		ProjectID:     old.ProjectID,
+		AgentType:     old.AgentType,
+		ContainerName: containerName,
+		Event:         "container_updated",
+		Message:       fmt.Sprintf("container updated (%s): %d change(s)", method, len(changes)),
+		Data:          data,
+	})
 }
 
 // ValidateContainer checks whether a container has the required Warden

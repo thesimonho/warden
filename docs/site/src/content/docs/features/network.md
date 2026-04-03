@@ -33,15 +33,31 @@ When selecting Restricted mode, you specify a list of domains. Both exact domain
 
 Each domain entry automatically includes all subdomains.
 
+Warden pre-populates the domain list based on the selected agent type: Claude Code gets `*.anthropic.com`, Codex gets `*.openai.com`, and both include shared infrastructure domains (GitHub, npm, PyPI, Go modules). You can customize this list at creation time or edit it later.
+
+**Live domain updates:**
+
+Allowed domains can be changed on a running container without restarting it. When you update domains in the edit dialog, Warden hot-reloads the network policy: the dnsmasq config and ipset are updated and dnsmasq is signaled to reload. Active connections to previously-allowed domains remain alive until they close naturally, while new connections to removed domains are blocked immediately.
+
 ### None
 
 All outbound traffic is blocked. Only loopback (localhost) and established connections (responses to already-open connections) are allowed.
 
 Use this for air-gapped operation — when Claude should work entirely with local files and tools, with no internet access.
 
+## How It Works
+
+Restricted mode uses [dnsmasq](https://dnsmasq.org/) as a local DNS forwarder combined with an ipset-based iptables firewall:
+
+1. **DNS interception** — `resolv.conf` is rewritten to point to a local dnsmasq instance (`127.0.0.53`). All DNS queries from the container go through dnsmasq.
+2. **Dynamic IP tracking** — When a DNS query matches an allowed domain, dnsmasq adds the resolved IPs to a kernel ipset (`warden_allowed`) with a 300-second TTL. This handles wildcard domains correctly — `*.github.com` covers `ssh.github.com` even when it resolves to a different IP.
+3. **Firewall** — iptables OUTPUT rules allow traffic to any IP in the ipset and reject everything else. The `ESTABLISHED,RELATED` rule keeps existing connections alive.
+4. **Hot-reload** — When domains change at runtime, the script detects the running dnsmasq and takes a fast path: regenerate config, flush and re-seed the ipset, then signal dnsmasq with SIGHUP. No iptables rules are modified, so active connections are unaffected.
+
 ## Limitations
 
-- **Domain IPs are resolved dynamically**, but if a domain's IP changes and DNS caching hasn't refreshed, there may be a brief interruption. Restart the container to force re-resolution.
+- **Domain IPs are resolved dynamically**, but if a domain's IP changes and DNS caching hasn't refreshed, there may be a brief interruption. Editing the allowed domains list triggers a full re-resolution; otherwise restart the container.
+- **Network mode changes** (e.g. `full` → `restricted`) still require container recreation since they involve different iptables rule sets and capabilities.
 
 ## For Developers
 

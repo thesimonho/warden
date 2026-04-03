@@ -17,7 +17,7 @@ If you add the same path again, Warden returns the existing project instead of c
 
 ## Container Configuration
 
-Each project's container is configured at creation time. You can update the configuration later — Warden recreates the container with the new settings.
+Each project's container is configured at creation time. You can update the configuration later — lightweight changes (budget, skip permissions, allowed domains) are applied in-place, while structural changes (image, mounts, env vars, network mode) recreate the container.
 
 ### Image
 
@@ -86,7 +86,7 @@ Skipping permissions gives the agent unrestricted access to the tools available 
 | **Stop**    | Captures latest cost data, then stops the container gracefully. All worktree processes are terminated.                                                           |
 | **Restart** | Validates bind mount sources still exist and checks cost budget before restarting. Blocks if mounts are stale or budget is exceeded with `preventStart` enabled. |
 | **Delete**  | Stops and removes the container. The project record remains — only the container is destroyed.                                                                   |
-| **Update**  | Recreates the container with new configuration. Worktree state on disk is preserved.                                                                             |
+| **Update**  | Applies configuration changes. Lightweight settings (budget, skip permissions, domains) update in-place; structural changes recreate the container.              |
 
 ## Process Hardening
 

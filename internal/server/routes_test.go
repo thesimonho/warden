@@ -78,6 +78,10 @@ func (m *mockEngineClient) RenameContainer(_ context.Context, _ string, _ string
 	return nil
 }
 
+func (m *mockEngineClient) ReloadAllowedDomains(_ context.Context, _ string, _ []string) error {
+	return nil
+}
+
 func (m *mockEngineClient) RecreateContainer(_ context.Context, _ string, _ api.CreateContainerRequest) (string, error) {
 	return m.recreateID, m.recreateErr
 }

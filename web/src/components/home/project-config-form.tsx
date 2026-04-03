@@ -45,8 +45,6 @@ interface ProjectConfigFormProps {
   onSubmit: (data: ProjectConfigFormData) => void
   /** Whether the form submission is in progress. */
   isSubmitting: boolean
-  /** Whether the form is disabled (e.g. container is running). */
-  disabled?: boolean
   /** External error message to display. */
   error?: string | null
 }
@@ -119,7 +117,6 @@ export default function ProjectConfigForm({
   initialValues,
   onSubmit,
   isSubmitting,
-  disabled = false,
   error: externalError,
 }: ProjectConfigFormProps) {
   const [agentType, setAgentType] = useState<AgentType>(
@@ -426,7 +423,7 @@ export default function ProjectConfigForm({
           id="skip-permissions-toggle"
           checked={skipPermissions}
           onCheckedChange={setSkipPermissions}
-          disabled={isSubmitting || disabled}
+          disabled={isSubmitting}
         />
       </div>
 
@@ -443,7 +440,7 @@ export default function ProjectConfigForm({
             placeholder="Use default"
             value={costBudget}
             onChange={(e) => setCostBudget(e.target.value)}
-            disabled={isSubmitting || disabled}
+            disabled={isSubmitting}
             className="w-32"
           />
         </div>
@@ -464,7 +461,7 @@ export default function ProjectConfigForm({
                 onCheckedChange={(checked) =>
                   setAccessToggles((prev) => ({ ...prev, [item.id]: checked === true }))
                 }
-                disabled={isSubmitting || disabled || !isDetected}
+                disabled={isSubmitting || !isDetected}
                 className="mt-0.5"
               />
               <div className="flex flex-col gap-0.5">
@@ -515,7 +512,7 @@ export default function ProjectConfigForm({
               size="sm"
               variant={networkMode === mode ? 'default' : 'outline'}
               onClick={() => setNetworkMode(mode)}
-              disabled={isSubmitting || disabled}
+              disabled={isSubmitting}
               className="flex-1 capitalize"
             >
               {mode === 'full' ? 'Full' : mode === 'restricted' ? 'Restricted' : 'None'}
@@ -533,13 +530,13 @@ export default function ProjectConfigForm({
             <Textarea
               value={allowedDomains}
               onChange={(e) => setAllowedDomains(e.target.value)}
-              disabled={isSubmitting || disabled}
+              disabled={isSubmitting}
               rows={9}
               className="font-mono"
               placeholder="*.anthropic.com&#10;*.github.com&#10;registry.npmjs.org"
             />
             <p className="text-muted-foreground text-sm">
-              Wildcard patterns (e.g. *.github.com) resolve the base domain at container start.
+              Wildcard patterns (e.g. *.github.com) match all subdomains dynamically.
             </p>
           </div>
         )}
@@ -590,7 +587,7 @@ export default function ProjectConfigForm({
             <Input
               value={image}
               onChange={(e) => setImage(e.target.value)}
-              disabled={isSubmitting || disabled}
+              disabled={isSubmitting}
             />
           </FormField>
 
@@ -622,7 +619,7 @@ export default function ProjectConfigForm({
                     { hostPath: '', containerPath: '', readOnly: true },
                   ])
                 }
-                disabled={isSubmitting || disabled}
+                disabled={isSubmitting}
                 icon={Plus}
               >
                 Add
@@ -661,7 +658,7 @@ export default function ProjectConfigForm({
                             prev.map((m, i) => (i === mountIndex ? { ...m, hostPath: val } : m)),
                           )
                         }
-                        disabled={isSubmitting || disabled}
+                        disabled={isSubmitting}
                         defaultPath={homeDir}
                         placeholder="/host/path"
                         mode="file"
@@ -679,7 +676,7 @@ export default function ProjectConfigForm({
                           )
                         }}
                         className="font-mono text-sm"
-                        disabled={isSubmitting || disabled || isRequired}
+                        disabled={isSubmitting || isRequired}
                       />
                       <Tooltip>
                         <TooltipTrigger asChild>
@@ -694,7 +691,7 @@ export default function ProjectConfigForm({
                                 ),
                               )
                             }
-                            disabled={isSubmitting || disabled}
+                            disabled={isSubmitting}
                             className="shrink-0 px-2 font-mono text-sm"
                           >
                             {mount.readOnly ? 'RO' : 'RW'}
@@ -716,7 +713,7 @@ export default function ProjectConfigForm({
                           onClick={() =>
                             setMounts((prev) => prev.filter((_, i) => i !== mountIndex))
                           }
-                          disabled={isSubmitting || disabled}
+                          disabled={isSubmitting}
                           className="shrink-0 px-2"
                           icon={Trash2}
                         />
@@ -736,7 +733,7 @@ export default function ProjectConfigForm({
                 size="sm"
                 variant="ghost"
                 onClick={handleAddEnvVar}
-                disabled={isSubmitting || disabled}
+                disabled={isSubmitting}
                 icon={Plus}
               >
                 Add
@@ -752,7 +749,7 @@ export default function ProjectConfigForm({
                   value={entry.key}
                   onChange={(e) => handleUpdateEnvVar(index, 'key', e.target.value)}
                   className="flex-1 font-mono text-sm"
-                  disabled={isSubmitting || disabled}
+                  disabled={isSubmitting}
                 />
                 <Input
                   placeholder="value"
@@ -766,14 +763,14 @@ export default function ProjectConfigForm({
                       ? 'password'
                       : 'text'
                   }
-                  disabled={isSubmitting || disabled}
+                  disabled={isSubmitting}
                 />
                 <Button
                   type="button"
                   size="sm"
                   variant="ghost"
                   onClick={() => handleRemoveEnvVar(index)}
-                  disabled={isSubmitting || disabled}
+                  disabled={isSubmitting}
                   className="shrink-0 px-2"
                   icon={Trash2}
                 />
@@ -786,8 +783,8 @@ export default function ProjectConfigForm({
       {displayError && <p className="text-error">{displayError}</p>}
 
       <div className="flex justify-end">
-        <Button onClick={handleSubmit} disabled={isSubmitting || disabled || !isValid}>
-          {isSubmitting && !disabled ? (
+        <Button onClick={handleSubmit} disabled={isSubmitting || !isValid}>
+          {isSubmitting ? (
             <>
               <Loader2 className="animate-spin" />
               {isEditMode ? 'Saving...' : 'Creating...'}

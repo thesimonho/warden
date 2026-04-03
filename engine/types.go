@@ -184,6 +184,11 @@ type Client interface {
 	// RenameContainer changes the name of an existing container without recreation.
 	RenameContainer(ctx context.Context, id string, newName string) error
 
+	// ReloadAllowedDomains re-runs the network isolation script inside a
+	// running container to update the allowed domain list without recreation.
+	// Runs as root via docker exec with env var overrides.
+	ReloadAllowedDomains(ctx context.Context, containerID string, domains []string) error
+
 	// RecreateContainer replaces a stopped container with a new one using updated config.
 	// Returns the new container ID.
 	RecreateContainer(ctx context.Context, id string, req api.CreateContainerRequest) (string, error)

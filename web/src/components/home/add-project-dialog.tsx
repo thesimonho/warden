@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { AlertTriangle, Loader2 } from 'lucide-react'
+import { Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import type { ContainerConfig } from '@/lib/types'
 import { DEFAULT_AGENT_TYPE } from '@/lib/types'
@@ -32,8 +32,6 @@ interface AddProjectDialogProps {
   editProjectId?: string | null
   /** Agent type for the project being edited. */
   editAgentType?: string | null
-  /** Whether the project being edited is currently running (disables the form). */
-  editIsRunning?: boolean
   /** When set, opens in create mode for an existing project that has no container. */
   createForProject?: CreateForProject | null
 }
@@ -53,7 +51,6 @@ export default function AddProjectDialog({
   onProjectAdded,
   editProjectId = null,
   editAgentType = null,
-  editIsRunning = false,
   createForProject = null,
 }: AddProjectDialogProps) {
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -164,15 +161,6 @@ export default function AddProjectDialog({
         </DialogHeader>
 
         <div className="max-h-[70vh] overflow-y-auto px-1">
-          {editIsRunning && (
-            <div className="border-error/50 bg-error/10 mb-4 flex items-start gap-2 rounded border p-3">
-              <AlertTriangle className="text-error mt-0.5 h-4 w-4 shrink-0" />
-              <p className="text-error">
-                Stop the container before editing. A running container cannot be modified.
-              </p>
-            </div>
-          )}
-
           {isLoadingConfig && (
             <div className="flex items-center justify-center py-16">
               <Loader2 className="text-muted-foreground h-5 w-5 animate-spin" />
@@ -187,9 +175,9 @@ export default function AddProjectDialog({
 
           {!isLoadingConfig && (!isEditMode || editConfig) && (
             <>
-              {isEditMode && !editIsRunning && (
+              {isEditMode && (
                 <p className="text-muted-foreground mb-4 text-sm">
-                  The container will be recreated with the updated configuration.
+                  Some changes may require the container to be recreated.
                 </p>
               )}
               <ProjectConfigForm
@@ -197,7 +185,6 @@ export default function AddProjectDialog({
                 initialValues={editConfig ?? createForExistingDefaults}
                 onSubmit={handleFormSubmit}
                 isSubmitting={isSubmitting}
-                disabled={editIsRunning}
                 error={formError}
               />
             </>
