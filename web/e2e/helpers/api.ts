@@ -260,7 +260,9 @@ export async function waitForProjectState(
   const deadline = Date.now() + timeoutMs
   while (Date.now() < deadline) {
     const projects = await fetchProjects()
-    const project = projects.find((p) => p.name === name)
+    // Find the project with a container — stale DB entries from previous
+    // runs may have the same name but no container (empty state).
+    const project = projects.find((p) => p.name === name && p.hasContainer)
     if (project?.state === expectedState) return project
     await new Promise((r) => setTimeout(r, 2000))
   }

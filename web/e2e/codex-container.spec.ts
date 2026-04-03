@@ -109,7 +109,9 @@ const codexTest = base.extend<
 codexTest.describe('Codex container integration', () => {
   codexTest('should create a container with codex agent type', async ({ codexProject }) => {
     const projects = await fetchProjects()
-    const project = projects.find((p) => p.projectId === codexProject.id)
+    const project = projects.find(
+      (p) => p.projectId === codexProject.id && p.agentType === 'codex' && p.hasContainer,
+    )
 
     expect(project).toBeTruthy()
     expect(project!.state).toBe('running')

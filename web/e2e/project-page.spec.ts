@@ -3,7 +3,7 @@ import { selectors } from './helpers/selectors'
 
 test.describe('Project page', () => {
   test('should show sidebar with worktree list', async ({ page, testProject }) => {
-    await navigateToProject(page, testProject.id)
+    await navigateToProject(page, testProject.id, testProject.agentType)
 
     /* Sidebar should be visible with at least the main worktree. */
     await expect(page.locator(selectors.projectSidebar)).toBeVisible()
@@ -11,7 +11,7 @@ test.describe('Project page', () => {
   })
 
   test('should show grid empty state when no panels are open', async ({ page, testProject }) => {
-    await navigateToProject(page, testProject.id)
+    await navigateToProject(page, testProject.id, testProject.agentType)
 
     /* Grid is the default view mode. */
     await expect(page.locator(selectors.gridEmptyState)).toBeVisible()
@@ -21,7 +21,7 @@ test.describe('Project page', () => {
   })
 
   test('should show canvas empty state when no panels are open', async ({ page, testProject }) => {
-    await navigateToProject(page, testProject.id)
+    await navigateToProject(page, testProject.id, testProject.agentType)
     await switchToCanvasMode(page)
 
     await expect(page.locator(selectors.canvasEmptyState)).toBeVisible()
@@ -34,7 +34,7 @@ test.describe('Project page', () => {
     page,
     testProject,
   }) => {
-    await navigateToProject(page, testProject.id)
+    await navigateToProject(page, testProject.id, testProject.agentType)
 
     /* Click the main worktree to add it as a grid cell. */
     await page.locator(selectors.worktreeRow('main')).click()
@@ -48,7 +48,7 @@ test.describe('Project page', () => {
     page,
     testProject,
   }) => {
-    await navigateToProject(page, testProject.id)
+    await navigateToProject(page, testProject.id, testProject.agentType)
     await switchToCanvasMode(page)
 
     /* Click the main worktree to add it as a panel. */
@@ -60,7 +60,7 @@ test.describe('Project page', () => {
   })
 
   test('should disconnect panel and return to empty state', async ({ page, testProject }) => {
-    await navigateToProject(page, testProject.id)
+    await navigateToProject(page, testProject.id, testProject.agentType)
 
     /* Connect a terminal in grid mode. */
     await page.locator(selectors.worktreeRow('main')).click()

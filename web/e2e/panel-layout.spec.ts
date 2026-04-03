@@ -46,7 +46,7 @@ async function selectTwoPanels(page: Page, panelA: string, panelB: string) {
 
 test.describe('Panel layout', () => {
   test('should open two panels and select both via shift+click', async ({ page, testProject }) => {
-    await navigateToProject(page, testProject.id)
+    await navigateToProject(page, testProject.id, testProject.agentType)
     await switchToCanvasMode(page)
     await ensureWorktreeVisible(page, testProject.id, 'e2e-shift')
 
@@ -70,7 +70,7 @@ test.describe('Panel layout', () => {
   })
 
   test('should apply grid layout to selected panels', async ({ page, testProject }) => {
-    await navigateToProject(page, testProject.id)
+    await navigateToProject(page, testProject.id, testProject.agentType)
     await switchToCanvasMode(page)
     await ensureWorktreeVisible(page, testProject.id, 'e2e-grid')
 
@@ -96,7 +96,7 @@ test.describe('Panel layout', () => {
   })
 
   test('should apply horizontal layout via keyboard shortcut', async ({ page, testProject }) => {
-    await navigateToProject(page, testProject.id)
+    await navigateToProject(page, testProject.id, testProject.agentType)
     await switchToCanvasMode(page)
     await ensureWorktreeVisible(page, testProject.id, 'e2e-horiz')
 
@@ -122,7 +122,7 @@ test.describe('Panel layout', () => {
   })
 
   test('should apply vertical layout via keyboard shortcut', async ({ page, testProject }) => {
-    await navigateToProject(page, testProject.id)
+    await navigateToProject(page, testProject.id, testProject.agentType)
     await switchToCanvasMode(page)
     await ensureWorktreeVisible(page, testProject.id, 'e2e-vert')
 
@@ -148,7 +148,7 @@ test.describe('Panel layout', () => {
   })
 
   test('should deselect panels with Escape key', async ({ page, testProject }) => {
-    await navigateToProject(page, testProject.id)
+    await navigateToProject(page, testProject.id, testProject.agentType)
     await switchToCanvasMode(page)
     await ensureWorktreeVisible(page, testProject.id, 'e2e-esc')
 
