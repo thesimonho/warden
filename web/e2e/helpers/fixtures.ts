@@ -239,8 +239,9 @@ export async function assertTerminalUsable(page: Page): Promise<void> {
 export async function navigateToProject(
   page: Page,
   projectId: string,
+  agentType = 'claude-code',
 ): Promise<void> {
-  await page.goto(`/projects/${projectId}`)
+  await page.goto(`/projects/${projectId}/${agentType}`)
   await page.locator('[data-testid="project-sidebar"]').waitFor({ state: 'visible' })
 }
 

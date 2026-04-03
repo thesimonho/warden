@@ -11,7 +11,7 @@ import { selectors } from './helpers/selectors'
 
 test.describe('Terminal connection', () => {
   test('should connect terminal with xterm.js rendering', async ({ page, testProject }) => {
-    await navigateToProject(page, testProject.id)
+    await navigateToProject(page, testProject.id, testProject.agentType)
 
     await page.locator(selectors.worktreeRow('main')).click()
     await expect(page.locator(selectors.gridCell('main'))).toBeVisible({ timeout: 30_000 })
@@ -21,7 +21,7 @@ test.describe('Terminal connection', () => {
   })
 
   test('should render terminal canvas with non-zero dimensions', async ({ page, testProject }) => {
-    await navigateToProject(page, testProject.id)
+    await navigateToProject(page, testProject.id, testProject.agentType)
 
     await page.locator(selectors.worktreeRow('main')).click()
     await expect(page.locator(selectors.gridCell('main'))).toBeVisible({ timeout: 30_000 })
@@ -39,7 +39,7 @@ test.describe('Terminal connection', () => {
     page,
     testProject,
   }) => {
-    await navigateToProject(page, testProject.id)
+    await navigateToProject(page, testProject.id, testProject.agentType)
 
     await page.locator(selectors.worktreeRow('main')).click()
     await expect(page.locator(selectors.gridCell('main'))).toBeVisible({ timeout: 30_000 })
@@ -71,7 +71,7 @@ test.describe('Terminal connection', () => {
   })
 
   test('should disconnect via API and reflect background state', async ({ page, testProject }) => {
-    await navigateToProject(page, testProject.id)
+    await navigateToProject(page, testProject.id, testProject.agentType)
 
     await page.locator(selectors.worktreeRow('main')).click()
     await expect(page.locator(selectors.gridCell('main'))).toBeVisible({ timeout: 30_000 })

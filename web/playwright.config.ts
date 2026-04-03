@@ -86,7 +86,7 @@ export default defineConfig({
      Retries are disabled — each retry spawns a new worker (= new container),
      which compounds the problem rather than fixing flaky tests. */
   fullyParallel: false,
-  workers: 4,
+  workers: 2,
   retries: 0,
 
   reporter: process.env.CI ? [['html', { outputFolder: 'playwright-report' }]] : [['list']],

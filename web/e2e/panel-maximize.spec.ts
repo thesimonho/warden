@@ -3,7 +3,7 @@ import { selectors } from './helpers/selectors'
 
 test.describe('Panel maximize', () => {
   test('should maximize a panel and restore it', async ({ page, testProject }) => {
-    await navigateToProject(page, testProject.id)
+    await navigateToProject(page, testProject.id, testProject.agentType)
     await switchToCanvasMode(page)
 
     await page.locator(selectors.worktreeRow('main')).click()
@@ -29,7 +29,7 @@ test.describe('Panel maximize', () => {
   })
 
   test('should maximize panel and terminal remains usable', async ({ page, testProject }) => {
-    await navigateToProject(page, testProject.id)
+    await navigateToProject(page, testProject.id, testProject.agentType)
     await switchToCanvasMode(page)
 
     await page.locator(selectors.worktreeRow('main')).click()
@@ -44,7 +44,7 @@ test.describe('Panel maximize', () => {
   })
 
   test('should fit all panels to viewport', async ({ page, testProject }) => {
-    await navigateToProject(page, testProject.id)
+    await navigateToProject(page, testProject.id, testProject.agentType)
     await switchToCanvasMode(page)
 
     await page.locator(selectors.worktreeRow('main')).click()

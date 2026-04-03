@@ -15,7 +15,7 @@ test.describe('Terminal advanced', () => {
     page,
     testProject,
   }) => {
-    await navigateToProject(page, testProject.id)
+    await navigateToProject(page, testProject.id, testProject.agentType)
 
     await page.locator(selectors.worktreeRow('main')).click()
     await expect(page.locator(selectors.gridCell('main'))).toBeVisible({ timeout: 30_000 })
@@ -25,7 +25,7 @@ test.describe('Terminal advanced', () => {
     await page.goto('/')
     await expect(page.locator(selectors.projectCard(testProject.name))).toBeVisible()
 
-    await navigateToProject(page, testProject.id)
+    await navigateToProject(page, testProject.id, testProject.agentType)
 
     await page.locator(selectors.worktreeRow('main')).click()
     await expect(page.locator(selectors.gridCell('main'))).toBeVisible({ timeout: 30_000 })
@@ -34,14 +34,14 @@ test.describe('Terminal advanced', () => {
   })
 
   test('should handle rapid navigate-away-and-back', async ({ page, testProject }) => {
-    await navigateToProject(page, testProject.id)
+    await navigateToProject(page, testProject.id, testProject.agentType)
 
     await page.locator(selectors.worktreeRow('main')).click()
     await expect(page.locator(selectors.gridCell('main'))).toBeVisible({ timeout: 30_000 })
 
     for (let i = 0; i < 3; i++) {
       await page.goto('/')
-      await navigateToProject(page, testProject.id)
+      await navigateToProject(page, testProject.id, testProject.agentType)
     }
 
     await expect(page.locator(selectors.worktreeRow('main'))).toBeVisible()
@@ -53,7 +53,7 @@ test.describe('Terminal advanced', () => {
   })
 
   test('should connect two usable terminals simultaneously', async ({ page, testProject }) => {
-    await navigateToProject(page, testProject.id)
+    await navigateToProject(page, testProject.id, testProject.agentType)
     await ensureWorktreeVisible(page, testProject.id, 'e2e-multi')
 
     await page.locator(selectors.worktreeRow('main')).click()
@@ -75,7 +75,7 @@ test.describe('Terminal advanced', () => {
     page,
     testProject,
   }) => {
-    await navigateToProject(page, testProject.id)
+    await navigateToProject(page, testProject.id, testProject.agentType)
     await ensureWorktreeVisible(page, testProject.id, 'e2e-indep')
 
     await page.locator(selectors.worktreeRow('main')).click()
@@ -97,7 +97,7 @@ test.describe('Terminal advanced', () => {
 
   test('should resize panel and xterm.js canvas stays rendered', async ({ page, testProject }) => {
     /* Panel resize via drag handles is a canvas-specific feature. */
-    await navigateToProject(page, testProject.id)
+    await navigateToProject(page, testProject.id, testProject.agentType)
     await switchToCanvasMode(page)
 
     await page.locator(selectors.worktreeRow('main')).click()
@@ -125,7 +125,7 @@ test.describe('Terminal advanced', () => {
   })
 
   test('should create a worktree and connect a usable terminal', async ({ page, testProject }) => {
-    await navigateToProject(page, testProject.id)
+    await navigateToProject(page, testProject.id, testProject.agentType)
 
     await page.locator(selectors.newWorktreeButton).click()
 
