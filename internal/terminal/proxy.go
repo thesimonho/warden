@@ -63,8 +63,9 @@ func NewProxy(api ExecAPI) *Proxy {
 // session inside the container. The connection stays open until the browser
 // disconnects or the exec process exits.
 //
-// For reconnects (query param reconnect=1), scrollback is captured from the
-// tmux pane and sent to the client before attaching the live stream.
+// Before attaching the live stream, scrollback is captured from the tmux pane
+// and sent to the client. For fresh sessions this is empty; for reconnects it
+// fills the gap between the user's last disconnect and now.
 //
 // The caller is responsible for validating containerID and worktreeID.
 func (p *Proxy) ServeWS(w http.ResponseWriter, r *http.Request, containerID, worktreeID string) {
@@ -82,14 +83,15 @@ func (p *Proxy) ServeWS(w http.ResponseWriter, r *http.Request, containerID, wor
 
 	ctx := r.Context()
 
-	// For reconnects, capture tmux scrollback and send it before attaching
-	// the live stream. This fills the gap between the user's last disconnect and now.
+	// Capture tmux scrollback and send it before attaching the live stream.
+	// For fresh sessions this returns empty; for reconnects it replays output
+	// the user missed while disconnected.
 	sessionName := fmt.Sprintf("warden-%s", worktreeID)
-	if r.URL.Query().Get("reconnect") == "1" {
-		scrollback, scrollErr := p.captureScrollback(ctx, containerID, sessionName)
-		if scrollErr == nil && len(scrollback) > 0 {
-			conn.Write(ctx, websocket.MessageBinary, scrollback) //nolint:errcheck
-		}
+	scrollback, scrollErr := p.captureScrollback(ctx, containerID, sessionName)
+	if scrollErr != nil {
+		slog.Warn("scrollback capture failed", "container", containerID, "worktree", worktreeID, "err", scrollErr)
+	} else if len(scrollback) > 0 {
+		conn.Write(ctx, websocket.MessageBinary, scrollback) //nolint:errcheck
 	}
 
 	// Create a docker exec with TTY that attaches to the tmux session.
@@ -249,23 +251,31 @@ func (p *Proxy) handleControlMessage(ctx context.Context, data []byte, execID st
 	}
 }
 
+// scrollbackTimeout bounds how long we wait for tmux capture-pane.
+// A slow container or large scrollback shouldn't delay the terminal indefinitely.
+const scrollbackTimeout = 5 * time.Second
+
 // captureScrollback runs `tmux capture-pane` inside the container to grab the
 // session's scrollback buffer. Returns the raw output bytes suitable for
 // writing directly to the WebSocket as a binary frame.
+//
+// Uses TTY mode so Docker returns raw output without multiplexing headers.
 func (p *Proxy) captureScrollback(ctx context.Context, containerID, sessionName string) ([]byte, error) {
+	ctx, cancel := context.WithTimeout(ctx, scrollbackTimeout)
+	defer cancel()
+
 	execResp, err := p.api.ContainerExecCreate(ctx, containerID, container.ExecOptions{
 		Cmd:          []string{"tmux", "capture-pane", "-t", sessionName, "-p", "-S", "-50000"},
 		User:         containerUser,
 		AttachStdout: true,
-		AttachStderr: true,
-		Tty:          false,
+		Tty:          true,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("scrollback exec create: %w", err)
 	}
 
 	hijacked, err := p.api.ContainerExecAttach(ctx, execResp.ID, container.ExecStartOptions{
-		Tty: false,
+		Tty: true,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("scrollback exec attach: %w", err)

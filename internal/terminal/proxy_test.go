@@ -75,28 +75,37 @@ func (pipeAddr) Network() string { return "pipe" }
 func (pipeAddr) String() string  { return "pipe" }
 
 // mockExecAPI implements ExecAPI for testing.
+// The first exec create/attach pair is consumed by scrollback capture
+// (returns an empty pipe that closes immediately). The second pair is
+// the actual tmux attach (uses the provided hijacked pipe).
 type mockExecAPI struct {
 	mu          sync.Mutex
 	hijacked    dtypes.HijackedResponse
 	resizes     []container.ResizeOptions
 	lastCreate  container.ExecOptions
 	createFn    func(ctx context.Context, containerID string, opts container.ExecOptions) (container.ExecCreateResponse, error)
-	created     chan struct{} // closed after first ContainerExecCreate call
+	created     chan struct{} // closed after the attach exec create (second call)
 	createdOnce sync.Once
+	createCount int
+	attachCount int
 }
 
 func (m *mockExecAPI) ContainerExecCreate(_ context.Context, _ string, opts container.ExecOptions) (container.ExecCreateResponse, error) {
 	m.mu.Lock()
+	m.createCount++
+	count := m.createCount
 	m.lastCreate = opts
 	m.mu.Unlock()
-
-	if m.created != nil {
-		m.createdOnce.Do(func() { close(m.created) })
-	}
 
 	if m.createFn != nil {
 		return m.createFn(context.Background(), "", opts)
 	}
+
+	// Second create call is the actual attach — signal readiness.
+	if count >= 2 && m.created != nil {
+		m.createdOnce.Do(func() { close(m.created) })
+	}
+
 	return container.ExecCreateResponse{ID: "test-exec-id"}, nil
 }
 
@@ -107,6 +116,23 @@ func (m *mockExecAPI) getLastCreate() container.ExecOptions {
 }
 
 func (m *mockExecAPI) ContainerExecAttach(_ context.Context, _ string, _ container.ExecStartOptions) (dtypes.HijackedResponse, error) {
+	m.mu.Lock()
+	m.attachCount++
+	count := m.attachCount
+	m.mu.Unlock()
+
+	// First attach is scrollback capture — return an empty pipe that closes immediately.
+	if count == 1 {
+		r, w := io.Pipe()
+		w.Close()
+		emptyConn := &pipeConn{Reader: r, Writer: io.Discard}
+		return dtypes.HijackedResponse{
+			Conn:   emptyConn,
+			Reader: bufio.NewReader(r),
+		}, nil
+	}
+
+	// Second attach is the actual tmux session.
 	return m.hijacked, nil
 }
 
