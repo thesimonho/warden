@@ -16,14 +16,20 @@ export async function getBaseURL(): Promise<string> {
   for (const candidate of ['http://localhost:5173', 'http://localhost:8090']) {
     try {
       const response = await fetch(`${candidate}/api/v1/health`, {
-        signal: AbortSignal.timeout(1000),
+        signal: AbortSignal.timeout(2000),
       })
-      if (response.ok) {
-        _resolvedBaseURL = candidate
-        return candidate
-      }
+      if (!response.ok) continue
+
+      // Validate the response is JSON, not an SPA fallback HTML page.
+      // When the Go backend is down, Vite returns index.html with 200
+      // for any route — including /api/v1/health.
+      const body = await response.json() as { status?: string }
+      if (body.status !== 'ok') continue
+
+      _resolvedBaseURL = candidate
+      return candidate
     } catch {
-      /* try next */
+      /* not reachable or not JSON — try next */
     }
   }
   _resolvedBaseURL = 'http://localhost:8090'
