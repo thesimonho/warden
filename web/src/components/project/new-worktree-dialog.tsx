@@ -50,15 +50,28 @@ export default function NewWorktreeDialog({
     }
   }, [open])
 
-  /** Validates a worktree name for use as a git branch/directory name. */
+  /**
+   * Sanitizes a worktree name for use as a git branch/directory name.
+   * Replaces invalid characters with hyphens and collapses runs of hyphens.
+   */
+  const sanitizeName = (input: string): string => {
+    return (
+      input
+        // Replace whitespace and git-invalid characters with hyphens.
+        // eslint-disable-next-line no-control-regex -- intentional: sanitizes git ref name rules
+        .replace(/[\s~^:?*\[\]\\@{}\x00-\x1f\x7f]+/g, '-')
+        // Collapse consecutive dots (invalid in git refs).
+        .replace(/\.{2,}/g, '.')
+        // Collapse consecutive hyphens from substitution.
+        .replace(/-{2,}/g, '-')
+        // Strip leading dots and hyphens.
+        .replace(/^[.-]+/, '')
+    )
+  }
+
+  /** Validates the sanitized name before submission. */
   const validateName = (input: string): string | null => {
     if (!input) return 'Worktree name is required'
-    if (/\s/.test(input)) return 'Name cannot contain spaces'
-    if (input.startsWith('-')) return 'Name cannot start with a hyphen'
-    if (input.startsWith('.')) return 'Name cannot start with a dot'
-    if (/\.\./.test(input)) return 'Name cannot contain consecutive dots'
-    // eslint-disable-next-line no-control-regex, no-useless-escape -- intentional: validates git ref name rules
-    if (/[~^:?*\[\]\\@{}\x00-\x1f\x7f]/.test(input)) return 'Name contains invalid characters'
     if (input.endsWith('.lock') || input.endsWith('.')) return 'Name cannot end with .lock or a dot'
     return null
   }
@@ -112,7 +125,7 @@ export default function NewWorktreeDialog({
             placeholder="Worktree name (e.g. feature-auth)"
             value={name}
             onChange={(e) => {
-              setName(e.target.value)
+              setName(sanitizeName(e.target.value))
               if (error) setError(null)
             }}
             onKeyDown={handleKeyDown}

@@ -13,17 +13,17 @@ Terminal user interface using Bubble Tea v2. Located at `internal/tui/`. Written
 
 ## Key Files
 
-| File | Purpose |
-| --- | --- |
-| `client.go` | `Client` interface — the key architectural boundary. Each method maps 1:1 to an API endpoint with GoDoc comment. Methods: list/add/remove projects, reset costs, purge audit, list/create/connect worktrees, terminal operations, settings, event log, defaults, event subscription. |
-| `adapter.go` | `ServiceAdapter` wraps `*Warden` to satisfy `Client` for embedded mode (TUI binary). Most methods delegate to `w.Service`; `AttachTerminal` uses docker exec; `SubscribeEvents` uses `w.Broker.Subscribe()`. Enables TUI and external Go clients to use the same interface. |
-| `app.go` | Root `tea.Model` — manages four tabs, active view routing, SSE event subscription (started in `NewApp()`), global key handling (quit, help, tab switching). Delegates `Update()` and `Render()` to active view. Tracks `auditLogMode` setting and `disconnectKey`. |
-| `common.go` | Message types: `ProjectsLoadedMsg`, `WorktreesLoadedMsg`, `SettingsLoadedMsg`, `RuntimesLoadedMsg`, `EventLogLoadedMsg`, `AuditLogLoadedMsg`, `AuditProjectsLoadedMsg`, `DefaultsLoadedMsg`, `OperationResultMsg`, `NavigateMsg`, `NavigateBackMsg`, `SSEEventMsg`, `EventStreamClosedMsg`. `Tab` enum: `TabProjects`, `TabSettings`, `TabEventLog`, `TabAuditLog`. |
-| `keymap.go` | Key binding definitions using `bubbles/key`. Keymaps: `GlobalKeyMap`, `ProjectKeyMap`, `WorktreeKeyMap`, `SettingsKeyMap`, `AuditLogKeyMap`, `ManageKeyMap`. |
-| `render.go` | Shared rendering helpers: `padRight`, `truncate`. |
-| `terminal.go` | `TerminalExecCmd` struct — bridges stdin/stdout to `client.TerminalConnection` for terminal passthrough mode. Handles raw terminal mode, SIGWINCH resize, and graceful close on disconnect key press. |
-| `theme.go` | Lip Gloss v2 styles — imports colors from `components/colors.go`. Defines `Styles` struct with layout, text, and component styles. |
-| `validate.go` | `ValidateWorktreeName` — git branch name validation rules ported from webapp. |
+| File          | Purpose                                                                                                                                                                                                                                                                                                                                                             |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `client.go`   | `Client` interface — the key architectural boundary. Each method maps 1:1 to an API endpoint with GoDoc comment. Methods: list/add/remove projects, reset costs, purge audit, list/create/connect worktrees, terminal operations, settings, event log, defaults, event subscription.                                                                                |
+| `adapter.go`  | `ServiceAdapter` wraps `*Warden` to satisfy `Client` for embedded mode (TUI binary). Most methods delegate to `w.Service`; `AttachTerminal` uses docker exec; `SubscribeEvents` uses `w.Broker.Subscribe()`. Enables TUI and external Go clients to use the same interface.                                                                                         |
+| `app.go`      | Root `tea.Model` — manages four tabs, active view routing, SSE event subscription (started in `NewApp()`), global key handling (quit, help, tab switching). Delegates `Update()` and `Render()` to active view. Tracks `auditLogMode` setting and `disconnectKey`.                                                                                                  |
+| `common.go`   | Message types: `ProjectsLoadedMsg`, `WorktreesLoadedMsg`, `SettingsLoadedMsg`, `RuntimesLoadedMsg`, `EventLogLoadedMsg`, `AuditLogLoadedMsg`, `AuditProjectsLoadedMsg`, `DefaultsLoadedMsg`, `OperationResultMsg`, `NavigateMsg`, `NavigateBackMsg`, `SSEEventMsg`, `EventStreamClosedMsg`. `Tab` enum: `TabProjects`, `TabSettings`, `TabEventLog`, `TabAuditLog`. |
+| `keymap.go`   | Key binding definitions using `bubbles/key`. Keymaps: `GlobalKeyMap`, `ProjectKeyMap`, `WorktreeKeyMap`, `SettingsKeyMap`, `AuditLogKeyMap`, `ManageKeyMap`.                                                                                                                                                                                                        |
+| `render.go`   | Shared rendering helpers: `padRight`, `truncate`.                                                                                                                                                                                                                                                                                                                   |
+| `terminal.go` | `TerminalExecCmd` struct — bridges stdin/stdout to `client.TerminalConnection` for terminal passthrough mode. Handles raw terminal mode, SIGWINCH resize, and graceful close on disconnect key press.                                                                                                                                                               |
+| `theme.go`    | Lip Gloss v2 styles — imports colors from `components/colors.go`. Defines `Styles` struct with layout, text, and component styles.                                                                                                                                                                                                                                  |
+| `validate.go` | `SanitizeWorktreeName` — replaces invalid git ref characters with hyphens; `ValidateWorktreeName` — final validation after sanitization (empty name, `.lock` suffix).                                                                                                                                                                                               |
 
 ## Key Constants and Enums
 
@@ -35,9 +35,9 @@ Terminal user interface using Bubble Tea v2. Located at `internal/tui/`. Written
 
 ## Tests
 
-| File | Purpose |
-| --- | --- |
-| `validate_test.go` | Worktree name validation tests — all git branch naming rules. |
-| `adapter_test.go` | Interface compliance tests for `ServiceAdapter`. |
-| `client_compliance_test.go` | Compile-time check: `client.Client` satisfies `tui.Client`. |
+| File                          | Purpose                                                                                                                              |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| `validate_test.go`            | Worktree name validation tests — all git branch naming rules.                                                                        |
+| `adapter_test.go`             | Interface compliance tests for `ServiceAdapter`.                                                                                     |
+| `client_compliance_test.go`   | Compile-time check: `client.Client` satisfies `tui.Client`.                                                                          |
 | `view_container_form_test.go` | Form logic: field visibility, cursor navigation, mount/env sub-cursor, add/remove items, submit validation, sensitive key detection. |
