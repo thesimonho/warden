@@ -1,6 +1,6 @@
 {
   "id": "session-tools",
-  "version": "0.4.2",
+  "version": "0.5.0",
   "name": "Warden Session Infrastructure",
   "description": "Installs abduco, Claude Code CLI, Codex CLI, and terminal management scripts for Warden project containers",
   "options": {
