@@ -94,13 +94,12 @@ This directory is ephemeral — stale entries are harmless and reset on containe
 
 ### 2c. Bulk Actions (Select Mode)
 
-**Trigger:** Click "Select" button.
+**Trigger:** Click any project card to select it, or click empty space to deselect all.
 
 **Expected behavior:**
 
-- Cards become selectable with checkboxes.
-- Bottom toolbar shows: selected count, Open in Workspace, Stop, Restart, Cancel.
-- Open in Workspace navigates to a multi-project workspace view.
+- Cards become selectable by clicking (ring outline indicates selection).
+- Bottom toolbar shows: selected count, Start, Stop, Restart, Clear.
 
 ---
 

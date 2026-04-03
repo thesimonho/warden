@@ -78,7 +78,7 @@ You can easily use it from Day 1 as its own agent orchestrator, running as a web
 - **Full terminal scrollback** — be able to scroll back through session history.
 - **Cost tracking and budget enforcement** — per-project cost tracking with configurable budget actions (warn, stop worktrees, stop container, prevent restart).
 - **Diff view** — see the changes made by each agent in real time.
-- **Audit system** — unified event logging with activity timeline visualization, summary dashboard, category filtering (sessions, tools, prompts, config, system), and compliance-ready export (CSV/JSON). Configurable logging modes (off/standard/detailed) to balance detail with volume.
+- **Audit system** — unified event logging with activity timeline visualization, summary dashboard, category filtering (session, agent, prompt, config, budget, system, debug), and compliance-ready export (CSV/JSON). Configurable logging modes (off/standard/detailed) to balance detail with volume.
 
 <div align="center">
   <a href="docs/site/public/audit.webp" target="_blank"><img width="400" src="docs/site/public/audit.webp" /></a>
