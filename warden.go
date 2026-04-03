@@ -164,7 +164,7 @@ func New(opts Options) (*Warden, error) {
 		HomeDir:      homeDir,
 	})
 
-	// Wire cost persistence and budget enforcement: on every stop event,
+	// Wire cost persistence and budget enforcement: on every cost update,
 	// funnel through the single gateway that persists cost and enforces
 	// budget limits. See [service.Service.PersistSessionCost].
 	store.SetCostUpdateCallback(svc.PersistSessionCost)

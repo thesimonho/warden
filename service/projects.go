@@ -201,7 +201,24 @@ func (s *Service) StopProject(ctx context.Context, projectID, agentType string) 
 		return nil, err
 	}
 	containerName := effectiveContainerName(project)
-	s.readAndPersistAgentCost(ctx, project.ProjectID, project.AgentType, project.ContainerID, containerName)
+	costResult := s.readAndPersistAgentCost(ctx, project.ProjectID, project.AgentType, project.ContainerID, containerName)
+
+	if costResult != nil && costResult.TotalCost > 0 {
+		s.audit.Write(db.Entry{
+			Source:        db.SourceBackend,
+			Level:         db.LevelInfo,
+			ProjectID:     project.ProjectID,
+			AgentType:     project.AgentType,
+			ContainerName: containerName,
+			Event:         "cost_snapshot",
+			Message:       fmt.Sprintf("cost at container stop: $%.4f (%d sessions, estimated: %v)", costResult.TotalCost, len(costResult.Sessions), costResult.IsEstimated),
+			Attrs: map[string]any{
+				"totalCost":    costResult.TotalCost,
+				"sessionCount": len(costResult.Sessions),
+				"isEstimated":  costResult.IsEstimated,
+			},
+		})
+	}
 
 	if err := s.docker.StopProject(ctx, project.ContainerID); err != nil {
 		return nil, err
@@ -458,24 +475,6 @@ func (s *Service) readAndPersistAgentCost(ctx context.Context, projectID, agentT
 			}
 		}
 
-		// Write a cost snapshot to the audit log so there's a paper trail
-		// of cumulative cost at container stop time.
-		if costRow, costErr := s.db.GetProjectTotalCost(projectID, agentType); costErr == nil && costRow.TotalCost > 0 {
-			s.audit.Write(db.Entry{
-				Source:        db.SourceBackend,
-				Level:         db.LevelInfo,
-				ProjectID:     projectID,
-				AgentType:     agentType,
-				ContainerName: containerName,
-				Event:         "cost_snapshot",
-				Message:       fmt.Sprintf("cost snapshot at container stop: $%.4f (%d sessions, estimated: %v)", costRow.TotalCost, len(result.Sessions), costRow.IsEstimated),
-				Attrs: map[string]any{
-					"totalCost":    costRow.TotalCost,
-					"sessionCount": len(result.Sessions),
-					"isEstimated":  costRow.IsEstimated,
-				},
-			})
-		}
 	}
 	s.enforceBudget(projectID, agentType)
 

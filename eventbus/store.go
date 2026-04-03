@@ -816,8 +816,8 @@ func (s *Store) aggregateContainerAttention(containerName string) (needsInput bo
 // audit value:
 //   - heartbeat: fires every 30s per container
 //   - attention_clear: fires on every user prompt (user_prompt captures this)
-//   - stop: fires on every assistant message with token usage; cost data is
-//     already persisted via handleCostUpdate → PersistSessionCost, so the
+//   - cost_update: fires on every assistant message with token usage; cost data
+//     is already persisted via handleCostUpdate → PersistSessionCost, so the
 //     audit entry adds noise without value
 func (s *Store) writeToAuditLog(writer *db.AuditWriter, event ContainerEvent) {
 	if writer == nil || event.Type == EventHeartbeat || event.Type == EventAttentionClear || event.Type == EventCostUpdate {
