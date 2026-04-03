@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.5.2](https://github.com/thesimonho/warden/compare/v0.5.1...v0.5.2) (2026-04-03)
+
+
+### Bug Fixes
+
+* always show cost dashboard on home page ([#57](https://github.com/thesimonho/warden/issues/57)) ([0a4053e](https://github.com/thesimonho/warden/commit/0a4053eefb6ab0467d27bb1238db90a05de1684c))
+* dereference nix symlinks in agent config dirs at startup ([#54](https://github.com/thesimonho/warden/issues/54)) ([ead62d4](https://github.com/thesimonho/warden/commit/ead62d403cba30d4b24275c69785743554d00126))
+* E2E agent type matrix and stale container cleanup ([#49](https://github.com/thesimonho/warden/issues/49)) ([43a7667](https://github.com/thesimonho/warden/commit/43a7667686430cc41589f805b7bae11d82f0b274))
+* E2E stale project collisions and missing agentType in navigation ([#51](https://github.com/thesimonho/warden/issues/51)) ([c252fd8](https://github.com/thesimonho/warden/commit/c252fd8e07ede84f9f9c48755389fcc3456fabf8))
+* prevent dev server conflicts and silent proxy failures ([#55](https://github.com/thesimonho/warden/issues/55)) ([dafe291](https://github.com/thesimonho/warden/commit/dafe291f95152c5e64b989a235a3ec73979652cb))
+
 ## [0.5.1](https://github.com/thesimonho/warden/compare/v0.5.0...v0.5.1) (2026-04-03)
 
 
