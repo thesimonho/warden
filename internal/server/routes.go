@@ -851,11 +851,12 @@ func (rt *routes) handleValidateContainer(w http.ResponseWriter, r *http.Request
 	writeJSON(w, validateContainerResponse{Valid: result.Valid, Missing: result.Missing})
 }
 
-// handleUpdateContainer recreates the project's container with updated configuration.
+// handleUpdateContainer updates the project's container configuration.
 //
 //	@Summary		Update container
-//	@Description	Recreates the project's container with updated configuration. The old container is stopped
-//	@Description	and removed, then a new one is created with the provided settings.
+//	@Description	Updates the project's container configuration. Lightweight changes (budget,
+//	@Description	skip permissions, allowed domains) are applied in-place. Other changes (image, mounts,
+//	@Description	env vars, network mode, agent type) trigger a full container recreation.
 //	@Tags			containers
 //	@Accept			json
 //	@Param			projectId	path		string							true	"Project ID"

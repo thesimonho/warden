@@ -1917,8 +1917,9 @@ paths:
       - containers
     put:
       description: |-
-        Recreates the project's container with updated configuration. The old container is stopped
-        and removed, then a new one is created with the provided settings.
+        Updates the project's container configuration. Lightweight changes (budget,
+        skip permissions, allowed domains) are applied in-place. Other changes (image, mounts,
+        env vars, network mode, agent type) trigger a full container recreation.
       parameters:
       - description: Project ID
         in: path
