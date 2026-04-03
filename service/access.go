@@ -235,6 +235,13 @@ func (s *Service) DeleteAccessItem(id string) error {
 	if access.IsBuiltInID(id) {
 		return fmt.Errorf("%w: cannot delete built-in access item (use reset instead)", ErrInvalidInput)
 	}
+
+	// Fetch label before deleting so the audit message is descriptive.
+	label := id
+	if row, _ := s.db.GetAccessItem(id); row != nil {
+		label = row.Label
+	}
+
 	if err := s.db.DeleteAccessItem(id); err != nil {
 		return err
 	}
@@ -243,8 +250,8 @@ func (s *Service) DeleteAccessItem(id string) error {
 		Source:  db.SourceBackend,
 		Level:   db.LevelInfo,
 		Event:   "access_item_deleted",
-		Message: fmt.Sprintf("access item %q deleted", id),
-		Attrs:   map[string]any{"accessItemId": id},
+		Message: fmt.Sprintf("access item %q deleted", label),
+		Attrs:   map[string]any{"accessItemId": id, "label": label},
 	})
 
 	return nil
