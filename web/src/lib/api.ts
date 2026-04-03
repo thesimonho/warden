@@ -568,6 +568,7 @@ export interface Defaults {
   containerHomeDir: string
   mounts: DefaultMount[]
   envVars?: DefaultEnvVar[]
+  restrictedDomains?: Record<string, string[]>
 }
 
 /**
