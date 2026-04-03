@@ -505,7 +505,7 @@ func (ec *EngineClient) CopyFileToContainer(ctx context.Context, containerID, de
 	if _, err := io.Copy(hijacked.Conn, content); err != nil {
 		return fmt.Errorf("writing file content to container: %w", err)
 	}
-	hijacked.CloseWrite()
+	_ = hijacked.CloseWrite()
 
 	// Drain output to allow the exec to finish.
 	_, _ = io.Copy(io.Discard, hijacked.Reader)

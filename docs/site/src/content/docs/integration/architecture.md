@@ -146,7 +146,7 @@ docker exec fallback read          ├──► PersistSessionCost() ──► D
 All audit events flow through the `AuditWriter`, which applies mode filtering before persisting. Direct `db.Store` writes for audit events are prohibited.
 
 ```
-Container hooks (tool_use, session_start, ...)  ─┐
+Container hooks (session_end, attention, ...)    ─┐
 Backend events (slog warnings/errors)            ├──► AuditWriter.Write()
 Frontend events (POST /api/v1/audit)             │         │
 Budget enforcement events                       ─┘         ▼

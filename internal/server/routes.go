@@ -1577,7 +1577,7 @@ func (rt *routes) handleUploadClipboard(w http.ResponseWriter, r *http.Request) 
 		writeError(w, ErrCodeRequiredField, "file field is required", http.StatusBadRequest)
 		return
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	content, err := io.ReadAll(file)
 	if err != nil {

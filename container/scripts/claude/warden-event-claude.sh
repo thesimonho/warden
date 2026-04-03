@@ -12,7 +12,7 @@
 #    - user_prompt_submit → attention_clear
 #
 # 2. Audit events not available in JSONL:
-#    - session_start, session_end, permission_request, config_change,
+#    - session_end, permission_request, config_change,
 #      instructions_loaded, task_completed, elicitation, elicitation_result
 #
 # Called by Claude Code hooks via managed settings at
@@ -77,14 +77,6 @@ case "$EVENT_TYPE" in
   # Cost capture (send_cost_event) is no longer needed here — cost is
   # parsed from JSONL token_update events by the Go backend.
   # -----------------------------------------------------------------
-  session_start)
-    DATA=$(printf '%s' "$INPUT" | jq -c '{
-      sessionId: (.session_id // ""),
-      model: (.model // ""),
-      source: (.source // "")
-    }')
-    ;;
-
   session_end)
     REASON=$(warden_extract_field "$INPUT" "reason")
     if [ -n "$REASON" ]; then

@@ -195,13 +195,6 @@ export default function ProjectCard({
         <div className="flex items-center justify-between">
           <p className="text-muted-foreground text-sm">{project.status}</p>
           {(project.totalCost > 0.001 || project.costBudget > 0) && <CostBadge project={project} />}
-          {isRunning && (
-            <AgentStatusIndicator
-              status={project.agentStatus}
-              needsInput={project.needsInput}
-              notificationType={project.notificationType}
-            />
-          )}
         </div>
         <div className="flex flex-wrap justify-between gap-x-3 gap-y-1 pt-1">
           {project.mountedDir && (
@@ -238,15 +231,24 @@ export default function ProjectCard({
             </Tooltip>
           )}
         </div>
-        {isRunning && project.activeWorktreeCount > 0 && (
-          <div className="flex flex-wrap gap-x-3 gap-y-1 pt-1">
-            <span className="text-muted-foreground flex items-center gap-1 text-sm">
-              <Layers className="h-3 w-3 shrink-0" />
-              {project.activeWorktreeCount} active worktree
-              {project.activeWorktreeCount !== 1 ? 's' : ''}
-            </span>
-          </div>
-        )}
+        <div className="flex flex-wrap justify-between">
+          {isRunning && project.activeWorktreeCount > 0 && (
+            <div className="flex flex-wrap gap-x-3 gap-y-1 pt-1">
+              <span className="text-muted-foreground flex items-center gap-1 text-sm">
+                <Layers className="h-3 w-3 shrink-0" />
+                {project.activeWorktreeCount} active worktree
+                {project.activeWorktreeCount !== 1 ? 's' : ''}
+              </span>
+            </div>
+          )}
+          {isRunning && (
+            <AgentStatusIndicator
+              status={project.agentStatus}
+              needsInput={project.needsInput}
+              notificationType={project.notificationType}
+            />
+          )}
+        </div>
       </CardContent>
 
       <CardFooter className="gap-2">

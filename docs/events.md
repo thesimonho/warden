@@ -17,7 +17,7 @@ Each audit event has a source: JSONL parser (Go backend tails session files), ho
 | `stop_failure`       | `system/api_error`                                  | `event_msg/error` (extended) + `event_msg/turn_aborted`                                    | session        |
 | `turn_complete`      | `assistant` → stop_reason=end_turn                  | `event_msg/task_complete`                                                                  | session        |
 | `turn_duration`      | `system/turn_duration`                              | —                                                                                          | session        |
-| `session_start`      | —                                                   | `session_meta`                                                                             | session        |
+| `session_start`      | Synthesized on session ID change                    | `session_meta`                                                                             | session        |
 | `permission_request` | —                                                   | — (app-server only)                                                                        | agent          |
 | `elicitation`        | —                                                   | — (app-server only)                                                                        | agent          |
 | `subagent_stop`      | `system/agents_killed`                              | —                                                                                          | agent          |
@@ -54,7 +54,6 @@ These events are not in Claude's JSONL format yet. Codex either has them in JSON
 
 | Event                 | Hook               | Re-evaluate when...                                             |
 | --------------------- | ------------------ | --------------------------------------------------------------- |
-| `session_start`       | SessionStart       | Claude adds session lifecycle to JSONL                          |
 | `session_end`         | SessionEnd         | Claude adds session lifecycle to JSONL                          |
 | `permission_request`  | PermissionRequest  | Claude adds permission events to JSONL (grant is via JSONL now) |
 | `config_change`       | ConfigChange       | Claude adds config events to JSONL                              |

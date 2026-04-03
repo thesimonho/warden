@@ -35,24 +35,24 @@ Parsers are **stateful** — they accumulate token counts across lines within a 
 
 ## ParsedEvent Types
 
-| Type                 | Meaning                  | Key Fields                              |
-| -------------------- | ------------------------ | --------------------------------------- |
-| `session_start`      | Agent session began      | SessionID, Model, GitBranch, WorktreeID |
-| `session_end`        | Agent session ended      | SessionID                               |
-| `tool_use`           | Agent invoked a tool     | ToolName, ToolInput (truncated)         |
-| `tool_use_failure`   | Tool execution failed    | ToolName, ErrorContent                  |
-| `user_prompt`        | User sent a message      | Prompt                                  |
-| `turn_complete`      | Agent finished a turn    | SessionID                               |
-| `turn_duration`      | Turn timing data         | DurationMs                              |
-| `token_update`       | Cumulative token usage   | Tokens, EstimatedCostUSD                |
-| `stop_failure`       | Turn ended due to error  | ErrorContent                            |
-| `permission_request` | Agent needs approval     | ToolName                                |
-| `elicitation`        | MCP server needs input   | ServerName                              |
-| `subagent_stop`      | Subagent(s) terminated   | Content                                 |
-| `api_metrics`        | API performance data     | TTFTMs, OutputTokensPerSec              |
-| `permission_grant`   | Permission granted       | Commands                                |
-| `context_compact`    | Context window compacted | CompactTrigger, PreCompactTokens        |
-| `system_info`        | Informational system msg | Subtype, Content                        |
+| Type                 | Meaning                  | Key Fields                       |
+| -------------------- | ------------------------ | -------------------------------- |
+| `session_start`      | Agent session began      | SessionID, Timestamp, WorktreeID |
+| `session_end`        | Agent session ended      | SessionID                        |
+| `tool_use`           | Agent invoked a tool     | ToolName, ToolInput (truncated)  |
+| `tool_use_failure`   | Tool execution failed    | ToolName, ErrorContent           |
+| `user_prompt`        | User sent a message      | Prompt                           |
+| `turn_complete`      | Agent finished a turn    | SessionID                        |
+| `turn_duration`      | Turn timing data         | DurationMs                       |
+| `token_update`       | Cumulative token usage   | Tokens, EstimatedCostUSD         |
+| `stop_failure`       | Turn ended due to error  | ErrorContent                     |
+| `permission_request` | Agent needs approval     | ToolName                         |
+| `elicitation`        | MCP server needs input   | ServerName                       |
+| `subagent_stop`      | Subagent(s) terminated   | Content                          |
+| `api_metrics`        | API performance data     | TTFTMs, OutputTokensPerSec       |
+| `permission_grant`   | Permission granted       | Commands                         |
+| `context_compact`    | Context window compacted | CompactTrigger, PreCompactTokens |
+| `system_info`        | Informational system msg | Subtype, Content                 |
 
 ## Agent Implementations
 
@@ -60,6 +60,7 @@ Parsers are **stateful** — they accumulate token counts across lines within a 
 
 - **Session dir:** `~/.claude/projects/<sanitized-path>/`
 - **JSONL format:** `SessionEntry` with `type` field (assistant, user, system, file-history-snapshot, etc.)
+- **Session start:** Synthesized when the parser detects a new `sessionId` (Claude JSONL has no dedicated session_start entry). Resets cumulative token counts and tool name tracking.
 - **Token source:** `cacheCreationInputTokens`, `cacheReadInputTokens`, `inputTokens`, `outputTokens` in `usage` blocks
 - **Cost:** Estimated from token counts via per-model pricing table (`pricing.go`)
 - **Tool extraction:** From `tool_use` content blocks in assistant messages
