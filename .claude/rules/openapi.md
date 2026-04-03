@@ -2,7 +2,7 @@
 paths:
   - "internal/server/**/*"
   - "docs/openapi/**/*"
-  - "docs_site/**/*"
+  - "docs/site/**/*"
   - "api/**/*"
   - "service/**/*"
   - "client/**/*"

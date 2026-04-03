@@ -11,8 +11,8 @@ default:
 clean:
   rm -rf web/node_modules
   rm -rf web/dist
-  rm -rf docs_site/node_modules
-  rm -rf docs_site/dist
+  rm -rf docs/site/node_modules
+  rm -rf docs/site/dist
 
 [private]
 dev-api:
@@ -254,21 +254,21 @@ generate-icons:
 
 [private]
 docs-generate:
-    ./docs_site/generate-go-docs.sh
-    ./docs_site/generate-changelog.sh
-    ./docs_site/generate-contributing.sh
+    ./docs/site/generate-go-docs.sh
+    ./docs/site/generate-changelog.sh
+    ./docs/site/generate-contributing.sh
 
 # Start docs dev server (generates Go reference docs first)
 docs-dev: docs-generate
-    npm --prefix docs_site run dev
+    npm --prefix docs/site run dev
 
 # Build docs site (generates Go docs + builds Starlight)
 docs-build: docs-generate
-    npm --prefix docs_site run build
+    npm --prefix docs/site run build
 
 # Build and preview docs site locally
 docs-preview: docs-build
-    npm --prefix docs_site run preview
+    npm --prefix docs/site run preview
 
 # ── Setup ────────────────────────────────────────────────────────────────────
 
@@ -276,4 +276,4 @@ docs-preview: docs-build
 install:
     go mod download
     npm --prefix web install
-    npm --prefix docs_site install
+    npm --prefix docs/site install
