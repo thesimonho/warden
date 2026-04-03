@@ -202,12 +202,22 @@ func (s *Service) UpdateAccessItem(id string, req api.UpdateAccessItemRequest) (
 		item.BuiltIn = true
 	}
 
+	var changedFields []string
+	if req.Label != nil {
+		changedFields = append(changedFields, "label")
+	}
+	if req.Description != nil {
+		changedFields = append(changedFields, "description")
+	}
+	if req.Credentials != nil {
+		changedFields = append(changedFields, "credentials")
+	}
 	s.audit.Write(db.Entry{
 		Source:  db.SourceBackend,
 		Level:   db.LevelInfo,
 		Event:   "access_item_updated",
 		Message: fmt.Sprintf("access item %q updated", row.Label),
-		Attrs:   map[string]any{"accessItemId": id, "builtIn": access.IsBuiltInID(id)},
+		Attrs:   map[string]any{"accessItemId": id, "builtIn": access.IsBuiltInID(id), "changedFields": changedFields},
 	})
 
 	return &item, nil

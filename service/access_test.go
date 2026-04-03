@@ -352,6 +352,20 @@ func TestAccessItemCRUD_WritesAuditEntries(t *testing.T) {
 	if eventCounts["access_item_updated"] != 2 { // user item + built-in override
 		t.Errorf("expected 2 access_item_updated events, got %d", eventCounts["access_item_updated"])
 	}
+
+	// Verify changedFields is populated on update events.
+	for _, e := range entries {
+		if e.Event == "access_item_updated" {
+			attrs := e.Attrs
+			if attrs == nil {
+				t.Error("expected attrs on access_item_updated event")
+				continue
+			}
+			if _, ok := attrs["changedFields"]; !ok {
+				t.Error("expected changedFields in attrs")
+			}
+		}
+	}
 	if eventCounts["access_item_deleted"] != 1 {
 		t.Errorf("expected 1 access_item_deleted event, got %d", eventCounts["access_item_deleted"])
 	}
