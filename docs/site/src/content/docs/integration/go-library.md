@@ -8,7 +8,10 @@ Import Warden as a Go library for single-process deployment. No `warden` binary 
 ## Quick start
 
 ```go
-import "github.com/thesimonho/warden"
+import (
+    "github.com/thesimonho/warden"
+    "github.com/thesimonho/warden/api"
+)
 
 func main() {
     w, err := warden.New(warden.Options{})
@@ -18,7 +21,7 @@ func main() {
     defer w.Close()
 
     ctx := context.Background()
-    result, err := w.Service.CreateContainer(ctx, engine.CreateContainerRequest{
+    result, err := w.Service.CreateContainer(ctx, api.CreateContainerRequest{
         ProjectPath: "/path/to/repo",
         ProjectName: "my-project",
     })
@@ -49,14 +52,14 @@ defer w.Close() // Idempotent; shuts down all subsystems (including session watc
 ### Create a project
 
 ```go
-result, err := w.Service.CreateContainer(ctx, engine.CreateContainerRequest{
+result, err := w.Service.CreateContainer(ctx, api.CreateContainerRequest{
     ProjectPath: "/workspace/path",
     ProjectName: "project-name",
     AgentType:   "claude-code",  // "claude-code" (default) or "codex"
     Image:       "ubuntu:24.04",
     EnvVars:     map[string]string{"USER": "alice", "OPENAI_API_KEY": os.Getenv("OPENAI_API_KEY")},
-    Mounts:      []engine.Mount{{HostPath: "/data", ContainerPath: "/data"}},
-    NetworkMode: engine.NetworkModeFull,
+    Mounts:      []api.Mount{{HostPath: "/data", ContainerPath: "/data"}},
+    NetworkMode: api.NetworkModeFull,
     AllowedDomains: []string{"api.example.com"},
 })
 ```
@@ -257,7 +260,7 @@ import (
     "log"
 
     "github.com/thesimonho/warden"
-    "github.com/thesimonho/warden/engine"
+    "github.com/thesimonho/warden/api"
 )
 
 func main() {
@@ -271,12 +274,12 @@ func main() {
     defer w.Close()
 
     // 2. Create container for a project
-    containerResult, err := w.Service.CreateContainer(ctx, engine.CreateContainerRequest{
+    containerResult, err := w.Service.CreateContainer(ctx, api.CreateContainerRequest{
         ProjectPath: "/home/user/projects/my-app",
         ProjectName: "my-app",
         Image:       "ubuntu:24.04",
-        Mounts:      []engine.Mount{{HostPath: "/data", ContainerPath: "/data"}},
-        NetworkMode: engine.NetworkModeFull,
+        Mounts:      []api.Mount{{HostPath: "/data", ContainerPath: "/data"}},
+        NetworkMode: api.NetworkModeFull,
     })
     if err != nil {
         log.Fatal(err)

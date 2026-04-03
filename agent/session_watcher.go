@@ -8,10 +8,6 @@ import (
 	"github.com/thesimonho/warden/watcher"
 )
 
-// sessionPollInterval is how often the watcher checks for new lines
-// when fsnotify doesn't fire (e.g. Docker Desktop VM boundary).
-const sessionPollInterval = watcher.DefaultPollInterval
-
 // SessionWatcher monitors a directory for JSONL session files and tails
 // them line-by-line, feeding parsed events to a callback. It handles
 // session file rotation (new session → new .jsonl file appears).
@@ -52,7 +48,7 @@ func NewSessionWatcher(parser SessionParser, homeDir string, project ProjectInfo
 				sw.callback(events[i])
 			}
 		},
-		PollInterval: sessionPollInterval,
+		PollInterval: watcher.DefaultPollInterval,
 		Logger:       sw.logger,
 	})
 

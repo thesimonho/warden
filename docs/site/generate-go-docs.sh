@@ -24,6 +24,7 @@ PACKAGES=(
   "eventbus"
   "runtime"
   "service"
+  "watcher"
 )
 
 cd "${PROJECT_ROOT}"
