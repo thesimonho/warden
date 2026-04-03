@@ -16,17 +16,17 @@ Environment variables configure Warden's server binaries at startup. None are re
 
 ## Behavior toggles
 
-| Variable                 | Default   | Description                                                                       |
-| ------------------------ | --------- | --------------------------------------------------------------------------------- |
-| `WARDEN_NO_UPDATE_CHECK` | _(unset)_ | Set to `1` to skip the startup version check against GitHub releases.             |
-| `WARDEN_NO_OPEN`         | _(unset)_ | Set to any value to prevent `warden-desktop` from opening the browser on startup. |
+| Variable                 | Default      | Description                                                                       |
+| ------------------------ | ------------ | --------------------------------------------------------------------------------- |
+| `WARDEN_NO_UPDATE_CHECK` | _(disabled)_ | Set to `1` to skip the startup version check against GitHub releases.             |
+| `WARDEN_NO_OPEN`         | _(disabled)_ | Set to any value to prevent `warden-desktop` from opening the browser on startup. |
 
 ## Runtime detection
 
-| Variable          | Default              | Description                                                                         |
-| ----------------- | -------------------- | ----------------------------------------------------------------------------------- |
-| `DOCKER_HOST`     | Platform socket path | Overrides the Docker daemon socket path.                                            |
-| `XDG_RUNTIME_DIR` | _(system)_           | Used on Linux to locate the Podman socket at `$XDG_RUNTIME_DIR/podman/podman.sock`. |
+| Variable          | Default           | Description                                                                         |
+| ----------------- | ----------------- | ----------------------------------------------------------------------------------- |
+| `DOCKER_HOST`     | _(auto-detected)_ | Overrides the Docker daemon socket path.                                            |
+| `XDG_RUNTIME_DIR` | _(auto-detected)_ | Used on Linux to locate the Podman socket at `$XDG_RUNTIME_DIR/podman/podman.sock`. |
 
 ## Container-internal variables
 
