@@ -134,10 +134,11 @@ type DefaultEnvVar struct {
 // DefaultsResponse holds server-resolved default values for the
 // create container form.
 type DefaultsResponse struct {
-	HomeDir          string          `json:"homeDir"`
-	ContainerHomeDir string          `json:"containerHomeDir"`
-	Mounts           []DefaultMount  `json:"mounts,omitempty"`
-	EnvVars          []DefaultEnvVar `json:"envVars,omitempty"`
+	HomeDir          string              `json:"homeDir"`
+	ContainerHomeDir string              `json:"containerHomeDir"`
+	Mounts           []DefaultMount      `json:"mounts,omitempty"`
+	EnvVars          []DefaultEnvVar     `json:"envVars,omitempty"`
+	RestrictedDomains map[string][]string `json:"restrictedDomains,omitempty"`
 }
 
 // DirEntry represents a filesystem entry in the browser.

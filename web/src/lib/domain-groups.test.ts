@@ -1,32 +1,49 @@
 import { describe, it, expect } from 'vitest'
-import { restrictedDomains } from '@/lib/domain-groups'
+import { getRestrictedDomains } from '@/lib/domain-groups'
 
-describe('restrictedDomains', () => {
-  it('has at least one domain', () => {
-    expect(restrictedDomains.length).toBeGreaterThan(0)
+describe('getRestrictedDomains', () => {
+  const serverDomains: Record<string, string[]> = {
+    'claude-code': [
+      '*.anthropic.com',
+      '*.github.com',
+      '*.githubusercontent.com',
+      'registry.npmjs.org',
+    ],
+    codex: [
+      '*.openai.com',
+      '*.chatgpt.com',
+      '*.github.com',
+      '*.githubusercontent.com',
+      'registry.npmjs.org',
+    ],
+  }
+
+  it('returns claude-code domains for claude-code', () => {
+    const domains = getRestrictedDomains(serverDomains, 'claude-code')
+    expect(domains).toContain('*.anthropic.com')
+    expect(domains).not.toContain('*.openai.com')
   })
 
-  it('has no duplicate domains', () => {
-    const unique = new Set(restrictedDomains)
-    expect(unique.size).toBe(restrictedDomains.length)
+  it('returns codex domains for codex', () => {
+    const domains = getRestrictedDomains(serverDomains, 'codex')
+    expect(domains).toContain('*.openai.com')
+    expect(domains).not.toContain('*.anthropic.com')
   })
 
-  it('all domains are non-empty trimmed strings', () => {
-    for (const domain of restrictedDomains) {
-      expect(domain).toBeTruthy()
-      expect(domain).toBe(domain.trim())
+  it('includes shared domains for both agent types', () => {
+    for (const agentType of ['claude-code', 'codex'] as const) {
+      const domains = getRestrictedDomains(serverDomains, agentType)
+      expect(domains).toContain('*.github.com')
+      expect(domains).toContain('registry.npmjs.org')
     }
   })
 
-  it('includes anthropic wildcard', () => {
-    expect(restrictedDomains).toContain('*.anthropic.com')
+  it('returns empty array when domains map is undefined', () => {
+    expect(getRestrictedDomains(undefined, 'claude-code')).toEqual([])
   })
 
-  it('includes github wildcard', () => {
-    expect(restrictedDomains).toContain('*.github.com')
-  })
-
-  it('includes openai wildcard', () => {
-    expect(restrictedDomains).toContain('*.openai.com')
+  it('returns empty array for unknown agent type', () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- testing invalid input
+    expect(getRestrictedDomains(serverDomains, 'unknown' as any)).toEqual([])
   })
 })

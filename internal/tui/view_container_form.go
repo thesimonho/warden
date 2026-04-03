@@ -16,20 +16,12 @@ import (
 	"github.com/thesimonho/warden/internal/tui/components"
 )
 
-// defaultAllowedDomains is the minimum useful set for AI coding agents in
-// restricted network mode. Matches web/src/lib/domain-groups.ts.
-const defaultAllowedDomains = `*.anthropic.com
-*.openai.com
-*.chatgpt.com
-*.github.com
-*.githubusercontent.com
-pypi.org
-files.pythonhosted.org
-registry.npmjs.org
-registry.yarnpkg.com
-go.dev
-proxy.golang.org
-sum.golang.org`
+// defaultDomainsForAgent returns the default allowed domains for a given
+// agent type from the server-provided defaults map.
+func defaultDomainsForAgent(restrictedDomains map[string][]string, agentType constants.AgentType) string {
+	domains := restrictedDomains[string(agentType)]
+	return strings.Join(domains, "\n")
+}
 
 // Form field indices.
 const (
@@ -116,6 +108,9 @@ type ContainerFormView struct {
 
 	dirBrowser *components.DirectoryBrowser
 
+	// Server-provided restricted domains per agent type.
+	restrictedDomains map[string][]string
+
 	keys   FormKeyMap
 	width  int
 	height int
@@ -141,7 +136,7 @@ func NewContainerFormView(client Client) *ContainerFormView {
 		keys:          DefaultFormKeyMap(),
 		accessToggles: make(map[string]bool),
 	}
-	v.initFields("", "", "ghcr.io/thesimonho/warden:latest", "full", defaultAllowedDomains, false)
+	v.initFields("", "", "ghcr.io/thesimonho/warden:latest", "full", "", false)
 	return v
 }
 
@@ -274,7 +269,15 @@ func (v *ContainerFormView) Update(msg tea.Msg) (View, tea.Cmd) {
 				v.envVars = append(v.envVars, envVarEntry{key: ev.Key, value: ev.Value})
 			}
 		}
+		if v.defaults.RestrictedDomains != nil {
+			v.restrictedDomains = v.defaults.RestrictedDomains
+		}
 		if v.editID == "" {
+			// Set initial allowed domains from server defaults for the selected agent type.
+			if v.restrictedDomains != nil {
+				selected := agentTypes[v.agentType]
+				v.domains.SetValue(defaultDomainsForAgent(v.restrictedDomains, selected))
+			}
 			v.loading = false
 		}
 		return v, nil
@@ -520,6 +523,7 @@ func (v *ContainerFormView) cycleSelection() (View, tea.Cmd) {
 		if v.editID == "" { // read-only in edit mode
 			v.agentType = (v.agentType + 1) % len(agentTypes)
 			v.refilterDefaultMounts()
+			v.domains.SetValue(defaultDomainsForAgent(v.restrictedDomains, agentTypes[v.agentType]))
 		}
 	case fieldNetwork:
 		v.network = (v.network + 1) % len(networkModes)

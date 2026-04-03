@@ -38,6 +38,41 @@ var userMounts = []preferredMount{
 	{hostRelPath: ".codex", containerPath: containerHomeDir + "/.codex", readOnly: false, agentType: "codex", required: true},
 }
 
+// sharedRestrictedDomains are infrastructure domains included for all agent
+// types in restricted network mode (GitHub, package registries).
+var sharedRestrictedDomains = []string{
+	"*.github.com",
+	"*.githubusercontent.com",
+	"pypi.org",
+	"files.pythonhosted.org",
+	"registry.npmjs.org",
+	"registry.yarnpkg.com",
+	"go.dev",
+	"proxy.golang.org",
+	"sum.golang.org",
+}
+
+// agentRestrictedDomains maps agent types to their API-specific domains.
+var agentRestrictedDomains = map[constants.AgentType][]string{
+	constants.AgentClaudeCode: {"*.anthropic.com"},
+	constants.AgentCodex:      {"*.openai.com", "*.chatgpt.com"},
+}
+
+// buildRestrictedDomains returns the default allowed domains per agent type
+// for the restricted network mode. Each agent gets its API domains plus
+// the shared infrastructure domains.
+func buildRestrictedDomains() map[string][]string {
+	result := make(map[string][]string, len(agentRestrictedDomains))
+	for agentType, apiDomains := range agentRestrictedDomains {
+		// Copy to avoid mutating the package-level slice via append.
+		combined := make([]string, 0, len(apiDomains)+len(sharedRestrictedDomains))
+		combined = append(combined, apiDomains...)
+		combined = append(combined, sharedRestrictedDomains...)
+		result[string(agentType)] = combined
+	}
+	return result
+}
+
 // GetDefaults returns server-resolved default values for the create
 // container form, including auto-detected bind mounts.
 func (s *Service) GetDefaults() DefaultsResponse {
@@ -70,10 +105,11 @@ func (s *Service) GetDefaults() DefaultsResponse {
 	}
 
 	return DefaultsResponse{
-		HomeDir:          homeDir,
-		ContainerHomeDir: containerHomeDir,
-		Mounts:           mounts,
-		EnvVars:          envVars,
+		HomeDir:           homeDir,
+		ContainerHomeDir:  containerHomeDir,
+		Mounts:            mounts,
+		EnvVars:           envVars,
+		RestrictedDomains: buildRestrictedDomains(),
 	}
 }
 

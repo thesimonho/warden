@@ -1,21 +1,15 @@
+import type { AgentType } from '@/lib/types'
+
 /**
- * Default allowed domains for the restricted network mode.
+ * Returns the default restricted domains for an agent type from the
+ * server-provided defaults. Falls back to an empty list if not available.
  *
- * This is the minimum useful set for AI coding agent development:
- * Anthropic API, OpenAI API, GitHub, and common package registries.
- * Wildcard patterns (e.g. *.github.com) are resolved at container start.
+ * @param restrictedDomains - The map from the defaults API response.
+ * @param agentType - The agent type to look up.
  */
-export const restrictedDomains: readonly string[] = [
-  '*.anthropic.com',
-  '*.openai.com',
-  '*.chatgpt.com',
-  '*.github.com',
-  '*.githubusercontent.com',
-  'pypi.org',
-  'files.pythonhosted.org',
-  'registry.npmjs.org',
-  'registry.yarnpkg.com',
-  'go.dev',
-  'proxy.golang.org',
-  'sum.golang.org',
-] as const
+export function getRestrictedDomains(
+  restrictedDomains: Record<string, string[]> | undefined,
+  agentType: AgentType,
+): readonly string[] {
+  return restrictedDomains?.[agentType] ?? []
+}

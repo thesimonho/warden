@@ -11,7 +11,7 @@ import type { DefaultMount } from '@/lib/api'
 import { agentTypeLabels, agentTypeOptions, DEFAULT_AGENT_TYPE } from '@/lib/types'
 import { fetchAccessItems, fetchDefaults, fetchSettings } from '@/lib/api'
 import { containerPathToDisplay, containerPathToAbsolute } from '@/lib/utils'
-import { restrictedDomains } from '@/lib/domain-groups'
+import { getRestrictedDomains } from '@/lib/domain-groups'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
@@ -68,9 +68,6 @@ export interface ProjectConfigFormData {
 
 /** Default container image for new projects. */
 const DEFAULT_IMAGE = 'ghcr.io/thesimonho/warden:latest'
-
-/** Default allowed domains for restricted network mode. */
-const DEFAULT_ALLOWED_DOMAINS = restrictedDomains.join('\n')
 
 /** Returns true if a default mount belongs to the given agent type. */
 function isMountForAgent(m: DefaultMount, type: AgentType): boolean {
@@ -137,7 +134,7 @@ export default function ProjectConfigForm({
     initialValues?.networkMode ?? 'restricted',
   )
   const [allowedDomains, setAllowedDomains] = useState(
-    () => initialValues?.allowedDomains?.join('\n') ?? DEFAULT_ALLOWED_DOMAINS,
+    () => initialValues?.allowedDomains?.join('\n') ?? '',
   )
   const [envVars, setEnvVars] = useState<EnvVarEntry[]>(() => {
     if (!initialValues?.envVars) return []
@@ -160,6 +157,7 @@ export default function ProjectConfigForm({
   const [requiredContainerPath, setRequiredContainerPath] = useState<string | null>(null)
   const defaultsLoaded = useRef(false)
   const defaultMountsRef = useRef<DefaultMount[]>([])
+  const restrictedDomainsRef = useRef<Record<string, string[]>>({})
 
   /** Fetches server-resolved defaults and access items on first render. */
   useEffect(() => {
@@ -179,9 +177,16 @@ export default function ProjectConfigForm({
           const req = findRequiredMount(defaults.mounts, agentType)
           setRequiredContainerPath(req?.containerPath ?? null)
         }
+        if (defaults.restrictedDomains) {
+          restrictedDomainsRef.current = defaults.restrictedDomains
+        }
         if (mode === 'create') {
           if (defaults.mounts?.length > 0) {
             setMounts(defaults.mounts.filter((m) => isMountForAgent(m, agentType)))
+          }
+          if (defaults.restrictedDomains && !initialValues?.allowedDomains) {
+            const domains = getRestrictedDomains(defaults.restrictedDomains, agentType)
+            setAllowedDomains(domains.join('\n'))
           }
           if (defaults.envVars?.length) {
             setEnvVars(defaults.envVars)
@@ -229,13 +234,17 @@ export default function ProjectConfigForm({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- initialValues is stable across renders; only mode determines create/edit behavior
   }, [mode])
 
-  /** Updates agent type and re-filters default mounts. */
+  /** Updates agent type, re-filters default mounts, and updates allowed domains. */
   const handleAgentTypeChange = (newType: AgentType) => {
     setAgentType(newType)
     const req = findRequiredMount(defaultMountsRef.current, newType)
     setRequiredContainerPath(req?.containerPath ?? null)
     if (mode === 'create' && defaultMountsRef.current.length > 0) {
       setMounts(defaultMountsRef.current.filter((m) => isMountForAgent(m, newType)))
+    }
+    if (mode === 'create') {
+      const domains = getRestrictedDomains(restrictedDomainsRef.current, newType)
+      setAllowedDomains(domains.join('\n'))
     }
   }
 
