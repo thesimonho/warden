@@ -16,6 +16,7 @@ import {
   addProject,
   createContainer,
 } from '@/lib/api'
+import { restrictedDomains } from '@/lib/domain-groups'
 import type { AgentType, ServerSettings } from '@/lib/types'
 import type { Project } from '@/lib/types'
 import { Button } from '@/components/ui/button'
@@ -243,6 +244,8 @@ export default function HomePage() {
           projectPath: serverSettings.workingDirectory,
           agentType,
           skipPermissions: true,
+          networkMode: 'restricted',
+          allowedDomains: [...restrictedDomains],
           mounts,
         })
         toast.success(`${agentType} project created`)
