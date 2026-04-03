@@ -25,7 +25,7 @@ Warden tracks minimal per-worktree terminal state:
 
 ```
 <workspace>/.warden/terminals/{worktree-id}/
-└── exit_code   # Claude's exit code (written when Claude exits)
+└── exit_code   # Agent exit code (written on exit, stop, or container restart)
 ```
 
 Where `<workspace>` is the container-side workspace directory (e.g. `/home/warden/<project-name>`, or `/project` for legacy containers).
@@ -66,8 +66,6 @@ This directory is ephemeral — stale entries are harmless and reset on containe
 - Name already taken: error shown, container not created.
 - Image pull fails: error shown.
 - Project directory doesn't exist: container starts but project is empty inside.
-
-
 
 ---
 
@@ -167,12 +165,12 @@ A worktree is a unit of independent work. The user creates worktrees to have the
 
 ### Worktree States
 
-| State            | Meaning                                        | What happens on click                                 |
-| ---------------- | ---------------------------------------------- | ----------------------------------------------------- |
-| **connected**    | Terminal running, Claude active                | Show the existing terminal                            |
-| **shell**        | Agent exited, bash shell still alive in tmux | Show the terminal (with "Agent exited" indicator)     |
+| State            | Meaning                                                    | What happens on click                                   |
+| ---------------- | ---------------------------------------------------------- | ------------------------------------------------------- |
+| **connected**    | Terminal running, agent active                             | Show the existing terminal                              |
+| **shell**        | Agent exited, bash shell still alive in tmux               | Show the terminal (with "Agent exited" indicator)       |
 | **background**   | tmux session alive, WebSocket closed (viewer disconnected) | Reconnect: reconnect WebSocket to existing tmux session |
-| **disconnected** | No processes running                           | Connect: start new terminal, launch agent              |
+| **disconnected** | No processes running                                       | Connect: start new terminal, launch agent               |
 
 ### 6a. Create Worktree
 
@@ -209,9 +207,9 @@ A worktree is a unit of independent work. The user creates worktrees to have the
 3. Switching between worktrees preserves terminal state (terminals stay alive, hidden via CSS).
 4. If Claude needs attention, notification dot shown on the worktree card.
 
-### 6c. Click Worktree (Shell — Claude exited, terminal alive)
+### 6c. Click Worktree (Shell — Agent exited, terminal alive)
 
-**Trigger:** Click a worktree where Claude exited but the tmux bash shell is still running.
+**Trigger:** Click a worktree where the agent exited but the tmux bash shell is still running.
 
 **Expected behavior:**
 
@@ -253,30 +251,40 @@ A worktree is a unit of independent work. The user creates worktrees to have the
 4. The worktree remains in the sidebar — clicking it reconnects (see 6d).
 5. No confirmation dialog needed — this is a non-destructive action.
 
-### 6g. Kill Worktree Process
+### 6g. Stop Worktree
 
-**Trigger:** Explicit "kill" action in the sidebar (e.g. context menu). This is a rare, intentional action.
+**Trigger:** "Stop" action in the sidebar context menu. Stops the agent from running in the background.
 
 **Expected behavior:**
 
-1. The tmux session is killed. The agent receives SIGHUP/SIGTERM.
-2. Terminal tracking directory is removed.
-3. Worktree transitions to "disconnected" state.
-4. The worktree card shows a grey dot.
-5. The worktree remains in the sidebar — always reconnectable (starts fresh).
+1. `exit_code=137` is written for auto-resume on next connect.
+2. The tmux session is killed. The agent receives SIGHUP/SIGTERM.
+3. Stale tracking files are cleaned up (exit_code is preserved).
+4. Worktree transitions to "disconnected" state.
+5. The worktree card shows a grey dot.
+6. The worktree remains in the sidebar — reconnecting triggers auto-resume.
 
-There is no "delete worktree" action through Warden's UI. Worktrees persist as long as the git repo has them. Cleanup is a git operation (`git worktree remove`), not a Warden operation.
+### 6h. Delete Worktree
 
-### 6h. Worktree Lifecycle Across Container Events
+**Trigger:** "Delete" action in the sidebar context menu. Completely removes the worktree from disk.
 
-| Container Event | Impact on Terminals                             | Impact on Worktrees                                                                          |
-| --------------- | ----------------------------------------------- | -------------------------------------------------------------------------------------------- |
-| Stop            | All tmux sessions killed. WebSocket connections closed. | Git worktrees preserved on bind mount. All become "disconnected".                            |
-| Start / Restart | Entrypoint runs. Terminal tracking state reset. | Worktrees rediscovered from filesystem. All start as "disconnected".                         |
-| Recreate (edit) | Old container removed.                          | Worktrees preserved on bind mount. Reconnectable in new container.                           |
-| Delete          | Container removed.                              | Worktrees preserved on bind mount. Available when a new container mounts the same project directory. |
+**Expected behavior:**
 
-### 6i. Worktree Attention/Notifications
+1. The tmux session is killed (if running).
+2. The git worktree is removed (`git worktree remove --force`).
+3. The entire terminal tracking directory is removed (including exit_code — no auto-resume).
+4. The worktree is removed from the sidebar.
+
+### 6i. Worktree Lifecycle Across Container Events
+
+| Container Event | Impact on Terminals                                     | Impact on Worktrees                                                                                  |
+| --------------- | ------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| Stop            | All tmux sessions killed. WebSocket connections closed. | Git worktrees preserved on bind mount. All become "disconnected". Auto-resume on reconnect.          |
+| Start / Restart | Entrypoint writes exit_code for orphaned terminals.     | Worktrees rediscovered from filesystem. All start as "disconnected". Auto-resume on reconnect.       |
+| Recreate (edit) | Old container removed.                                  | Worktrees preserved on bind mount. Reconnectable in new container.                                   |
+| Delete          | Container removed.                                      | Worktrees preserved on bind mount. Available when a new container mounts the same project directory. |
+
+### 6j. Worktree Attention/Notifications
 
 Worktrees can require user attention. Attention state is pushed via the event bus:
 
@@ -290,7 +298,7 @@ Worktrees can require user attention. Attention state is pushed via the event bu
 
 Project cards on the home page show the highest-priority attention type across all worktrees.
 
-### 6j. Cost Tracking
+### 6k. Cost Tracking
 
 Cost data comes from two sources:
 

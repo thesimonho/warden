@@ -4,13 +4,13 @@ These terms must be used consistently throughout Warden's codebase, UI text, com
 
 ## Core terms
 
-| Term            | Definition                                                                                                                                                                                                                                                                                                                                                                                                                                   | Managed by |
-| --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- |
-| **Project**     | A workspace directory on the host. Multiple agent types (claude-code, codex) can run against the same directory. Each agent type runs in its own container and has independent state (costs, audit logs, worktrees). Identified by a deterministic 12-char hex `project_id` (SHA-256 of resolved host path).                                                                                                                                      | Warden     |
-| **ProjectID**   | Deterministic 12-character hex identifier computed from SHA-256 of the resolved absolute host path. Identifies a directory. Part of a compound primary key `(project_id, agent_type)` in the database for associating events/costs/state with a specific agent instance across container rebuilds.                                                                                                                                       | Warden     |
-| **Worktree**    | An isolated working directory within a project (via `git worktree`), or the implicit workspace root for non-git repos. The unit of independent work.                                                                                                                                                                                                                                                                                         | Warden     |
-| **Terminal**    | The xterm.js web interface the user sees and types into. A disposable viewer into a worktree. Connects via WebSocket to the Go backend proxy.                                                                                                                                                                                                                                                                                                | Warden     |
-| **Access Item** | A general-purpose credential and mount provider. Includes built-in items (Git, SSH) for common infrastructure needs and user-defined items for custom access methods. Each item has a detection mechanism to verify availability on the host.                                                                                                                                                                                                | Warden     |
+| Term            | Definition                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         | Managed by |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------- |
+| **Project**     | A workspace directory on the host. Multiple agent types (claude-code, codex) can run against the same directory. Each agent type runs in its own container and has independent state (costs, audit logs, worktrees). Identified by a deterministic 12-char hex `project_id` (SHA-256 of resolved host path).                                                                                                                                                                                                       | Warden     |
+| **ProjectID**   | Deterministic 12-character hex identifier computed from SHA-256 of the resolved absolute host path. Identifies a directory. Part of a compound primary key `(project_id, agent_type)` in the database for associating events/costs/state with a specific agent instance across container rebuilds.                                                                                                                                                                                                                 | Warden     |
+| **Worktree**    | An isolated working directory within a project (via `git worktree`), or the implicit workspace root for non-git repos. The unit of independent work.                                                                                                                                                                                                                                                                                                                                                               | Warden     |
+| **Terminal**    | The xterm.js web interface the user sees and types into. A disposable viewer into a worktree. Connects via WebSocket to the Go backend proxy.                                                                                                                                                                                                                                                                                                                                                                      | Warden     |
+| **Access Item** | A general-purpose credential and mount provider. Includes built-in items (Git, SSH) for common infrastructure needs and user-defined items for custom access methods. Each item has a detection mechanism to verify availability on the host.                                                                                                                                                                                                                                                                      | Warden     |
 | **Agent Type**  | The AI coding agent to run in a container against a directory. Currently `claude-code` or `codex`. Set at project creation time via `WARDEN_AGENT_TYPE` env var. Part of a compound primary key `(project_id, agent_type)` in the database. Changing the agent type for a directory requires creating a new container. Claude Code manages its own worktrees via `--worktree`; Codex worktrees are managed by Warden (`git worktree add`). Codex uses `AGENTS.md` instead of `CLAUDE.md` for project instructions. | Warden     |
 
 ## Banned terms
@@ -34,20 +34,45 @@ tmux (session manager — holds the PTY alive)
       └── claude/codex (or just bash if the agent exited)
 ```
 
-| Component  | Role                                                   | Can be killed without losing work? |
-| ---------- | ------------------------------------------------------ | ---------------------------------- |
-| **tmux** | Holds the PTY session alive across viewer disconnects. | No — kills the agent and bash.     |
+| Component | Role                                                   | Can be killed without losing work? |
+| --------- | ------------------------------------------------------ | ---------------------------------- |
+| **tmux**  | Holds the PTY session alive across viewer disconnects. | No — kills the agent and bash.     |
 
-The browser connects via `GET /api/v1/projects/{projectID}/{agentType}/ws/{wid}` (WebSocket), which the Go backend proxies to `docker exec` with TTY mode. The connection is kept alive with periodic ping/pong heartbeats (30s).
+The tmux session is configured with:
+
+- `status off` — no status bar (terminal is rendered in xterm.js)
+- `mouse off` — mouse events pass through to xterm.js
+- `history-limit 50000` — scrollback buffer for replay on reconnect
+- `window-size latest` — resizes to the most recently attached client
+- `-u` flag — force UTF-8 mode for correct box-drawing character rendering
+
+Agents run with `TMUX` env var unset so they don't detect they're inside tmux.
+
+The browser connects via `GET /api/v1/projects/{projectID}/{agentType}/ws/{wid}` (WebSocket). Before attaching the live stream, the proxy captures the tmux scrollback buffer via `tmux capture-pane` and sends it to the client. This fills the gap between the user's last disconnect and now. The connection is kept alive with periodic ping/pong heartbeats (30s).
+
+## Auto-resume
+
+When a terminal reconnects after the agent has exited (Stop button, container restart, or normal exit), `create-terminal.sh` detects the previous session via `exit_code` file + JSONL session files and launches the agent with `--continue` (Claude Code) or `resume --last` (Codex) instead of starting fresh. The user sees their previous conversation history.
+
+Auto-resume triggers when:
+
+- **Stop button** — `kill-worktree.sh` writes `exit_code=137` before killing tmux
+- **Container restart** — `user-entrypoint.sh` writes `exit_code=137` for orphaned terminal dirs on startup
+- **Normal exit** — the inner script writes the actual exit code when the agent exits
+
+Auto-resume does NOT trigger when:
+
+- **Worktree deletion** — `RemoveWorktree` removes the entire terminal dir including exit_code
 
 ## Terminal actions
 
-| Action         | Verb                                     | What happens                                                     | Destructive? |
-| -------------- | ---------------------------------------- | ---------------------------------------------------------------- | ------------ |
-| **Connect**    | `connectTerminal`                        | Start tmux session, launch the agent. Browser connects via WebSocket.  | No           |
-| **Disconnect** | `disconnectTerminal`                     | Close WebSocket. Tmux session keeps running.                           | No           |
-| **Reconnect**  | `connectTerminal` (on existing worktree) | Browser reconnects via new WebSocket to existing tmux session. | No           |
-| **Kill**       | `killWorktreeProcess`                    | Kill tmux session + everything. Process destroyed.                     | Yes          |
+| Action         | Verb                                     | What happens                                                                        | Destructive? |
+| -------------- | ---------------------------------------- | ----------------------------------------------------------------------------------- | ------------ |
+| **Connect**    | `connectTerminal`                        | Start tmux session, launch the agent. Browser connects via WebSocket.               | No           |
+| **Disconnect** | `disconnectTerminal`                     | Close viewer. Tmux session keeps running in the background.                         | No           |
+| **Reconnect**  | `connectTerminal` (on existing worktree) | Browser reconnects via new WebSocket to existing tmux session.                      | No           |
+| **Stop**       | `killWorktreeProcess`                    | Stop agent from running in the background. Writes exit_code for auto-resume.        | Yes          |
+| **Delete**     | `removeWorktree`                         | Completely delete worktree from disk (git worktree remove). Removes terminal state. | Yes          |
 
 ## Worktree states
 
@@ -76,4 +101,4 @@ The browser connects via `GET /api/v1/projects/{projectID}/{agentType}/ws/{wid}`
 | Conversations | Agent             | Internal session history, `/resume`, conversation threading — all internal to the agent                                                                                               |
 | Cost          | Agent + Warden    | JSONL session files are the primary cost source (parsed by Warden). Claude Code also exposes per-project metrics in `~/.claude.json` as a fallback.                                   |
 | Notifications | Warden + Agent    | Claude Code's hook events push attention state via event bus; Warden broadcasts via SSE. Codex does not yet support hooks — attention tracking is a known gap.                        |
-| Git branches  | Agent             | The agent manages branches within its worktree                                                                                                                                        |
+| Git branches  | Agent             | The agent manages branches within its worktree. Claude Code manages worktrees natively (`--worktree`); Codex manages branches in Warden-created worktrees.                            |
