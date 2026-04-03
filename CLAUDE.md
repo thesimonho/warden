@@ -17,9 +17,11 @@ go run ./cmd/warden-desktop   # Go API server + embedded SPA
 npm --prefix web run dev      # Vite dev server (optional, for frontend HMR)
 ```
 
-Dev UI at `http://localhost:5173`. Always use `:5173` to access the app and API in development — the Go server on `:8090` does not serve the SPA when the Vite dev server is running.
+Dev UI at `http://localhost:5173`. Always use `:5173` to access the frontend app with HMR. The Go server on `:8090` does not serve the SPA when the Vite dev server is running.
 
 **IMPORTANT: Do NOT start dev servers.** The user runs `just dev` themselves. Never run `go run ./cmd/warden-desktop`, `npm --prefix web run dev`, `just dev`, or any command that starts a server on `:8090` or `:5173`. If you need the server running, ask the user. If you need to test API calls, use `curl` against the already-running server. Starting a competing server will kill the user's running instance or cause port conflicts.
+
+If you make additions/changes to the webapp frontend code, you MUST also update the TUI code.
 
 ### Debugging
 
