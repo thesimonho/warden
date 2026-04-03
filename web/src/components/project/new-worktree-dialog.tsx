@@ -59,7 +59,7 @@ export default function NewWorktreeDialog({
       input
         // Replace whitespace and git-invalid characters with hyphens.
         // eslint-disable-next-line no-control-regex -- intentional: sanitizes git ref name rules
-        .replace(/[\s~^:?*\[\]\\@{}\x00-\x1f\x7f]+/g, '-')
+        .replace(/[\s~^:?*[\]\\@{}\x00-\x1f\x7f]+/g, '-')
         // Collapse consecutive dots (invalid in git refs).
         .replace(/\.{2,}/g, '.')
         // Collapse consecutive hyphens from substitution.
