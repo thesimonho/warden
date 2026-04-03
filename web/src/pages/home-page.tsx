@@ -12,6 +12,7 @@ import {
   fetchProjects,
   fetchSettings,
   fetchDefaults,
+  fetchAccessItems,
   addProject,
   createContainer,
 } from '@/lib/api'
@@ -207,10 +208,16 @@ export default function HomePage() {
     async (agentType: AgentType) => {
       if (!serverSettings?.workingDirectory) return
       try {
-        const defaults = await fetchDefaults()
+        const [defaults, accessItems] = await Promise.all([
+          fetchDefaults(),
+          fetchAccessItems(),
+        ])
         const mounts = defaults.mounts
           .filter((m) => !m.agentType || m.agentType === agentType)
           .map(({ hostPath, containerPath, readOnly }) => ({ hostPath, containerPath, readOnly }))
+        const enabledAccessItems = accessItems
+          .filter((item) => item.detection.available)
+          .map((item) => item.id)
 
         const result = await addProject('warden', serverSettings.workingDirectory, agentType)
         await createContainer(result.projectId, agentType, {
@@ -221,6 +228,7 @@ export default function HomePage() {
           skipPermissions: true,
           networkMode: 'restricted',
           allowedDomains: [...getRestrictedDomains(defaults.restrictedDomains, agentType)],
+          enabledAccessItems,
           mounts,
         })
         toast.success(`${agentType} project created`)
