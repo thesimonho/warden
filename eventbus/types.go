@@ -140,6 +140,17 @@ type SessionExitData struct {
 	ExitCode int `json:"exitCode"`
 }
 
+// UserPromptData carries user prompt text and its source classification.
+type UserPromptData struct {
+	Prompt       string `json:"prompt"`
+	PromptSource string `json:"promptSource,omitempty"`
+}
+
+// IsBash returns true if the prompt originated from a bash command or its output.
+func (d UserPromptData) IsBash() bool {
+	return d.PromptSource == "bash" || d.PromptSource == "bash_output"
+}
+
 // ToolUseData carries tool invocation details from the PreToolUse hook.
 type ToolUseData struct {
 	ToolName  string `json:"toolName"`

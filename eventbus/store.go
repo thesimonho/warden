@@ -9,7 +9,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/thesimonho/warden/agent"
 	"github.com/thesimonho/warden/db"
 	"github.com/thesimonho/warden/engine"
 )
@@ -1021,13 +1020,10 @@ func (s *Store) writeToAuditLog(writer *db.AuditWriter, event ContainerEvent) {
 		}
 	case EventUserPrompt:
 		if event.Data != nil {
-			var data struct {
-				Prompt       string             `json:"prompt"`
-				PromptSource agent.PromptSource `json:"promptSource"`
-			}
+			var data UserPromptData
 			if err := json.Unmarshal(event.Data, &data); err == nil {
 				prefix := ""
-				if data.PromptSource.IsBash() {
+				if data.IsBash() {
 					prefix = "[bash] "
 				}
 				message = prefix + data.Prompt

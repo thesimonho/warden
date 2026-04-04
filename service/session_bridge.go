@@ -45,11 +45,14 @@ func SessionEventToContainerEvent(event agent.ParsedEvent, ctx SessionContext) *
 			ToolInput: event.ToolInput,
 		})
 	case agent.EventUserPrompt:
-		promptData := map[string]string{"prompt": event.Prompt}
-		if event.PromptSource != "" && event.PromptSource != agent.PromptSourceUser {
-			promptData["promptSource"] = string(event.PromptSource)
+		promptSource := ""
+		if event.PromptSource.IsBash() {
+			promptSource = string(event.PromptSource)
 		}
-		ce.Data = marshalData(promptData)
+		ce.Data = marshalData(eventbus.UserPromptData{
+			Prompt:       event.Prompt,
+			PromptSource: promptSource,
+		})
 	case agent.EventTokenUpdate:
 		ce.Data = marshalData(eventbus.CostData{
 			TotalCost:   event.EstimatedCostUSD,

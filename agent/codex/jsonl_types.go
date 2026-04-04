@@ -92,9 +92,9 @@ type EventMsg struct {
 	// Exec command fields (type == "exec_command_end").
 	// Available in extended mode for agent commands; also persisted in limited
 	// mode for user shell commands (source == "user_shell").
-	CallID   string   `json:"call_id,omitempty"`
-	ExitCode *int     `json:"exit_code,omitempty"`
-	Status   string   `json:"status,omitempty"`
+	CallID           string   `json:"call_id,omitempty"`
+	ExitCode         *int     `json:"exit_code,omitempty"`
+	Status           string   `json:"status,omitempty"`
 	Source           string   `json:"source,omitempty"`
 	Command          []string `json:"command,omitempty"`
 	Stdout           string   `json:"stdout,omitempty"`

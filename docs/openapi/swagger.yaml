@@ -287,6 +287,9 @@ components:
         event:
           description: Event is a snake_case identifier for the event type (e.g. "session_start").
           type: string
+        id:
+          description: ID is the database row identifier. Unique across all entries.
+          type: integer
         level:
           $ref: '#/components/schemas/api.AuditLevel'
         msg:
