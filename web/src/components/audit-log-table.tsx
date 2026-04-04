@@ -34,6 +34,7 @@ import {
   ChevronRight,
   Copy,
   Loader2,
+  SquareTerminal,
 } from 'lucide-react'
 import { AgentIcon } from '@/components/ui/agent-icons'
 import { Badge } from '@/components/ui/badge'
@@ -263,13 +264,22 @@ const columns: ColumnDef<AuditLogEntry, unknown>[] = [
     meta: { flex: true },
     cell: ({ getValue, row }) => {
       const source = promptSource(row.original)
-      return (
-        <span
-          className={cn('truncate', source ? 'text-foreground/70 font-mono' : 'text-foreground/80')}
-        >
-          {getValue<string>()}
-        </span>
-      )
+      if (source) {
+        return (
+          <span className="flex min-w-0 items-center gap-1.5">
+            <SquareTerminal className="text-muted-foreground h-3.5 w-3.5 shrink-0" />
+            <span
+              className={cn(
+                'truncate font-mono',
+                source === 'bash' ? 'text-foreground/80' : 'text-foreground/50',
+              )}
+            >
+              {getValue<string>()}
+            </span>
+          </span>
+        )
+      }
+      return <span className="text-foreground/80 truncate">{getValue<string>()}</span>
     },
   },
   {
