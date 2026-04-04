@@ -63,9 +63,9 @@ type (
 
 // Re-export constants so existing db.SourceAgent, db.LevelInfo, etc. still work.
 const (
-	SourceAgent    = api.AuditSourceAgent
-	SourceBackend  = api.AuditSourceBackend
-	SourceFrontend = api.AuditSourceFrontend
+	SourceAgent     = api.AuditSourceAgent
+	SourceBackend   = api.AuditSourceBackend
+	SourceFrontend  = api.AuditSourceFrontend
 	SourceContainer = api.AuditSourceContainer
 
 	LevelInfo  = api.AuditLevelInfo

@@ -63,4 +63,3 @@ func TestWarden_CloseIdempotent(t *testing.T) {
 	w.Close()
 	w.Close()
 }
-
