@@ -394,7 +394,7 @@ func attachTerminal(c Client, projectID, agentType, worktreeID string) tea.Cmd {
 		if err != nil {
 			return TerminalExitedMsg{Err: err}
 		}
-		conn, err := c.AttachTerminal(context.Background(), projectID, worktreeID)
+		conn, err := c.AttachTerminal(context.Background(), projectID, agentType, worktreeID)
 		if err != nil {
 			return TerminalExitedMsg{Err: err}
 		}
