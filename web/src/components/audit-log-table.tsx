@@ -268,14 +268,7 @@ const columns: ColumnDef<AuditLogEntry, unknown>[] = [
         return (
           <span className="flex min-w-0 items-center gap-1.5">
             <SquareTerminal className="text-muted-foreground h-3.5 w-3.5 shrink-0" />
-            <span
-              className={cn(
-                'truncate font-mono',
-                source === 'bash' ? 'text-foreground/80' : 'text-foreground/50',
-              )}
-            >
-              {getValue<string>()}
-            </span>
+            <span className="text-foreground/50 truncate font-mono">{getValue<string>()}</span>
           </span>
         )
       }
@@ -319,8 +312,8 @@ function ExpandedRowDetail({ entry }: { entry: AuditLogEntry }) {
   return (
     <div className="border-border/30 animate-in fade-in slide-in-from-top-1 w-full border-t pr-2 pb-2 pl-16 duration-150">
       {source && prompt ? (
-        <pre className="text-muted-foreground text-xs leading-relaxed wrap-break-word whitespace-pre-wrap select-text">
-          {prompt}
+        <pre className="text-muted-foreground overflow-x-auto text-xs leading-relaxed whitespace-pre select-text">
+          {cleanTerminalOutput(prompt)}
         </pre>
       ) : (
         <pre className="text-muted-foreground text-xs leading-relaxed wrap-break-word whitespace-pre-wrap select-text">
@@ -341,6 +334,19 @@ function ExpandedRowDetail({ entry }: { entry: AuditLogEntry }) {
       )}
     </div>
   )
+}
+
+/** Cleans terminal output for display. Handles carriage returns (\r)
+ *  used by CLI tools like curl for progress bar overwrites — keeps
+ *  only the final content after the last \r on each line. */
+function cleanTerminalOutput(text: string): string {
+  return text
+    .split('\n')
+    .map((line) => {
+      const lastCR = line.lastIndexOf('\r')
+      return lastCR >= 0 ? line.substring(lastCR + 1) : line
+    })
+    .join('\n')
 }
 
 // --- Sort indicator ---
