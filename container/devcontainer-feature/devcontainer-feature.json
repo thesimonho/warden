@@ -1,6 +1,6 @@
 {
   "id": "session-tools",
-  "version": "0.6.0",
+  "version": "1.5.0",
   "name": "Warden Session Infrastructure",
   "description": "Installs tmux, Claude Code CLI, Codex CLI, and terminal management scripts for Warden project containers",
   "options": {

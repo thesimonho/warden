@@ -1,5 +1,26 @@
 # Changelog
 
+## [1.5.0](https://github.com/thesimonho/warden/compare/v0.6.0...v1.5.0) (2026-04-04)
+
+
+### Features
+
+* add reset worktree action ([#89](https://github.com/thesimonho/warden/issues/89)) ([109fab1](https://github.com/thesimonho/warden/commit/109fab175c2a0a0d9bfe3ac791df3ebd048241cf))
+* format bash mode prompts in audit log ([#85](https://github.com/thesimonho/warden/issues/85)) ([1ddd5c5](https://github.com/thesimonho/warden/commit/1ddd5c5182fdf36cedd8f918a9466a26b28fcfae))
+* install agent CLIs at startup, slim container image ([#78](https://github.com/thesimonho/warden/issues/78)) ([a421cd7](https://github.com/thesimonho/warden/commit/a421cd74385f41240b8d28b2eafc1851ff8946cb))
+* log blocked network connections to audit log ([#82](https://github.com/thesimonho/warden/issues/82)) ([e5627fe](https://github.com/thesimonho/warden/commit/e5627fe859125366631fe62b91ce11ff0f973c87))
+* persist FileTailer byte offsets to prevent audit event replay ([#91](https://github.com/thesimonho/warden/issues/91)) ([040fb9e](https://github.com/thesimonho/warden/commit/040fb9ed5d27307367b369b42608e8df1bacec6a))
+* project templates via .warden.json ([#81](https://github.com/thesimonho/warden/issues/81)) ([37cb083](https://github.com/thesimonho/warden/commit/37cb083e71fef59ba3554e8863335a445417942d))
+
+
+### Bug Fixes
+
+* clear session costs when deleting audit events ([#83](https://github.com/thesimonho/warden/issues/83)) ([55be8a5](https://github.com/thesimonho/warden/commit/55be8a58f70f87e54295d2abfe3eb431f7455103))
+* parse Codex user shell commands in audit log ([#86](https://github.com/thesimonho/warden/issues/86)) ([8571e08](https://github.com/thesimonho/warden/commit/8571e0834cf78be57b704ca7903d0b779cfeb30d))
+* prevent audit timeline tooltip from overflowing viewport ([#84](https://github.com/thesimonho/warden/issues/84)) ([684102e](https://github.com/thesimonho/warden/commit/684102e01fb61fa114187fe87217ca3888a918ca))
+* remove audit history option from project delete popup ([#90](https://github.com/thesimonho/warden/issues/90)) ([3b3beab](https://github.com/thesimonho/warden/commit/3b3beab222226806ab15a09b6dfdda32226cce57))
+* use database row ID as audit log entry key ([#87](https://github.com/thesimonho/warden/issues/87)) ([298c36b](https://github.com/thesimonho/warden/commit/298c36b8118681cacaae3795b73221336ccdb202))
+
 ## [0.6.0](https://github.com/thesimonho/warden/compare/v0.5.2...v0.6.0) (2026-04-04)
 
 
