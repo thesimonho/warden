@@ -95,10 +95,11 @@ type EventMsg struct {
 	CallID   string   `json:"call_id,omitempty"`
 	ExitCode *int     `json:"exit_code,omitempty"`
 	Status   string   `json:"status,omitempty"`
-	Source   string   `json:"source,omitempty"`
-	Command  []string `json:"command,omitempty"`
-	Stdout   string   `json:"stdout,omitempty"`
-	Stderr   string   `json:"stderr,omitempty"`
+	Source           string   `json:"source,omitempty"`
+	Command          []string `json:"command,omitempty"`
+	Stdout           string   `json:"stdout,omitempty"`
+	Stderr           string   `json:"stderr,omitempty"`
+	AggregatedOutput string   `json:"aggregated_output,omitempty"`
 
 	// MCP tool call fields (type == "mcp_tool_call_end", extended mode only).
 	ToolName      string `json:"tool_name,omitempty"`

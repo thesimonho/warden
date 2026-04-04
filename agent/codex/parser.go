@@ -227,7 +227,12 @@ func (p *Parser) parseUserShellCommand(item RolloutItem, msg EventMsg) []agent.P
 		PromptSource: agent.PromptSourceBash,
 	}}
 
-	output := strings.TrimSpace(msg.Stdout + msg.Stderr)
+	// Prefer aggregated_output (always populated) over separate stdout/stderr
+	// (often empty when Codex captures combined output).
+	output := strings.TrimSpace(msg.AggregatedOutput)
+	if output == "" {
+		output = strings.TrimSpace(msg.Stdout + msg.Stderr)
+	}
 	if output != "" {
 		events = append(events, agent.ParsedEvent{
 			Type:         agent.EventUserPrompt,
