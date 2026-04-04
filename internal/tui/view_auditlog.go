@@ -13,7 +13,6 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	"github.com/thesimonho/warden/api"
-	"github.com/thesimonho/warden/db"
 )
 
 // Filter values for cycling through options. Empty string means "all".
@@ -27,11 +26,11 @@ var (
 		string(api.AuditCategoryDebug),
 	}
 	levelFilters = []string{
-		"", string(db.LevelInfo), string(db.LevelWarn), string(db.LevelError),
+		"", string(api.AuditLevelInfo), string(api.AuditLevelWarn), string(api.AuditLevelError),
 	}
 	sourceFilters = []string{
-		"", string(db.SourceAgent), string(db.SourceBackend),
-		string(db.SourceFrontend), string(db.SourceContainer),
+		"", string(api.AuditSourceAgent), string(api.AuditSourceBackend),
+		string(api.AuditSourceFrontend), string(api.AuditSourceContainer),
 	}
 )
 
@@ -73,7 +72,7 @@ const deleteConfirmWord = "delete"
 // AuditLogView displays filtered audit log entries with summary and filters.
 type AuditLogView struct {
 	client  Client
-	entries []db.Entry
+	entries []api.AuditEntry
 	summary *api.AuditSummary
 	loading bool
 	err     error
@@ -158,7 +157,7 @@ func (v *AuditLogView) fetchData() tea.Cmd {
 // fetchEntriesAndSummary issues both API calls concurrently.
 func (v *AuditLogView) fetchEntriesAndSummary(filters api.AuditFilters) (
 	entryResult struct {
-		data []db.Entry
+		data []api.AuditEntry
 		err  error
 	},
 	summaryResult struct {
@@ -449,14 +448,14 @@ func (v *AuditLogView) renderEntries(width, maxVisible int) string {
 }
 
 // renderEntry renders a single audit log entry line.
-func renderEntry(e db.Entry, width int) string {
+func renderEntry(e api.AuditEntry, width int) string {
 	ts := e.Timestamp.Format("01/02 15:04:05")
 
 	levelStyle := Styles.Muted
 	switch e.Level {
-	case db.LevelWarn:
+	case api.AuditLevelWarn:
 		levelStyle = Styles.Warning
-	case db.LevelError:
+	case api.AuditLevelError:
 		levelStyle = Styles.Error
 	}
 

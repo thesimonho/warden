@@ -17,6 +17,9 @@ type (
 	DefaultEnvVar           = api.DefaultEnvVar
 	DefaultsResponse        = api.DefaultsResponse
 	DirEntry                = api.DirEntry
+	AuditEntry              = api.AuditEntry
+	AuditSource             = api.AuditSource
+	AuditLevel              = api.AuditLevel
 	AuditFilters            = api.AuditFilters
 	AuditCategory           = api.AuditCategory
 	AuditSummary            = api.AuditSummary

@@ -16,7 +16,6 @@ import (
 
 	"github.com/thesimonho/warden/api"
 	"github.com/thesimonho/warden/constants"
-	"github.com/thesimonho/warden/db"
 	"github.com/thesimonho/warden/engine"
 	"github.com/thesimonho/warden/eventbus"
 	"github.com/thesimonho/warden/internal/terminal"
@@ -966,7 +965,7 @@ func (rt *routes) handleUpdateSettings(w http.ResponseWriter, r *http.Request) {
 //	@Param			until		query		string	false	"Filter entries before this timestamp (RFC3339)"
 //	@Param			limit		query		int		false	"Maximum entries to return (default 10000)"
 //	@Param			offset		query		int		false	"Number of entries to skip"
-//	@Success		200			{array}		db.Entry
+//	@Success		200			{array}		api.AuditEntry
 //	@Failure		500			{object}	apiError
 //	@Router			/api/v1/audit [get]
 func (rt *routes) handleGetAuditLog(w http.ResponseWriter, r *http.Request) {
@@ -994,7 +993,7 @@ func (rt *routes) handleGetAuditLog(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if entries == nil {
-		entries = []db.Entry{}
+		entries = []api.AuditEntry{}
 	}
 	writeJSON(w, entries)
 }

@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/thesimonho/warden/api"
-	"github.com/thesimonho/warden/db"
 )
 
 func TestCategoryFiltersIncludeAllAPICategories(t *testing.T) {
@@ -235,11 +234,11 @@ func TestRenderEntries(t *testing.T) {
 	t.Parallel()
 
 	v := &AuditLogView{
-		entries: []db.Entry{
+		entries: []api.AuditEntry{
 			{
 				Timestamp: time.Date(2026, 3, 27, 10, 0, 0, 0, time.UTC),
-				Source:    db.SourceAgent,
-				Level:     db.LevelInfo,
+				Source:    api.AuditSourceAgent,
+				Level:     api.AuditLevelInfo,
 				Event:     "budget_exceeded",
 				ProjectID: "test-project",
 				Message:   "Budget limit reached",

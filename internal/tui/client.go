@@ -9,7 +9,6 @@ import (
 	"github.com/thesimonho/warden/access"
 	"github.com/thesimonho/warden/api"
 	"github.com/thesimonho/warden/client"
-	"github.com/thesimonho/warden/db"
 	"github.com/thesimonho/warden/engine"
 	"github.com/thesimonho/warden/eventbus"
 	"github.com/thesimonho/warden/runtime"
@@ -127,7 +126,7 @@ type Client interface {
 
 	// GetAuditLog returns filtered audit events.
 	// API: GET /api/v1/audit
-	GetAuditLog(ctx context.Context, filters api.AuditFilters) ([]db.Entry, error)
+	GetAuditLog(ctx context.Context, filters api.AuditFilters) ([]api.AuditEntry, error)
 
 	// GetAuditSummary returns aggregate audit statistics.
 	// API: GET /api/v1/audit/summary

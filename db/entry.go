@@ -12,6 +12,8 @@ package db
 import (
 	"encoding/json"
 	"time"
+
+	"github.com/thesimonho/warden/api"
 )
 
 // QueryFilters controls which entries are returned by [Store.Query].
@@ -50,75 +52,26 @@ const DefaultQueryLimit = 10_000
 // defaultAgentType is the Go-side default matching the SQL schema default.
 const defaultAgentType = "claude-code"
 
-// Source identifies where a log entry originated.
-type Source string
-
-const (
-	// SourceAgent is for Claude Code hook events (attention, session lifecycle, etc.).
-	SourceAgent Source = "agent"
-	// SourceBackend is for Go application events (slog-captured).
-	SourceBackend Source = "backend"
-	// SourceFrontend is for browser-side events posted via the API.
-	SourceFrontend Source = "frontend"
-	// SourceContainer is for container lifecycle events (create, stop, restart, etc.).
-	SourceContainer Source = "container"
+// Type aliases for backward compatibility. Canonical definitions live in
+// the api package; these aliases let existing db.Entry / db.Source / db.Level
+// references compile without changes throughout the codebase.
+type (
+	Source = api.AuditSource
+	Level  = api.AuditLevel
+	Entry  = api.AuditEntry
 )
 
-// Level indicates the severity of a log entry.
-type Level string
-
+// Re-export constants so existing db.SourceAgent, db.LevelInfo, etc. still work.
 const (
-	// LevelInfo is the default severity for informational events.
-	LevelInfo Level = "info"
-	// LevelWarn indicates a warning condition.
-	LevelWarn Level = "warn"
-	// LevelError indicates an error condition.
-	LevelError Level = "error"
+	SourceAgent    = api.AuditSourceAgent
+	SourceBackend  = api.AuditSourceBackend
+	SourceFrontend = api.AuditSourceFrontend
+	SourceContainer = api.AuditSourceContainer
+
+	LevelInfo  = api.AuditLevelInfo
+	LevelWarn  = api.AuditLevelWarn
+	LevelError = api.AuditLevelError
 )
-
-// Entry is a single event log record.
-//
-// Source, Level, and Event are required.
-type Entry struct {
-	// Timestamp is when the event occurred (ISO 8601 with milliseconds).
-	Timestamp time.Time `json:"ts"`
-	// Source identifies the origin layer (agent, backend, frontend, container).
-	Source Source `json:"source"`
-	// Level is the severity of the entry (info, warn, error).
-	Level Level `json:"level"`
-	// Event is a snake_case identifier for the event type (e.g. "session_start").
-	Event string `json:"event"`
-	// ProjectID is the deterministic project identifier (sha256 of host path, 12 hex chars).
-	ProjectID string `json:"projectId,omitempty"`
-	// AgentType identifies the agent that produced this event (e.g. "claude-code", "codex").
-	AgentType string `json:"agentType,omitempty"`
-	// ContainerName is a snapshot of the container name at the time of the event.
-	ContainerName string `json:"containerName,omitempty"`
-	// Worktree is the worktree ID (only for agent events).
-	Worktree string `json:"worktree,omitempty"`
-	// Message is a human-readable description.
-	Message string `json:"msg,omitempty"`
-	// Data carries the raw event payload (for agent events, preserves hook JSON).
-	Data json.RawMessage `json:"data,omitempty"`
-	// Attrs carries structured key-value metadata.
-	Attrs map[string]any `json:"attrs,omitempty"`
-	// Category is the audit category (session, agent, prompt, config, system).
-	// Computed at query time from the event name — not stored in the DB.
-	Category string `json:"category,omitempty"`
-	// SourceID is a content hash for deduplication of JSONL-sourced events.
-	// When set, the DB uses INSERT OR IGNORE to silently drop duplicates.
-	// Empty for hook and backend events (no dedup needed).
-	SourceID string `json:"-"`
-}
-
-// DisplayProject returns the best available project label for human display.
-// Prefers the container name snapshot (human-readable), falls back to ProjectID (hex hash).
-func (e Entry) DisplayProject() string {
-	if e.ContainerName != "" {
-		return e.ContainerName
-	}
-	return e.ProjectID
-}
 
 // ProjectRow represents a project stored in the database.
 //

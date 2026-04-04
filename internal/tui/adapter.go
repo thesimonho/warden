@@ -12,7 +12,6 @@ import (
 	"github.com/thesimonho/warden/access"
 	"github.com/thesimonho/warden/api"
 	"github.com/thesimonho/warden/client"
-	"github.com/thesimonho/warden/db"
 	"github.com/thesimonho/warden/engine"
 	"github.com/thesimonho/warden/eventbus"
 	"github.com/thesimonho/warden/runtime"
@@ -197,7 +196,7 @@ func (a *ServiceAdapter) ListRuntimes(ctx context.Context) ([]runtime.RuntimeInf
 // --- Audit Log ---
 
 // GetAuditLog delegates to Service.GetAuditLog.
-func (a *ServiceAdapter) GetAuditLog(_ context.Context, filters api.AuditFilters) ([]db.Entry, error) {
+func (a *ServiceAdapter) GetAuditLog(_ context.Context, filters api.AuditFilters) ([]api.AuditEntry, error) {
 	return a.w.Service.GetAuditLog(filters)
 }
 
