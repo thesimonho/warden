@@ -97,6 +97,13 @@ install_go() {
     fi
   fi
 
+  # Skip if the correct version is already installed.
+  local current_go
+  current_go=$(go version 2>/dev/null | grep -oP '\d+\.\d+\.\d+' || echo "")
+  if [ "$current_go" = "$go_version" ]; then
+    return 0
+  fi
+
   push_runtime_event "runtime_installing" "go" "Go ${go_version}"
 
   local arch
@@ -115,7 +122,7 @@ install_go() {
     curl -fsSL "$url" -o "$tarball"
   fi
 
-  # Always install fresh from the cached tarball.
+  # Install fresh from the cached tarball.
   rm -rf /usr/local/go
   tar -C /usr/local -xzf "$tarball"
   ln -sf /usr/local/go/bin/go /usr/local/bin/go
@@ -132,7 +139,12 @@ install_rust() {
   local cargo_home="${CACHE_DIR}/cargo"
   local rustup_home="${CACHE_DIR}/rustup"
 
-  # If rustup is cached on the volume, just restore symlinks.
+  # Already installed — symlinks intact from a previous start.
+  if command -v rustup >/dev/null 2>&1; then
+    return 0
+  fi
+
+  # Cache volume has rustup but symlinks are gone (new container from image).
   if [ -x "${cargo_home}/bin/rustup" ]; then
     ln -sf "${cargo_home}/bin/cargo" /usr/local/bin/cargo
     ln -sf "${cargo_home}/bin/rustup" /usr/local/bin/rustup

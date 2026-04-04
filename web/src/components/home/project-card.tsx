@@ -14,7 +14,7 @@ import {
   Trash2,
 } from 'lucide-react'
 import type { AgentType, Project } from '@/lib/types'
-import type { RuntimeStatus } from '@/hooks/use-projects'
+import type { InstallStatus } from '@/hooks/use-projects'
 import { formatCost } from '@/lib/cost'
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -40,8 +40,8 @@ interface ProjectCardProps {
   isRestartPending?: boolean
   /** Whether the "prevent restart" budget enforcement action is enabled. */
   budgetActionPreventStart?: boolean
-  /** Runtime installation status for this project. */
-  runtimeStatus?: RuntimeStatus
+  /** Agent CLI or runtime installation status for this project. */
+  installStatus?: InstallStatus
 }
 
 /**
@@ -68,7 +68,7 @@ export default function ProjectCard({
   isStopPending = false,
   isRestartPending = false,
   budgetActionPreventStart = false,
-  runtimeStatus,
+  installStatus,
 }: ProjectCardProps) {
   const navigate = useNavigate()
   const isRunning = project.state === 'running'
@@ -131,15 +131,22 @@ export default function ProjectCard({
       onClick={handleCardClick}
     >
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="flex items-center gap-2 text-xl font-semibold">
-          <AgentIcon type={project.agentType} className="h-4 w-4 shrink-0" />
+        <CardTitle className="flex items-center gap-4 text-xl font-semibold">
           {project.name || project.projectId}
+          <div className="flex items-center gap-2">
+            <AgentIcon type={project.agentType} className="h-4 w-4 shrink-0" />
+            {project.agentVersion && (
+              <span className="text-muted-foreground text-xs font-light">
+                ({project.agentVersion})
+              </span>
+            )}
+          </div>
         </CardTitle>
         <div className="flex items-center gap-2">
-          {runtimeStatus ? (
+          {installStatus ? (
             <span className="text-muted-foreground flex items-center gap-1.5 text-sm">
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              {runtimeStatus.message}
+              {installStatus.message}
             </span>
           ) : isRunning ? (
             <div className="flex gap-0">
@@ -196,7 +203,7 @@ export default function ProjectCard({
             </Tooltip>
           )}
 
-          {!runtimeStatus && <StatusBadge data-testid="status-badge" state={project.state} />}
+          {!installStatus && <StatusBadge data-testid="status-badge" state={project.state} />}
         </div>
       </CardHeader>
 

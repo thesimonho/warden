@@ -243,7 +243,7 @@ Subscribe to `GET /api/v1/events` for real-time updates:
   </TabItem>
 </Tabs>
 
-Events include `worktree_state` (attention/terminal state changes per worktree), `project_state` (aggregated cost + attention state per project), `worktree_list_changed`, `budget_exceeded` (when a project exceeds its cost budget), and `budget_container_stopped` (after budget enforcement stops a container — includes `containerId` for matching against project views).
+Events include `worktree_state` (attention/terminal state changes per worktree), `project_state` (aggregated cost + attention state per project), `worktree_list_changed`, `budget_exceeded` (when a project exceeds its cost budget), `budget_container_stopped` (after budget enforcement stops a container — includes `containerId` for matching against project views), `runtime_status` (language runtime install progress), and `agent_status` (agent CLI install/update progress with version info).
 
 ## Clipboard operations
 

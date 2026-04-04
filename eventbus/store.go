@@ -240,6 +240,8 @@ func (s *Store) HandleEvent(event ContainerEvent) {
 		// No state change — informational system messages are logged for audit.
 	case EventRuntimeInstalling, EventRuntimeInstalled:
 		broadcasts = s.handleRuntimeStatus(event)
+	case EventAgentInstalling, EventAgentInstalled:
+		broadcasts = s.handleAgentStatus(event)
 	case EventTerminalConnected:
 		broadcasts = s.handleTerminalConnected(key, event)
 	case EventTerminalDisconnected:
@@ -545,6 +547,29 @@ func (s *Store) handleRuntimeStatus(event ContainerEvent) []pendingBroadcast {
 			Phase:        phase,
 			RuntimeID:    data.RuntimeID,
 			RuntimeLabel: data.RuntimeLabel,
+		},
+	}}
+}
+
+// handleAgentStatus broadcasts agent CLI installation progress to SSE clients.
+func (s *Store) handleAgentStatus(event ContainerEvent) []pendingBroadcast {
+	var data AgentStatusData
+	if err := json.Unmarshal(event.Data, &data); err != nil {
+		slog.Warn("malformed agent status event", "err", err, "container", event.ContainerName)
+		return nil
+	}
+
+	phase := "installing"
+	if event.Type == EventAgentInstalled {
+		phase = "installed"
+	}
+
+	return []pendingBroadcast{{
+		event: SSEAgentStatus,
+		data: AgentStatusPayload{
+			ProjectRef: event.Ref(),
+			Phase:      phase,
+			Version:    data.Version,
 		},
 	}}
 }
@@ -905,7 +930,7 @@ func (s *Store) aggregateContainerAttention(containerName string) (needsInput bo
 //     is already persisted via handleCostUpdate → PersistSessionCost, so the
 //     audit entry adds noise without value
 func (s *Store) writeToAuditLog(writer *db.AuditWriter, event ContainerEvent) {
-	if writer == nil || event.Type == EventHeartbeat || event.Type == EventAttentionClear || event.Type == EventCostUpdate || event.Type == EventRuntimeInstalling {
+	if writer == nil || event.Type == EventHeartbeat || event.Type == EventAttentionClear || event.Type == EventCostUpdate || event.Type == EventRuntimeInstalling || event.Type == EventAgentInstalling {
 		return
 	}
 

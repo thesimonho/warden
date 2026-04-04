@@ -1,8 +1,13 @@
-name: Scheduled Container Validation
+name: Scheduled CLI Validation
 
-# Builds the container image, runs both CLIs with a test prompt, validates the
-# JSONL output with the Go parsers, and pushes only if validation succeeds.
-# Opens a GitHub issue on failure.
+# Installs the latest Claude Code and Codex CLIs, runs a test prompt,
+# validates the JSONL output with the Go parsers, and pushes a new
+# container image only if validation succeeds. Opens a GitHub issue
+# on failure.
+#
+# This workflow does NOT use the Warden container image for testing —
+# it installs CLIs directly on the runner to validate parser compatibility
+# with the latest upstream versions independently of container infrastructure.
 
 on:
   schedule:
@@ -20,35 +25,8 @@ env:
   TEST_PROMPT: "Read the file README.md, then create a file called /tmp/warden-test.txt with hello, then delete it"
 
 jobs:
-  # ── Build image for testing (single platform, no push) ───────────────
-  build:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v4
-      - name: Build image for testing
-        uses: docker/build-push-action@v6
-        with:
-          context: ./container
-          push: false
-          load: true
-          platforms: linux/amd64
-          tags: warden:test
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-      - name: Save image artifact
-        run: docker save warden:test | gzip > "$RUNNER_TEMP/warden-test.tar.gz"
-      - name: Upload image artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: warden-test-image
-          path: ${{ runner.temp }}/warden-test.tar.gz
-          retention-days: 1
-
-  # ── Run CLIs and validate JSONL output ───────────────────────────────
+  # ── Validate CLI JSONL output against Go parsers ─────────────────────
   validate:
-    needs: build
     runs-on: ubuntu-latest
     outputs:
       passed: ${{ steps.result.outputs.passed }}
@@ -61,22 +39,33 @@ jobs:
       - uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
-      - name: Download image artifact
-        uses: actions/download-artifact@v4
+      - uses: actions/setup-node@v4
         with:
-          name: warden-test-image
-          path: ${{ runner.temp }}
-      - name: Load image
-        run: gunzip -c "$RUNNER_TEMP/warden-test.tar.gz" | docker load
+          node-version: 24
 
-      # Capture CLI versions for issue reporting.
-      - name: Get CLI versions
+      # Install latest CLIs and capture versions.
+      - name: Install CLIs
         id: versions
         run: |
-          CLAUDE_VER=$(docker run --rm warden:test bash -lc "claude --version 2>/dev/null || echo unknown" | tail -1)
-          CODEX_VER=$(docker run --rm warden:test bash -lc "codex --version 2>/dev/null || echo unknown" | tail -1)
+          # Claude Code — standalone binary via official installer.
+          curl -fsSL https://claude.ai/install.sh | bash
+          CLAUDE_VER=$(claude --version 2>/dev/null | head -1 | grep -oP '\d+\.\d+\.\d+' || echo "unknown")
           echo "claude=$CLAUDE_VER" >> "$GITHUB_OUTPUT"
+
+          # Codex — npm global install.
+          npm install -g @openai/codex
+          CODEX_VER=$(codex --version 2>/dev/null | head -1 | grep -oP '\d+\.\d+\.\d+' || echo "unknown")
           echo "codex=$CODEX_VER" >> "$GITHUB_OUTPUT"
+
+          echo "CLI versions: claude=$CLAUDE_VER codex=$CODEX_VER"
+
+      # Create a minimal workspace for the test prompt.
+      - name: Set up test workspace
+        run: |
+          mkdir -p /tmp/warden-cli-test
+          echo "# Test Workspace" > /tmp/warden-cli-test/README.md
+          cd /tmp/warden-cli-test && git init && git add . && \
+            git -c user.email="ci@test" -c user.name="CI" commit -m "init"
 
       # Claude Code CLI test
       - name: Run Claude Code CLI
@@ -85,20 +74,14 @@ jobs:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: |
           mkdir -p "$RUNNER_TEMP/claude-output"
-          docker run --rm \
-            -e ANTHROPIC_API_KEY="$ANTHROPIC_API_KEY" \
-            -e WARDEN_AGENT_TYPE=claude-code \
-            -v "$RUNNER_TEMP/claude-output:/output" \
-            warden:test \
-            bash -lc "claude --dangerously-skip-permissions -p '${{ env.TEST_PROMPT }}' && cp ~/.claude/projects/*/*.jsonl /output/ 2>/dev/null || true"
+          cd /tmp/warden-cli-test
+          claude --dangerously-skip-permissions -p '${{ env.TEST_PROMPT }}' || true
+          cp ~/.claude/projects/*/*.jsonl "$RUNNER_TEMP/claude-output/" 2>/dev/null || true
 
       - name: Validate Claude JSONL
         id: validate-claude
         if: ${{ env.ANTHROPIC_API_KEY != '' }}
         continue-on-error: true
-        env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-          VALIDATE_JSONL: ${{ runner.temp }}/claude-output
         run: |
           JSONL_FILE=$(find "$RUNNER_TEMP/claude-output" -name '*.jsonl' | head -1)
           if [ -z "$JSONL_FILE" ]; then
@@ -115,19 +98,14 @@ jobs:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: |
           mkdir -p "$RUNNER_TEMP/codex-output"
-          docker run --rm \
-            -e OPENAI_API_KEY="$OPENAI_API_KEY" \
-            -e WARDEN_AGENT_TYPE=codex \
-            -v "$RUNNER_TEMP/codex-output:/output" \
-            warden:test \
-            bash -lc "codex --dangerously-bypass-approvals-and-sandbox --no-alt-screen -q '${{ env.TEST_PROMPT }}' && cp ~/.codex/sessions/*/*/*.jsonl /output/ 2>/dev/null || true"
+          cd /tmp/warden-cli-test
+          codex --dangerously-bypass-approvals-and-sandbox --no-alt-screen -q '${{ env.TEST_PROMPT }}' || true
+          cp ~/.codex/sessions/*/*/*.jsonl "$RUNNER_TEMP/codex-output/" 2>/dev/null || true
 
       - name: Validate Codex JSONL
         id: validate-codex
         if: ${{ env.OPENAI_API_KEY != '' }}
         continue-on-error: true
-        env:
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: |
           JSONL_FILE=$(find "$RUNNER_TEMP/codex-output" -name '*.jsonl' | head -1)
           if [ -z "$JSONL_FILE" ]; then

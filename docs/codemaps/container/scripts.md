@@ -7,11 +7,11 @@ container/scripts/
   install-tools.sh              # Wrapper for devcontainer path (calls sub-scripts)
   install-system-deps.sh        # System packages, GitHub CLI, Node.js, tmux/gosu, bubblewrap (devcontainer)
   install-user.sh               # warden user, workspace dirs, .profile env forwarding
-  install-claude.sh             # Claude Code CLI + managed-settings.json hooks
-  install-codex.sh              # Codex CLI (npm install -g @openai/codex)
   install-warden.sh             # Copy scripts to /usr/local/bin/, create /project
   shared/                       # Agent-agnostic scripts
-    entrypoint.sh               # Root-phase: UID remapping, iptables, exec gosu
+    entrypoint.sh               # Root-phase: UID remapping, agent CLI install, iptables, exec gosu
+    install-agent.sh            # Agent CLI install (Claude binary / Codex npm) with version pinning
+    install-runtimes.sh         # Language runtime install (Python, Go, Rust, Ruby, Lua)
     user-entrypoint.sh          # User-phase (PID 1): env forwarding, git config, heartbeat
     create-terminal.sh          # Agent-aware terminal creation (branches on WARDEN_AGENT_TYPE)
     disconnect-terminal.sh      # Disconnect viewer, tmux session continues
@@ -31,13 +31,13 @@ container/scripts/
 
 The Dockerfile calls each install script as a separate `RUN` instruction for layer caching. The devcontainer feature path calls `install-tools.sh` which orchestrates all sub-scripts in order.
 
-| Script                   | Layer | Changes when...                            |
-| ------------------------ | ----- | ------------------------------------------ |
-| `install-system-deps.sh` | 1     | New system packages added                  |
-| `install-user.sh`        | 2     | User setup or env forwarding changes       |
-| `install-claude.sh`      | 3     | Claude CLI releases or hook config changes |
-| `install-codex.sh`       | 4     | Codex CLI releases                         |
-| `install-warden.sh`      | 5     | Any Warden script changes (most frequent)  |
+| Script                   | Layer | Changes when...                           |
+| ------------------------ | ----- | ----------------------------------------- |
+| `install-system-deps.sh` | 1     | New system packages added                 |
+| `install-user.sh`        | 2     | User setup or env forwarding changes      |
+| `install-warden.sh`      | 3     | Any Warden script changes (most frequent) |
+
+Agent CLIs are installed at container startup (not at build time) by `install-agent.sh`. Language runtimes are installed by `install-runtimes.sh`. Both use the `warden-cache` volume for caching.
 
 ## Terminal Lifecycle
 

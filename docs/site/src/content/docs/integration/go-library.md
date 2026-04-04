@@ -45,7 +45,7 @@ if err != nil {
 defer w.Close() // Idempotent; shuts down all subsystems (including session watchers)
 ```
 
-`warden.New()` initializes the engine, database, event bus, agent registry, and starts session watchers for active containers. `w.Close()` tears down all subsystems including any running session watchers.
+`warden.New()` initializes the engine, database, event bus, agent registry, starts session watchers for active containers, and pre-warms the CLI cache in the background (downloading pinned Claude Code and Codex versions to a shared Docker volume). `w.Close()` tears down all subsystems including any running session watchers.
 
 ## Project management
 

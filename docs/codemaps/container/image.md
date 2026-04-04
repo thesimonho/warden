@@ -6,13 +6,11 @@ The `container/` directory defines the container image used by project container
 
 ```
 container/
-├── Dockerfile                          # Multi-stage build: builder compiles tmux, runtime uses layered installs
+├── Dockerfile                          # Multi-stage build: builder fetches gosu, runtime uses layered installs
 ├── scripts/
 │   ├── install-tools.sh                # Wrapper for devcontainer feature (calls sub-scripts in order)
 │   ├── install-system-deps.sh          # System packages, GitHub CLI, Node.js, tmux/gosu (devcontainer)
 │   ├── install-user.sh                 # warden user, workspace dirs, .profile env forwarding
-│   ├── install-claude.sh               # Claude Code CLI + managed-settings.json hooks
-│   ├── install-codex.sh                # Codex CLI (npm install -g @openai/codex)
 │   ├── install-warden.sh               # Copy scripts to /usr/local/bin/, create /project
 │   ├── shared/                         # Agent-agnostic runtime scripts
 │   ├── claude/                         # Claude-specific event handler
@@ -30,26 +28,31 @@ The install pipeline is split into composable sub-scripts. The Dockerfile calls 
 ### Dockerfile Layer Order
 
 ```
-builder stage:  fetch gosu (tmux installed via apt)
+builder stage:  fetch gosu
 runtime stage:
   Layer 1: install-system-deps.sh  (system packages — rarely changes)
   Layer 2: install-user.sh         (warden user — rarely changes)
-  Layer 3: install-claude.sh       (Claude CLI — changes on upstream releases)
-  Layer 4: install-codex.sh        (Codex CLI — changes on upstream releases)
-  Layer 5: install-warden.sh       (Warden scripts — changes every release)
+  Layer 3: install-warden.sh       (Warden scripts — changes every release)
 ```
 
-Most Warden releases only invalidate Layer 5. CLI updates only invalidate from that CLI's layer onward.
+Agent CLIs (Claude Code, Codex) are **not baked into the image**. They are installed at container startup by `install-agent.sh` using pinned versions from `agent/versions.go`, passed as env vars (`WARDEN_CLAUDE_VERSION`, `WARDEN_CODEX_VERSION`). The `warden-cache` Docker volume caches downloads across container creates.
 
 ### Sub-Script Responsibilities
 
-- **install-system-deps.sh** — apt packages (git, curl, jq, iptables, etc.), GitHub CLI, Node.js LTS. Compiles tmux and fetches gosu when pre-built binaries aren't available (devcontainer path). Cleans up apt lists.
+- **install-system-deps.sh** — apt packages (git, curl, jq, iptables, etc.), GitHub CLI, Node.js LTS. Fetches gosu when pre-built binaries aren't available (devcontainer path). Cleans up apt lists.
 - **install-user.sh** — creates `warden` user (prefers UID 1000), sets up `~/.local/bin`, creates workspace and agent config directories (`~/.claude`, `~/.codex`), configures `.profile` env forwarding.
-- **install-claude.sh** — installs Claude Code CLI via official installer, writes managed-settings.json with attention state hooks (Notification, PreToolUse, UserPromptSubmit).
-- **install-codex.sh** — installs Codex CLI via `npm install -g @openai/codex`, creates `~/.codex` config directory.
 - **install-warden.sh** — copies runtime scripts from `shared/`, `claude/`, `codex/` to `/usr/local/bin/`, calls `install-clipboard-shim.sh` to set up the xclip wrapper. Detects directory layout (subdirectories for Dockerfile, flat for devcontainer). Creates `/project` workspace.
 
-All steps are idempotent. Environment variables: `TMUX_VERSION` (default: `0.6`), `GOSU_VERSION` (default: `1.17`).
+All steps are idempotent. Environment variables: `GOSU_VERSION` (default: `1.17`).
+
+### Startup-Time Installation
+
+At container startup, the entrypoint runs `install-agent.sh` and `install-runtimes.sh` before dropping privileges:
+
+- **install-agent.sh** — installs the correct agent CLI based on `WARDEN_AGENT_TYPE`. Claude Code is downloaded as a standalone binary from GCS; Codex is installed via npm. Both cache to the `warden-cache` volume keyed by version.
+- **install-runtimes.sh** — installs user-selected language runtimes (Python, Go, Rust, Ruby, Lua) from `WARDEN_ENABLED_RUNTIMES`.
+
+Both scripts fire SSE events (`agent_installing`/`agent_installed`, `runtime_installing`/`runtime_installed`) for frontend progress tracking.
 
 ## Devcontainer Feature
 
@@ -57,6 +60,11 @@ The devcontainer feature (`container/devcontainer-feature/`) packages Warden's t
 
 At CI publish time (`.github/workflows/container.yml`), scripts from `container/scripts/` (including subdirectories) are copied flat alongside `install.sh` before packaging. The `install-warden.sh` script detects the flat layout and adjusts accordingly.
 
-## Both CLIs Bundled
+## Agent CLI Version Pinning
 
-The image includes both Claude Code and Codex CLIs. `WARDEN_AGENT_TYPE` env var (set by the Go engine at container creation) controls which agent launches in `create-terminal.sh`. The JSONL schema is a contract between CLI and parser — both must be present for testing.
+Each agent CLI is pinned to an exact version in `agent/versions.go`. The JSONL parser is tightly coupled to CLI output format, so pinning prevents breakage from unvalidated upstream changes. CI bumps these constants after parser compatibility tests pass for the new version.
+
+- **Claude Code**: standalone binary from GCS (`storage.googleapis.com`). Version pinning uses the deterministic URL pattern `{GCS_BUCKET}/{VERSION}/{PLATFORM}/claude`.
+- **Codex**: npm package `@openai/codex@{VERSION}`. npm cache on the volume speeds up reinstalls.
+
+Only the CLI matching the container's `WARDEN_AGENT_TYPE` is installed — a Claude container never downloads Codex, and vice versa.

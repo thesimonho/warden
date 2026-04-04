@@ -17,6 +17,6 @@ SCRIPTS_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 "${SCRIPTS_DIR}/install-system-deps.sh"
 "${SCRIPTS_DIR}/install-user.sh"
-"${SCRIPTS_DIR}/install-claude.sh"
-"${SCRIPTS_DIR}/install-codex.sh"
+# Agent CLIs (Claude Code, Codex) are installed at container startup by
+# install-agent.sh using pinned versions, not during image build.
 "${SCRIPTS_DIR}/install-warden.sh"

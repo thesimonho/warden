@@ -62,6 +62,15 @@ fi
 chown -R "${WARDEN_USER}:${WARDEN_USER}" "/home/${WARDEN_USER}/.ssh" 2>/dev/null || true
 
 # -------------------------------------------------------------------
+# Agent CLI installation — install the selected agent's CLI from the
+# cached volume. Runs before network isolation since the download
+# needs unrestricted network access on first install.
+# -------------------------------------------------------------------
+if [ -n "${WARDEN_AGENT_TYPE:-}" ] && [ -x /usr/local/bin/install-agent.sh ]; then
+  /usr/local/bin/install-agent.sh || echo "[warden] warning: agent CLI installation failed"
+fi
+
+# -------------------------------------------------------------------
 # Network isolation — apply iptables rules for restricted/none modes.
 # Must run as root (requires NET_ADMIN capability).
 # -------------------------------------------------------------------

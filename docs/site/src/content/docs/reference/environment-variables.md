@@ -42,3 +42,5 @@ These are set automatically by the engine when creating containers. They are not
 | `WARDEN_NETWORK_MODE`     | Network isolation mode (`full`, `restricted`, or `none`).                           |
 | `WARDEN_ALLOWED_DOMAINS`  | Comma-separated domain allowlist for `restricted` network mode.                     |
 | `WARDEN_ENABLED_RUNTIMES` | Comma-separated runtime IDs to install at startup (e.g. `node,python,go`).          |
+| `WARDEN_CLAUDE_VERSION`   | Pinned Claude Code CLI version to install at startup (from `agent/versions.go`).    |
+| `WARDEN_CODEX_VERSION`    | Pinned Codex CLI version to install at startup (from `agent/versions.go`).          |

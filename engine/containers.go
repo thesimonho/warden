@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/image"
@@ -27,6 +28,13 @@ const defaultImage = "ghcr.io/thesimonho/warden:latest"
 
 // containerEventDir is the in-container path where event files are written.
 const containerEventDir = "/var/warden/events"
+
+// cacheVolumeName is the Docker named volume for persisting CLI downloads
+// and language runtime package caches across container recreates.
+const cacheVolumeName = "warden-cache"
+
+// cacheVolumeTarget is the in-container mount point for the cache volume.
+const cacheVolumeTarget = "/home/warden/.cache/warden-runtimes"
 
 // ErrNameTaken is returned when a container with the requested name already exists.
 var ErrNameTaken = fmt.Errorf("container name already in use")
@@ -147,19 +155,17 @@ func (ec *EngineClient) CreateContainer(ctx context.Context, req api.CreateConta
 	// directory is bind-mounted at containerEventDir inside the container.
 	envList = append(envList, fmt.Sprintf("WARDEN_EVENT_DIR=%s", containerEventDir))
 
+	// Pass pinned agent CLI versions so the entrypoint installs the exact
+	// version validated by the parser. Only the relevant version is used
+	// (based on WARDEN_AGENT_TYPE), but both are passed for simplicity.
+	envList = append(envList,
+		fmt.Sprintf("WARDEN_CLAUDE_VERSION=%s", agent.ClaudeCodeVersion),
+		fmt.Sprintf("WARDEN_CODEX_VERSION=%s", agent.CodexVersion),
+	)
+
 	// Pass enabled runtimes so the entrypoint can install them.
 	if len(req.EnabledRuntimes) > 0 {
 		envList = append(envList, fmt.Sprintf("WARDEN_ENABLED_RUNTIMES=%s", strings.Join(req.EnabledRuntimes, ",")))
-	}
-
-	// Mount the shared cache volume only when runtimes beyond the
-	// pre-installed Node need package caching.
-	needsCache := false
-	for _, r := range req.EnabledRuntimes {
-		if r != "node" {
-			needsCache = true
-			break
-		}
 	}
 
 	containerConfig := &container.Config{
@@ -226,14 +232,11 @@ func (ec *EngineClient) CreateContainer(ctx context.Context, req api.CreateConta
 		SecurityOpt: securityOpts,
 	}
 
-	if needsCache {
-		hostConfig.Mounts = []mount.Mount{
-			{
-				Type:   mount.TypeVolume,
-				Source: "warden-cache",
-				Target: "/home/warden/.cache/warden-runtimes",
-			},
-		}
+	// Mount the shared cache volume unconditionally — the agent CLI
+	// installer caches downloaded binaries here, and language runtimes
+	// use it for package caches (Go modules, Cargo, pip, etc.).
+	hostConfig.Mounts = []mount.Mount{
+		{Type: mount.TypeVolume, Source: cacheVolumeName, Target: cacheVolumeTarget},
 	}
 
 	resp, err := ec.api.ContainerCreate(ctx, containerConfig, hostConfig, nil, nil, req.Name)
@@ -484,4 +487,73 @@ func buildSecurityConfig(networkMode api.NetworkMode, seccompValue string) (capD
 	}
 
 	return capDrop, capAdd, securityOpts
+}
+
+// PreWarmCLICache downloads pinned agent CLIs into the warden-cache volume
+// using throwaway containers. Both agent types run in parallel. Subsequent
+// container creates get a cache hit and skip the download.
+func (ec *EngineClient) PreWarmCLICache(ctx context.Context) error {
+	img := defaultImage
+	if err := ec.ensureImage(ctx, img); err != nil {
+		return fmt.Errorf("ensuring image for pre-warm: %w", err)
+	}
+
+	var wg sync.WaitGroup
+	errs := make([]error, 2)
+
+	for i, agentType := range []string{"claude-code", "codex"} {
+		wg.Add(1)
+		go func(idx int, at string) {
+			defer wg.Done()
+			errs[idx] = ec.runEphemeralInstall(ctx, img, at)
+		}(i, agentType)
+	}
+	wg.Wait()
+
+	for _, err := range errs {
+		if err != nil {
+			return err
+		}
+	}
+
+	slog.Info("CLI cache pre-warmed", "claudeVersion", agent.ClaudeCodeVersion, "codexVersion", agent.CodexVersion)
+	return nil
+}
+
+// runEphemeralInstall creates a throwaway container that runs install-agent.sh
+// for the given agent type, waits for completion, then removes the container.
+func (ec *EngineClient) runEphemeralInstall(ctx context.Context, img, agentType string) error {
+	resp, err := ec.api.ContainerCreate(ctx, &container.Config{
+		Image: img,
+		Env: []string{
+			fmt.Sprintf("WARDEN_AGENT_TYPE=%s", agentType),
+			fmt.Sprintf("WARDEN_CLAUDE_VERSION=%s", agent.ClaudeCodeVersion),
+			fmt.Sprintf("WARDEN_CODEX_VERSION=%s", agent.CodexVersion),
+		},
+		Entrypoint: []string{"/usr/local/bin/install-agent.sh"},
+	}, &container.HostConfig{
+		Mounts: []mount.Mount{
+			{Type: mount.TypeVolume, Source: cacheVolumeName, Target: cacheVolumeTarget},
+		},
+	}, nil, nil, "")
+	if err != nil {
+		return fmt.Errorf("creating pre-warm %s container: %w", agentType, err)
+	}
+	defer func() { _ = ec.api.ContainerRemove(ctx, resp.ID, container.RemoveOptions{Force: true}) }()
+
+	if err := ec.api.ContainerStart(ctx, resp.ID, container.StartOptions{}); err != nil {
+		return fmt.Errorf("starting pre-warm %s container: %w", agentType, err)
+	}
+
+	waitCh, errCh := ec.api.ContainerWait(ctx, resp.ID, container.WaitConditionNotRunning)
+	select {
+	case <-waitCh:
+	case err := <-errCh:
+		if err != nil {
+			slog.Warn("pre-warm wait error", "agentType", agentType, "err", err)
+		}
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+	return nil
 }

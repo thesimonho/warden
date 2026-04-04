@@ -1,15 +1,19 @@
 # Project container image for Warden.
-# Provides tmux (session persistence), Claude Code CLI, Codex CLI,
-# and terminal management scripts. The Go backend connects to tmux
-# sessions via docker exec, proxied over WebSocket to the browser.
+# Provides tmux (session persistence), terminal management scripts,
+# and the install-agent.sh startup script that installs the correct
+# agent CLI (Claude Code or Codex) on first run from a cached volume.
 #
 # Build:  docker build -t warden-project ./container
 #
 # Multi-stage: the builder stage fetches gosu. tmux is installed via
 # apt in the runtime image. Layer order is optimized for caching:
-# system deps and user setup change rarely, CLI installs change on
-# upstream releases, and Warden scripts change on every release
-# (last layer, smallest invalidation).
+# system deps and user setup change rarely, and Warden scripts change
+# on every release (last layer, smallest invalidation).
+#
+# Agent CLIs are NOT baked into the image — they are installed at
+# container startup by install-agent.sh using pinned versions passed
+# via env vars (WARDEN_CLAUDE_VERSION / WARDEN_CODEX_VERSION). The
+# warden-cache Docker volume caches downloads across container creates.
 
 # ---- builder: fetch gosu ----
 FROM ubuntu:24.04 AS builder
@@ -43,24 +47,7 @@ RUN chmod +x /tmp/install-system-deps.sh && /tmp/install-system-deps.sh && rm /t
 COPY scripts/install-user.sh /tmp/
 RUN chmod +x /tmp/install-user.sh && /tmp/install-user.sh && rm /tmp/install-user.sh
 
-# Layer 3: Claude CLI (changes when Claude releases update)
-# CLAUDE_VERSION is a cache key — when the upstream version changes, Docker
-# rebuilds this layer. Query the latest version at build time:
-#   --build-arg CLAUDE_VERSION=$(curl -s https://storage.googleapis.com/claude-code-dist-86c565f3-f756-42ad-8dfa-d59b1c096819/claude-code-releases/latest)
-# When omitted, Docker caches indefinitely (safe for offline/CI builds).
-ARG CLAUDE_VERSION=unknown
-COPY scripts/install-claude.sh /tmp/
-RUN echo "claude-version=${CLAUDE_VERSION}" \
-  && chmod +x /tmp/install-claude.sh && /tmp/install-claude.sh && rm /tmp/install-claude.sh
-
-# Layer 4: Codex CLI (changes when Codex releases update)
-# Same pattern — query via: --build-arg CODEX_VERSION=$(npm view @openai/codex version)
-ARG CODEX_VERSION=unknown
-COPY scripts/install-codex.sh /tmp/
-RUN echo "codex-version=${CODEX_VERSION}" \
-  && chmod +x /tmp/install-codex.sh && /tmp/install-codex.sh && rm /tmp/install-codex.sh
-
-# Layer 5: Warden scripts (changes every release — last for best caching)
+# Layer 3: Warden scripts (changes every release — last for best caching)
 # Only copy the runtime scripts and installer, not the install-*.sh files
 # that already ran in earlier layers. This prevents install-script edits
 # from invalidating this layer.

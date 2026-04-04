@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strconv"
 
+	"github.com/thesimonho/warden/agent"
 	"github.com/thesimonho/warden/api"
 	"github.com/thesimonho/warden/db"
 	"github.com/thesimonho/warden/engine"
@@ -47,8 +48,10 @@ func (s *Service) GetSettings() SettingsResponse {
 		BudgetActionStopContainer: s.db.GetSetting(settingBudgetActionStopContainer, "false") == "true",
 		BudgetActionPreventStart:  s.db.GetSetting(settingBudgetActionPreventStart, "false") == "true",
 
-		WorkingDirectory: s.workingDir,
-		Version:          version.Version,
+		WorkingDirectory:  s.workingDir,
+		Version:           version.Version,
+		ClaudeCodeVersion: agent.ClaudeCodeVersion,
+		CodexVersion:      agent.CodexVersion,
 	}
 }
 

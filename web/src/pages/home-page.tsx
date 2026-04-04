@@ -31,7 +31,7 @@ import type { LayoutContext } from '@/components/layout'
 export default function HomePage() {
   const navigate = useNavigate()
   const { settings, budgetActionPreventStart } = useOutletContext<LayoutContext>()
-  const { projects, isLoading, isRefreshing, error, refetch, runtimeStatuses } = useProjects()
+  const { projects, isLoading, isRefreshing, error, refetch, installStatuses } = useProjects()
   useNotifications(projects, settings.notificationsEnabled)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [pendingStopIds, setPendingStopIds] = useState<Set<string>>(new Set())
@@ -324,7 +324,7 @@ export default function HomePage() {
         pendingStopIds={pendingStopIds}
         pendingRestartIds={pendingRestartIds}
         budgetActionPreventStart={budgetActionPreventStart}
-        runtimeStatuses={runtimeStatuses}
+        installStatuses={installStatuses}
       />
 
       {selectedIds.size > 0 && (
