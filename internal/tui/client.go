@@ -115,6 +115,10 @@ type Client interface {
 	// API: GET /api/v1/defaults?path={projectPath}
 	GetDefaults(ctx context.Context, projectPath string) (*api.DefaultsResponse, error)
 
+	// ReadProjectTemplate reads a .warden.json template from an arbitrary path.
+	// API: GET /api/v1/template?path={filePath}
+	ReadProjectTemplate(ctx context.Context, filePath string) (*api.ProjectTemplate, error)
+
 	// ListDirectories returns filesystem entries at a path for the browser.
 	// When includeFiles is true, files are returned alongside directories.
 	// API: GET /api/v1/filesystem/directories?path=...&mode=file

@@ -124,6 +124,18 @@ The request body accepts an optional `agentType` field (`"claude-code"` or `"cod
   </TabItem>
 </Tabs>
 
+## Project templates
+
+Read a `.warden.json` project template from an arbitrary file path. Used by the import feature to load templates from outside the project directory.
+
+```
+GET /api/v1/template?path=/path/to/.warden.json
+```
+
+Returns the parsed `ProjectTemplate` with global fields (image, networkMode, runtimes, etc.) and optional per-agent-type overrides (e.g. `agents.claude-code.allowedDomains`). Returns `404` if the file does not exist.
+
+The `GET /api/v1/defaults?path=...` endpoint also returns a `template` field when a `.warden.json` file exists in the given directory. This is used to auto-populate the project creation form.
+
 ## Audit API
 
 Query and export audit events. Enable event logging in Settings (default: off).

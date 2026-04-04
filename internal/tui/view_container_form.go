@@ -294,6 +294,12 @@ func (v *ContainerFormView) Update(msg tea.Msg) (View, tea.Cmd) {
 				selected := agentTypes[v.agentType]
 				v.domains.SetValue(defaultDomainsForAgent(v.restrictedDomains, selected))
 			}
+
+			// Apply project template overrides if .warden.json was found.
+			if v.defaults.Template != nil {
+				v.applyTemplate(v.defaults.Template, agentTypes[v.agentType])
+			}
+
 			v.loading = false
 		}
 		return v, nil
@@ -1062,4 +1068,68 @@ func (v *ContainerFormView) ensureRequiredMount() {
 			return
 		}
 	}
+}
+
+// applyTemplate applies a .warden.json template to the form state.
+// Only used in create mode to pre-populate fields from the template.
+func (v *ContainerFormView) applyTemplate(tmpl *api.ProjectTemplate, currentAgent constants.AgentType) {
+	if tmpl.Image != "" {
+		v.inputs[2].SetValue(tmpl.Image)
+	}
+	if tmpl.SkipPermissions != nil {
+		v.skipPerm = *tmpl.SkipPermissions
+	}
+	if tmpl.NetworkMode != "" {
+		for i, m := range networkModes {
+			if m == string(tmpl.NetworkMode) {
+				v.network = i
+				break
+			}
+		}
+	}
+	if tmpl.CostBudget != nil && *tmpl.CostBudget > 0 {
+		v.budgetInput.SetValue(strconv.FormatFloat(*tmpl.CostBudget, 'f', -1, 64))
+	}
+
+	// Apply runtime toggles.
+	if tmpl.Runtimes != nil {
+		templateSet := make(map[string]bool, len(tmpl.Runtimes))
+		for _, id := range tmpl.Runtimes {
+			templateSet[id] = true
+		}
+		for _, r := range v.runtimeDefaults {
+			v.runtimeToggles[r.ID] = templateSet[r.ID] || r.AlwaysEnabled
+		}
+	}
+
+	// Apply agent-specific domains with runtime domains merged in.
+	if tmpl.NetworkMode == api.NetworkModeRestricted {
+		if override, ok := tmpl.Agents[string(currentAgent)]; ok && len(override.AllowedDomains) > 0 {
+			merged := mergeRuntimeDomainsForToggles(override.AllowedDomains, v.runtimeDefaults, v.runtimeToggles)
+			v.domains.SetValue(strings.Join(merged, "\n"))
+		}
+	}
+}
+
+// mergeRuntimeDomainsForToggles appends runtime-contributed domains to a
+// base domain list, deduplicating entries. Mirrors the frontend's
+// mergeRuntimeDomains helper so both UIs show the same domain set.
+func mergeRuntimeDomainsForToggles(baseDomains []string, runtimeDefaults []api.RuntimeDefault, toggles map[string]bool) []string {
+	existing := make(map[string]bool, len(baseDomains))
+	for _, d := range baseDomains {
+		existing[d] = true
+	}
+	merged := append([]string{}, baseDomains...)
+	for _, r := range runtimeDefaults {
+		if !toggles[r.ID] {
+			continue
+		}
+		for _, d := range r.Domains {
+			if !existing[d] {
+				existing[d] = true
+				merged = append(merged, d)
+			}
+		}
+	}
+	return merged
 }

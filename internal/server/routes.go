@@ -8,6 +8,7 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"os"
 	"path/filepath"
 	"regexp"
 	"strconv"
@@ -92,6 +93,7 @@ func registerAPIRoutes(mux *http.ServeMux, svc *service.Service, broker *eventbu
 	mux.HandleFunc("POST /api/v1/access/{id}/reset", rt.handleResetAccessItem)
 	mux.HandleFunc("POST /api/v1/access/resolve", rt.handleResolveAccessItems)
 	mux.HandleFunc("GET /api/v1/defaults", rt.handleDefaults)
+	mux.HandleFunc("GET /api/v1/template", rt.handleReadTemplate)
 	mux.HandleFunc("GET /api/v1/events", rt.handleSSE)
 	mux.HandleFunc("POST /api/v1/projects/{projectId}/{agentType}/clipboard", rt.handleUploadClipboard)
 	mux.HandleFunc("GET /api/v1/projects/{projectId}/{agentType}/ws/{wid}", rt.handleTerminalWS)
@@ -1396,6 +1398,35 @@ func (rt *routes) handleResolveAccessItems(w http.ResponseWriter, r *http.Reques
 func (rt *routes) handleDefaults(w http.ResponseWriter, r *http.Request) {
 	projectPath := r.URL.Query().Get("path")
 	writeJSON(w, rt.svc.GetDefaults(projectPath))
+}
+
+// handleReadTemplate reads a .warden.json project template from an arbitrary path.
+//
+//	@Summary		Read project template
+//	@Description	Reads and parses a .warden.json file from the given path.
+//	@Description	Used to import templates from outside the project directory.
+//	@Tags			host
+//	@Param			path	query		string	true	"Absolute path to .warden.json"
+//	@Success		200		{object}	api.ProjectTemplate
+//	@Failure		400		{object}	apiError
+//	@Failure		404		{object}	apiError
+//	@Router			/api/v1/template [get]
+func (rt *routes) handleReadTemplate(w http.ResponseWriter, r *http.Request) {
+	filePath := r.URL.Query().Get("path")
+	if filePath == "" {
+		writeError(w, ErrCodeRequiredField, "path query parameter is required", http.StatusBadRequest)
+		return
+	}
+	tmpl, err := rt.svc.ReadProjectTemplate(filePath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			writeError(w, ErrCodeNotFound, "template not found", http.StatusNotFound)
+			return
+		}
+		writeError(w, ErrCodeInvalidBody, err.Error(), http.StatusBadRequest)
+		return
+	}
+	writeJSON(w, tmpl)
 }
 
 // handleListRuntimes returns available container runtimes.

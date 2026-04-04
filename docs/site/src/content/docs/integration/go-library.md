@@ -100,6 +100,19 @@ err := w.Service.ResetProjectCosts("project-id", "claude-code")
 deleted, err := w.Service.PurgeProjectAudit("project-id", "claude-code")
 ```
 
+### Read a project template
+
+```go
+// Read a .warden.json from an arbitrary path (for import).
+tmpl, err := w.Service.ReadProjectTemplate("/path/to/.warden.json")
+if err != nil {
+    return err
+}
+fmt.Printf("Image: %s, Network: %s\n", tmpl.Image, tmpl.NetworkMode)
+```
+
+Templates are also automatically read during `GetDefaults(projectPath)` and written back to `.warden.json` on `CreateContainer` and `UpdateContainer`.
+
 ### Get project and worktree status
 
 ```go

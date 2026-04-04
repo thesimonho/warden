@@ -50,6 +50,7 @@ import type {
   ResolvedItem,
   ClipboardUploadResponse,
   RuntimeDefault,
+  ProjectTemplate,
 } from '@/lib/types'
 
 /** Base URL for API requests. Empty string since Vite proxies /api to the backend. */
@@ -571,6 +572,8 @@ export interface Defaults {
   envVars?: DefaultEnvVar[]
   restrictedDomains?: Record<string, string[]>
   runtimes?: RuntimeDefault[]
+  /** Project template loaded from .warden.json in the project directory. */
+  template?: ProjectTemplate
 }
 
 /**
@@ -586,6 +589,18 @@ export async function fetchDefaults(projectPath?: string): Promise<Defaults> {
     : '/api/v1/defaults'
   const response = await apiFetch(url)
   return response.json() as Promise<Defaults>
+}
+
+/**
+ * Reads a .warden.json project template from an arbitrary file path on the server.
+ * Used by the "Import" button to load templates from outside the project directory.
+ *
+ * @param filePath - Absolute path to the .warden.json file.
+ * @returns Parsed project template.
+ */
+export async function readProjectTemplate(filePath: string): Promise<ProjectTemplate> {
+  const response = await apiFetch(`/api/v1/template?path=${encodeURIComponent(filePath)}`)
+  return response.json() as Promise<ProjectTemplate>
 }
 
 // --- Audit Log ---

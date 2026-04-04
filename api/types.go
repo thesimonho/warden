@@ -171,6 +171,28 @@ type DefaultsResponse struct {
 	RestrictedDomains map[string][]string `json:"restrictedDomains,omitempty"`
 	// Runtimes lists available language runtimes with detection results.
 	Runtimes []RuntimeDefault `json:"runtimes,omitempty"`
+	// Template holds project template values loaded from .warden.json, if present.
+	Template *ProjectTemplate `json:"template,omitempty"`
+}
+
+// ProjectTemplate holds configuration values from a .warden.json file.
+// All fields are optional — only set fields override defaults in the form.
+//
+// Excluded fields (security): envVars (may contain secrets/tokens) and
+// accessItems (resolve to credentials). These are never read from or
+// written to .warden.json.
+type ProjectTemplate struct {
+	Image           string                          `json:"image,omitempty"`
+	SkipPermissions *bool                           `json:"skipPermissions,omitempty"`
+	NetworkMode     NetworkMode                     `json:"networkMode,omitempty"`
+	CostBudget      *float64                        `json:"costBudget,omitempty"`
+	Runtimes        []string                        `json:"runtimes,omitempty"`
+	Agents          map[string]AgentTemplateOverride `json:"agents,omitempty"`
+}
+
+// AgentTemplateOverride holds agent-type-specific overrides within a project template.
+type AgentTemplateOverride struct {
+	AllowedDomains []string `json:"allowedDomains,omitempty"`
 }
 
 // DirEntry represents a filesystem entry in the browser.

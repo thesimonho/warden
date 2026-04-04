@@ -75,6 +75,17 @@ _, err := c.RemoveProject(ctx, projectID, agentType)
 
 All management operations require both the `projectID` and `agentType` to uniquely identify the project.
 
+### Read a project template
+
+```go
+// Read a .warden.json template from an arbitrary path (for import).
+tmpl, err := c.ReadProjectTemplate(ctx, "/path/to/.warden.json")
+if err != nil {
+    return err
+}
+fmt.Printf("Image: %s, Network: %s\n", tmpl.Image, tmpl.NetworkMode)
+```
+
 ## Error handling
 
 HTTP errors are wrapped in `client.APIError` with machine-readable codes:

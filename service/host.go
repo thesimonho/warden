@@ -3,6 +3,7 @@ package service
 import (
 	"cmp"
 	"context"
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"os"
@@ -124,7 +125,7 @@ func (s *Service) GetDefaults(projectPath string) DefaultsResponse {
 		}
 	}
 
-	return DefaultsResponse{
+	resp := DefaultsResponse{
 		HomeDir:           homeDir,
 		ContainerHomeDir:  containerHomeDir,
 		Mounts:            mounts,
@@ -132,6 +133,77 @@ func (s *Service) GetDefaults(projectPath string) DefaultsResponse {
 		RestrictedDomains: buildRestrictedDomains(),
 		Runtimes:          runtimeDefaults,
 	}
+	if projectPath != "" {
+		resp.Template = readProjectTemplate(projectPath)
+	}
+	return resp
+}
+
+// templateFileName is the well-known name for project template files.
+const templateFileName = ".warden.json"
+
+// readProjectTemplate reads a .warden.json file from the given directory.
+// Returns nil when the file does not exist or contains invalid JSON.
+func readProjectTemplate(projectPath string) *api.ProjectTemplate {
+	tmpl, err := parseTemplate(filepath.Join(projectPath, templateFileName))
+	if err != nil {
+		return nil
+	}
+	return tmpl
+}
+
+// parseTemplate reads and parses a .warden.json file, applying security
+// filtering. Shared by both the directory-based and path-based readers.
+func parseTemplate(filePath string) (*api.ProjectTemplate, error) {
+	data, err := os.ReadFile(filePath)
+	if err != nil {
+		return nil, err
+	}
+
+	var tmpl api.ProjectTemplate
+	if err := json.Unmarshal(data, &tmpl); err != nil {
+		return nil, fmt.Errorf("parsing template: %w", err)
+	}
+
+	sanitizeTemplate(&tmpl)
+	return &tmpl, nil
+}
+
+// sanitizeTemplate applies security and portability filters to a loaded template.
+func sanitizeTemplate(tmpl *api.ProjectTemplate) {
+	// Discard domains when network mode is not restricted to prevent
+	// hidden permissive domain lists from being applied.
+	if tmpl.NetworkMode != api.NetworkModeRestricted {
+		for key := range tmpl.Agents {
+			delete(tmpl.Agents, key)
+		}
+	}
+
+	tmpl.Runtimes = filterValidRuntimes(tmpl.Runtimes)
+}
+
+// filterValidRuntimes returns only recognized runtime IDs.
+func filterValidRuntimes(ids []string) []string {
+	if len(ids) == 0 {
+		return ids
+	}
+	filtered := make([]string, 0, len(ids))
+	for _, id := range ids {
+		if runtimes.IsValidID(id) {
+			filtered = append(filtered, id)
+		}
+	}
+	return filtered
+}
+
+// ReadProjectTemplate reads a .warden.json from an arbitrary file path.
+// Unlike readProjectTemplate, this returns an error since the user
+// explicitly requested the import.
+func (s *Service) ReadProjectTemplate(filePath string) (*api.ProjectTemplate, error) {
+	if !filepath.IsAbs(filePath) {
+		return nil, fmt.Errorf("path must be absolute: %s", filePath)
+	}
+	return parseTemplate(filePath)
 }
 
 // ListDirectories returns filesystem entries at the given path for the
