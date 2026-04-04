@@ -116,6 +116,8 @@ type Project struct {
 	NetworkMode api.NetworkMode `json:"networkMode"`
 	// AllowedDomains lists domains accessible when NetworkMode is "restricted".
 	AllowedDomains []string `json:"allowedDomains,omitempty"`
+	// AgentVersion is the pinned CLI version installed in this container.
+	AgentVersion string `json:"agentVersion,omitempty"`
 }
 
 // Worktree represents a git worktree (or implicit project root) with its terminal state.

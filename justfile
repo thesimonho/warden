@@ -76,14 +76,10 @@ build: build-web
 # Build project container image
 build-container:
     #!/usr/bin/env bash
-    # Query latest CLI versions so Docker only rebuilds those layers when
-    # an upstream release changes. Falls back to "unknown" (permanent cache)
-    # if the version check fails (offline builds).
-    CLAUDE_V=$(curl -sfL "https://storage.googleapis.com/claude-code-dist-86c565f3-f756-42ad-8dfa-d59b1c096819/claude-code-releases/latest" 2>/dev/null || echo "unknown")
-    CODEX_V=$(npm view @openai/codex version 2>/dev/null || echo "unknown")
-    echo "CLI versions: claude=${CLAUDE_V} codex=${CODEX_V}"
-    BUILD_ARGS="--build-arg CLAUDE_VERSION=${CLAUDE_V} --build-arg CODEX_VERSION=${CODEX_V}"
-    docker build --platform "linux/$(uname -m | sed 's/x86_64/amd64/' | sed 's/aarch64/arm64/')" ${BUILD_ARGS} -t ghcr.io/thesimonho/warden:latest ./container
+    # Agent CLIs are no longer baked into the image — they are installed
+    # at container startup by install-agent.sh using pinned versions from
+    # agent/versions.go (passed as env vars by the engine).
+    docker build --platform "linux/$(uname -m | sed 's/x86_64/amd64/' | sed 's/aarch64/arm64/')" -t ghcr.io/thesimonho/warden:latest ./container
 
 # ── Quality ──────────────────────────────────────────────────────────────────
 

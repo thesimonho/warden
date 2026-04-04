@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/thesimonho/warden/agent"
 	"github.com/thesimonho/warden/api"
 	"github.com/thesimonho/warden/constants"
 	"github.com/thesimonho/warden/db"
@@ -71,6 +72,7 @@ func (s *Service) ListProjects(ctx context.Context) ([]engine.Project, error) {
 
 	s.overlayCost(ctx, projects)
 	s.overlayAttention(projects)
+	s.overlayAgentVersions(projects)
 	return projects, nil
 }
 
@@ -377,6 +379,18 @@ func (s *Service) resolveProjectName(projectID, agentType string) string {
 // overlayAttention merges event-bus attention state onto the project list.
 // Uses the same aggregation logic as the SSE broadcast path to keep
 // poll-based and push-based results consistent.
+// overlayAgentVersions sets the pinned CLI version on each project
+// based on its agent type. The version matches what was passed to the
+// container at creation time via WARDEN_CLAUDE_VERSION / WARDEN_CODEX_VERSION.
+func (s *Service) overlayAgentVersions(projects []engine.Project) {
+	for i := range projects {
+		if !projects[i].HasContainer {
+			continue
+		}
+		projects[i].AgentVersion = agent.VersionForType(projects[i].AgentType)
+	}
+}
+
 func (s *Service) overlayAttention(projects []engine.Project) {
 	if s.store == nil {
 		return

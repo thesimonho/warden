@@ -250,9 +250,14 @@ func projectRows(projects []engine.Project) []table.Row {
 		worktreeInfo := fmt.Sprintf("%d active", p.ActiveWorktreeCount)
 		cost := components.FormatBudgetProgress(p.TotalCost, p.CostBudget)
 
+		agentLabel := agent.ShortLabel(p.AgentType)
+		if p.AgentVersion != "" {
+			agentLabel += " " + p.AgentVersion
+		}
+
 		rows[i] = table.Row{
 			p.Name,
-			agent.ShortLabel(p.AgentType),
+			agentLabel,
 			state,
 			worktreeInfo,
 			cost,

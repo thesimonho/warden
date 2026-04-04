@@ -112,7 +112,7 @@ These rules are important to follow when contributing:
 5. **`internal/` packages stay internal** — `server/` and `terminal/` are HTTP plumbing, not public API.
 6. **All audit writes go through `db.AuditWriter`** — never call `db.Store.Write()` directly for audit events.
 7. **PRs touching `agent/` should include tests for both parsers** — Claude Code and Codex each have their own JSONL parser in `agent/claudecode/` and `agent/codex/`. Changes to shared parsing logic must be validated against both.
-8. **Container install scripts are composable** — CLI-specific install scripts (`install-claude.sh`, `install-codex.sh`) are called separately for Docker layer caching. Agent-specific event scripts live in `container/scripts/claude/` and `container/scripts/codex/`.
+8. **Agent CLIs are installed at container startup, not in the image** — `install-agent.sh` installs the correct CLI using pinned versions from `agent/versions.go`. Agent-specific event scripts live in `container/scripts/claude/` and `container/scripts/codex/`.
 
 ## Submitting a pull request
 

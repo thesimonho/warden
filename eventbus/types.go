@@ -77,6 +77,10 @@ const (
 	EventRuntimeInstalling ContainerEventType = "runtime_installing"
 	// EventRuntimeInstalled is emitted when a language runtime has been installed.
 	EventRuntimeInstalled ContainerEventType = "runtime_installed"
+	// EventAgentInstalling is emitted when an agent CLI is being installed/updated.
+	EventAgentInstalling ContainerEventType = "agent_installing"
+	// EventAgentInstalled is emitted when an agent CLI installation completes.
+	EventAgentInstalled ContainerEventType = "agent_installed"
 )
 
 // ContainerEvent is the JSON payload written by container hook scripts
@@ -229,6 +233,18 @@ type RuntimeStatusPayload struct {
 	RuntimeLabel string `json:"runtimeLabel"`
 }
 
+// AgentStatusData carries details about agent CLI installation progress.
+type AgentStatusData struct {
+	Version string `json:"version"`
+}
+
+// AgentStatusPayload is the SSE payload for agent CLI install progress.
+type AgentStatusPayload struct {
+	ProjectRef
+	Phase   string `json:"phase"`
+	Version string `json:"version"`
+}
+
 // SSEEventType identifies the kind of event sent to frontend clients.
 type SSEEventType string
 
@@ -247,6 +263,8 @@ const (
 	SSEHeartbeat SSEEventType = "heartbeat"
 	// SSERuntimeStatus is sent when a runtime installation starts or completes.
 	SSERuntimeStatus SSEEventType = "runtime_status"
+	// SSEAgentStatus is sent when an agent CLI installation starts or completes.
+	SSEAgentStatus SSEEventType = "agent_status"
 )
 
 // ProjectRef identifies a project in SSE event payloads. Embedded by all

@@ -53,6 +53,7 @@ var auditEventsByCategory = map[api.AuditCategory][]string{
 		"access_item_created", "access_item_updated", "access_item_deleted", "access_item_reset",
 		string(eventbus.EventApiMetrics),
 		string(eventbus.EventRuntimeInstalled),
+		string(eventbus.EventAgentInstalled),
 	},
 }
 

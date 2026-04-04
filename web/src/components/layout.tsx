@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link, Outlet } from 'react-router-dom'
-import { Toaster } from 'sonner'
+import { toast, Toaster } from 'sonner'
 import { Box, KeyRound, Settings, ShieldCheck } from 'lucide-react'
 import { useTheme } from '@/hooks/use-theme'
 import { loadSettings, saveSettings, type Settings as DashboardSettings } from '@/lib/settings'
@@ -39,6 +39,26 @@ export default function Layout() {
         setAuditLogMode(serverSettings.auditLogMode)
         setBudgetActionPreventStart(serverSettings.budgetActionPreventStart)
         setServerVersion(serverSettings.version)
+
+        // Notify once per CLI version change so the user knows containers
+        // will get a new CLI on next recreate.
+        const versions = [
+          { key: 'claude-code', label: 'Claude Code', version: serverSettings.claudeCodeVersion },
+          { key: 'codex', label: 'Codex', version: serverSettings.codexVersion },
+        ]
+        for (const { key, label, version } of versions) {
+          if (!version) continue
+          const storageKey = `cli-version:${key}`
+          const prev = localStorage.getItem(storageKey)
+          localStorage.setItem(storageKey, version)
+          if (prev && prev !== version) {
+            toast.info(`${label} updated to ${version}`, {
+              description: `Previously ${prev}. New containers will use this version.`,
+              duration: Infinity,
+              dismissible: true,
+            })
+          }
+        }
       })
       .catch(() => {})
   }, [])

@@ -163,6 +163,15 @@ func New(opts Options) (*Warden, error) {
 	// event parsing resumes after a server restart.
 	svc.ResumeSessionWatchers(context.Background())
 
+	// Pre-warm the CLI cache in the background so the first container
+	// create for each agent type is a cache hit (near-instant).
+	// Uses the liveness context so it cancels cleanly on shutdown.
+	go func() {
+		if err := engineClient.PreWarmCLICache(livenessCtx); err != nil {
+			slog.Warn("CLI cache pre-warm failed (first container create will download)", "err", err)
+		}
+	}()
+
 	return w, nil
 }
 

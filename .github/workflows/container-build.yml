@@ -7,17 +7,17 @@ on:
   workflow_call:
     inputs:
       push:
-        description: 'Push images to GHCR'
+        description: "Push images to GHCR"
         type: boolean
         required: true
       tags:
-        description: 'Docker metadata tags (one per line)'
+        description: "Docker metadata tags (one per line)"
         type: string
         required: true
       description:
-        description: 'OCI image description label'
+        description: "OCI image description label"
         type: string
-        default: 'Project container image with tmux, Claude Code CLI, and Codex CLI for Warden sessions'
+        default: "Project container image with tmux and terminal infrastructure for Warden sessions"
 
 permissions:
   packages: write

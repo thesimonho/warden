@@ -18,28 +18,14 @@ export const E2E_IMAGE = 'warden-e2e:local'
  *
  * Build output is suppressed unless the build fails.
  */
-/** Queries the latest version of a CLI for Docker layer cache busting. */
-function queryCliVersion(command: string, fallback = 'unknown'): string {
-  try {
-    return execSync(command, { stdio: 'pipe', timeout: 10_000 }).toString().trim()
-  } catch {
-    return fallback
-  }
-}
-
 function buildTestImage(runtime: string): void {
   const containerDir = path.resolve(__dirname, '../../container')
 
-  const claudeVersion = queryCliVersion(
-    'curl -sfL "https://storage.googleapis.com/claude-code-dist-86c565f3-f756-42ad-8dfa-d59b1c096819/claude-code-releases/latest"',
-  )
-  const codexVersion = queryCliVersion('npm view @openai/codex version')
-  console.log(`[E2E] CLI versions: claude=${claudeVersion} codex=${codexVersion}`)
-
-  const buildArgs = `--build-arg CLAUDE_VERSION=${claudeVersion} --build-arg CODEX_VERSION=${codexVersion}`
+  // Agent CLIs are installed at container startup, not baked into the image.
+  // No build args needed — pinned versions are passed as env vars by the engine.
   console.log(`[E2E] Building test image ${E2E_IMAGE} with ${runtime}...`)
   try {
-    execSync(`${runtime} build ${buildArgs} -t ${E2E_IMAGE} ${containerDir}`, {
+    execSync(`${runtime} build -t ${E2E_IMAGE} ${containerDir}`, {
       stdio: 'pipe',
     })
   } catch (err) {

@@ -129,6 +129,8 @@ export interface Project {
   networkMode: NetworkMode
   /** Domains accessible when networkMode is "restricted". */
   allowedDomains?: string[]
+  /** Pinned CLI version installed in this container. */
+  agentVersion?: string
 }
 
 /** Host↔container path mapping for a project's workspace bind mount. */
@@ -491,6 +493,10 @@ export interface ServerSettings {
   budgetActionPreventStart: boolean
   /** Server build version (e.g. "v0.5.2", "dev"). */
   version: string
+  /** Pinned Claude Code CLI version for containers. */
+  claudeCodeVersion: string
+  /** Pinned Codex CLI version for containers. */
+  codexVersion: string
 }
 
 /** Shared payload shape for budget enforcement SSE events. */

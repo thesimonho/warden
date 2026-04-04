@@ -180,6 +180,19 @@ export interface RuntimeStatusEvent {
 /** Callback for runtime_status SSE events. */
 export type RuntimeStatusHandler = (event: RuntimeStatusEvent) => void
 
+/** Payload for agent_status SSE events. */
+export interface AgentStatusEvent {
+  projectId: string
+  agentType?: string
+  containerName: string
+  /** "installing" or "installed". */
+  phase: 'installing' | 'installed'
+  version: string
+}
+
+/** Callback for agent_status SSE events. */
+export type AgentStatusHandler = (event: AgentStatusEvent) => void
+
 /** Options for subscribing to SSE events. */
 interface UseEventSourceOptions {
   /** Handler for worktree_state events. */
@@ -194,6 +207,8 @@ interface UseEventSourceOptions {
   onBudgetContainerStopped?: BudgetContainerStoppedHandler
   /** Handler for runtime_status events (runtime install progress). */
   onRuntimeStatus?: RuntimeStatusHandler
+  /** Handler for agent_status events (agent CLI install progress). */
+  onAgentStatus?: AgentStatusHandler
 }
 
 /** Creates a MessageEvent handler that parses JSON and forwards to a ref callback. */
@@ -225,6 +240,7 @@ export function useEventSource(options: UseEventSourceOptions): EventSourceStatu
   const onBudgetExceededRef = useRef(options.onBudgetExceeded)
   const onBudgetContainerStoppedRef = useRef(options.onBudgetContainerStopped)
   const onRuntimeStatusRef = useRef(options.onRuntimeStatus)
+  const onAgentStatusRef = useRef(options.onAgentStatus)
 
   // Keep refs current without re-subscribing.
   useEffect(() => {
@@ -234,6 +250,7 @@ export function useEventSource(options: UseEventSourceOptions): EventSourceStatu
     onBudgetExceededRef.current = options.onBudgetExceeded
     onBudgetContainerStoppedRef.current = options.onBudgetContainerStopped
     onRuntimeStatusRef.current = options.onRuntimeStatus
+    onAgentStatusRef.current = options.onAgentStatus
   }, [
     options.onWorktreeState,
     options.onProjectState,
@@ -241,6 +258,7 @@ export function useEventSource(options: UseEventSourceOptions): EventSourceStatu
     options.onBudgetExceeded,
     options.onBudgetContainerStopped,
     options.onRuntimeStatus,
+    options.onAgentStatus,
   ])
 
   useEffect(() => {
@@ -261,6 +279,7 @@ export function useEventSource(options: UseEventSourceOptions): EventSourceStatu
     const handleBudgetExceeded = makeSSEHandler(onBudgetExceededRef)
     const handleBudgetContainerStopped = makeSSEHandler(onBudgetContainerStoppedRef)
     const handleRuntimeStatus = makeSSEHandler(onRuntimeStatusRef)
+    const handleAgentStatus = makeSSEHandler(onAgentStatusRef)
 
     // We need to listen on the current source AND any future reconnected sources.
     // Since sharedSource can change on reconnect, we add listeners at the module level.
@@ -272,6 +291,7 @@ export function useEventSource(options: UseEventSourceOptions): EventSourceStatu
       src.addEventListener('budget_exceeded', handleBudgetExceeded)
       src.addEventListener('budget_container_stopped', handleBudgetContainerStopped)
       src.addEventListener('runtime_status', handleRuntimeStatus)
+      src.addEventListener('agent_status', handleAgentStatus)
     }
 
     const detach = (src: EventSource) => {
@@ -281,6 +301,7 @@ export function useEventSource(options: UseEventSourceOptions): EventSourceStatu
       src.removeEventListener('budget_exceeded', handleBudgetExceeded)
       src.removeEventListener('budget_container_stopped', handleBudgetContainerStopped)
       src.removeEventListener('runtime_status', handleRuntimeStatus)
+      src.removeEventListener('agent_status', handleAgentStatus)
     }
 
     attach(source)

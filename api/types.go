@@ -89,6 +89,10 @@ type SettingsResponse struct {
 
 	// Version is the server build version (e.g. "v0.5.2", "dev").
 	Version string `json:"version"`
+
+	// Pinned CLI versions installed in containers.
+	ClaudeCodeVersion string `json:"claudeCodeVersion"`
+	CodexVersion      string `json:"codexVersion"`
 }
 
 // UpdateSettingsRequest holds the fields that can be updated.

@@ -652,6 +652,9 @@ components:
           $ref: '#/components/schemas/engine.AgentStatus'
         agentType:
           $ref: '#/components/schemas/constants.AgentType'
+        agentVersion:
+          description: AgentVersion is the pinned CLI version installed in this container.
+          type: string
         allowedDomains:
           description: AllowedDomains lists domains accessible when NetworkMode is
             "restricted".
@@ -953,6 +956,11 @@ components:
           description: Budget enforcement actions — what happens when a project exceeds
             its budget.
           type: boolean
+        claudeCodeVersion:
+          description: Pinned CLI versions installed in containers.
+          type: string
+        codexVersion:
+          type: string
         defaultProjectBudget:
           type: number
         disconnectKey:
