@@ -250,6 +250,17 @@ components:
         method:
           $ref: '#/components/schemas/access.Method'
       type: object
+    api.AuditLevel:
+      description: Level is the severity of the entry (info, warn, error).
+      enum:
+      - info
+      - warn
+      - error
+      type: string
+      x-enum-varnames:
+      - AuditLevelInfo
+      - AuditLevelWarn
+      - AuditLevelError
     api.AuditLogMode:
       enum:
       - "off"
@@ -260,6 +271,19 @@ components:
       - AuditLogOff
       - AuditLogStandard
       - AuditLogDetailed
+    api.AuditSource:
+      description: Source identifies the origin layer (agent, backend, frontend, container).
+      enum:
+      - agent
+      - backend
+      - frontend
+      - container
+      type: string
+      x-enum-varnames:
+      - AuditSourceAgent
+      - AuditSourceBackend
+      - AuditSourceFrontend
+      - AuditSourceContainer
     api.AuditSummary:
       properties:
         timeRange:
@@ -578,7 +602,7 @@ components:
           description: Event is a snake_case identifier for the event type (e.g. "session_start").
           type: string
         level:
-          $ref: '#/components/schemas/db.Level'
+          $ref: '#/components/schemas/api.AuditLevel'
         msg:
           description: Message is a human-readable description.
           type: string
@@ -587,7 +611,7 @@ components:
             host path, 12 hex chars).
           type: string
         source:
-          $ref: '#/components/schemas/db.Source'
+          $ref: '#/components/schemas/api.AuditSource'
         ts:
           description: Timestamp is when the event occurred (ISO 8601 with milliseconds).
           type: string
@@ -595,30 +619,6 @@ components:
           description: Worktree is the worktree ID (only for agent events).
           type: string
       type: object
-    db.Level:
-      description: Level is the severity of the entry (info, warn, error).
-      enum:
-      - info
-      - warn
-      - error
-      type: string
-      x-enum-varnames:
-      - LevelInfo
-      - LevelWarn
-      - LevelError
-    db.Source:
-      description: Source identifies the origin layer (agent, backend, frontend, container).
-      enum:
-      - agent
-      - backend
-      - frontend
-      - container
-      type: string
-      x-enum-varnames:
-      - SourceAgent
-      - SourceBackend
-      - SourceFrontend
-      - SourceContainer
     engine.AgentStatus:
       enum:
       - idle
