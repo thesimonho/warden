@@ -87,13 +87,18 @@ type EventMsg struct {
 	RateLimits *RateLimits     `json:"rate_limits,omitempty"`
 
 	// Command approval fields (app-server only — never persisted in limited mode).
-	Command    string `json:"command,omitempty"`
 	ServerName string `json:"server_name,omitempty"`
 
-	// Exec command fields (type == "exec_command_end", extended mode only).
-	CallID   string `json:"call_id,omitempty"`
-	ExitCode *int   `json:"exit_code,omitempty"`
-	Status   string `json:"status,omitempty"`
+	// Exec command fields (type == "exec_command_end").
+	// Available in extended mode for agent commands; also persisted in limited
+	// mode for user shell commands (source == "user_shell").
+	CallID   string   `json:"call_id,omitempty"`
+	ExitCode *int     `json:"exit_code,omitempty"`
+	Status   string   `json:"status,omitempty"`
+	Source   string   `json:"source,omitempty"`
+	Command  []string `json:"command,omitempty"`
+	Stdout   string   `json:"stdout,omitempty"`
+	Stderr   string   `json:"stderr,omitempty"`
 
 	// MCP tool call fields (type == "mcp_tool_call_end", extended mode only).
 	ToolName      string `json:"tool_name,omitempty"`

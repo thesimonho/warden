@@ -208,6 +208,50 @@ func (p *Parser) toolFailureEvent(ts, toolName, errorContent string) agent.Parse
 	}
 }
 
+// parseUserShellCommand produces user_prompt events from a user-initiated
+// shell command (exec_command_end with source == "user_shell"). Emits a bash
+// command event and, if output is non-empty, a bash_output event — matching
+// Claude Code's audit format for ! bash mode.
+func (p *Parser) parseUserShellCommand(item RolloutItem, msg EventMsg) []agent.ParsedEvent {
+	cmdStr := extractUserCommand(msg.Command)
+	if cmdStr == "" {
+		return nil
+	}
+
+	events := []agent.ParsedEvent{{
+		Type:         agent.EventUserPrompt,
+		SessionID:    p.sessionID,
+		WorktreeID:   p.worktreeID,
+		Timestamp:    item.Timestamp,
+		Prompt:       agent.TruncateString("$ "+cmdStr, agent.MaxPromptLength),
+		PromptSource: agent.PromptSourceBash,
+	}}
+
+	output := strings.TrimSpace(msg.Stdout + msg.Stderr)
+	if output != "" {
+		events = append(events, agent.ParsedEvent{
+			Type:         agent.EventUserPrompt,
+			SessionID:    p.sessionID,
+			WorktreeID:   p.worktreeID,
+			Timestamp:    item.Timestamp,
+			Prompt:       agent.TruncateString(output, agent.MaxPromptLength),
+			PromptSource: agent.PromptSourceBashOutput,
+		})
+	}
+
+	return events
+}
+
+// extractUserCommand returns the meaningful command string from a Codex
+// user shell command array. Codex wraps commands as ["/bin/bash", "-lc", "<cmd>"],
+// so we extract the last argument when this pattern is detected.
+func extractUserCommand(command []string) string {
+	if len(command) >= 3 && strings.HasSuffix(command[0], "bash") && command[1] == "-lc" {
+		return strings.Join(command[2:], " ")
+	}
+	return strings.Join(command, " ")
+}
+
 // parseResponseItem handles function calls (tool use) and messages.
 // All response_item types are always persisted to JSONL (except "other").
 func (p *Parser) parseResponseItem(item RolloutItem) []agent.ParsedEvent {
@@ -367,9 +411,12 @@ func (p *Parser) parseEventMsg(item RolloutItem) []agent.ParsedEvent {
 			Content:        fmt.Sprintf("rolled back %d turns", msg.NumTurns),
 		}}
 
-	// Extended mode only — exit code errors from command execution.
-	// No call_id on exec_command_end events, so we use the canonical tool name directly.
+	// User shell commands (source == "user_shell") are persisted in limited mode.
+	// Agent-initiated commands are extended mode only — exit code errors.
 	case "exec_command_end":
+		if msg.Source == "user_shell" {
+			return p.parseUserShellCommand(item, msg)
+		}
 		if msg.ExitCode != nil && *msg.ExitCode != 0 {
 			return []agent.ParsedEvent{p.toolFailureEvent(item.Timestamp, "exec_command", fmt.Sprintf("exit code %d", *msg.ExitCode))}
 		}
