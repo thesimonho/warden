@@ -59,24 +59,7 @@ is_private_ip() {
   esac
 }
 
-# Build an IP→domain mapping from the dnsmasq query log. dnsmasq logs
-# reply lines like: "reply example.com is 104.18.27.120". We use awk
-# to extract only reply lines with IPv4 addresses (fast), avoiding a
-# slow bash while-read loop over the entire log.
-build_dns_map() {
-  declare -gA DNS_MAP
-  [ -f "$DNSMASQ_LOG" ] || return
-  while read -r ip domain; do
-    [ -n "$ip" ] && DNS_MAP["$ip"]="$domain"
-  done < <(awk '/reply .* is [0-9]+\./{
-    for(i=1;i<=NF;i++){
-      if($i=="reply"){domain=$(i+1)}
-      if($i=="is" && $(i+1)~/^[0-9]+\./){print $(i+1), domain}
-    }
-  }' "$DNSMASQ_LOG")
-}
-
-# Resolve an IP to a domain. Checks the dnsmasq-derived map first,
+# Resolve an IP to a domain. Checks the dnsmasq-derived DNS_MAP first,
 # falls back to reverse DNS (useful in none mode where dnsmasq is
 # not running).
 resolve_domain() {
@@ -98,7 +81,17 @@ while true; do
   [ -f "$RECENT_FILE" ] || { sleep "$INTERVAL"; continue; }
 
   # Refresh IP→domain mapping from dnsmasq log before processing.
-  build_dns_map
+  # Inline rather than a function to avoid declare -gA resetting the array.
+  if [ -f "$DNSMASQ_LOG" ]; then
+    while read -r _ip _domain; do
+      if [ -n "$_ip" ]; then DNS_MAP["$_ip"]="$_domain"; fi
+    done < <(awk '/reply .* is [0-9]+\./{
+      for(i=1;i<=NF;i++){
+        if($i=="reply"){domain=$(i+1)}
+        if($i=="is" && $(i+1)~/^[0-9]+\./){print $(i+1), domain}
+      }
+    }' "$DNSMASQ_LOG")
+  fi
 
   # xt_recent always labels the tracked address as "src=" even when
   # recorded via --rdest. With our rules, this is the blocked
