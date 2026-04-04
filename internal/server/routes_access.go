@@ -10,8 +10,6 @@ import (
 	"github.com/thesimonho/warden/service"
 )
 
-// --- Access Items ---
-
 // handleListAccessItems returns all access items with detection status.
 //
 //	@Summary		List access items

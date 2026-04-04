@@ -17,8 +17,6 @@ import (
 	"github.com/thesimonho/warden/eventbus"
 )
 
-// --- Real-time Events ---
-
 // SubscribeEvents opens a Server-Sent Events connection and returns a
 // channel of parsed events. The channel closes when the context is
 // cancelled or the connection drops. Call the returned function to

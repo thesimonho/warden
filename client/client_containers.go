@@ -6,8 +6,6 @@ import (
 	"github.com/thesimonho/warden/api"
 )
 
-// --- Containers ---
-
 // CreateContainer creates a new container for the given project.
 func (c *Client) CreateContainer(ctx context.Context, projectID, agentType string, req api.CreateContainerRequest) (*api.ContainerResult, error) {
 	var resp api.ContainerResult

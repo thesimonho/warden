@@ -12,8 +12,6 @@ import (
 	"github.com/thesimonho/warden/service"
 )
 
-// --- Audit Log ---
-
 // handleGetAuditLog returns filtered audit events.
 //
 //	@Summary		Get audit log

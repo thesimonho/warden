@@ -7,8 +7,6 @@ import (
 	"github.com/thesimonho/warden/engine"
 )
 
-// --- Projects ---
-
 // ListProjects returns all configured projects with container state, cost,
 // and attention data. Each [engine.Project] includes State ("running",
 // "exited", "not-found"), NeedsInput (true when Claude needs attention),

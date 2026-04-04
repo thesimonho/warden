@@ -7,8 +7,6 @@ import (
 	"github.com/thesimonho/warden/engine"
 )
 
-// --- Worktrees ---
-
 // ListWorktrees returns all worktrees for the given container.
 func (c *Client) ListWorktrees(ctx context.Context, projectID, agentType string) ([]engine.Worktree, error) {
 	var worktrees []engine.Worktree

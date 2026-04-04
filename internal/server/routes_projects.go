@@ -8,8 +8,6 @@ import (
 	"github.com/thesimonho/warden/constants"
 )
 
-// --- Projects ---
-
 // handleListProjects returns all projects from the config, enriched with Docker state.
 //
 //	@Summary		List projects

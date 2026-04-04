@@ -10,8 +10,6 @@ import (
 	"github.com/thesimonho/warden/engine"
 )
 
-// --- Containers ---
-
 // handleCreateContainer creates a new container for an existing project.
 //
 //	@Summary		Create container

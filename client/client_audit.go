@@ -8,8 +8,6 @@ import (
 	"github.com/thesimonho/warden/api"
 )
 
-// --- Audit Log ---
-
 // auditParams converts audit filter fields to url.Values.
 func auditParams(filters api.AuditFilters) url.Values {
 	params := url.Values{}

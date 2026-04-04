@@ -7,8 +7,6 @@ import (
 	"github.com/thesimonho/warden/api"
 )
 
-// --- Access Items ---
-
 // ListAccessItems returns all access items (built-in + user-created)
 // with host detection status.
 // API: GET /api/v1/access

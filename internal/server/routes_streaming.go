@@ -9,8 +9,6 @@ import (
 	"time"
 )
 
-// --- SSE & WebSocket ---
-
 // handleSSE streams Server-Sent Events to the client.
 //
 //	@Summary		Subscribe to events (SSE)

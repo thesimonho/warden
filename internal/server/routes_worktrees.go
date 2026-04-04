@@ -6,8 +6,6 @@ import (
 	"net/http"
 )
 
-// --- Worktrees ---
-
 // handleListWorktrees returns all worktrees for the given project with their terminal state.
 //
 //	@Summary		List worktrees
