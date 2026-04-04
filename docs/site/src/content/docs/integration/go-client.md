@@ -32,10 +32,9 @@ Each project includes an `AgentType` field (`"claude-code"` or `"codex"`) that i
 ## Example: Create a container
 
 ```go
-resp, err := c.CreateContainer(ctx, api.CreateContainerRequest{
+resp, err := c.CreateContainer(ctx, projectID, "claude-code", api.CreateContainerRequest{
     ProjectPath:     "/home/user/projects/my-app",
     ProjectName:     "my-app",
-    AgentType:       "claude-code",
     NetworkMode:     api.NetworkModeFull,
     EnabledRuntimes: []string{"node", "python", "go"},
 })

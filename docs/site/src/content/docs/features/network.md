@@ -45,15 +45,6 @@ All outbound traffic is blocked. Only loopback (localhost) and established conne
 
 Use this for air-gapped operation — when Claude should work entirely with local files and tools, with no internet access.
 
-## How It Works
-
-Restricted mode uses [dnsmasq](https://dnsmasq.org/) as a local DNS forwarder combined with an ipset-based iptables firewall:
-
-1. **DNS interception** — `resolv.conf` is rewritten to point to a local dnsmasq instance (`127.0.0.53`). All DNS queries from the container go through dnsmasq.
-2. **Dynamic IP tracking** — When a DNS query matches an allowed domain, dnsmasq adds the resolved IPs to a kernel ipset (`warden_allowed`) with a 300-second TTL. This handles wildcard domains correctly — `*.github.com` covers `ssh.github.com` even when it resolves to a different IP.
-3. **Firewall** — iptables OUTPUT rules allow traffic to any IP in the ipset and reject everything else. The `ESTABLISHED,RELATED` rule keeps existing connections alive.
-4. **Hot-reload** — When domains change at runtime, the script detects the running dnsmasq and takes a fast path: regenerate config, flush and re-seed the ipset, then signal dnsmasq with SIGHUP. No iptables rules are modified, so active connections are unaffected.
-
 ## Limitations
 
 - **Domain IPs are resolved dynamically**, but if a domain's IP changes and DNS caching hasn't refreshed, there may be a brief interruption. Editing the allowed domains list triggers a full re-resolution; otherwise restart the container.
@@ -81,7 +72,7 @@ Valid values for `networkMode`: `"full"`, `"restricted"`, `"none"`.
 ```go
 c := client.New("http://localhost:8090")
 
-result, _ := c.CreateContainer(ctx, projectID, api.CreateContainerRequest{
+result, _ := c.CreateContainer(ctx, projectID, "claude-code", api.CreateContainerRequest{
     NetworkMode:    "restricted",
     AllowedDomains: []string{"github.com", "npmjs.org"},
 })

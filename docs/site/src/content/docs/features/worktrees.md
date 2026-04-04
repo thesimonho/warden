@@ -25,30 +25,31 @@ Claude Code manages its own worktrees internally (via `--worktree`), while Codex
 
 ## Terminal Actions
 
-| Action         | What happens                                                   | Destructive? |
-| -------------- | -------------------------------------------------------------- | ------------ |
-| **Connect**    | Start the agent. Terminal connects to the worktree process.    | No           |
-| **Disconnect** | Close the terminal. The agent keeps running in the background. | No           |
-| **Reconnect**  | Reattach to an existing background worktree.                   | No           |
-| **Kill**       | Terminate all processes in the worktree.                       | Yes          |
-| **Remove**     | Kill processes, then delete the worktree from disk.            | Yes          |
+| Action         | What happens                                                                          | Destructive? |
+| -------------- | ------------------------------------------------------------------------------------- | ------------ |
+| **Connect**    | Start the agent. Terminal connects to the worktree process.                           | No           |
+| **Disconnect** | Close the terminal. The agent keeps running in the background.                        | No           |
+| **Reconnect**  | Reattach to an existing background worktree.                                          | No           |
+| **Kill**       | Terminate all processes in the worktree.                                              | Yes          |
+| **Reset**      | Kill processes, clear session history and terminal state. Audit history is preserved. | Yes          |
+| **Remove**     | Kill processes, then delete the worktree from disk.                                   | Yes          |
 
 ## Worktree States
 
 Every worktree is in one of four states:
 
-| State            | What's happening                    | What you see             |
-| ---------------- | ----------------------------------- | ------------------------ |
-| **Connected**    | Agent is running, terminal attached | Live terminal            |
-| **Shell**        | Agent exited, terminal attached     | Bash prompt (can resume) |
-| **Background**   | Agent is running, terminal closed   | Reconnectable            |
-| **Disconnected** | Nothing running                     | Start fresh              |
+| State          | What's happening                    | What you see             |
+| -------------- | ----------------------------------- | ------------------------ |
+| **Connected**  | Agent is running, terminal attached | Live terminal            |
+| **Shell**      | Agent exited, terminal attached     | Bash prompt (can resume) |
+| **Background** | Agent is running, terminal closed   | Reconnectable            |
+| **Stopped**    | Nothing running                     | Start fresh              |
 
 State transitions happen automatically:
 
 - Close the terminal → **Connected** becomes **Background**
 - Agent finishes and exits → **Connected** becomes **Shell**
-- Kill the worktree process → any state becomes **Disconnected**
+- Kill the worktree process → any state becomes **Stopped**
 - Reconnect to a background worktree → **Background** becomes **Connected**
 
 ## Agent Activity
@@ -71,7 +72,7 @@ Each worktree exposes a git diff view showing uncommitted changes via the API. T
 
 ## Cleanup
 
-Over time, worktrees can become orphaned — the git worktree directory exists on disk but isn't tracked properly. Use **Cleanup** to scan for and remove these orphaned worktrees. This is a manual operation, not automatic — invoke it when you suspect stale worktrees exist.
+Over time, worktrees can become orphaned — the git worktree directory exists on disk but the corresponding git branch or tracking data no longer exists. **Cleanup** scans for and removes these orphaned worktrees, along with any stale terminal tracking directories for worktrees that no longer exist. This is a manual operation — invoke it when you suspect stale worktrees exist.
 
 ## For Developers
 
@@ -84,6 +85,7 @@ Over time, worktrees can become orphaned — the git worktree directory exists o
 | `POST`   | `/api/v1/projects/{projectId}/{agentType}/worktrees/{wid}/connect`    | Connect terminal           |
 | `POST`   | `/api/v1/projects/{projectId}/{agentType}/worktrees/{wid}/disconnect` | Disconnect terminal        |
 | `POST`   | `/api/v1/projects/{projectId}/{agentType}/worktrees/{wid}/kill`       | Kill worktree process      |
+| `POST`   | `/api/v1/projects/{projectId}/{agentType}/worktrees/{wid}/reset`      | Reset worktree             |
 | `DELETE` | `/api/v1/projects/{projectId}/{agentType}/worktrees/{wid}`            | Remove worktree            |
 | `POST`   | `/api/v1/projects/{projectId}/{agentType}/worktrees/cleanup`          | Cleanup orphaned worktrees |
 | `GET`    | `/api/v1/projects/{projectId}/{agentType}/worktrees/{wid}/diff`       | Get uncommitted diff       |
