@@ -266,6 +266,8 @@ const (
 //
 // Source, Level, and Event are required.
 type AuditEntry struct {
+	// ID is the database row identifier. Unique across all entries.
+	ID int64 `json:"id"`
 	// Timestamp is when the event occurred (ISO 8601 with milliseconds).
 	Timestamp time.Time `json:"ts"`
 	// Source identifies the origin layer (agent, backend, frontend, container).
