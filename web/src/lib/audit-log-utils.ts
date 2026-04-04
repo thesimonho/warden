@@ -190,8 +190,8 @@ export function entryMessage(entry: AuditLogEntry): string {
   // but the web UI renders bash indicators visually via promptSource().
   if (entry.event === 'user_prompt' && data?.prompt) {
     // Collapse newlines/carriage returns to spaces for single-line table display.
-    const prompt = (data.prompt as string).replace(/[\r\n]+/g, ' ')
-    return prompt.length > 100 ? prompt.slice(0, 100) + '...' : prompt
+    // CSS truncate handles overflow at column width — no JS length limit needed.
+    return (data.prompt as string).replace(/[\r\n]+/g, ' ')
   }
 
   if (entry.msg) return entry.msg
