@@ -308,6 +308,41 @@ const columns: ColumnDef<AuditLogEntry, unknown>[] = [
   },
 ]
 
+// --- Expanded row detail ---
+
+/** Renders the expanded detail panel for a row. Bash prompts get a
+ *  pre-formatted text block; other events show raw JSON data/attrs. */
+function ExpandedRowDetail({ entry }: { entry: AuditLogEntry }) {
+  const source = promptSource(entry)
+  const prompt = entry.data?.prompt as string | undefined
+
+  return (
+    <div className="border-border/30 animate-in fade-in slide-in-from-top-1 w-full border-t pr-2 pb-2 pl-16 duration-150">
+      {source && prompt ? (
+        <pre className="text-muted-foreground text-xs leading-relaxed wrap-break-word whitespace-pre-wrap select-text">
+          {prompt}
+        </pre>
+      ) : (
+        <pre className="text-muted-foreground text-xs leading-relaxed wrap-break-word whitespace-pre-wrap select-text">
+          {entry.data && Object.keys(entry.data).length > 0 && (
+            <span>
+              <span className="text-foreground/60">data: </span>
+              {JSON.stringify(formatDataForDisplay(entry.data), null, 2)}
+              {'\n'}
+            </span>
+          )}
+          {entry.attrs && Object.keys(entry.attrs).length > 0 && (
+            <span>
+              <span className="text-foreground/60">attrs: </span>
+              {JSON.stringify(formatDataForDisplay(entry.attrs), null, 2)}
+            </span>
+          )}
+        </pre>
+      )}
+    </div>
+  )
+}
+
 // --- Sort indicator ---
 
 /** Renders a sort direction icon for a column header. */
@@ -550,25 +585,7 @@ export function AuditLogTable({
                     {flexRender(cell.column.columnDef.cell, cell.getContext())}
                   </td>
                 ))}
-                {row.getIsExpanded() && (
-                  <div className="border-border/30 animate-in fade-in slide-in-from-top-1 w-full border-t pr-2 pb-2 pl-16 duration-150">
-                    <pre className="text-muted-foreground text-xs leading-relaxed wrap-break-word whitespace-pre-wrap select-text">
-                      {row.original.data && Object.keys(row.original.data).length > 0 && (
-                        <span>
-                          <span className="text-foreground/60">data: </span>
-                          {JSON.stringify(formatDataForDisplay(row.original.data), null, 2)}
-                          {'\n'}
-                        </span>
-                      )}
-                      {row.original.attrs && Object.keys(row.original.attrs).length > 0 && (
-                        <span>
-                          <span className="text-foreground/60">attrs: </span>
-                          {JSON.stringify(formatDataForDisplay(row.original.attrs), null, 2)}
-                        </span>
-                      )}
-                    </pre>
-                  </div>
-                )}
+                {row.getIsExpanded() && <ExpandedRowDetail entry={row.original} />}
               </tr>
             )
           })}
