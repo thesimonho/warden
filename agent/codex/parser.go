@@ -279,15 +279,17 @@ func (p *Parser) parseEventMsg(item RolloutItem) []agent.ParsedEvent {
 
 	switch msg.Type {
 	case "user_message":
-		if msg.Message == "" {
+		formatted := agent.FormatPromptText(msg.Message)
+		if formatted.Text == "" {
 			return nil
 		}
 		return []agent.ParsedEvent{{
-			Type:       agent.EventUserPrompt,
-			SessionID:  p.sessionID,
-			WorktreeID: p.worktreeID,
-			Timestamp:  item.Timestamp,
-			Prompt:     agent.TruncateString(msg.Message, agent.MaxPromptLength),
+			Type:         agent.EventUserPrompt,
+			SessionID:    p.sessionID,
+			WorktreeID:   p.worktreeID,
+			Timestamp:    item.Timestamp,
+			Prompt:       agent.TruncateString(formatted.Text, agent.MaxPromptLength),
+			PromptSource: formatted.Source,
 		}}
 
 	case "token_count":

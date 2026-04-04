@@ -183,16 +183,21 @@ export function formatDataForDisplay(data: Record<string, unknown>): Record<stri
 
 /** Extracts a display message from an event entry. */
 export function entryMessage(entry: AuditLogEntry): string {
-  if (entry.msg) return entry.msg
-
   const data = entry.data
+
+  // For user_prompt events, prefer data.prompt over msg — the msg field
+  // may contain a [bash] prefix baked in by the Go backend for TUI display,
+  // but the web UI renders bash indicators visually via promptSource().
+  if (entry.event === 'user_prompt' && data?.prompt) {
+    // Collapse newlines/carriage returns to spaces for single-line table display.
+    // CSS truncate handles overflow at column width — no JS length limit needed.
+    return (data.prompt as string).replace(/[\r\n]+/g, ' ')
+  }
+
+  if (entry.msg) return entry.msg
   if (!data) return ''
 
   if (entry.event === 'tool_use' && data.toolName) return data.toolName as string
-  if (entry.event === 'user_prompt' && data.prompt) {
-    const prompt = data.prompt as string
-    return prompt.length > 100 ? prompt.slice(0, 100) + '...' : prompt
-  }
   if (entry.event === 'session_start' && data.model) return `Model: ${data.model as string}`
   if (entry.event === 'session_end' && data.reason) return `Reason: ${data.reason as string}`
   if (entry.event === 'tool_use_failure') {
@@ -215,4 +220,12 @@ export function entryMessage(entry: AuditLogEntry): string {
     return data.mcpServerName as string
   }
   return ''
+}
+
+/** Returns the prompt source for a user_prompt entry, if set. */
+export function promptSource(entry: AuditLogEntry): 'bash' | 'bash_output' | undefined {
+  if (entry.event !== 'user_prompt' || !entry.data) return undefined
+  const source = entry.data.promptSource as string | undefined
+  if (source === 'bash' || source === 'bash_output') return source
+  return undefined
 }

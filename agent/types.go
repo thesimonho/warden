@@ -107,6 +107,9 @@ type ParsedEvent struct {
 	ToolInput string
 	// Prompt is the user's message text (populated on UserPrompt events).
 	Prompt string
+	// PromptSource classifies the origin of the prompt (populated on UserPrompt events).
+	// Values: "user" (normal text), "bash" (! command), "bash_output" (! stdout/stderr).
+	PromptSource PromptSource
 	// ErrorContent is the error message (populated on ToolUseFailure and StopFailure events).
 	ErrorContent string
 	// ServerName is the MCP server name (populated on Elicitation events).

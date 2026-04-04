@@ -34,6 +34,7 @@ import {
   ChevronRight,
   Copy,
   Loader2,
+  SquareTerminal,
 } from 'lucide-react'
 import { AgentIcon } from '@/components/ui/agent-icons'
 import { Badge } from '@/components/ui/badge'
@@ -47,6 +48,7 @@ import {
   entryKey,
   eventLabel,
   entryMessage,
+  promptSource,
 } from '@/lib/audit-log-utils'
 import { readStorage, writeStorage } from '@/lib/storage'
 import type { AgentType, AuditLogEntry, AuditCategory, AuditLogLevel } from '@/lib/types'
@@ -183,7 +185,6 @@ const columns: ColumnDef<AuditLogEntry, unknown>[] = [
     accessorKey: 'agentType',
     header: 'Agent',
     size: 70,
-    minSize: 50,
     sortUndefined: 'last',
     cell: ({ getValue }) => {
       const at = getValue<AgentType | undefined>()
@@ -206,8 +207,7 @@ const columns: ColumnDef<AuditLogEntry, unknown>[] = [
   {
     accessorKey: 'containerName',
     header: 'Name',
-    size: 160,
-    minSize: 100,
+    minSize: 120,
     sortUndefined: 'last',
     cell: ({ getValue }) => (
       <span className="text-muted-foreground truncate">{getValue<string>() ?? ''}</span>
@@ -216,8 +216,7 @@ const columns: ColumnDef<AuditLogEntry, unknown>[] = [
   {
     accessorKey: 'worktree',
     header: 'Worktree',
-    size: 160,
-    minSize: 100,
+    minSize: 120,
     sortUndefined: 'last',
     cell: ({ getValue }) => {
       const wt = getValue<string>()
@@ -252,8 +251,7 @@ const columns: ColumnDef<AuditLogEntry, unknown>[] = [
   {
     accessorKey: 'event',
     header: 'Event',
-    size: 220,
-    minSize: 120,
+    minSize: 220,
     cell: ({ getValue }) => (
       <span className="text-muted-foreground font-semibold">{eventLabel(getValue<string>())}</span>
     ),
@@ -262,13 +260,20 @@ const columns: ColumnDef<AuditLogEntry, unknown>[] = [
     id: 'message',
     accessorFn: (row) => entryMessage(row),
     header: 'Message',
-    size: 500,
-    minSize: 150,
     enableSorting: false,
     meta: { flex: true },
-    cell: ({ getValue }) => (
-      <span className="text-foreground/80 truncate">{getValue<string>()}</span>
-    ),
+    cell: ({ getValue, row }) => {
+      const source = promptSource(row.original)
+      if (source) {
+        return (
+          <span className="flex min-w-0 items-center gap-1.5">
+            <SquareTerminal className="text-muted-foreground h-3.5 w-3.5 shrink-0" />
+            <span className="text-foreground/50 truncate font-mono">{getValue<string>()}</span>
+          </span>
+        )
+      }
+      return <span className="text-foreground/80 truncate">{getValue<string>()}</span>
+    },
   },
   {
     id: 'actions',
@@ -295,6 +300,54 @@ const columns: ColumnDef<AuditLogEntry, unknown>[] = [
     ),
   },
 ]
+
+// --- Expanded row detail ---
+
+/** Renders the expanded detail panel for a row. Bash prompts get a
+ *  pre-formatted text block; other events show raw JSON data/attrs. */
+function ExpandedRowDetail({ entry }: { entry: AuditLogEntry }) {
+  const source = promptSource(entry)
+  const prompt = entry.data?.prompt as string | undefined
+
+  return (
+    <div className="border-border/30 animate-in fade-in slide-in-from-top-1 w-full border-t pr-2 pb-2 pl-16 duration-150">
+      {source && prompt ? (
+        <pre className="text-muted-foreground overflow-x-auto text-xs leading-relaxed whitespace-pre select-text">
+          {cleanTerminalOutput(prompt)}
+        </pre>
+      ) : (
+        <pre className="text-muted-foreground text-xs leading-relaxed wrap-break-word whitespace-pre-wrap select-text">
+          {entry.data && Object.keys(entry.data).length > 0 && (
+            <span>
+              <span className="text-foreground/60">data: </span>
+              {JSON.stringify(formatDataForDisplay(entry.data), null, 2)}
+              {'\n'}
+            </span>
+          )}
+          {entry.attrs && Object.keys(entry.attrs).length > 0 && (
+            <span>
+              <span className="text-foreground/60">attrs: </span>
+              {JSON.stringify(formatDataForDisplay(entry.attrs), null, 2)}
+            </span>
+          )}
+        </pre>
+      )}
+    </div>
+  )
+}
+
+/** Cleans terminal output for display. Handles carriage returns (\r)
+ *  used by CLI tools like curl for progress bar overwrites — keeps
+ *  only the final content after the last \r on each line. */
+function cleanTerminalOutput(text: string): string {
+  return text
+    .split('\n')
+    .map((line) => {
+      const lastCR = line.lastIndexOf('\r')
+      return lastCR >= 0 ? line.substring(lastCR + 1) : line
+    })
+    .join('\n')
+}
 
 // --- Sort indicator ---
 
@@ -538,25 +591,7 @@ export function AuditLogTable({
                     {flexRender(cell.column.columnDef.cell, cell.getContext())}
                   </td>
                 ))}
-                {row.getIsExpanded() && (
-                  <div className="border-border/30 animate-in fade-in slide-in-from-top-1 w-full border-t pr-2 pb-2 pl-16 duration-150">
-                    <pre className="text-muted-foreground text-xs leading-relaxed wrap-break-word whitespace-pre-wrap select-text">
-                      {row.original.data && Object.keys(row.original.data).length > 0 && (
-                        <span>
-                          <span className="text-foreground/60">data: </span>
-                          {JSON.stringify(formatDataForDisplay(row.original.data), null, 2)}
-                          {'\n'}
-                        </span>
-                      )}
-                      {row.original.attrs && Object.keys(row.original.attrs).length > 0 && (
-                        <span>
-                          <span className="text-foreground/60">attrs: </span>
-                          {JSON.stringify(formatDataForDisplay(row.original.attrs), null, 2)}
-                        </span>
-                      )}
-                    </pre>
-                  </div>
-                )}
+                {row.getIsExpanded() && <ExpandedRowDetail entry={row.original} />}
               </tr>
             )
           })}

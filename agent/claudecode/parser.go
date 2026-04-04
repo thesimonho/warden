@@ -151,14 +151,19 @@ func encodeWorkspacePath(workspaceDir string) string {
 // are user messages submitted while Claude is still working — they should be
 // logged as user_prompt events just like regular user messages.
 func parseQueueOperation(entry SessionEntry) []agent.ParsedEvent {
-	if entry.Operation != "enqueue" || entry.Content == "" {
+	if entry.Operation != "enqueue" {
+		return nil
+	}
+	formatted := agent.FormatPromptText(entry.Content)
+	if formatted.Text == "" {
 		return nil
 	}
 	return []agent.ParsedEvent{{
-		Type:      agent.EventUserPrompt,
-		SessionID: entry.SessionID,
-		Timestamp: entry.Timestamp,
-		Prompt:    agent.TruncateString(entry.Content, agent.MaxPromptLength),
+		Type:         agent.EventUserPrompt,
+		SessionID:    entry.SessionID,
+		Timestamp:    entry.Timestamp,
+		Prompt:       agent.TruncateString(formatted.Text, agent.MaxPromptLength),
+		PromptSource: formatted.Source,
 	}}
 }
 
@@ -236,18 +241,20 @@ func (p *Parser) parseUser(entry SessionEntry) []agent.ParsedEvent {
 		return p.parseToolResults(entry)
 	}
 
-	// Plain text user messages.
-	promptText := entry.Message.Content.Text
-	if promptText == "" {
+	// Plain text user messages. Format to strip internal tags from
+	// bash mode (!) and slash commands before storing in audit log.
+	formatted := agent.FormatPromptText(entry.Message.Content.Text)
+	if formatted.Text == "" {
 		return nil
 	}
 
 	return []agent.ParsedEvent{{
-		Type:      agent.EventUserPrompt,
-		SessionID: entry.SessionID,
-		Timestamp: entry.Timestamp,
-		Prompt:    agent.TruncateString(promptText, agent.MaxPromptLength),
-		GitBranch: entry.GitBranch,
+		Type:         agent.EventUserPrompt,
+		SessionID:    entry.SessionID,
+		Timestamp:    entry.Timestamp,
+		Prompt:       agent.TruncateString(formatted.Text, agent.MaxPromptLength),
+		PromptSource: formatted.Source,
+		GitBranch:    entry.GitBranch,
 	}}
 }
 

@@ -197,13 +197,22 @@ func (s *Service) GetProject(projectID, agentType string) (*db.ProjectRow, error
 // StopProject stops the container for the given project. Before stopping,
 // it captures cost from the agent's config file via docker exec and
 // persists it to the DB so cost data survives the container stop.
-func (s *Service) StopProject(ctx context.Context, projectID, agentType string) (*ProjectResult, error) {
+func (s *Service) StopProject(
+	ctx context.Context,
+	projectID, agentType string,
+) (*ProjectResult, error) {
 	project, err := s.resolveProject(projectID, agentType)
 	if err != nil {
 		return nil, err
 	}
 	containerName := effectiveContainerName(project)
-	costResult := s.readAndPersistAgentCost(ctx, project.ProjectID, project.AgentType, project.ContainerID, containerName)
+	costResult := s.readAndPersistAgentCost(
+		ctx,
+		project.ProjectID,
+		project.AgentType,
+		project.ContainerID,
+		containerName,
+	)
 	s.writeCostSnapshot(project.ProjectID, project.AgentType, containerName, costResult)
 
 	if err := s.docker.StopProject(ctx, project.ContainerID); err != nil {
@@ -225,7 +234,10 @@ func (s *Service) StopProject(ctx context.Context, projectID, agentType string) 
 // the restart is blocked and a StaleMountsError is returned so the UI
 // can warn the user. Returns ErrBudgetExceeded if the project is over
 // budget and the preventStart enforcement action is enabled.
-func (s *Service) RestartProject(ctx context.Context, projectID, agentType string) (*ProjectResult, error) {
+func (s *Service) RestartProject(
+	ctx context.Context,
+	projectID, agentType string,
+) (*ProjectResult, error) {
 	project, err := s.resolveProject(projectID, agentType)
 	if err != nil {
 		return nil, err
@@ -239,8 +251,17 @@ func (s *Service) RestartProject(ctx context.Context, projectID, agentType strin
 	// Read original mounts from DB for stale mount validation.
 	var originalMounts []api.Mount
 	if len(project.OriginalMounts) > 0 {
-		if unmarshalErr := json.Unmarshal(project.OriginalMounts, &originalMounts); unmarshalErr != nil {
-			slog.Warn("failed to decode original mounts", "name", containerName, "err", unmarshalErr)
+		if unmarshalErr := json.Unmarshal(
+			project.OriginalMounts,
+			&originalMounts,
+		); unmarshalErr != nil {
+			slog.Warn(
+				"failed to decode original mounts",
+				"name",
+				containerName,
+				"err",
+				unmarshalErr,
+			)
 		}
 	}
 
@@ -263,7 +284,12 @@ func (s *Service) RestartProject(ctx context.Context, projectID, agentType strin
 	s.StopSessionWatcher(project.ProjectID, project.AgentType)
 	s.startProjectWatcher(project.ProjectID, containerName, project.AgentType)
 
-	return &ProjectResult{ProjectID: project.ProjectID, AgentType: project.AgentType, Name: containerName, ContainerID: project.ContainerID}, nil
+	return &ProjectResult{
+		ProjectID:   project.ProjectID,
+		AgentType:   project.AgentType,
+		Name:        containerName,
+		ContainerID: project.ContainerID,
+	}, nil
 }
 
 // applyDBMetadata merges database-stored project metadata onto a single project.
@@ -399,7 +425,9 @@ func (s *Service) overlayAttention(projects []engine.Project) {
 		if projects[i].State != "running" {
 			continue
 		}
-		projects[i].NeedsInput, projects[i].NotificationType = s.store.AggregateContainerAttention(projects[i].Name)
+		projects[i].NeedsInput, projects[i].NotificationType = s.store.AggregateContainerAttention(
+			projects[i].Name,
+		)
 	}
 }
 
@@ -433,7 +461,10 @@ func (s *Service) overlayCost(ctx context.Context, projects []engine.Project) {
 
 	for i := range projects {
 		// Primary: cumulative cost from DB (session_costs table).
-		key := db.ProjectAgentKey{ProjectID: projects[i].ProjectID, AgentType: string(projects[i].AgentType)}
+		key := db.ProjectAgentKey{
+			ProjectID: projects[i].ProjectID,
+			AgentType: string(projects[i].AgentType),
+		}
 		if row, ok := dbCosts[key]; ok && row.TotalCost > 0 {
 			projects[i].TotalCost = row.TotalCost
 			projects[i].IsEstimatedCost = row.IsEstimated
@@ -444,7 +475,13 @@ func (s *Service) overlayCost(ctx context.Context, projects []engine.Project) {
 		if projects[i].State != "running" {
 			continue
 		}
-		result := s.readAndPersistAgentCost(ctx, projects[i].ProjectID, string(projects[i].AgentType), projects[i].ID, projects[i].Name)
+		result := s.readAndPersistAgentCost(
+			ctx,
+			projects[i].ProjectID,
+			string(projects[i].AgentType),
+			projects[i].ID,
+			projects[i].Name,
+		)
 		if result != nil && result.TotalCost > 0 {
 			projects[i].TotalCost = result.TotalCost
 			projects[i].IsEstimatedCost = result.IsEstimated
@@ -456,8 +493,15 @@ func (s *Service) overlayCost(ctx context.Context, projects []engine.Project) {
 // docker exec and persists per-session costs to the DB. Budget enforcement
 // is triggered once after all sessions are persisted.
 // Returns the result for the caller to use. Best-effort — errors are logged.
-func (s *Service) readAndPersistAgentCost(ctx context.Context, projectID, agentType, containerID, containerName string) *engine.AgentCostResult {
-	result, err := s.docker.ReadAgentCostAndBillingType(ctx, containerID, engine.ContainerWorkspaceDir(containerName))
+func (s *Service) readAndPersistAgentCost(
+	ctx context.Context,
+	projectID, agentType, containerID, containerName string,
+) *engine.AgentCostResult {
+	result, err := s.docker.ReadAgentCostAndBillingType(
+		ctx,
+		containerID,
+		engine.ContainerWorkspaceDir(containerName),
+	)
 	if err != nil {
 		slog.Debug("agent cost read failed", "container", containerName, "err", err)
 		return nil
@@ -467,12 +511,25 @@ func (s *Service) readAndPersistAgentCost(ctx context.Context, projectID, agentT
 	if s.db != nil {
 		for _, sc := range result.Sessions {
 			if sc.SessionID != "" && sc.Cost > 0 {
-				if err := s.db.UpsertSessionCost(projectID, agentType, sc.SessionID, sc.Cost, result.IsEstimated); err != nil {
-					slog.Debug("failed to persist session cost", "projectID", projectID, "session", sc.SessionID, "err", err)
+				if err := s.db.UpsertSessionCost(
+					projectID,
+					agentType,
+					sc.SessionID,
+					sc.Cost,
+					result.IsEstimated,
+				); err != nil {
+					slog.Debug(
+						"failed to persist session cost",
+						"projectID",
+						projectID,
+						"session",
+						sc.SessionID,
+						"err",
+						err,
+					)
 				}
 			}
 		}
-
 	}
 	s.enforceBudget(projectID, agentType)
 
@@ -482,7 +539,10 @@ func (s *Service) readAndPersistAgentCost(ctx context.Context, projectID, agentT
 // writeCostSnapshot writes a cost_snapshot audit entry at container stop.
 // Uses the docker exec result if available (Claude Code), otherwise falls
 // back to the DB for agents that only report cost via JSONL (Codex).
-func (s *Service) writeCostSnapshot(projectID, agentType, containerName string, costResult *engine.AgentCostResult) {
+func (s *Service) writeCostSnapshot(
+	projectID, agentType, containerName string,
+	costResult *engine.AgentCostResult,
+) {
 	totalCost := 0.0
 	sessionCount := 0
 	isEstimated := true
@@ -495,7 +555,13 @@ func (s *Service) writeCostSnapshot(projectID, agentType, containerName string, 
 		// Fallback: query DB for cost already persisted via JSONL token updates.
 		costRow, err := s.db.GetProjectTotalCost(projectID, agentType)
 		if err != nil {
-			slog.Warn("failed to query project cost for snapshot", "projectID", projectID, "err", err)
+			slog.Warn(
+				"failed to query project cost for snapshot",
+				"projectID",
+				projectID,
+				"err",
+				err,
+			)
 			return
 		}
 		totalCost = costRow.TotalCost
@@ -512,7 +578,12 @@ func (s *Service) writeCostSnapshot(projectID, agentType, containerName string, 
 		AgentType:     agentType,
 		ContainerName: containerName,
 		Event:         "cost_snapshot",
-		Message:       fmt.Sprintf("cost at container stop: $%.4f (sessions: %d, estimated: %v)", totalCost, sessionCount, isEstimated),
+		Message: fmt.Sprintf(
+			"cost at container stop: $%.2f (sessions: %d, estimated: %v)",
+			totalCost,
+			sessionCount,
+			isEstimated,
+		),
 		Attrs: map[string]any{
 			"totalCost":    totalCost,
 			"sessionCount": sessionCount,
