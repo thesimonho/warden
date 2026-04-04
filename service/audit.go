@@ -5,6 +5,7 @@ import (
 	"encoding/csv"
 	"fmt"
 	"io"
+	"log/slog"
 	"time"
 
 	"github.com/thesimonho/warden/api"
@@ -247,14 +248,37 @@ func (s *Service) PostAuditEvent(req api.PostAuditEventRequest) error {
 }
 
 // DeleteAuditEvents removes events matching the given filters.
-// With no filters, clears all events.
+// With no filters, clears all events. Also deletes matching session
+// costs so the total cost stays consistent with the remaining events.
 func (s *Service) DeleteAuditEvents(filters api.AuditFilters) (int64, error) {
 	if s.db == nil {
 		return 0, nil
 	}
 
 	qf := buildAuditQueryFilters(filters)
-	return s.db.Delete(qf)
+	n, err := s.db.Delete(qf)
+	if err != nil {
+		return n, err
+	}
+
+	// Delete session costs matching the same project/time scope so the
+	// audit summary total cost stays consistent with the remaining events.
+	var since, until time.Time
+	if filters.Since != "" {
+		if parsed, parseErr := time.Parse(time.RFC3339, filters.Since); parseErr == nil {
+			since = parsed
+		}
+	}
+	if filters.Until != "" {
+		if parsed, parseErr := time.Parse(time.RFC3339, filters.Until); parseErr == nil {
+			until = parsed
+		}
+	}
+	if costErr := s.db.DeleteSessionCosts(filters.ProjectID, since, until); costErr != nil {
+		slog.Warn("failed to delete session costs alongside audit events", "error", costErr)
+	}
+
+	return n, nil
 }
 
 // buildAuditQueryFilters converts audit-specific filters to db.QueryFilters.
