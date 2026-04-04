@@ -37,6 +37,18 @@ func New(dir string) (*Store, error) {
 	return &Store{db: db}, nil
 }
 
+// Close closes the underlying database connection.
+func (l *Store) Close() error {
+	if l == nil {
+		return nil
+	}
+
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	return l.db.Close()
+}
+
 // --- Event persistence ---
 
 // Write inserts an entry into the database.
@@ -263,806 +275,6 @@ func (l *Store) Clear() error {
 	return nil
 }
 
-// AuditSummaryRow holds aggregate audit data from a summary query.
-type AuditSummaryRow struct {
-	TotalSessions   int
-	TotalToolUses   int
-	TotalPrompts    int
-	UniqueProjects  int
-	UniqueWorktrees int
-	Earliest        string
-	Latest          string
-}
-
-// QueryAuditSummary returns aggregate audit statistics matching the given filters.
-// Only ProjectID, Worktree, Since, and Until fields are used for filtering.
-func (l *Store) QueryAuditSummary(filters QueryFilters) (*AuditSummaryRow, error) {
-	if l == nil {
-		return &AuditSummaryRow{}, nil
-	}
-
-	where, args := buildWhereClause(filters)
-
-	whereClause := ""
-	if len(where) > 0 {
-		whereClause = " WHERE " + strings.Join(where, " AND ")
-	}
-
-	query := `SELECT
-		COALESCE(SUM(CASE WHEN event = 'session_start' THEN 1 ELSE 0 END), 0),
-		COALESCE(SUM(CASE WHEN event = 'tool_use' THEN 1 ELSE 0 END), 0),
-		COALESCE(SUM(CASE WHEN event = 'user_prompt' THEN 1 ELSE 0 END), 0),
-		COUNT(DISTINCT CASE WHEN project_id != '' THEN project_id END),
-		COUNT(DISTINCT CASE WHEN worktree != '' THEN worktree END),
-		COALESCE(MIN(ts), ''),
-		COALESCE(MAX(ts), '')
-	FROM events` + whereClause
-
-	l.mu.RLock()
-	row := l.db.QueryRow(query, args...)
-	l.mu.RUnlock()
-
-	var summary AuditSummaryRow
-	if err := row.Scan(
-		&summary.TotalSessions,
-		&summary.TotalToolUses,
-		&summary.TotalPrompts,
-		&summary.UniqueProjects,
-		&summary.UniqueWorktrees,
-		&summary.Earliest,
-		&summary.Latest,
-	); err != nil {
-		return nil, fmt.Errorf("querying audit summary: %w", err)
-	}
-	return &summary, nil
-}
-
-// QueryTopTools returns the most frequently used tools from tool_use events.
-// Only ProjectID, Worktree, Since, and Until fields are used for filtering.
-func (l *Store) QueryTopTools(filters QueryFilters, limit int) ([]ToolCountRow, error) {
-	if l == nil {
-		return nil, nil
-	}
-
-	where, args := buildWhereClause(filters)
-	where = append(where, "event = 'tool_use'")
-	where = append(where, "msg != ''")
-
-	if limit <= 0 {
-		limit = 10
-	}
-
-	query := fmt.Sprintf(
-		`SELECT msg, COUNT(*) as cnt FROM events WHERE %s GROUP BY msg ORDER BY cnt DESC LIMIT %d`,
-		strings.Join(where, " AND "), limit,
-	)
-
-	l.mu.RLock()
-	rows, err := l.db.Query(query, args...)
-	l.mu.RUnlock()
-	if err != nil {
-		return nil, fmt.Errorf("querying top tools: %w", err)
-	}
-	defer rows.Close() //nolint:errcheck // rows.Close() errors on read-only queries are non-actionable
-
-	var tools []ToolCountRow
-	for rows.Next() {
-		var t ToolCountRow
-		if err := rows.Scan(&t.Name, &t.Count); err != nil {
-			return nil, fmt.Errorf("scanning tool count: %w", err)
-		}
-		tools = append(tools, t)
-	}
-	return tools, rows.Err()
-}
-
-// ToolCountRow pairs a tool name with its invocation count.
-type ToolCountRow struct {
-	Name  string
-	Count int
-}
-
-// Close closes the underlying database connection.
-func (l *Store) Close() error {
-	if l == nil {
-		return nil
-	}
-
-	l.mu.Lock()
-	defer l.mu.Unlock()
-
-	return l.db.Close()
-}
-
-// --- Project persistence ---
-
-// projectColumns is the SELECT column list shared by project queries.
-const projectColumns = `project_id, name, host_path, added_at, image, env_vars, mounts, original_mounts,
-	skip_permissions, network_mode, allowed_domains, cost_budget, enabled_access_items, enabled_runtimes, agent_type, container_id, container_name`
-
-// InsertProject adds a project to the database. If a project with the same
-// project ID already exists, it is replaced (upsert).
-func (l *Store) InsertProject(p ProjectRow) error {
-	if l == nil {
-		return nil
-	}
-
-	if p.AddedAt.IsZero() {
-		p.AddedAt = time.Now().UTC()
-	}
-
-	var envVars, mounts, origMounts sql.NullString
-	if len(p.EnvVars) > 0 {
-		envVars = sql.NullString{String: string(p.EnvVars), Valid: true}
-	}
-	if len(p.Mounts) > 0 {
-		mounts = sql.NullString{String: string(p.Mounts), Valid: true}
-	}
-	if len(p.OriginalMounts) > 0 {
-		origMounts = sql.NullString{String: string(p.OriginalMounts), Valid: true}
-	}
-
-	l.mu.Lock()
-	defer l.mu.Unlock()
-
-	agentType := p.AgentType
-	if agentType == "" {
-		agentType = defaultAgentType
-	}
-
-	_, err := l.db.Exec(
-		`INSERT OR REPLACE INTO projects
-		 (project_id, name, host_path, added_at, image, env_vars, mounts, original_mounts,
-		  skip_permissions, network_mode, allowed_domains, cost_budget, enabled_access_items,
-		  enabled_runtimes, agent_type, container_id, container_name)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		p.ProjectID,
-		p.Name,
-		p.HostPath,
-		p.AddedAt.Format(time.RFC3339Nano),
-		p.Image,
-		envVars,
-		mounts,
-		origMounts,
-		p.SkipPermissions,
-		p.NetworkMode,
-		p.AllowedDomains,
-		p.CostBudget,
-		p.EnabledAccessItems,
-		p.EnabledRuntimes,
-		agentType,
-		p.ContainerID,
-		p.ContainerName,
-	)
-	if err != nil {
-		return fmt.Errorf("inserting project %q: %w", p.ProjectID, err)
-	}
-	return nil
-}
-
-// DeleteProject removes a project from the projects table. Audit events and
-// cost data are intentionally retained so the audit page can show historical data.
-func (l *Store) DeleteProject(projectID, agentType string) error {
-	if l == nil {
-		return nil
-	}
-
-	l.mu.Lock()
-	defer l.mu.Unlock()
-
-	if _, err := l.db.Exec("DELETE FROM projects WHERE project_id = ? AND agent_type = ?", projectID, agentType); err != nil {
-		return fmt.Errorf("deleting project %q/%s: %w", projectID, agentType, err)
-	}
-	return nil
-}
-
-// ListProjectKeys returns all project+agent pairs in insertion order.
-func (l *Store) ListProjectKeys() ([]ProjectAgentKey, error) {
-	if l == nil {
-		return nil, nil
-	}
-
-	l.mu.RLock()
-	rows, err := l.db.Query("SELECT project_id, agent_type FROM projects ORDER BY added_at ASC")
-	l.mu.RUnlock()
-	if err != nil {
-		return nil, fmt.Errorf("listing project keys: %w", err)
-	}
-	defer rows.Close() //nolint:errcheck // rows.Close() errors on read-only queries are non-actionable
-
-	var keys []ProjectAgentKey
-	for rows.Next() {
-		var k ProjectAgentKey
-		if err := rows.Scan(&k.ProjectID, &k.AgentType); err != nil {
-			return nil, fmt.Errorf("scanning project key: %w", err)
-		}
-		keys = append(keys, k)
-	}
-	return keys, rows.Err()
-}
-
-// GetProject returns a project by its compound key, or nil if not found.
-func (l *Store) GetProject(projectID, agentType string) (*ProjectRow, error) {
-	if l == nil {
-		return nil, nil
-	}
-
-	l.mu.RLock()
-	row := l.db.QueryRow(
-		`SELECT `+projectColumns+` FROM projects WHERE project_id = ? AND agent_type = ?`,
-		projectID, agentType,
-	)
-	l.mu.RUnlock()
-
-	p, err := scanProjectRow(row)
-	if err == sql.ErrNoRows {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, fmt.Errorf("getting project %q/%s: %w", projectID, agentType, err)
-	}
-	return p, nil
-}
-
-// GetProjectsByPath returns all projects at a host path (one per agent type).
-func (l *Store) GetProjectsByPath(hostPath string) ([]*ProjectRow, error) {
-	if l == nil {
-		return nil, nil
-	}
-
-	l.mu.RLock()
-	rows, err := l.db.Query(
-		`SELECT `+projectColumns+` FROM projects WHERE host_path = ? ORDER BY agent_type ASC`, hostPath,
-	)
-	l.mu.RUnlock()
-	if err != nil {
-		return nil, fmt.Errorf("getting projects by path %q: %w", hostPath, err)
-	}
-	defer rows.Close() //nolint:errcheck
-
-	var result []*ProjectRow
-	for rows.Next() {
-		p, scanErr := scanProjectRow(rows)
-		if scanErr != nil {
-			return nil, fmt.Errorf("scanning project row: %w", scanErr)
-		}
-		result = append(result, p)
-	}
-	return result, rows.Err()
-}
-
-// GetProjectByContainerName returns a project by its Docker container name, or nil if not found.
-func (l *Store) GetProjectByContainerName(containerName string) (*ProjectRow, error) {
-	if l == nil {
-		return nil, nil
-	}
-
-	l.mu.RLock()
-	row := l.db.QueryRow(
-		`SELECT `+projectColumns+` FROM projects WHERE container_name = ? OR name = ?`,
-		containerName, containerName,
-	)
-	l.mu.RUnlock()
-
-	p, err := scanProjectRow(row)
-	if err == sql.ErrNoRows {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, fmt.Errorf("getting project by container name %q: %w", containerName, err)
-	}
-	return p, nil
-}
-
-// ListAllProjects returns all projects as a flat slice ordered by insertion time.
-func (l *Store) ListAllProjects() ([]*ProjectRow, error) {
-	if l == nil {
-		return nil, nil
-	}
-
-	l.mu.RLock()
-	rows, err := l.db.Query(`SELECT ` + projectColumns + ` FROM projects ORDER BY added_at ASC`)
-	l.mu.RUnlock()
-	if err != nil {
-		return nil, fmt.Errorf("listing all projects: %w", err)
-	}
-	defer rows.Close() //nolint:errcheck // rows.Close() errors on read-only queries are non-actionable
-
-	var result []*ProjectRow
-	for rows.Next() {
-		p, scanErr := scanProjectRow(rows)
-		if scanErr != nil {
-			return nil, fmt.Errorf("scanning project row: %w", scanErr)
-		}
-		result = append(result, p)
-	}
-	return result, rows.Err()
-}
-
-// scanner is satisfied by both *sql.Row and *sql.Rows.
-type scanner interface {
-	Scan(dest ...any) error
-}
-
-// scanProjectRow scans a single project row from any scanner.
-func scanProjectRow(s scanner) (*ProjectRow, error) {
-	var (
-		p          ProjectRow
-		addedAtStr string
-		envVars    sql.NullString
-		mounts     sql.NullString
-		origMounts sql.NullString
-		skipPerms  int
-	)
-	err := s.Scan(
-		&p.ProjectID, &p.Name, &p.HostPath, &addedAtStr, &p.Image,
-		&envVars, &mounts, &origMounts,
-		&skipPerms, &p.NetworkMode, &p.AllowedDomains, &p.CostBudget,
-		&p.EnabledAccessItems, &p.EnabledRuntimes, &p.AgentType,
-		&p.ContainerID, &p.ContainerName,
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	if ts, parseErr := time.Parse(time.RFC3339Nano, addedAtStr); parseErr == nil {
-		p.AddedAt = ts
-	}
-	if envVars.Valid {
-		p.EnvVars = json.RawMessage(envVars.String)
-	}
-	if mounts.Valid {
-		p.Mounts = json.RawMessage(mounts.String)
-	}
-	if origMounts.Valid {
-		p.OriginalMounts = json.RawMessage(origMounts.String)
-	}
-	p.SkipPermissions = skipPerms != 0
-
-	return &p, nil
-}
-
-// HasProject reports whether a project with the given compound key exists.
-func (l *Store) HasProject(projectID, agentType string) (bool, error) {
-	if l == nil {
-		return false, nil
-	}
-
-	l.mu.RLock()
-	row := l.db.QueryRow("SELECT 1 FROM projects WHERE project_id = ? AND agent_type = ?", projectID, agentType)
-	l.mu.RUnlock()
-
-	var exists int
-	err := row.Scan(&exists)
-	if err == sql.ErrNoRows {
-		return false, nil
-	}
-	if err != nil {
-		return false, fmt.Errorf("checking project %q/%s: %w", projectID, agentType, err)
-	}
-	return true, nil
-}
-
-// UpdateProjectContainer updates the container ID and name for a project.
-// Used after container creation, rebuild, or deletion.
-func (l *Store) UpdateProjectContainer(projectID, agentType, containerID, containerName string) error {
-	if l == nil {
-		return nil
-	}
-
-	l.mu.Lock()
-	defer l.mu.Unlock()
-
-	_, err := l.db.Exec(
-		"UPDATE projects SET container_id = ?, container_name = ? WHERE project_id = ? AND agent_type = ?",
-		containerID, containerName, projectID, agentType,
-	)
-	if err != nil {
-		return fmt.Errorf("updating container for project %q/%s: %w", projectID, agentType, err)
-	}
-	return nil
-}
-
-// UpdateProjectSettings updates lightweight project settings that do not
-// require container recreation (name, skip_permissions, cost_budget,
-// container_name, allowed_domains). All other fields remain unchanged.
-func (l *Store) UpdateProjectSettings(projectID, agentType, name, containerName string, skipPermissions bool, costBudget float64, allowedDomains string) error {
-	if l == nil {
-		return nil
-	}
-
-	l.mu.Lock()
-	defer l.mu.Unlock()
-
-	_, err := l.db.Exec(
-		`UPDATE projects
-		 SET name = ?, container_name = ?, skip_permissions = ?, cost_budget = ?, allowed_domains = ?
-		 WHERE project_id = ? AND agent_type = ?`,
-		name, containerName, skipPermissions, costBudget, allowedDomains, projectID, agentType,
-	)
-	if err != nil {
-		return fmt.Errorf("updating settings for project %q/%s: %w", projectID, agentType, err)
-	}
-	return nil
-}
-
-// --- Session cost persistence ---
-
-// UpsertSessionCost persists cost for a specific agent session. Cost for a
-// given session ID is monotonically non-decreasing, so upserting is always
-// safe — we simply take the max of old and new values. Project total cost
-// is computed as SUM(cost) across all sessions for a project.
-func (l *Store) UpsertSessionCost(projectID, agentType, sessionID string, cost float64, isEstimated bool) error {
-	if l == nil || sessionID == "" {
-		return nil
-	}
-
-	l.mu.Lock()
-	defer l.mu.Unlock()
-
-	now := time.Now().UTC().Format(time.RFC3339Nano)
-	// created_at is intentionally excluded from the UPDATE clause — it records
-	// when a session was first seen, giving each session a time span for
-	// range-filtered cost queries (created_at..updated_at).
-	_, err := l.db.Exec(
-		`INSERT INTO session_costs (project_id, agent_type, session_id, cost, is_estimated, updated_at, created_at)
-		 VALUES (?, ?, ?, ?, ?, ?, ?)
-		 ON CONFLICT(project_id, agent_type, session_id) DO UPDATE SET
-		   cost = MAX(cost, excluded.cost),
-		   is_estimated = excluded.is_estimated,
-		   updated_at = excluded.updated_at`,
-		projectID, agentType, sessionID, cost, isEstimated, now, now,
-	)
-	if err != nil {
-		return fmt.Errorf("upserting session cost: %w", err)
-	}
-	return nil
-}
-
-// ProjectCostRow holds aggregated cost data for a project from the DB.
-type ProjectCostRow struct {
-	TotalCost   float64
-	IsEstimated bool
-}
-
-// GetProjectTotalCost returns the cumulative cost for a single project+agent pair.
-func (l *Store) GetProjectTotalCost(projectID, agentType string) (ProjectCostRow, error) {
-	if l == nil {
-		return ProjectCostRow{}, nil
-	}
-
-	l.mu.RLock()
-	defer l.mu.RUnlock()
-
-	var row ProjectCostRow
-	err := l.db.QueryRow(
-		"SELECT COALESCE(SUM(cost), 0), COALESCE(MAX(is_estimated), 0) FROM session_costs WHERE project_id = ? AND agent_type = ?",
-		projectID, agentType,
-	).Scan(&row.TotalCost, &row.IsEstimated)
-	if err != nil {
-		return ProjectCostRow{}, fmt.Errorf("querying project cost: %w", err)
-	}
-	return row, nil
-}
-
-// GetAllProjectTotalCosts returns cumulative costs for all project+agent pairs
-// by summing across all sessions.
-func (l *Store) GetAllProjectTotalCosts() (map[ProjectAgentKey]ProjectCostRow, error) {
-	if l == nil {
-		return nil, nil
-	}
-
-	l.mu.RLock()
-	defer l.mu.RUnlock()
-
-	costs := make(map[ProjectAgentKey]ProjectCostRow)
-
-	rows, err := l.db.Query("SELECT project_id, agent_type, SUM(cost), MAX(is_estimated) FROM session_costs GROUP BY project_id, agent_type")
-	if err != nil {
-		return nil, fmt.Errorf("querying session costs: %w", err)
-	}
-	defer rows.Close() //nolint:errcheck // rows.Close() errors on read-only queries are non-actionable
-
-	for rows.Next() {
-		var row ProjectCostRow
-		var key ProjectAgentKey
-		if err := rows.Scan(&key.ProjectID, &key.AgentType, &row.TotalCost, &row.IsEstimated); err != nil {
-			return nil, fmt.Errorf("scanning session cost row: %w", err)
-		}
-		costs[key] = row
-	}
-	return costs, rows.Err()
-}
-
-// GetCostInTimeRange returns the total cost for sessions that overlap
-// with the given time range. A session overlaps if it was created before
-// the range ends and last updated after the range starts.
-// Pass zero-value times to leave either bound open.
-func (l *Store) GetCostInTimeRange(projectID string, since, until time.Time) (ProjectCostRow, error) {
-	if l == nil {
-		return ProjectCostRow{}, nil
-	}
-
-	l.mu.RLock()
-	defer l.mu.RUnlock()
-
-	query := "SELECT COALESCE(SUM(cost), 0), COALESCE(MAX(is_estimated), 0) FROM session_costs WHERE 1=1"
-	var args []any
-
-	if projectID != "" {
-		query += " AND project_id = ?"
-		args = append(args, projectID)
-	}
-	if !since.IsZero() {
-		query += " AND updated_at >= ?"
-		args = append(args, since.Format(time.RFC3339Nano))
-	}
-	if !until.IsZero() {
-		query += " AND created_at <= ?"
-		args = append(args, until.Format(time.RFC3339Nano))
-	}
-
-	var row ProjectCostRow
-	if err := l.db.QueryRow(query, args...).Scan(&row.TotalCost, &row.IsEstimated); err != nil {
-		return ProjectCostRow{}, fmt.Errorf("querying cost in time range: %w", err)
-	}
-	return row, nil
-}
-
-// DeleteProjectCosts removes all cost entries for a project+agent pair.
-func (l *Store) DeleteProjectCosts(projectID, agentType string) error {
-	if l == nil {
-		return nil
-	}
-
-	l.mu.Lock()
-	defer l.mu.Unlock()
-
-	if _, err := l.db.Exec("DELETE FROM session_costs WHERE project_id = ? AND agent_type = ?", projectID, agentType); err != nil {
-		return fmt.Errorf("deleting session costs: %w", err)
-	}
-	return nil
-}
-
-// DeleteSessionCosts removes session cost entries matching the given filters.
-// Supports scoping by project ID and time range. With no filters, clears all
-// session costs.
-func (l *Store) DeleteSessionCosts(projectID string, since, until time.Time) error {
-	if l == nil {
-		return nil
-	}
-
-	query := "DELETE FROM session_costs WHERE 1=1"
-	var args []any
-
-	if projectID != "" {
-		query += " AND project_id = ?"
-		args = append(args, projectID)
-	}
-	if !since.IsZero() {
-		query += " AND updated_at >= ?"
-		args = append(args, since.Format(time.RFC3339Nano))
-	}
-	if !until.IsZero() {
-		query += " AND created_at <= ?"
-		args = append(args, until.Format(time.RFC3339Nano))
-	}
-
-	l.mu.Lock()
-	defer l.mu.Unlock()
-
-	if _, err := l.db.Exec(query, args...); err != nil {
-		return fmt.Errorf("deleting session costs: %w", err)
-	}
-	return nil
-}
-
-// --- Access item persistence ---
-
-// AccessItemRow represents a user-created access item stored in the database.
-// Built-in items (Git, SSH) are not stored — they come from the access package.
-type AccessItemRow struct {
-	// ID is the unique identifier (UUID for user items).
-	ID string
-	// Label is the human-readable display name.
-	Label string
-	// Description explains what this access item provides.
-	Description string
-	// Method is the delivery strategy (only "transport" for now).
-	Method string
-	// Credentials is JSON-encoded []access.Credential.
-	Credentials json.RawMessage
-}
-
-// InsertAccessItem adds a user-created access item to the database.
-func (l *Store) InsertAccessItem(item AccessItemRow) error {
-	if l == nil {
-		return nil
-	}
-
-	l.mu.Lock()
-	defer l.mu.Unlock()
-
-	_, err := l.db.Exec(
-		`INSERT INTO access_items (id, label, description, method, credentials)
-		 VALUES (?, ?, ?, ?, ?)`,
-		item.ID, item.Label, item.Description, item.Method, string(item.Credentials),
-	)
-	if err != nil {
-		return fmt.Errorf("inserting access item %q: %w", item.ID, err)
-	}
-	return nil
-}
-
-// GetAccessItem returns a user-created access item by ID, or nil if not found.
-func (l *Store) GetAccessItem(id string) (*AccessItemRow, error) {
-	if l == nil {
-		return nil, nil
-	}
-
-	l.mu.RLock()
-	row := l.db.QueryRow(
-		"SELECT id, label, description, method, credentials FROM access_items WHERE id = ?", id,
-	)
-	l.mu.RUnlock()
-
-	item, err := scanAccessItem(row)
-	if err == sql.ErrNoRows {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, fmt.Errorf("getting access item %q: %w", id, err)
-	}
-	return item, nil
-}
-
-// GetAccessItemsByIDs returns user-created access items matching the given IDs.
-// IDs not found are silently skipped.
-func (l *Store) GetAccessItemsByIDs(ids []string) ([]AccessItemRow, error) {
-	if l == nil || len(ids) == 0 {
-		return nil, nil
-	}
-
-	placeholders := make([]string, len(ids))
-	args := make([]any, len(ids))
-	for i, id := range ids {
-		placeholders[i] = "?"
-		args[i] = id
-	}
-
-	query := "SELECT id, label, description, method, credentials FROM access_items WHERE id IN (" +
-		strings.Join(placeholders, ",") + ")"
-
-	l.mu.RLock()
-	rows, err := l.db.Query(query, args...)
-	l.mu.RUnlock()
-	if err != nil {
-		return nil, fmt.Errorf("getting access items by IDs: %w", err)
-	}
-	defer rows.Close() //nolint:errcheck
-
-	var items []AccessItemRow
-	for rows.Next() {
-		item, scanErr := scanAccessItem(rows)
-		if scanErr != nil {
-			return nil, fmt.Errorf("scanning access item: %w", scanErr)
-		}
-		items = append(items, *item)
-	}
-	return items, rows.Err()
-}
-
-// ListAccessItems returns all user-created access items.
-func (l *Store) ListAccessItems() ([]AccessItemRow, error) {
-	if l == nil {
-		return nil, nil
-	}
-
-	l.mu.RLock()
-	rows, err := l.db.Query("SELECT id, label, description, method, credentials FROM access_items ORDER BY label ASC")
-	l.mu.RUnlock()
-	if err != nil {
-		return nil, fmt.Errorf("listing access items: %w", err)
-	}
-	defer rows.Close() //nolint:errcheck
-
-	var items []AccessItemRow
-	for rows.Next() {
-		item, scanErr := scanAccessItem(rows)
-		if scanErr != nil {
-			return nil, fmt.Errorf("scanning access item: %w", scanErr)
-		}
-		items = append(items, *item)
-	}
-	return items, rows.Err()
-}
-
-// UpdateAccessItem updates a user-created access item.
-func (l *Store) UpdateAccessItem(item AccessItemRow) error {
-	if l == nil {
-		return nil
-	}
-
-	l.mu.Lock()
-	defer l.mu.Unlock()
-
-	_, err := l.db.Exec(
-		`UPDATE access_items SET label = ?, description = ?, method = ?, credentials = ?
-		 WHERE id = ?`,
-		item.Label, item.Description, item.Method, string(item.Credentials), item.ID,
-	)
-	if err != nil {
-		return fmt.Errorf("updating access item %q: %w", item.ID, err)
-	}
-	return nil
-}
-
-// DeleteAccessItem removes a user-created access item by ID.
-func (l *Store) DeleteAccessItem(id string) error {
-	if l == nil {
-		return nil
-	}
-
-	l.mu.Lock()
-	defer l.mu.Unlock()
-
-	if _, err := l.db.Exec("DELETE FROM access_items WHERE id = ?", id); err != nil {
-		return fmt.Errorf("deleting access item %q: %w", id, err)
-	}
-	return nil
-}
-
-// scanAccessItem scans a single access item row from any scanner.
-// Handles the string→json.RawMessage conversion for the credentials column.
-func scanAccessItem(s scanner) (*AccessItemRow, error) {
-	var item AccessItemRow
-	var creds string
-	if err := s.Scan(&item.ID, &item.Label, &item.Description, &item.Method, &creds); err != nil {
-		return nil, err
-	}
-	item.Credentials = json.RawMessage(creds)
-	return &item, nil
-}
-
-// --- Settings persistence ---
-
-// GetSetting returns the value for a settings key, or the provided default
-// if the key does not exist.
-func (l *Store) GetSetting(key, defaultValue string) string {
-	if l == nil {
-		return defaultValue
-	}
-
-	l.mu.RLock()
-	row := l.db.QueryRow("SELECT value FROM settings WHERE key = ?", key)
-	l.mu.RUnlock()
-
-	var value string
-	if err := row.Scan(&value); err != nil {
-		return defaultValue
-	}
-	return value
-}
-
-// SetSetting writes a key-value pair to the settings table (upsert).
-func (l *Store) SetSetting(key, value string) error {
-	if l == nil {
-		return nil
-	}
-
-	l.mu.Lock()
-	defer l.mu.Unlock()
-
-	_, err := l.db.Exec(
-		"INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)",
-		key, value,
-	)
-	if err != nil {
-		return fmt.Errorf("setting %q: %w", key, err)
-	}
-	return nil
-}
-
 // scanEntries reads all rows from a query result into Entry slices.
 func scanEntries(rows *sql.Rows) ([]Entry, error) {
 	var entries []Entry
@@ -1118,4 +330,105 @@ func scanEntries(rows *sql.Rows) ([]Entry, error) {
 	}
 
 	return entries, rows.Err()
+}
+
+// --- Audit query helpers ---
+
+// AuditSummaryRow holds aggregate audit data from a summary query.
+type AuditSummaryRow struct {
+	TotalSessions   int
+	TotalToolUses   int
+	TotalPrompts    int
+	UniqueProjects  int
+	UniqueWorktrees int
+	Earliest        string
+	Latest          string
+}
+
+// QueryAuditSummary returns aggregate audit statistics matching the given filters.
+// Only ProjectID, Worktree, Since, and Until fields are used for filtering.
+func (l *Store) QueryAuditSummary(filters QueryFilters) (*AuditSummaryRow, error) {
+	if l == nil {
+		return &AuditSummaryRow{}, nil
+	}
+
+	where, args := buildWhereClause(filters)
+
+	whereClause := ""
+	if len(where) > 0 {
+		whereClause = " WHERE " + strings.Join(where, " AND ")
+	}
+
+	query := `SELECT
+		COALESCE(SUM(CASE WHEN event = 'session_start' THEN 1 ELSE 0 END), 0),
+		COALESCE(SUM(CASE WHEN event = 'tool_use' THEN 1 ELSE 0 END), 0),
+		COALESCE(SUM(CASE WHEN event = 'user_prompt' THEN 1 ELSE 0 END), 0),
+		COUNT(DISTINCT CASE WHEN project_id != '' THEN project_id END),
+		COUNT(DISTINCT CASE WHEN worktree != '' THEN worktree END),
+		COALESCE(MIN(ts), ''),
+		COALESCE(MAX(ts), '')
+	FROM events` + whereClause
+
+	l.mu.RLock()
+	row := l.db.QueryRow(query, args...)
+	l.mu.RUnlock()
+
+	var summary AuditSummaryRow
+	if err := row.Scan(
+		&summary.TotalSessions,
+		&summary.TotalToolUses,
+		&summary.TotalPrompts,
+		&summary.UniqueProjects,
+		&summary.UniqueWorktrees,
+		&summary.Earliest,
+		&summary.Latest,
+	); err != nil {
+		return nil, fmt.Errorf("querying audit summary: %w", err)
+	}
+	return &summary, nil
+}
+
+// ToolCountRow pairs a tool name with its invocation count.
+type ToolCountRow struct {
+	Name  string
+	Count int
+}
+
+// QueryTopTools returns the most frequently used tools from tool_use events.
+// Only ProjectID, Worktree, Since, and Until fields are used for filtering.
+func (l *Store) QueryTopTools(filters QueryFilters, limit int) ([]ToolCountRow, error) {
+	if l == nil {
+		return nil, nil
+	}
+
+	where, args := buildWhereClause(filters)
+	where = append(where, "event = 'tool_use'")
+	where = append(where, "msg != ''")
+
+	if limit <= 0 {
+		limit = 10
+	}
+
+	query := fmt.Sprintf(
+		`SELECT msg, COUNT(*) as cnt FROM events WHERE %s GROUP BY msg ORDER BY cnt DESC LIMIT %d`,
+		strings.Join(where, " AND "), limit,
+	)
+
+	l.mu.RLock()
+	rows, err := l.db.Query(query, args...)
+	l.mu.RUnlock()
+	if err != nil {
+		return nil, fmt.Errorf("querying top tools: %w", err)
+	}
+	defer rows.Close() //nolint:errcheck // rows.Close() errors on read-only queries are non-actionable
+
+	var tools []ToolCountRow
+	for rows.Next() {
+		var t ToolCountRow
+		if err := rows.Scan(&t.Name, &t.Count); err != nil {
+			return nil, fmt.Errorf("scanning tool count: %w", err)
+		}
+		tools = append(tools, t)
+	}
+	return tools, rows.Err()
 }

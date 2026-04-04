@@ -293,7 +293,7 @@ func (a *ServiceAdapter) SubscribeEvents(_ context.Context) (<-chan eventbus.SSE
 // worktree's tmux session. This replicates the pattern from
 // internal/terminal/proxy.go but returns an io.ReadWriteCloser
 // instead of bridging to WebSocket.
-func (a *ServiceAdapter) AttachTerminal(ctx context.Context, projectID, worktreeID string) (client.TerminalConnection, error) {
+func (a *ServiceAdapter) AttachTerminal(ctx context.Context, projectID, agentType, worktreeID string) (client.TerminalConnection, error) {
 	dockerAPI := a.w.Engine.APIClient()
 
 	sessionName := engine.TmuxSessionName(worktreeID)

@@ -192,6 +192,6 @@ type Client interface {
 
 	// AttachTerminal returns a bidirectional connection to a worktree's
 	// tmux session. In embedded mode this uses docker exec; in HTTP
-	// mode this uses WebSocket to /api/v1/projects/{id}/ws/{wid}.
-	AttachTerminal(ctx context.Context, projectID, worktreeID string) (client.TerminalConnection, error)
+	// mode this uses WebSocket to /api/v1/projects/{id}/{agentType}/ws/{wid}.
+	AttachTerminal(ctx context.Context, projectID, agentType, worktreeID string) (client.TerminalConnection, error)
 }
