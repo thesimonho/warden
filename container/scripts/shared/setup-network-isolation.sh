@@ -49,6 +49,15 @@ resolve_domain_ips() {
     | awk '$1 ~ /^[0-9]+\./ {print $1}' | sort -u || true
 }
 
+# Append an iptables REJECT rule with xt_recent tracking for blocked
+# destination IPs. Falls back to a plain REJECT if xt_recent is not
+# available (kernel module not loaded).
+reject_and_track() {
+  iptables -A OUTPUT -m recent --name warden_blocked --rdest --set \
+    -j REJECT --reject-with icmp-port-unreachable 2>/dev/null \
+    || iptables -A OUTPUT -j REJECT --reject-with icmp-port-unreachable
+}
+
 # Detect hot-reload: if dnsmasq is already running, this is a re-run
 # via docker exec. Skip iptables setup (rules are already in place)
 # and jump straight to domain config update.
@@ -71,7 +80,7 @@ fi
 
 if [ "$MODE" = "none" ]; then
   # Air-gapped: reject everything else (REJECT gives instant failure vs DROP's 5min timeout).
-  iptables -A OUTPUT -j REJECT --reject-with icmp-port-unreachable
+  reject_and_track
   echo "[warden] network isolation: air-gapped (all outbound blocked)"
   exit 0
 fi
@@ -82,7 +91,7 @@ if [ "$MODE" = "restricted" ]; then
   if [ -z "$ALLOWED_DOMAINS" ]; then
     echo "[warden] network isolation: restricted but no domains allowed"
     if [ "$IS_RELOAD" = "false" ]; then
-      iptables -A OUTPUT -j REJECT --reject-with icmp-port-unreachable
+      reject_and_track
     fi
     exit 0
   fi
@@ -116,7 +125,7 @@ if [ "$MODE" = "restricted" ]; then
         iptables -A OUTPUT -d "$ip" -j ACCEPT
       done
     done
-    iptables -A OUTPUT -j REJECT --reject-with icmp-port-unreachable
+    reject_and_track
     echo "[warden] network isolation: restricted/static ($(echo "$ALLOWED_DOMAINS" | tr ',' ' '))"
     exit 0
   fi
@@ -175,7 +184,7 @@ if [ "$MODE" = "restricted" ]; then
   iptables -A OUTPUT -m set --match-set warden_allowed dst -j ACCEPT
 
   # Reject everything else (instant failure vs DROP's silent 5min timeout).
-  iptables -A OUTPUT -j REJECT --reject-with icmp-port-unreachable
+  reject_and_track
 
   # --- Start dnsmasq and wait for it to be ready ---
   dnsmasq --conf-dir=/etc/dnsmasq.d --keep-in-foreground &

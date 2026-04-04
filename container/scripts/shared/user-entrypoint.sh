@@ -134,6 +134,15 @@ if [ -x /usr/local/bin/warden-heartbeat.sh ]; then
 fi
 
 # -------------------------------------------------------------------
+# Network block logger — polls xt_recent for blocked destination IPs
+# and writes events so users know which domains to add to their allow
+# list. Only runs when network mode is restricted or none.
+# -------------------------------------------------------------------
+if [ "${WARDEN_NETWORK_MODE:-full}" != "full" ] && [ -x /usr/local/bin/warden-network-block-logger.sh ]; then
+  nohup /usr/local/bin/warden-network-block-logger.sh >/dev/null 2>&1 &
+fi
+
+# -------------------------------------------------------------------
 # Keep container alive. Terminals are created dynamically via
 # create-terminal.sh when the user connects to a worktree.
 #

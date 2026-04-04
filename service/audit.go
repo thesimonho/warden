@@ -54,6 +54,7 @@ var auditEventsByCategory = map[api.AuditCategory][]string{
 		string(eventbus.EventApiMetrics),
 		string(eventbus.EventRuntimeInstalled),
 		string(eventbus.EventAgentInstalled),
+		string(eventbus.EventNetworkBlocked),
 	},
 }
 

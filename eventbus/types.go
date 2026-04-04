@@ -81,6 +81,8 @@ const (
 	EventAgentInstalling ContainerEventType = "agent_installing"
 	// EventAgentInstalled is emitted when an agent CLI installation completes.
 	EventAgentInstalled ContainerEventType = "agent_installed"
+	// EventNetworkBlocked is emitted when an outbound connection is rejected by network isolation.
+	EventNetworkBlocked ContainerEventType = "network_blocked"
 )
 
 // ContainerEvent is the JSON payload written by container hook scripts
@@ -231,6 +233,12 @@ type RuntimeStatusPayload struct {
 	Phase        string `json:"phase"`
 	RuntimeID    string `json:"runtimeId"`
 	RuntimeLabel string `json:"runtimeLabel"`
+}
+
+// NetworkBlockedData carries details about a blocked outbound connection.
+type NetworkBlockedData struct {
+	IP       string `json:"ip"`
+	Hostname string `json:"hostname,omitempty"`
 }
 
 // AgentStatusData carries details about agent CLI installation progress.
