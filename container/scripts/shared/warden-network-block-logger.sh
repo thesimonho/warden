@@ -71,6 +71,30 @@ resolve_domain() {
   getent hosts "$ip" 2>/dev/null | awk '{print $2}' | head -1 || true
 }
 
+# Load allowed domains from dnsmasq config for filtering false positives.
+# When an allowed domain's ipset entry expires (300s TTL) and something
+# reconnects using a cached IP, iptables blocks it briefly until the
+# next DNS lookup refreshes the ipset. These are transient, not real blocks.
+declare -a ALLOWED_DOMAINS=()
+if [ -f /etc/dnsmasq.d/warden.conf ]; then
+  while read -r d; do
+    if [ -n "$d" ]; then ALLOWED_DOMAINS+=("$d"); fi
+  done < <(awk -F'[=/]' '/^ipset=/{print $2}' /etc/dnsmasq.d/warden.conf)
+fi
+
+# Check if a domain is covered by the allowed domains list.
+is_allowed_domain() {
+  local domain="$1"
+  [ -z "$domain" ] && return 1
+  for allowed in "${ALLOWED_DOMAINS[@]}"; do
+    # Match exact domain or any subdomain.
+    if [ "$domain" = "$allowed" ] || [[ "$domain" == *."$allowed" ]]; then
+      return 0
+    fi
+  done
+  return 1
+}
+
 # Track which IPs we have already reported to avoid duplicate events.
 declare -A REPORTED_IPS
 declare -A DNS_MAP
@@ -109,6 +133,10 @@ while true; do
     REPORTED_IPS["$ip"]=1
 
     domain=$(resolve_domain "$ip")
+
+    # Skip IPs that belong to allowed domains — these are transient
+    # blocks from expired ipset entries, not real policy violations.
+    if is_allowed_domain "$domain"; then continue; fi
 
     # Use jq for safe JSON construction (domain comes from DNS).
     data=$(jq -nc --arg ip "$ip" --arg domain "$domain" \
