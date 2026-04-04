@@ -189,6 +189,11 @@ if [ "$MODE" = "restricted" ]; then
   reject_and_track
 
   # --- Start dnsmasq and wait for it to be ready ---
+  # Pre-create the log file world-readable so the block logger (running
+  # as the warden user) can read it. dnsmasq creates it as nobody:root
+  # 0660 by default which excludes the warden user.
+  touch /var/log/dnsmasq.log
+  chmod 644 /var/log/dnsmasq.log
   dnsmasq --conf-dir=/etc/dnsmasq.d --keep-in-foreground &
   DNSMASQ_PID=$!
 
