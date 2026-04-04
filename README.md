@@ -50,6 +50,9 @@ The idea is simple. Your app talks to Warden, it controls the agent environment,
 
 ## ✅ What you get
 
+> [!NOTE]
+> Everything in this section is provided by Warden through its embedded HTTP API.
+
 Example web apps built up from core Warden features:
 
 <div align="center">
@@ -57,8 +60,6 @@ Example web apps built up from core Warden features:
   <a href="docs/site/public/hero-dark.webp" target="_blank"><img width="400" alt="dark" src="docs/site/public/hero-dark.webp" /></a>
 </div>
 
-> [!NOTE]
-> Everything in this section is provided by Warden through its embedded HTTP API.
 
 ### Security model
 
