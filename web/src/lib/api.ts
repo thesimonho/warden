@@ -49,6 +49,7 @@ import type {
   AccessCredential,
   ResolvedItem,
   ClipboardUploadResponse,
+  RuntimeDefault,
 } from '@/lib/types'
 
 /** Base URL for API requests. Empty string since Vite proxies /api to the backend. */
@@ -569,15 +570,21 @@ export interface Defaults {
   mounts: DefaultMount[]
   envVars?: DefaultEnvVar[]
   restrictedDomains?: Record<string, string[]>
+  runtimes?: RuntimeDefault[]
 }
 
 /**
- * Fetches server-resolved default values (e.g. the host's ~/.claude path).
+ * Fetches server-resolved default values for the create container form.
+ * When projectPath is provided, runtime detection scans that directory.
  *
+ * @param projectPath - Optional project path for runtime auto-detection.
  * @returns Default configuration values resolved on the server.
  */
-export async function fetchDefaults(): Promise<Defaults> {
-  const response = await apiFetch('/api/v1/defaults')
+export async function fetchDefaults(projectPath?: string): Promise<Defaults> {
+  const url = projectPath
+    ? `/api/v1/defaults?path=${encodeURIComponent(projectPath)}`
+    : '/api/v1/defaults'
+  const response = await apiFetch(url)
   return response.json() as Promise<Defaults>
 }
 

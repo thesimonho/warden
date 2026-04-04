@@ -1,4 +1,5 @@
 import type { AgentType, Project } from '@/lib/types'
+import type { RuntimeStatus } from '@/hooks/use-projects'
 import ProjectCard from '@/components/home/project-card'
 import { Skeleton } from '@/components/ui/skeleton'
 
@@ -18,6 +19,8 @@ interface ProjectGridProps {
   pendingRestartIds?: Set<string>
   /** Whether the "prevent restart" budget enforcement action is enabled. */
   budgetActionPreventStart?: boolean
+  /** Runtime install status keyed by "projectId/agentType". */
+  runtimeStatuses?: Map<string, RuntimeStatus>
 }
 
 /**
@@ -44,6 +47,7 @@ export default function ProjectGrid({
   pendingStopIds = new Set(),
   pendingRestartIds = new Set(),
   budgetActionPreventStart = false,
+  runtimeStatuses,
 }: ProjectGridProps) {
   if (isLoading) {
     return (
@@ -85,6 +89,7 @@ export default function ProjectGrid({
             isStopPending={pendingStopIds.has(key)}
             isRestartPending={pendingRestartIds.has(key)}
             budgetActionPreventStart={budgetActionPreventStart}
+            runtimeStatus={runtimeStatuses?.get(`${project.projectId}/${project.agentType}`)}
           />
         )
       })}

@@ -179,8 +179,8 @@ func (a *ServiceAdapter) UpdateSettings(ctx context.Context, req api.UpdateSetti
 // --- Host Utilities ---
 
 // GetDefaults delegates to Service.GetDefaults.
-func (a *ServiceAdapter) GetDefaults(_ context.Context) (*api.DefaultsResponse, error) {
-	resp := a.w.Service.GetDefaults()
+func (a *ServiceAdapter) GetDefaults(_ context.Context, projectPath string) (*api.DefaultsResponse, error) {
+	resp := a.w.Service.GetDefaults(projectPath)
 	return &resp, nil
 }
 

@@ -73,6 +73,10 @@ const (
 	EventContextCompact ContainerEventType = "context_compact"
 	// EventSystemInfo is logged for informational system messages from the agent.
 	EventSystemInfo ContainerEventType = "system_info"
+	// EventRuntimeInstalling is emitted when a language runtime is being installed.
+	EventRuntimeInstalling ContainerEventType = "runtime_installing"
+	// EventRuntimeInstalled is emitted when a language runtime has been installed.
+	EventRuntimeInstalled ContainerEventType = "runtime_installed"
 )
 
 // ContainerEvent is the JSON payload written by container hook scripts
@@ -211,6 +215,20 @@ type SystemInfoData struct {
 	Content string `json:"content,omitempty"`
 }
 
+// RuntimeStatusData carries details about runtime installation progress.
+type RuntimeStatusData struct {
+	RuntimeID    string `json:"runtimeId"`
+	RuntimeLabel string `json:"runtimeLabel"`
+}
+
+// RuntimeStatusPayload is the SSE payload for runtime install progress.
+type RuntimeStatusPayload struct {
+	ProjectRef
+	Phase        string `json:"phase"`
+	RuntimeID    string `json:"runtimeId"`
+	RuntimeLabel string `json:"runtimeLabel"`
+}
+
 // SSEEventType identifies the kind of event sent to frontend clients.
 type SSEEventType string
 
@@ -227,6 +245,8 @@ const (
 	SSEBudgetContainerStopped SSEEventType = "budget_container_stopped"
 	// SSEHeartbeat is a keepalive sent at regular intervals.
 	SSEHeartbeat SSEEventType = "heartbeat"
+	// SSERuntimeStatus is sent when a runtime installation starts or completes.
+	SSERuntimeStatus SSEEventType = "runtime_status"
 )
 
 // ProjectRef identifies a project in SSE event payloads. Embedded by all

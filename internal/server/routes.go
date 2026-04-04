@@ -1394,8 +1394,9 @@ func (rt *routes) handleResolveAccessItems(w http.ResponseWriter, r *http.Reques
 	writeJSON(w, resp)
 }
 
-func (rt *routes) handleDefaults(w http.ResponseWriter, _ *http.Request) {
-	writeJSON(w, rt.svc.GetDefaults())
+func (rt *routes) handleDefaults(w http.ResponseWriter, r *http.Request) {
+	projectPath := r.URL.Query().Get("path")
+	writeJSON(w, rt.svc.GetDefaults(projectPath))
 }
 
 // handleListRuntimes returns available container runtimes.

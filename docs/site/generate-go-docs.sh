@@ -23,6 +23,7 @@ PACKAGES=(
   "engine"
   "eventbus"
   "runtime"
+  "runtimes"
   "service"
   "watcher"
 )

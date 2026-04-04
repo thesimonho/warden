@@ -41,6 +41,8 @@ type ContainerResult struct {
 	ProjectID string `json:"projectId"`
 	// AgentType is the agent type for this container.
 	AgentType string `json:"agentType"`
+	// Recreated is true when the container was fully recreated (not just settings updated).
+	Recreated bool `json:"recreated,omitempty"`
 }
 
 // ValidateContainerResult holds the output of infrastructure validation.
@@ -131,14 +133,35 @@ type DefaultEnvVar struct {
 	Value string `json:"value"`
 }
 
+// RuntimeDefault describes a runtime for the create container form,
+// including auto-detection results and the domains/env vars it contributes.
+type RuntimeDefault struct {
+	// ID is the unique identifier (e.g. "node", "python", "go").
+	ID string `json:"id"`
+	// Label is the human-readable name (e.g. "Node.js", "Python").
+	Label string `json:"label"`
+	// Description briefly explains what gets installed.
+	Description string `json:"description"`
+	// AlwaysEnabled means this runtime cannot be deselected.
+	AlwaysEnabled bool `json:"alwaysEnabled"`
+	// Detected is true when marker files were found in the project directory.
+	Detected bool `json:"detected"`
+	// Domains lists network domains required for this runtime's package registry.
+	Domains []string `json:"domains"`
+	// EnvVars maps environment variable names to values set when enabled.
+	EnvVars map[string]string `json:"envVars"`
+}
+
 // DefaultsResponse holds server-resolved default values for the
 // create container form.
 type DefaultsResponse struct {
-	HomeDir          string              `json:"homeDir"`
-	ContainerHomeDir string              `json:"containerHomeDir"`
-	Mounts           []DefaultMount      `json:"mounts,omitempty"`
-	EnvVars          []DefaultEnvVar     `json:"envVars,omitempty"`
+	HomeDir           string              `json:"homeDir"`
+	ContainerHomeDir  string              `json:"containerHomeDir"`
+	Mounts            []DefaultMount      `json:"mounts,omitempty"`
+	EnvVars           []DefaultEnvVar     `json:"envVars,omitempty"`
 	RestrictedDomains map[string][]string `json:"restrictedDomains,omitempty"`
+	// Runtimes lists available language runtimes with detection results.
+	Runtimes []RuntimeDefault `json:"runtimes,omitempty"`
 }
 
 // DirEntry represents a filesystem entry in the browser.
@@ -335,6 +358,8 @@ type CreateContainerRequest struct {
 	CostBudget float64 `json:"costBudget,omitempty"`
 	// EnabledAccessItems lists active access item IDs (e.g. ["git","ssh"]).
 	EnabledAccessItems []string `json:"enabledAccessItems,omitempty"`
+	// EnabledRuntimes lists active runtime IDs (e.g. ["node","python","go"]).
+	EnabledRuntimes []string `json:"enabledRuntimes,omitempty"`
 }
 
 // ContainerConfig holds the editable configuration of an existing container.
@@ -356,4 +381,6 @@ type ContainerConfig struct {
 	CostBudget float64 `json:"costBudget"`
 	// EnabledAccessItems lists active access item IDs (e.g. ["git","ssh"]).
 	EnabledAccessItems []string `json:"enabledAccessItems,omitempty"`
+	// EnabledRuntimes lists active runtime IDs (e.g. ["node","python","go"]).
+	EnabledRuntimes []string `json:"enabledRuntimes,omitempty"`
 }

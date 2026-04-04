@@ -316,6 +316,12 @@ components:
             type: string
           type: array
           uniqueItems: false
+        enabledRuntimes:
+          description: EnabledRuntimes lists active runtime IDs (e.g. ["node","python","go"]).
+          items:
+            type: string
+          type: array
+          uniqueItems: false
         envVars:
           additionalProperties:
             type: string
@@ -365,6 +371,12 @@ components:
           type: number
         enabledAccessItems:
           description: EnabledAccessItems lists active access item IDs (e.g. ["git","ssh"]).
+          items:
+            type: string
+          type: array
+          uniqueItems: false
+        enabledRuntimes:
+          description: EnabledRuntimes lists active runtime IDs (e.g. ["node","python","go"]).
           items:
             type: string
           type: array
@@ -906,6 +918,10 @@ components:
         projectId:
           description: ProjectID is the deterministic project identifier.
           type: string
+        recreated:
+          description: Recreated is true when the container was fully recreated (not
+            just settings updated).
+          type: boolean
       type: object
     service.ProjectResult:
       properties:

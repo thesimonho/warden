@@ -6,6 +6,7 @@ import type {
   ContainerConfig,
   Mount,
   NetworkMode,
+  RuntimeDefault,
 } from '@/lib/types'
 import type { DefaultMount } from '@/lib/api'
 import { agentTypeLabels, agentTypeOptions, DEFAULT_AGENT_TYPE } from '@/lib/types'
@@ -62,6 +63,7 @@ export interface ProjectConfigFormData {
   allowedDomains?: string[]
   costBudget?: number
   enabledAccessItems?: string[]
+  enabledRuntimes?: string[]
 }
 
 /** Default container image for new projects. */
@@ -147,6 +149,8 @@ export default function ProjectConfigForm({
   )
   const [accessItems, setAccessItems] = useState<AccessItemResponse[]>([])
   const [accessToggles, setAccessToggles] = useState<Record<string, boolean>>({})
+  const [runtimeDefaults, setRuntimeDefaults] = useState<RuntimeDefault[]>([])
+  const [runtimeToggles, setRuntimeToggles] = useState<Record<string, boolean>>({})
   const [error, setError] = useState<string | null>(null)
   const [advancedOpen, setAdvancedOpen] = useState(false)
   const [homeDir, setHomeDir] = useState('')
@@ -161,7 +165,7 @@ export default function ProjectConfigForm({
     if (defaultsLoaded.current) return
     defaultsLoaded.current = true
 
-    fetchDefaults()
+    fetchDefaults(initialValues?.projectPath || projectPath || undefined)
       .then((defaults) => {
         if (defaults.homeDir) {
           setHomeDir(defaults.homeDir)
@@ -176,6 +180,23 @@ export default function ProjectConfigForm({
         }
         if (defaults.restrictedDomains) {
           restrictedDomainsRef.current = defaults.restrictedDomains
+        }
+        if (defaults.runtimes) {
+          setRuntimeDefaults(defaults.runtimes)
+          if (mode === 'create') {
+            const toggles: Record<string, boolean> = {}
+            for (const r of defaults.runtimes) {
+              toggles[r.id] = r.alwaysEnabled || r.detected
+            }
+            setRuntimeToggles(toggles)
+          } else {
+            const enabled = new Set(initialValues?.enabledRuntimes ?? [])
+            const toggles: Record<string, boolean> = {}
+            for (const r of defaults.runtimes) {
+              toggles[r.id] = r.alwaysEnabled || enabled.has(r.id)
+            }
+            setRuntimeToggles(toggles)
+          }
         }
         if (mode === 'create') {
           if (defaults.mounts?.length > 0) {
@@ -245,6 +266,63 @@ export default function ProjectConfigForm({
     }
   }
 
+  /**
+   * Toggles a runtime on/off and updates domains and env vars accordingly.
+   * When enabled: adds the runtime's domains to the allowed list and its
+   * env vars to the env var list (read-only). When disabled: removes them.
+   */
+  const handleRuntimeToggle = (runtimeId: string, enabled: boolean) => {
+    const runtime = runtimeDefaults.find((r) => r.id === runtimeId)
+    if (!runtime || runtime.alwaysEnabled) return
+
+    setRuntimeToggles((prev) => ({ ...prev, [runtimeId]: enabled }))
+
+    // Update allowed domains when in restricted mode.
+    if (networkMode === 'restricted' && runtime.domains.length > 0) {
+      setAllowedDomains((prev) => {
+        const currentDomains = prev
+          .split('\n')
+          .map((d) => d.trim())
+          .filter(Boolean)
+        if (enabled) {
+          const toAdd = runtime.domains.filter((d) => !currentDomains.includes(d))
+          return [...currentDomains, ...toAdd].join('\n')
+        }
+        const domainSet = new Set(runtime.domains)
+        return currentDomains.filter((d) => !domainSet.has(d)).join('\n')
+      })
+    }
+
+    // Update env vars — add runtime env vars as read-only entries on enable,
+    // remove them on disable.
+    if (runtime.envVars && Object.keys(runtime.envVars).length > 0) {
+      setEnvVars((prev) => {
+        if (enabled) {
+          const existing = new Set(prev.map((e) => e.key))
+          const toAdd = Object.entries(runtime.envVars)
+            .filter(([key]) => !existing.has(key))
+            .map(([key, value]) => ({ key, value }))
+          return [...prev, ...toAdd]
+        }
+        const runtimeKeys = new Set(Object.keys(runtime.envVars))
+        return prev.filter((e) => !runtimeKeys.has(e.key))
+      })
+    }
+  }
+
+  /** Set of env var keys contributed by enabled runtimes (read-only in the form). */
+  const runtimeEnvKeys = useMemo(() => {
+    const keys = new Set<string>()
+    for (const r of runtimeDefaults) {
+      if (runtimeToggles[r.id] && r.envVars) {
+        for (const key of Object.keys(r.envVars)) {
+          keys.add(key)
+        }
+      }
+    }
+    return keys
+  }, [runtimeDefaults, runtimeToggles])
+
   /** Adds a blank env var row. */
   const handleAddEnvVar = () => {
     setEnvVars((prev) => [...prev, { key: '', value: '' }])
@@ -300,6 +378,13 @@ export default function ProjectConfigForm({
             .filter(Boolean)
         : undefined
     const enabledIds = accessItems.filter((item) => accessToggles[item.id]).map((item) => item.id)
+    const enabledRuntimeIds = runtimeDefaults.filter((r) => runtimeToggles[r.id]).map((r) => r.id)
+
+    // Strip runtime-contributed env vars from the user env map — they're
+    // managed by the container install script via WARDEN_ENABLED_RUNTIMES.
+    for (const key of runtimeEnvKeys) {
+      delete envMap[key]
+    }
 
     onSubmit({
       name: name.trim(),
@@ -313,6 +398,7 @@ export default function ProjectConfigForm({
       allowedDomains: parsedDomains,
       costBudget: parseFloat(costBudget) || 0,
       enabledAccessItems: enabledIds.length > 0 ? enabledIds : undefined,
+      enabledRuntimes: enabledRuntimeIds.length > 0 ? enabledRuntimeIds : undefined,
     })
   }
 
@@ -404,6 +490,25 @@ export default function ProjectConfigForm({
         />
       </FormField>
 
+      <FormField
+        label="Project Budget"
+        description="Auto-pauses agents when exceeded. Leave empty for unlimited."
+      >
+        <div className="flex items-center gap-2">
+          <span className="text-muted-foreground text-sm">$</span>
+          <Input
+            type="number"
+            min={0}
+            step={0.01}
+            placeholder="Use default"
+            value={costBudget}
+            onChange={(e) => setCostBudget(e.target.value)}
+            disabled={isSubmitting}
+            className="w-32"
+          />
+        </div>
+      </FormField>
+
       <div className="flex items-center justify-between rounded border p-3">
         <div className="space-y-0.5">
           <label htmlFor="skip-permissions-toggle" className="font-medium">
@@ -427,24 +532,34 @@ export default function ProjectConfigForm({
         />
       </div>
 
-      <FormField
-        label="Project budget"
-        description="Auto-pauses agents when exceeded. Leave empty for unlimited."
-      >
-        <div className="flex items-center gap-2">
-          <span className="text-muted-foreground text-sm">$</span>
-          <Input
-            type="number"
-            min={0}
-            step={0.01}
-            placeholder="Use default"
-            value={costBudget}
-            onChange={(e) => setCostBudget(e.target.value)}
-            disabled={isSubmitting}
-            className="w-32"
-          />
-        </div>
-      </FormField>
+      <div className="space-y-2">
+        <label className="font-medium">Runtimes</label>
+        <p className="text-muted-foreground text-sm">
+          Language runtimes to install in the container.
+        </p>
+        {runtimeDefaults.map((runtime) => (
+          <label key={runtime.id} className="flex items-start gap-2 py-1">
+            <Checkbox
+              checked={runtimeToggles[runtime.id] ?? false}
+              onCheckedChange={(checked) => handleRuntimeToggle(runtime.id, checked === true)}
+              disabled={isSubmitting || runtime.alwaysEnabled}
+              className="mt-0.5"
+            />
+            <div className="flex flex-col gap-0.5">
+              <span className="text-sm">
+                {runtime.label}
+                {runtime.alwaysEnabled && (
+                  <span className="text-muted-foreground ml-1 text-xs">(required)</span>
+                )}
+                {!runtime.alwaysEnabled && runtime.detected && (
+                  <span className="text-muted-foreground ml-1 text-xs">(detected)</span>
+                )}
+              </span>
+              <span className="text-muted-foreground text-xs">{runtime.description}</span>
+            </div>
+          </label>
+        ))}
+      </div>
 
       <div className="space-y-2">
         <label className="font-medium">Access</label>
@@ -494,10 +609,8 @@ export default function ProjectConfigForm({
                 </TooltipTrigger>
                 <TooltipContent side="right" className="max-w-64">
                   <p>
-                    Controls outbound network access from the container. Restricted uses iptables to
-                    allow only specified domains. None blocks all outbound traffic. Domain IPs are
-                    resolved at container start — restart to pick up DNS changes. Requires container
-                    recreate to change.
+                    Controls outbound network access from the container. Restricted allows only
+                    specified domains. None blocks all outbound traffic.
                   </p>
                 </TooltipContent>
               </Tooltip>
@@ -600,11 +713,8 @@ export default function ProjectConfigForm({
                     <TooltipTrigger asChild>
                       <Info className="text-muted-foreground h-3.5 w-3.5" />
                     </TooltipTrigger>
-                    <TooltipContent side="right" className="max-w-64">
-                      <p>
-                        Mount host directories into the container. Toggle access items below to
-                        include credential passthrough automatically.
-                      </p>
+                    <TooltipContent side="right">
+                      <p>Mount host directories into the container.</p>
                     </TooltipContent>
                   </Tooltip>
                 </span>
@@ -742,40 +852,43 @@ export default function ProjectConfigForm({
             {visibleEnvVars.length === 0 && (
               <p className="text-muted-foreground text-sm">No environment variables configured.</p>
             )}
-            {visibleEnvVars.map(({ entry, index }) => (
-              <div key={index} className="flex items-center gap-2">
-                <Input
-                  placeholder="KEY"
-                  value={entry.key}
-                  onChange={(e) => handleUpdateEnvVar(index, 'key', e.target.value)}
-                  className="flex-1 font-mono text-sm"
-                  disabled={isSubmitting}
-                />
-                <Input
-                  placeholder="value"
-                  value={entry.value}
-                  onChange={(e) => handleUpdateEnvVar(index, 'value', e.target.value)}
-                  className="flex-1 font-mono text-sm"
-                  type={
-                    entry.key.includes('KEY') ||
-                    entry.key.includes('SECRET') ||
-                    entry.key.includes('TOKEN')
-                      ? 'password'
-                      : 'text'
-                  }
-                  disabled={isSubmitting}
-                />
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => handleRemoveEnvVar(index)}
-                  disabled={isSubmitting}
-                  className="shrink-0 px-2"
-                  icon={Trash2}
-                />
-              </div>
-            ))}
+            {visibleEnvVars.map(({ entry, index }) => {
+              const isRuntimeManaged = runtimeEnvKeys.has(entry.key)
+              return (
+                <div key={index} className="flex items-center gap-2">
+                  <Input
+                    placeholder="KEY"
+                    value={entry.key}
+                    onChange={(e) => handleUpdateEnvVar(index, 'key', e.target.value)}
+                    className="flex-1 font-mono text-sm"
+                    disabled={isSubmitting || isRuntimeManaged}
+                  />
+                  <Input
+                    placeholder="value"
+                    value={entry.value}
+                    onChange={(e) => handleUpdateEnvVar(index, 'value', e.target.value)}
+                    className="flex-1 font-mono text-sm"
+                    type={
+                      entry.key.includes('KEY') ||
+                      entry.key.includes('SECRET') ||
+                      entry.key.includes('TOKEN')
+                        ? 'password'
+                        : 'text'
+                    }
+                    disabled={isSubmitting || isRuntimeManaged}
+                  />
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => handleRemoveEnvVar(index)}
+                    disabled={isSubmitting || isRuntimeManaged}
+                    className="shrink-0 px-2"
+                    icon={Trash2}
+                  />
+                </div>
+              )
+            })}
           </div>
         </CollapsibleContent>
       </Collapsible>

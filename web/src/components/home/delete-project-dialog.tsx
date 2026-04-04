@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react'
-import { AlertTriangle, FolderCog, Loader2, Trash2 } from 'lucide-react'
+import { AlertTriangle, Loader2, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { deleteContainer, removeProject, resetProjectCosts, purgeProjectAudit } from '@/lib/api'
 import type { Project } from '@/lib/types'
@@ -16,8 +16,8 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
 
-/** Props for the ManageProjectDialog component. */
-interface ManageProjectDialogProps {
+/** Props for the DeleteProjectDialog component. */
+interface DeleteProjectDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   project: Project | null
@@ -44,12 +44,12 @@ function purgeConfirmation(name: string): string {
  * @param props.project - The project being managed.
  * @param props.onComplete - Called after operations finish so the caller can refetch.
  */
-export default function ManageProjectDialog({
+export default function DeleteProjectDialog({
   open,
   onOpenChange,
   project,
   onComplete,
-}: ManageProjectDialogProps) {
+}: DeleteProjectDialogProps) {
   const [removeFromWarden, setRemoveFromWarden] = useState(false)
   const [shouldDeleteContainer, setShouldDeleteContainer] = useState(false)
   const [resetCosts, setResetCosts] = useState(false)
@@ -142,9 +142,9 @@ export default function ManageProjectDialog({
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Manage Project</DialogTitle>
+          <DialogTitle>Delete Project Items</DialogTitle>
           <DialogDescription>
-            Select actions to perform on <strong>{project?.name}</strong>.
+            Select <strong>{project?.name}</strong> items to delete.
           </DialogDescription>
         </DialogHeader>
 
@@ -163,7 +163,7 @@ export default function ManageProjectDialog({
             checked={shouldDeleteContainer}
             onCheckedChange={setShouldDeleteContainer}
             disabled={!hasContainer || isSubmitting}
-            label="Delete container"
+            label="Docker container"
             description={
               hasContainer ? 'Stop and permanently remove the container.' : 'No container exists.'
             }
@@ -174,7 +174,7 @@ export default function ManageProjectDialog({
             checked={resetCosts}
             onCheckedChange={setResetCosts}
             disabled={isSubmitting}
-            label="Reset cost history"
+            label="Cost history"
             description="Clear all tracked cost data for this project."
           />
 
@@ -183,8 +183,8 @@ export default function ManageProjectDialog({
             checked={purgeAudit}
             onCheckedChange={setPurgeAudit}
             disabled={isSubmitting}
-            label="Purge audit history"
-            description="Permanently delete all audit events for this project."
+            label="Audit history"
+            description="Permanently purge all audit events for this project."
           />
 
           <div
@@ -237,9 +237,6 @@ export default function ManageProjectDialog({
     </Dialog>
   )
 }
-
-/** Icon used for the manage button on project cards. */
-export { FolderCog as ManageIcon }
 
 /** Reusable checkbox row for a management action. */
 function ActionCheckbox({

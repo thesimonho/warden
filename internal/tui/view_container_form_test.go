@@ -104,10 +104,10 @@ func TestMoveCursorSkipsHiddenFields(t *testing.T) {
 	v.initFields("", "", "", "full", "", false)
 	v.cursor = fieldNetwork
 
-	// Moving down from Network should skip Domains and land on Advanced.
+	// Moving down from Network should skip Domains and land on Runtimes.
 	v.moveCursor(1)
-	if v.cursor != fieldAdvanced {
-		t.Errorf("after moving down from Network: cursor=%d, want %d (Advanced)", v.cursor, fieldAdvanced)
+	if v.cursor != fieldRuntimes {
+		t.Errorf("after moving down from Network: cursor=%d, want %d (Runtimes)", v.cursor, fieldRuntimes)
 	}
 }
 

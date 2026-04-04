@@ -61,6 +61,7 @@ result, err := w.Service.CreateContainer(ctx, api.CreateContainerRequest{
     Mounts:      []api.Mount{{HostPath: "/data", ContainerPath: "/data"}},
     NetworkMode: api.NetworkModeFull,
     AllowedDomains: []string{"api.example.com"},
+    EnabledRuntimes: []string{"node", "python", "go"},
 })
 ```
 

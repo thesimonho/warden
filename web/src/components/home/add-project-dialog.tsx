@@ -57,7 +57,6 @@ export default function AddProjectDialog({
   const [formError, setFormError] = useState<string | null>(null)
   const [editConfig, setEditConfig] = useState<ContainerConfig | null>(null)
   const [isLoadingConfig, setIsLoadingConfig] = useState(false)
-
   const isEditMode = editProjectId !== null
 
   /** Reset state when dialog opens/closes or edit target changes. */
@@ -99,11 +98,12 @@ export default function AddProjectDialog({
           allowedDomains: data.allowedDomains,
           costBudget: data.costBudget,
           enabledAccessItems: data.enabledAccessItems,
+          enabledRuntimes: data.enabledRuntimes,
         }
 
         if (isEditMode && editProjectId && editAgentType) {
-          await updateContainer(editProjectId, editAgentType, payload)
-          toast.success('Container updated')
+          const result = await updateContainer(editProjectId, editAgentType, payload)
+          toast.success(result.recreated ? 'Container recreated' : 'Container updated')
         } else if (createForProject) {
           await createContainer(createForProject.projectId, data.agentType, payload)
           toast.success('Container created')

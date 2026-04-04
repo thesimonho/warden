@@ -39,15 +39,15 @@ The `AuditWriter` is the only path for audit log writes; direct `db.Store.Write(
 
 Seven categories partition all audit events:
 
-| Category    | Event types                                                                                                                                   |
-| ----------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
-| **session** | session_start/end, terminal lifecycle, container_heartbeat_stale, worktree lifecycle                                                          |
-| **agent**   | tool_use, tool_use_failure, permission_request, subagent events                                                                               |
-| **prompt**  | user_prompt                                                                                                                                   |
-| **config**  | config_change, instructions_loaded                                                                                                            |
-| **budget**  | budget_exceeded, budget_worktrees_stopped, budget_container_stopped, budget_enforcement_failed, cost_reset, cost_snapshot                     |
-| **system**  | process_killed, restart_blocked, frontend events, project_removed, container_deleted, audit_purged, access_item_created/updated/deleted/reset |
-| **debug**   | slog-captured backend warnings/errors                                                                                                         |
+| Category    | Event types                                                                                                                                                                                                         |
+| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **session** | session_start/end, terminal lifecycle, container_heartbeat_stale, worktree lifecycle                                                                                                                                |
+| **agent**   | tool_use, tool_use_failure, permission_request, subagent events                                                                                                                                                     |
+| **prompt**  | user_prompt                                                                                                                                                                                                         |
+| **config**  | config_change, instructions_loaded                                                                                                                                                                                  |
+| **budget**  | budget_exceeded, budget_worktrees_stopped, budget_container_stopped, budget_enforcement_failed, cost_reset, cost_snapshot                                                                                           |
+| **system**  | process_killed, restart_blocked, frontend events, project_removed, container_created, container_deleted, container_updated, audit_purged, access_item_created/updated/deleted/reset, api_metrics, runtime_installed |
+| **debug**   | slog-captured backend warnings/errors                                                                                                                                                                               |
 
 Mode-filtered writes use the `standardEvents` allowlist to exclude agent/prompt/config/debug events when mode is Standard.
 
