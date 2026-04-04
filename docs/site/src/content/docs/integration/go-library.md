@@ -154,6 +154,14 @@ result, err := w.Service.DisconnectTerminal(ctx, "project-id", "claude-code", "w
 result, err := w.Service.KillWorktreeProcess(ctx, "project-id", "claude-code", "worktree-id")
 ```
 
+### Reset worktree
+
+Clear session state (session files, terminal tracking) without removing the worktree:
+
+```go
+result, err := w.Service.ResetWorktree(ctx, "project-id", "claude-code", "worktree-id")
+```
+
 ### Remove worktree
 
 ```go

@@ -107,6 +107,11 @@ func (a *ServiceAdapter) KillWorktreeProcess(ctx context.Context, projectID, age
 	return a.w.Service.KillWorktreeProcess(ctx, projectID, agentType, worktreeID)
 }
 
+// ResetWorktree delegates to Service.ResetWorktree.
+func (a *ServiceAdapter) ResetWorktree(ctx context.Context, projectID, agentType, worktreeID string) (*api.WorktreeResult, error) {
+	return a.w.Service.ResetWorktree(ctx, projectID, agentType, worktreeID)
+}
+
 // RemoveWorktree delegates to Service.RemoveWorktree.
 func (a *ServiceAdapter) RemoveWorktree(ctx context.Context, projectID, agentType, worktreeID string) (*api.WorktreeResult, error) {
 	return a.w.Service.RemoveWorktree(ctx, projectID, agentType, worktreeID)

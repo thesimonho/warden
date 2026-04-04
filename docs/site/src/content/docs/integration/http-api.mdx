@@ -308,9 +308,12 @@ The tmux session survives viewer disconnects. After the viewer closes:
 
 To fully terminate a terminal, use **Kill** (`POST /api/v1/projects/{projectId}/{agentType}/worktrees/{wid}/kill`) instead.
 
+To clear session state for a worktree without removing it, use **Reset** (`POST /api/v1/projects/{projectId}/{agentType}/worktrees/{wid}/reset`). This kills the process, deletes agent session files and terminal tracking state, and leaves the worktree ready for a fresh start. Audit history is preserved.
+
 ```
 Connect (start process) → Attach (open viewer) → Read/Write → Close viewer → Disconnect
                                                                               └→ or Kill (terminate process)
+                                                                              └→ or Reset (clear all history)
 ```
 
 ### WebSocket protocol

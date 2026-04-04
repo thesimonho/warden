@@ -246,6 +246,28 @@ export async function killWorktreeProcess(
 }
 
 /**
+ * Resets a worktree: kills the process, clears agent session files, and removes
+ * terminal tracking state. Audit history is preserved. The worktree itself is
+ * preserved.
+ *
+ * @param projectId - The project the worktree belongs to.
+ * @param agentType - The CLI agent type for this project.
+ * @param worktreeId - The worktree ID to reset.
+ * @returns The worktree result with worktree and project IDs.
+ */
+export async function resetWorktree(
+  projectId: string,
+  agentType: string,
+  worktreeId: string,
+): Promise<WorktreeResult> {
+  const response = await apiFetch(
+    `${projectUrl(projectId, agentType)}/worktrees/${worktreeId}/reset`,
+    { method: 'POST' },
+  )
+  return response.json() as Promise<WorktreeResult>
+}
+
+/**
  * Removes a worktree entirely: kills processes, runs `git worktree remove`,
  * and cleans up tracking state. Cannot remove the main worktree.
  *

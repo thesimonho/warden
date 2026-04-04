@@ -190,6 +190,16 @@ func (c *Client) KillWorktreeProcess(ctx context.Context, projectID, agentType, 
 	return &resp, nil
 }
 
+// ResetWorktree clears all history for a worktree without removing it.
+func (c *Client) ResetWorktree(ctx context.Context, projectID, agentType, worktreeID string) (*api.WorktreeResult, error) {
+	var resp api.WorktreeResult
+	path := projectPath(projectID, agentType) + "/worktrees/" + worktreeID + "/reset"
+	if err := c.post(ctx, path, nil, &resp); err != nil {
+		return nil, err
+	}
+	return &resp, nil
+}
+
 // RemoveWorktree fully removes a worktree.
 func (c *Client) RemoveWorktree(ctx context.Context, projectID, agentType, worktreeID string) (*api.WorktreeResult, error) {
 	var resp api.WorktreeResult

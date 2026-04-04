@@ -745,6 +745,58 @@ func (ec *EngineClient) RemoveWorktree(ctx context.Context, containerID, worktre
 	return nil
 }
 
+// ResetWorktree clears all history for a worktree without removing it from
+// disk. It kills any running tmux session, removes the terminal tracking
+// directory (exit_code, inner-cmd.sh), and deletes agent JSONL session files
+// so that the FileTailer won't replay old events on restart.
+func (ec *EngineClient) ResetWorktree(ctx context.Context, containerID, worktreeID string) error {
+	if !IsValidWorktreeID(worktreeID) {
+		return fmt.Errorf("invalid worktree ID: %q", worktreeID)
+	}
+
+	// Kill tmux session — may already be dead.
+	if killErr := ec.KillWorktreeProcess(ctx, containerID, worktreeID); killErr != nil {
+		slog.Debug("kill before reset failed (session may already be dead)", "container", containerID, "worktree", worktreeID, "err", killErr)
+	}
+
+	// Remove terminal tracking directory.
+	wsDir := ec.workspaceDir(ctx, containerID)
+	termDir := wsDir + terminalsDirSuffix
+	if _, rmErr := ec.execAndCapture(ctx, containerID, container.ExecOptions{
+		Cmd:          []string{"rm", "-rf", fmt.Sprintf("%s/%s", termDir, worktreeID)},
+		AttachStdout: true,
+		AttachStderr: true,
+	}); rmErr != nil {
+		slog.Warn("failed to clean up terminal tracking dir", "container", containerID, "worktree", worktreeID, "err", rmErr)
+	}
+
+	// Clear agent JSONL session files so they won't be replayed.
+	ec.clearSessionFiles(ctx, containerID)
+
+	slog.Info("reset worktree", "container", containerID, "worktree", worktreeID)
+	return nil
+}
+
+// clearSessionFiles removes agent JSONL session files from the container.
+// Both agent types are cleaned in a single exec — only one will have files.
+func (ec *EngineClient) clearSessionFiles(ctx context.Context, containerID string) {
+	h := ContainerHomeDir
+	cmd := fmt.Sprintf(
+		"find %s/.claude/projects -name '*.jsonl' -delete 2>/dev/null; "+
+			"find %s/.codex/sessions -name '*.jsonl' -delete 2>/dev/null; "+
+			"rm -rf %s/.codex/shell_snapshots 2>/dev/null; true",
+		h, h, h,
+	)
+	if _, err := ec.execAndCapture(ctx, containerID, container.ExecOptions{
+		Cmd:          []string{"sh", "-c", cmd},
+		User:         ContainerUser,
+		AttachStdout: true,
+		AttachStderr: true,
+	}); err != nil {
+		slog.Debug("clearing session files", "container", containerID, "err", err)
+	}
+}
+
 // KillWorktreeProcess kills the tmux session for a worktree, destroying the
 // process entirely. The git worktree directory on disk is preserved.
 // Use DisconnectTerminal to only disconnect the viewer and keep the session alive.

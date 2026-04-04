@@ -218,6 +218,11 @@ type Client interface {
 	// the process entirely. The git worktree directory on disk is preserved.
 	KillWorktreeProcess(ctx context.Context, containerID, worktreeID string) error
 
+	// ResetWorktree clears all history for a worktree without removing it.
+	// Kills the process, clears JSONL session files, and removes terminal
+	// tracking state.
+	ResetWorktree(ctx context.Context, containerID, worktreeID string) error
+
 	// RemoveWorktree fully removes a worktree: kills any running processes,
 	// runs `git worktree remove`, and cleans up tracking state. Cannot remove
 	// the "main" worktree.

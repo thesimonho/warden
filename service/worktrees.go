@@ -236,6 +236,67 @@ func (s *Service) RemoveWorktree(ctx context.Context, projectID, agentType, work
 	return &WorktreeResult{WorktreeID: worktreeID, ProjectID: project.ProjectID}, nil
 }
 
+// ResetWorktree clears all session state for a worktree without removing it.
+// Kills the process, clears JSONL session files in the container, and removes
+// terminal tracking state. Audit events are preserved. The session watcher is
+// restarted so it picks up the clean state instead of replaying deleted files.
+func (s *Service) ResetWorktree(ctx context.Context, projectID, agentType, worktreeID string) (*WorktreeResult, error) {
+	project, err := s.resolveProject(projectID, agentType)
+	if err != nil {
+		return nil, err
+	}
+	containerName := effectiveContainerName(project)
+
+	// Stop the session watcher before clearing files — prevents a race
+	// where the tailer reads partially-deleted files.
+	s.StopSessionWatcher(projectID, agentType)
+
+	if err := s.docker.ResetWorktree(ctx, project.ContainerID, worktreeID); err != nil {
+		s.audit.Write(db.Entry{
+			Source:        db.SourceBackend,
+			Level:         db.LevelError,
+			ProjectID:     project.ProjectID,
+			AgentType:     project.AgentType,
+			ContainerName: containerName,
+			Worktree:      worktreeID,
+			Event:         "worktree_reset_failed",
+			Message:       err.Error(),
+		})
+		// Restart the watcher even on failure.
+		wsDir := engine.ContainerWorkspaceDir(containerName)
+		s.RestartSessionWatcher(project.ProjectID, containerName, project.AgentType, wsDir)
+		return nil, err
+	}
+
+	// Evict in-memory state so the frontend sees a clean slate.
+	if containerName != "" && s.store != nil {
+		s.store.EvictWorktree(containerName, worktreeID)
+	}
+
+	s.audit.Write(db.Entry{
+		Source:        db.SourceBackend,
+		Level:         db.LevelInfo,
+		ProjectID:     project.ProjectID,
+		AgentType:     project.AgentType,
+		ContainerName: containerName,
+		Worktree:      worktreeID,
+		Event:         "worktree_reset",
+		Message:       "worktree history cleared",
+	})
+
+	// Restart the session watcher with a clean state.
+	workspaceDir := engine.ContainerWorkspaceDir(containerName)
+	s.RestartSessionWatcher(project.ProjectID, containerName, project.AgentType, workspaceDir)
+
+	if containerName != "" && s.store != nil {
+		s.store.BroadcastWorktreeListChanged(eventbus.ProjectRef{
+			ProjectID: project.ProjectID, AgentType: project.AgentType, ContainerName: containerName,
+		})
+	}
+
+	return &WorktreeResult{WorktreeID: worktreeID, ProjectID: project.ProjectID}, nil
+}
+
 // CleanupWorktrees removes orphaned worktree directories and stale
 // terminal tracking directories. Returns the list of removed IDs.
 func (s *Service) CleanupWorktrees(ctx context.Context, projectID, agentType string) ([]string, error) {

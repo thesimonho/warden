@@ -63,6 +63,7 @@ Auto-resume triggers when:
 
 Auto-resume does NOT trigger when:
 
+- **Worktree reset** — `ResetWorktree` removes the terminal dir and JSONL session files
 - **Worktree deletion** — `RemoveWorktree` removes the entire terminal dir including exit_code
 
 ## Terminal actions
@@ -73,6 +74,7 @@ Auto-resume does NOT trigger when:
 | **Disconnect** | `disconnectTerminal`                     | Close viewer. Tmux session keeps running in the background.                         | No           |
 | **Reconnect**  | `connectTerminal` (on existing worktree) | Browser reconnects via new WebSocket to existing tmux session.                      | No           |
 | **Stop**       | `killWorktreeProcess`                    | Stop agent from running in the background. Writes exit_code for auto-resume.        | Yes          |
+| **Reset**      | `resetWorktree`                          | Stop agent, clear session files and terminal state. Audit history preserved.        | Yes          |
 | **Delete**     | `removeWorktree`                         | Completely delete worktree from disk (git worktree remove). Removes terminal state. | Yes          |
 
 ## Worktree states
