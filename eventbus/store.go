@@ -1022,10 +1022,8 @@ func (s *Store) writeToAuditLog(writer *db.AuditWriter, event ContainerEvent) {
 
 	level := db.LevelInfo
 	switch event.Type {
-	case EventToolUseFailure, EventStopFailure:
+	case EventToolUseFailure, EventStopFailure, EventNetworkBlocked:
 		level = db.LevelError
-	case EventNetworkBlocked:
-		level = db.LevelWarn
 	}
 
 	entry := db.Entry{

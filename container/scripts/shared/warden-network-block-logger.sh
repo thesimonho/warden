@@ -54,6 +54,16 @@ resolve_hostname() {
   getent hosts "$ip" 2>/dev/null | awk '{print $2}' | head -1 || true
 }
 
+# Skip private/internal IPs — they're infrastructure addresses (Docker
+# gateway, bridge network) that users can't add to a domain allow list.
+is_private_ip() {
+  local ip="$1"
+  case "$ip" in
+    10.*|172.1[6-9].*|172.2[0-9].*|172.3[0-1].*|192.168.*|169.254.*) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
 # Track which IPs we have already reported to avoid duplicate events.
 declare -A REPORTED_IPS
 # Container-level event — no specific worktree.
@@ -72,7 +82,8 @@ while true; do
       continue
     fi
 
-    # Skip already-reported IPs.
+    # Skip private/internal and already-reported IPs.
+    is_private_ip "$ip" && continue
     [ -z "${REPORTED_IPS[$ip]+x}" ] || continue
     REPORTED_IPS["$ip"]=1
 
