@@ -145,6 +145,8 @@ if [ "$MODE" = "restricted" ]; then
     echo "bind-interfaces"
     echo "no-resolv"
     echo "cache-size=1000"
+    echo "log-queries"
+    echo "log-facility=/var/log/dnsmasq.log"
     for dns in $UPSTREAM_DNS; do
       echo "server=$dns"
     done

@@ -6,8 +6,9 @@
 #
 # Reads /proc/net/xt_recent/warden_blocked (populated by iptables
 # rules in setup-network-isolation.sh via -m recent --rdest --set).
-# Resolves IPs to hostnames via reverse DNS and writes events to
-# the bind-mounted event directory.
+# Resolves IPs to domain names using the dnsmasq query log (which
+# records every DNS reply with IP→domain mappings). Falls back to
+# reverse DNS when dnsmasq is not running (none mode).
 #
 # Started as a background process from user-entrypoint.sh when the
 # network mode is not "full". Exits silently if xt_recent is not
@@ -23,6 +24,7 @@ set -euo pipefail
 
 INTERVAL=30
 RECENT_FILE="/proc/net/xt_recent/warden_blocked"
+DNSMASQ_LOG="/var/log/dnsmasq.log"
 
 MODE="${WARDEN_NETWORK_MODE:-full}"
 if [ "$MODE" = "full" ]; then
@@ -47,13 +49,6 @@ while [ ! -f "$RECENT_FILE" ]; do
   fi
 done
 
-# Resolve an IP to a hostname via reverse DNS. Uses getent (always
-# available via glibc) which respects nsswitch.conf resolution order.
-resolve_hostname() {
-  local ip="$1"
-  getent hosts "$ip" 2>/dev/null | awk '{print $2}' | head -1 || true
-}
-
 # Skip private/internal IPs — they're infrastructure addresses (Docker
 # gateway, bridge network) that users can't add to a domain allow list.
 is_private_ip() {
@@ -64,13 +59,42 @@ is_private_ip() {
   esac
 }
 
+# Build an IP→domain mapping from the dnsmasq query log. dnsmasq logs
+# reply lines like: "reply example.com is 104.18.27.120". We parse
+# these to map IPs back to the domain that was originally queried.
+build_dns_map() {
+  declare -gA DNS_MAP
+  [ -f "$DNSMASQ_LOG" ] || return
+  while IFS= read -r line; do
+    if [[ "$line" =~ reply\ ([^ ]+)\ is\ ([0-9]+\.[0-9]+\.[0-9]+\.[0-9]+) ]]; then
+      DNS_MAP["${BASH_REMATCH[2]}"]="${BASH_REMATCH[1]}"
+    fi
+  done < "$DNSMASQ_LOG"
+}
+
+# Resolve an IP to a domain. Checks the dnsmasq-derived map first,
+# falls back to reverse DNS (useful in none mode where dnsmasq is
+# not running).
+resolve_domain() {
+  local ip="$1"
+  if [ -n "${DNS_MAP[$ip]+x}" ]; then
+    printf '%s' "${DNS_MAP[$ip]}"
+    return
+  fi
+  getent hosts "$ip" 2>/dev/null | awk '{print $2}' | head -1 || true
+}
+
 # Track which IPs we have already reported to avoid duplicate events.
 declare -A REPORTED_IPS
+declare -A DNS_MAP
 # Container-level event — no specific worktree.
 WORKTREE_ID=""
 
 while true; do
   [ -f "$RECENT_FILE" ] || { sleep "$INTERVAL"; continue; }
+
+  # Refresh IP→domain mapping from dnsmasq log before processing.
+  build_dns_map
 
   # xt_recent always labels the tracked address as "src=" even when
   # recorded via --rdest. With our rules, this is the blocked
@@ -87,11 +111,11 @@ while true; do
     [ -z "${REPORTED_IPS[$ip]+x}" ] || continue
     REPORTED_IPS["$ip"]=1
 
-    hostname=$(resolve_hostname "$ip")
+    domain=$(resolve_domain "$ip")
 
-    # Use jq for safe JSON construction (hostname comes from DNS).
-    data=$(jq -nc --arg ip "$ip" --arg host "$hostname" \
-      'if $host == "" then {ip: $ip} else {ip: $ip, hostname: $host} end')
+    # Use jq for safe JSON construction (domain comes from DNS).
+    data=$(jq -nc --arg ip "$ip" --arg domain "$domain" \
+      'if $domain == "" then {ip: $ip} else {ip: $ip, domain: $domain} end')
     warden_write_event "$(warden_build_event_json "network_blocked" "$data")"
   done < "$RECENT_FILE"
 

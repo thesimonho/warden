@@ -948,8 +948,8 @@ func (s *Store) writeToAuditLog(writer *db.AuditWriter, event ContainerEvent) {
 		if event.Data != nil {
 			var data NetworkBlockedData
 			if err := json.Unmarshal(event.Data, &data); err == nil {
-				if data.Hostname != "" {
-					message = data.Hostname + " (" + data.IP + ")"
+				if data.Domain != "" {
+					message = data.Domain + " (" + data.IP + ")"
 				} else {
 					message = data.IP
 				}

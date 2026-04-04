@@ -237,8 +237,8 @@ type RuntimeStatusPayload struct {
 
 // NetworkBlockedData carries details about a blocked outbound connection.
 type NetworkBlockedData struct {
-	IP       string `json:"ip"`
-	Hostname string `json:"hostname,omitempty"`
+	IP     string `json:"ip"`
+	Domain string `json:"domain,omitempty"`
 }
 
 // AgentStatusData carries details about agent CLI installation progress.
