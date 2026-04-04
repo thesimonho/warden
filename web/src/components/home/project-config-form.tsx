@@ -1,10 +1,9 @@
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { ArrowRight, FileUp, Info, Loader2, Plus, Trash2 } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { FileUp, Info, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import type {
   AccessItemResponse,
   AgentType,
-  ContainerConfig,
   Mount,
   NetworkMode,
   ProjectTemplate,
@@ -37,79 +36,16 @@ import {
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { AgentIcon } from '@/components/ui/agent-icons'
 import DirectoryBrowser from '@/components/ui/directory-browser'
+import type { EnvVarEntry, ProjectConfigFormProps } from './project-config-form-types'
+import {
+  DEFAULT_IMAGE,
+  isMountForAgent,
+  findRequiredMount,
+  withRequiredMount,
+} from './project-config-form-types'
+import { BindMountsField, EnvVarsField } from './project-config-form-fields'
 
-/** A single key-value pair for environment variables. */
-interface EnvVarEntry {
-  key: string
-  value: string
-}
-
-/** Props for the ProjectConfigForm component. */
-interface ProjectConfigFormProps {
-  /** Whether the form is for creating or editing a container. */
-  mode: 'create' | 'edit'
-  /** Initial values to populate the form (used in edit mode). */
-  initialValues?: ContainerConfig
-  /** Called when the form is submitted with valid data. */
-  onSubmit: (data: ProjectConfigFormData) => void
-  /** Whether the form submission is in progress. */
-  isSubmitting: boolean
-  /** External error message to display. */
-  error?: string | null
-}
-
-/** Data shape emitted by the form on submit. */
-export interface ProjectConfigFormData {
-  name: string
-  image: string
-  projectPath: string
-  agentType: AgentType
-  envVars?: Record<string, string>
-  mounts?: Mount[]
-  skipPermissions: boolean
-  networkMode: NetworkMode
-  allowedDomains?: string[]
-  costBudget?: number
-  enabledAccessItems?: string[]
-  enabledRuntimes?: string[]
-}
-
-/** Default container image for new projects. */
-const DEFAULT_IMAGE = 'ghcr.io/thesimonho/warden:latest'
-
-/** Returns true if a default mount belongs to the given agent type. */
-function isMountForAgent(m: DefaultMount, type: AgentType): boolean {
-  if (m.agentType) return m.agentType === type
-  return true // non-agent mount, always include
-}
-
-/** Returns the required default mount for the given agent type, if any. */
-function findRequiredMount(defaults: DefaultMount[], type: AgentType): DefaultMount | undefined {
-  return defaults.find((m) => m.required && isMountForAgent(m, type))
-}
-
-/**
- * Returns a mount list with the required agent config mount prepended if missing.
- * Returns the input array unchanged (same reference) when already present.
- */
-function withRequiredMount(
-  currentMounts: Mount[],
-  defaults: DefaultMount[],
-  type: AgentType,
-): Mount[] {
-  const required = findRequiredMount(defaults, type)
-  if (!required) return currentMounts
-  const hasIt = currentMounts.some((m) => m.containerPath === required.containerPath)
-  if (hasIt) return currentMounts
-  return [
-    {
-      hostPath: required.hostPath,
-      containerPath: required.containerPath,
-      readOnly: required.readOnly,
-    },
-    ...currentMounts,
-  ]
-}
+export type { ProjectConfigFormData } from './project-config-form-types'
 
 /**
  * Reusable form for creating or editing a project container.
@@ -809,192 +745,25 @@ export default function ProjectConfigForm({
             />
           </FormField>
 
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <label className="font-medium">
-                <span className="flex items-center gap-1.5">
-                  Bind Mounts
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Info className="text-muted-foreground h-3.5 w-3.5" />
-                    </TooltipTrigger>
-                    <TooltipContent side="right">
-                      <p>Mount host directories into the container.</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </span>
-              </label>
-              <Button
-                type="button"
-                size="sm"
-                variant="ghost"
-                onClick={() =>
-                  setMounts((prev) => [
-                    ...prev,
-                    { hostPath: '', containerPath: '', readOnly: true },
-                  ])
-                }
-                disabled={isSubmitting}
-                icon={Plus}
-              >
-                Add
-              </Button>
-            </div>
+          <BindMountsField
+            visibleMounts={visibleMounts}
+            containerHomeDir={containerHomeDir}
+            homeDir={homeDir}
+            requiredContainerPath={requiredContainerPath}
+            isSubmitting={isSubmitting}
+            containerToDisplay={containerToDisplay}
+            containerToAbsolute={containerToAbsolute}
+            onMountsChange={setMounts}
+          />
 
-            {visibleMounts.length === 0 && (
-              <p className="text-muted-foreground text-sm">No additional bind mounts configured.</p>
-            )}
-            {visibleMounts.length > 0 && (
-              <div className="grid grid-cols-[1fr_auto_1fr_auto_auto] items-center gap-x-2 gap-y-2">
-                <span className="text-muted-foreground text-sm font-medium">Host</span>
-                <span />
-                <span className="text-muted-foreground flex items-center gap-1 text-sm font-medium">
-                  Container
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Info className="text-muted-foreground h-3 w-3" />
-                    </TooltipTrigger>
-                    <TooltipContent side="top" className="max-w-64">
-                      ~ expands to {containerHomeDir || '/home/<user>'}. If using a custom image
-                      with a different user, enter absolute paths instead.
-                    </TooltipContent>
-                  </Tooltip>
-                </span>
-                <span />
-                <span />
-                {visibleMounts.map(({ mount, index: mountIndex }) => {
-                  const isRequired = mount.containerPath === requiredContainerPath
-                  return (
-                    <Fragment key={mountIndex}>
-                      <DirectoryBrowser
-                        value={mount.hostPath}
-                        onChange={(val) =>
-                          setMounts((prev) =>
-                            prev.map((m, i) => (i === mountIndex ? { ...m, hostPath: val } : m)),
-                          )
-                        }
-                        disabled={isSubmitting}
-                        defaultPath={homeDir}
-                        placeholder="/host/path"
-                        mode="file"
-                      />
-                      <ArrowRight className="text-muted-foreground h-3.5 w-3.5 shrink-0" />
-                      <Input
-                        placeholder="/container/path"
-                        value={containerToDisplay(mount.containerPath)}
-                        onChange={(e) => {
-                          const absolutePath = containerToAbsolute(e.target.value)
-                          setMounts((prev) =>
-                            prev.map((m, i) =>
-                              i === mountIndex ? { ...m, containerPath: absolutePath } : m,
-                            ),
-                          )
-                        }}
-                        className="font-mono text-sm"
-                        disabled={isSubmitting || isRequired}
-                      />
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant={mount.readOnly ? 'ghost' : 'secondary'}
-                            onClick={() =>
-                              setMounts((prev) =>
-                                prev.map((m, i) =>
-                                  i === mountIndex ? { ...m, readOnly: !m.readOnly } : m,
-                                ),
-                              )
-                            }
-                            disabled={isSubmitting}
-                            className="shrink-0 px-2 font-mono text-sm"
-                          >
-                            {mount.readOnly ? 'RO' : 'RW'}
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          {mount.readOnly ? 'Read-only' : 'Read-write'}
-                        </TooltipContent>
-                      </Tooltip>
-                      {isRequired ? (
-                        <span className="text-muted-foreground shrink-0 px-2 text-xs">
-                          Required
-                        </span>
-                      ) : (
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="ghost"
-                          onClick={() =>
-                            setMounts((prev) => prev.filter((_, i) => i !== mountIndex))
-                          }
-                          disabled={isSubmitting}
-                          className="shrink-0 px-2"
-                          icon={Trash2}
-                        />
-                      )}
-                    </Fragment>
-                  )
-                })}
-              </div>
-            )}
-          </div>
-
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <label className="font-medium">Environment Variables</label>
-              <Button
-                type="button"
-                size="sm"
-                variant="ghost"
-                onClick={handleAddEnvVar}
-                disabled={isSubmitting}
-                icon={Plus}
-              >
-                Add
-              </Button>
-            </div>
-            {visibleEnvVars.length === 0 && (
-              <p className="text-muted-foreground text-sm">No environment variables configured.</p>
-            )}
-            {visibleEnvVars.map(({ entry, index }) => {
-              const isRuntimeManaged = runtimeEnvKeys.has(entry.key)
-              return (
-                <div key={index} className="flex items-center gap-2">
-                  <Input
-                    placeholder="KEY"
-                    value={entry.key}
-                    onChange={(e) => handleUpdateEnvVar(index, 'key', e.target.value)}
-                    className="flex-1 font-mono text-sm"
-                    disabled={isSubmitting || isRuntimeManaged}
-                  />
-                  <Input
-                    placeholder="value"
-                    value={entry.value}
-                    onChange={(e) => handleUpdateEnvVar(index, 'value', e.target.value)}
-                    className="flex-1 font-mono text-sm"
-                    type={
-                      entry.key.includes('KEY') ||
-                      entry.key.includes('SECRET') ||
-                      entry.key.includes('TOKEN')
-                        ? 'password'
-                        : 'text'
-                    }
-                    disabled={isSubmitting || isRuntimeManaged}
-                  />
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => handleRemoveEnvVar(index)}
-                    disabled={isSubmitting || isRuntimeManaged}
-                    className="shrink-0 px-2"
-                    icon={Trash2}
-                  />
-                </div>
-              )
-            })}
-          </div>
+          <EnvVarsField
+            visibleEnvVars={visibleEnvVars}
+            runtimeEnvKeys={runtimeEnvKeys}
+            isSubmitting={isSubmitting}
+            onAdd={handleAddEnvVar}
+            onUpdate={handleUpdateEnvVar}
+            onRemove={handleRemoveEnvVar}
+          />
         </CollapsibleContent>
       </Collapsible>
 
