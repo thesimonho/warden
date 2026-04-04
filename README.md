@@ -32,23 +32,33 @@ Here are the steps:
 - Turn on sandboxing and configure the permissions for which commands are allowed.
 - But sandboxes only prevent unauthorized access. They don't prevent authorized stupidity. So you have to isolate them in containers to avoid dependency conflicts and other system-wide issues.
 - But now you need to lock down the container. So you need to setup network policies, filesystem permissions, iptables, firewalls, etc.
-- But now you need interact with those agents, so you need a way to connect to them and keep their sessions alive while they work. So, SSH? multiplexing?
 - But you're running so many agents, you need a way to know when they need your attention. So you have to figure out some method for them to forward events to you.
 - But agents do stupid things, so you'll want to audit their activity, how much money they're spending. OK, so let's plan some logging, metrics, and a database for storage.
 - ...
 
 Or you could just use **Warden**.
 
-Warden is a modular, self-contained infrastructure layer that makes autonomous agents safe by default. It handles all of the above for you, while remaining configurable for your specific project needs.
+Warden is a modular, self-contained infrastructure layer that makes autonomous agents safe by default. It handles all of the above for you. You can easily use it from Day 1 as its own agent orchestrator, running as a webapp or terminal UI.
 
-You can easily use it from Day 1 as its own agent orchestrator, running as a webapp or terminal UI. But it's real power comes from being a self-contained security boundary, that developers can integrate into their existing applications, gaining containerized agent infrastructure for free.
+But it's real power comes from being a self-contained security boundary, that developers can integrate into their existing applications, gaining containerized agent infrastructure for free.
+The idea is simple. Your app talks to Warden, it controls the agent environment, and gives you back the data you need (and more).
+
+### Example Use Cases
+
+- **You have a big new idea**. You've got a cool idea for orchestrating agents — the interface, the flows, the way agents hand off work to each other. You want to build the UI and the experience, not become an infrastructure engineer. Point Warden at your stack and let it take care of worktrees, container security, and notifications for you. Build the part you actually care about.
+- **You already have something working**. Your tool runs, people use it, but you're realising you have no isolation, no audit trail, and no good answer for when something goes wrong. Warden slots in without a rewrite — embed the Go library or run it as a sidecar. Your existing code stays where it is, and you just talk to Warden instead of directly to your current agent CLI.
 
 ## ✅ What you get
+
+Example web apps built up from core Warden features:
 
 <div align="center">
   <a href="docs/site/public/hero-light.webp" target="_blank"><img width="400" alt="light" src="docs/site/public/hero-light.webp" /></a>
   <a href="docs/site/public/hero-dark.webp" target="_blank"><img width="400" alt="dark" src="docs/site/public/hero-dark.webp" /></a>
 </div>
+
+> [!NOTE]
+> Everything in this section is provided by Warden through its embedded HTTP API.
 
 ### Security model
 
@@ -58,7 +68,6 @@ You can easily use it from Day 1 as its own agent orchestrator, running as a web
 - **Network access controls** — per-container policy: full access, restricted (domain allowlist), or air-gapped.
 - **Language runtimes** — declare which runtimes a project needs (Python, Go, Rust, Ruby, Lua). Warden installs them and opens only the required network domains. Auto-detected from project marker files.
 - **Credential passthrough** — share Git, SSH, and custom credentials with containers automatically without storing them.
-- **Project templates** — commit a `.warden.json` to your repo for shareable, version-controlled project configs that auto-populate the creation form.
 
 ### Agent operations
 
@@ -71,7 +80,7 @@ You can easily use it from Day 1 as its own agent orchestrator, running as a web
 
 - **Go library** — embed the engine directly with `warden.New()`. No HTTP overhead, no server process.
 - **HTTP API** — REST + SSE + WebSocket. Works from any language.
-- **Go HTTP client** — typed client for Go apps talking to a running Warden server.
+- **Go HTTP client** — typed wrapper client for Go apps talking to a running Warden server.
 - **Reference implementations** — the web dashboard and TUI use the same public interfaces you would. Read their source as integration examples.
 - **Single binary** — Go backend with embedded frontend. No runtime dependencies beyond a container engine.
 
@@ -80,6 +89,7 @@ You can easily use it from Day 1 as its own agent orchestrator, running as a web
 - **Full terminal scrollback** — be able to scroll back through session history.
 - **Cost tracking and budget enforcement** — per-project cost tracking with configurable budget actions (warn, stop worktrees, stop container, prevent restart).
 - **Diff view** — see the changes made by each agent in real time.
+- **Project templates** — commit a `.warden.json` to your repo for shareable, version-controlled project configs that auto-populate the creation form.
 - **Audit system** — unified event logging with activity timeline visualization, summary dashboard, category filtering (session, agent, prompt, config, budget, system, debug), and compliance-ready export (CSV/JSON). Configurable logging modes (off/standard/detailed) to balance detail with volume.
 
 <div align="center">
