@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"log/slog"
 	"time"
 
 	"github.com/thesimonho/warden/api"
@@ -266,6 +267,14 @@ func (s *Service) ResetWorktree(ctx context.Context, projectID, agentType, workt
 		wsDir := engine.ContainerWorkspaceDir(containerName)
 		s.RestartSessionWatcher(project.ProjectID, containerName, project.AgentType, wsDir)
 		return nil, err
+	}
+
+	// Clear stored tailer offsets so the restarted watcher doesn't try
+	// to seek into files that no longer exist.
+	if s.db != nil {
+		if err := s.db.DeleteTailerOffsets(projectID, agentType); err != nil {
+			slog.Warn("failed to clear tailer offsets during reset", "project", projectID, "err", err)
+		}
 	}
 
 	// Evict in-memory state so the frontend sees a clean slate.

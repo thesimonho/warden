@@ -155,6 +155,8 @@ type ParsedEvent struct {
 type ProjectInfo struct {
 	// ProjectID is the deterministic 12-char hex project identifier.
 	ProjectID string
+	// AgentType identifies the agent (e.g. "claude-code", "codex").
+	AgentType string
 	// WorkspaceDir is the container-side workspace directory.
 	WorkspaceDir string
 	// ProjectName is the user-chosen project name.

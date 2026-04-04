@@ -120,7 +120,7 @@ test-go:
 test-web:
     npm --prefix web run test
 
-[private]
+# Run E2E tests
 test-e2e:
     just clean-e2e
     npm --prefix web run test:e2e

@@ -27,7 +27,15 @@ type SessionWatcher struct {
 // The parser converts lines into ParsedEvents. The callback receives
 // each event (typically wired to the eventbus). The homeDir and project
 // are passed to the parser's FindSessionFiles for file discovery.
-func NewSessionWatcher(parser SessionParser, homeDir string, project ProjectInfo, callback func(ParsedEvent)) *SessionWatcher {
+// The offsetStore (optional, may be nil) persists byte offsets so the
+// tailer resumes from where it left off after a restart.
+func NewSessionWatcher(
+	parser SessionParser,
+	homeDir string,
+	project ProjectInfo,
+	callback func(ParsedEvent),
+	offsetStore watcher.OffsetStore,
+) *SessionWatcher {
 	sw := &SessionWatcher{
 		parser:   parser,
 		homeDir:  homeDir,
@@ -50,6 +58,9 @@ func NewSessionWatcher(parser SessionParser, homeDir string, project ProjectInfo
 		},
 		PollInterval: watcher.DefaultPollInterval,
 		Logger:       sw.logger,
+		OffsetStore:  offsetStore,
+		ProjectID:    project.ProjectID,
+		AgentType:    project.AgentType,
 	})
 
 	return sw
