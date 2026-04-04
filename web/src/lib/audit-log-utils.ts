@@ -189,7 +189,8 @@ export function entryMessage(entry: AuditLogEntry): string {
   // may contain a [bash] prefix baked in by the Go backend for TUI display,
   // but the web UI renders bash indicators visually via promptSource().
   if (entry.event === 'user_prompt' && data?.prompt) {
-    const prompt = data.prompt as string
+    // Collapse newlines/carriage returns to spaces for single-line table display.
+    const prompt = (data.prompt as string).replace(/[\r\n]+/g, ' ')
     return prompt.length > 100 ? prompt.slice(0, 100) + '...' : prompt
   }
 
