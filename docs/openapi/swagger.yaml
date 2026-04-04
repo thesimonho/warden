@@ -250,6 +250,53 @@ components:
         method:
           $ref: '#/components/schemas/access.Method'
       type: object
+    api.AuditEntry:
+      properties:
+        agentType:
+          description: AgentType identifies the agent that produced this event (e.g.
+            "claude-code", "codex").
+          type: string
+        attrs:
+          additionalProperties: {}
+          description: Attrs carries structured key-value metadata.
+          type: object
+        category:
+          description: |-
+            Category is the audit category (session, agent, prompt, config, system).
+            Computed at query time from the event name — not stored in the DB.
+          type: string
+        containerName:
+          description: ContainerName is a snapshot of the container name at the time
+            of the event.
+          type: string
+        data:
+          description: Data carries the raw event payload (for agent events, preserves
+            hook JSON).
+          items:
+            type: integer
+          type: array
+          uniqueItems: false
+        event:
+          description: Event is a snake_case identifier for the event type (e.g. "session_start").
+          type: string
+        level:
+          $ref: '#/components/schemas/api.AuditLevel'
+        msg:
+          description: Message is a human-readable description.
+          type: string
+        projectId:
+          description: ProjectID is the deterministic project identifier (sha256 of
+            host path, 12 hex chars).
+          type: string
+        source:
+          $ref: '#/components/schemas/api.AuditSource'
+        ts:
+          description: Timestamp is when the event occurred (ISO 8601 with milliseconds).
+          type: string
+        worktree:
+          description: Worktree is the worktree ID (only for agent events).
+          type: string
+      type: object
     api.AuditLevel:
       description: Level is the severity of the entry (info, warn, error).
       enum:
@@ -572,53 +619,6 @@ components:
       - AgentClaudeCode
       - AgentCodex
       - DefaultAgentType
-    db.Entry:
-      properties:
-        agentType:
-          description: AgentType identifies the agent that produced this event (e.g.
-            "claude-code", "codex").
-          type: string
-        attrs:
-          additionalProperties: {}
-          description: Attrs carries structured key-value metadata.
-          type: object
-        category:
-          description: |-
-            Category is the audit category (session, agent, prompt, config, system).
-            Computed at query time from the event name — not stored in the DB.
-          type: string
-        containerName:
-          description: ContainerName is a snapshot of the container name at the time
-            of the event.
-          type: string
-        data:
-          description: Data carries the raw event payload (for agent events, preserves
-            hook JSON).
-          items:
-            type: integer
-          type: array
-          uniqueItems: false
-        event:
-          description: Event is a snake_case identifier for the event type (e.g. "session_start").
-          type: string
-        level:
-          $ref: '#/components/schemas/api.AuditLevel'
-        msg:
-          description: Message is a human-readable description.
-          type: string
-        projectId:
-          description: ProjectID is the deterministic project identifier (sha256 of
-            host path, 12 hex chars).
-          type: string
-        source:
-          $ref: '#/components/schemas/api.AuditSource'
-        ts:
-          description: Timestamp is when the event occurred (ISO 8601 with milliseconds).
-          type: string
-        worktree:
-          description: Worktree is the worktree ID (only for agent events).
-          type: string
-      type: object
     engine.AgentStatus:
       enum:
       - idle
@@ -1362,7 +1362,7 @@ paths:
             application/json:
               schema:
                 items:
-                  $ref: '#/components/schemas/db.Entry'
+                  $ref: '#/components/schemas/api.AuditEntry'
                 type: array
           description: OK
         "500":
