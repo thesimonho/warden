@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.5.1](https://github.com/thesimonho/warden/compare/v1.5.0...v1.5.1) (2026-04-04)
+
+
+### Bug Fixes
+
+* add missing id field in test fixtures, clean up E2E audit data ([#92](https://github.com/thesimonho/warden/issues/92)) ([1723422](https://github.com/thesimonho/warden/commit/17234229a1446fb189d08ee1cb835e7e7f23e994))
+
 ## [1.5.0](https://github.com/thesimonho/warden/compare/v0.6.0...v1.5.0) (2026-04-04)
 
 
