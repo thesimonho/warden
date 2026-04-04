@@ -2,7 +2,7 @@
 Type=Application
 Name=Warden
 Comment=Dashboard and control plane for Claude Code agents
-Exec=warden-gui
+Exec=warden-desktop
 Icon=warden
 Categories=Development;
 Terminal=false
