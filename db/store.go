@@ -824,6 +824,39 @@ func (l *Store) DeleteProjectCosts(projectID, agentType string) error {
 	return nil
 }
 
+// DeleteSessionCosts removes session cost entries matching the given filters.
+// Supports scoping by project ID and time range. With no filters, clears all
+// session costs.
+func (l *Store) DeleteSessionCosts(projectID string, since, until time.Time) error {
+	if l == nil {
+		return nil
+	}
+
+	query := "DELETE FROM session_costs WHERE 1=1"
+	var args []any
+
+	if projectID != "" {
+		query += " AND project_id = ?"
+		args = append(args, projectID)
+	}
+	if !since.IsZero() {
+		query += " AND updated_at >= ?"
+		args = append(args, since.Format(time.RFC3339Nano))
+	}
+	if !until.IsZero() {
+		query += " AND created_at <= ?"
+		args = append(args, until.Format(time.RFC3339Nano))
+	}
+
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	if _, err := l.db.Exec(query, args...); err != nil {
+		return fmt.Errorf("deleting session costs: %w", err)
+	}
+	return nil
+}
+
 // --- Access item persistence ---
 
 // AccessItemRow represents a user-created access item stored in the database.
