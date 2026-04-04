@@ -54,8 +54,8 @@ func TestParseFixture_EventCounts(t *testing.T) {
 	if got := result.Counts[agent.EventToolUse]; got != 9 {
 		t.Errorf("ToolUse events = %d, want 9", got)
 	}
-	if got := result.Counts[agent.EventUserPrompt]; got != 1 {
-		t.Errorf("UserPrompt events = %d, want 1", got)
+	if got := result.Counts[agent.EventUserPrompt]; got != 5 {
+		t.Errorf("UserPrompt events = %d, want 5", got)
 	}
 	if got := result.Counts[agent.EventTokenUpdate]; got != 3 {
 		t.Errorf("TokenUpdate events = %d, want 3", got)
@@ -258,6 +258,69 @@ func TestParseFixture_CustomToolCall(t *testing.T) {
 		}
 	}
 	t.Error("no ToolUse event for custom_tool_call found")
+}
+
+func TestParseFixture_UserShellCommand(t *testing.T) {
+	t.Parallel()
+	events := parseFixtureEvents(t)
+
+	var bashCommands, bashOutputs []agent.ParsedEvent
+	for _, e := range events {
+		if e.Type != agent.EventUserPrompt {
+			continue
+		}
+		switch e.PromptSource {
+		case agent.PromptSourceBash:
+			bashCommands = append(bashCommands, e)
+		case agent.PromptSourceBashOutput:
+			bashOutputs = append(bashOutputs, e)
+		}
+	}
+
+	// Two user shell commands in fixture: curl and ls.
+	if len(bashCommands) != 2 {
+		t.Fatalf("bash command events = %d, want 2", len(bashCommands))
+	}
+	// Codex wraps in /bin/bash -lc — extractUserCommand strips the wrapper.
+	if bashCommands[0].Prompt != "$ curl example.com" {
+		t.Errorf("bash command[0] = %q, want %q", bashCommands[0].Prompt, "$ curl example.com")
+	}
+	if bashCommands[1].Prompt != "$ ls -la" {
+		t.Errorf("bash command[1] = %q, want %q", bashCommands[1].Prompt, "$ ls -la")
+	}
+
+	// Both have non-empty output (curl has stderr, ls has stdout).
+	if len(bashOutputs) != 2 {
+		t.Fatalf("bash output events = %d, want 2", len(bashOutputs))
+	}
+	if bashOutputs[0].Prompt != "% Total    % Received\ncurl: (7) Failed to connect" {
+		t.Errorf("bash output[0] = %q", bashOutputs[0].Prompt)
+	}
+}
+
+func TestExtractUserCommand(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		command []string
+		want    string
+	}{
+		{"bash wrapper", []string{"/bin/bash", "-lc", "curl example.com"}, "curl example.com"},
+		{"bare command", []string{"ls", "-la"}, "ls -la"},
+		{"empty", nil, ""},
+		{"just bash no -lc", []string{"/bin/bash", "script.sh"}, "/bin/bash script.sh"},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			got := extractUserCommand(tc.command)
+			if got != tc.want {
+				t.Errorf("extractUserCommand(%v) = %q, want %q", tc.command, got, tc.want)
+			}
+		})
+	}
 }
 
 func TestIsLikelyError(t *testing.T) {

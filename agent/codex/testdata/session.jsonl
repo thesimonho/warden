@@ -30,4 +30,6 @@
 {"timestamp":"2026-03-30T10:00:13.500Z","type":"event_msg","payload":{"type":"thread_rolled_back","num_turns":3}}
 {"timestamp":"2026-03-30T10:00:14.000Z","type":"event_msg","payload":{"type":"turn_aborted","turn_id":"turn-001","reason":"interrupted"}}
 {"timestamp":"2026-03-30T10:00:14.500Z","type":"compacted","payload":{"message":"Conversation compacted"}}
+{"timestamp":"2026-03-30T10:00:14.600Z","type":"event_msg","payload":{"type":"exec_command_end","source":"user_shell","command":["/bin/bash","-lc","curl example.com"],"cwd":"/home/warden/project","exit_code":7,"status":"failed","stdout":"","stderr":"","aggregated_output":"  % Total    % Received\ncurl: (7) Failed to connect"}}
+{"timestamp":"2026-03-30T10:00:14.700Z","type":"event_msg","payload":{"type":"exec_command_end","source":"user_shell","command":["/bin/bash","-lc","ls -la"],"cwd":"/home/warden/project","exit_code":0,"status":"completed","stdout":"","stderr":"","aggregated_output":"total 0"}}
 {"timestamp":"2026-03-30T10:00:15.000Z","type":"event_msg","payload":{"type":"task_complete","turn_id":"turn-001","last_agent_message":"Done! I read the README, created the test file, and deleted it."}}
