@@ -47,6 +47,7 @@ import {
   entryKey,
   eventLabel,
   entryMessage,
+  promptSource,
 } from '@/lib/audit-log-utils'
 import { readStorage, writeStorage } from '@/lib/storage'
 import type { AgentType, AuditLogEntry, AuditCategory, AuditLogLevel } from '@/lib/types'
@@ -260,9 +261,16 @@ const columns: ColumnDef<AuditLogEntry, unknown>[] = [
     header: 'Message',
     enableSorting: false,
     meta: { flex: true },
-    cell: ({ getValue }) => (
-      <span className="text-foreground/80 truncate">{getValue<string>()}</span>
-    ),
+    cell: ({ getValue, row }) => {
+      const source = promptSource(row.original)
+      return (
+        <span
+          className={cn('truncate', source ? 'text-foreground/70 font-mono' : 'text-foreground/80')}
+        >
+          {getValue<string>()}
+        </span>
+      )
+    },
   },
   {
     id: 'actions',

@@ -154,15 +154,16 @@ func parseQueueOperation(entry SessionEntry) []agent.ParsedEvent {
 	if entry.Operation != "enqueue" {
 		return nil
 	}
-	promptText := agent.FormatPromptText(entry.Content)
-	if promptText == "" {
+	formatted := agent.FormatPromptText(entry.Content)
+	if formatted.Text == "" {
 		return nil
 	}
 	return []agent.ParsedEvent{{
-		Type:      agent.EventUserPrompt,
-		SessionID: entry.SessionID,
-		Timestamp: entry.Timestamp,
-		Prompt:    agent.TruncateString(promptText, agent.MaxPromptLength),
+		Type:         agent.EventUserPrompt,
+		SessionID:    entry.SessionID,
+		Timestamp:    entry.Timestamp,
+		Prompt:       agent.TruncateString(formatted.Text, agent.MaxPromptLength),
+		PromptSource: formatted.Source,
 	}}
 }
 
@@ -242,17 +243,18 @@ func (p *Parser) parseUser(entry SessionEntry) []agent.ParsedEvent {
 
 	// Plain text user messages. Format to strip internal tags from
 	// bash mode (!) and slash commands before storing in audit log.
-	promptText := agent.FormatPromptText(entry.Message.Content.Text)
-	if promptText == "" {
+	formatted := agent.FormatPromptText(entry.Message.Content.Text)
+	if formatted.Text == "" {
 		return nil
 	}
 
 	return []agent.ParsedEvent{{
-		Type:      agent.EventUserPrompt,
-		SessionID: entry.SessionID,
-		Timestamp: entry.Timestamp,
-		Prompt:    agent.TruncateString(promptText, agent.MaxPromptLength),
-		GitBranch: entry.GitBranch,
+		Type:         agent.EventUserPrompt,
+		SessionID:    entry.SessionID,
+		Timestamp:    entry.Timestamp,
+		Prompt:       agent.TruncateString(formatted.Text, agent.MaxPromptLength),
+		PromptSource: formatted.Source,
+		GitBranch:    entry.GitBranch,
 	}}
 }
 

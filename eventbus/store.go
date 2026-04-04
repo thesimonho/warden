@@ -1018,6 +1018,20 @@ func (s *Store) writeToAuditLog(writer *db.AuditWriter, event ContainerEvent) {
 				message = data.MCPServerName
 			}
 		}
+	case EventUserPrompt:
+		if event.Data != nil {
+			var data struct {
+				Prompt       string `json:"prompt"`
+				PromptSource string `json:"promptSource"`
+			}
+			if err := json.Unmarshal(event.Data, &data); err == nil {
+				prefix := ""
+				if data.PromptSource == "bash" || data.PromptSource == "bash_output" {
+					prefix = "[bash] "
+				}
+				message = prefix + data.Prompt
+			}
+		}
 	}
 
 	level := db.LevelInfo

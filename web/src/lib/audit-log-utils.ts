@@ -191,7 +191,10 @@ export function entryMessage(entry: AuditLogEntry): string {
   if (entry.event === 'tool_use' && data.toolName) return data.toolName as string
   if (entry.event === 'user_prompt' && data.prompt) {
     const prompt = data.prompt as string
-    return prompt.length > 100 ? prompt.slice(0, 100) + '...' : prompt
+    const source = data.promptSource as string | undefined
+    const prefix = source === 'bash' || source === 'bash_output' ? '[bash] ' : ''
+    const display = prompt.length > 100 ? prompt.slice(0, 100) + '...' : prompt
+    return prefix + display
   }
   if (entry.event === 'session_start' && data.model) return `Model: ${data.model as string}`
   if (entry.event === 'session_end' && data.reason) return `Reason: ${data.reason as string}`
@@ -215,4 +218,12 @@ export function entryMessage(entry: AuditLogEntry): string {
     return data.mcpServerName as string
   }
   return ''
+}
+
+/** Returns the prompt source for a user_prompt entry, if set. */
+export function promptSource(entry: AuditLogEntry): 'bash' | 'bash_output' | undefined {
+  if (entry.event !== 'user_prompt' || !entry.data) return undefined
+  const source = entry.data.promptSource as string | undefined
+  if (source === 'bash' || source === 'bash_output') return source
+  return undefined
 }

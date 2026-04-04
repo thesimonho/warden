@@ -33,6 +33,18 @@ func WorktreeIDFromCWD(cwd string) string {
 	return "main"
 }
 
+// PromptSource identifies the origin of a user prompt for display purposes.
+type PromptSource string
+
+const (
+	// PromptSourceUser is a normal text prompt typed by the user.
+	PromptSourceUser PromptSource = "user"
+	// PromptSourceBash is a command run via Claude Code's ! bash mode.
+	PromptSourceBash PromptSource = "bash"
+	// PromptSourceBashOutput is stdout/stderr output from a ! bash command.
+	PromptSourceBashOutput PromptSource = "bash_output"
+)
+
 // Tag patterns for Claude Code's ! bash mode and /slash command messages.
 // These XML-like tags wrap user input, command output, and internal caveats
 // in the JSONL session file.
@@ -48,16 +60,36 @@ var (
 
 	// Bash output tags — content kept but tags removed.
 	bashOutputTags = regexp.MustCompile(`</?(?:bash-stdout|bash-stderr)>`)
+
+	// Detection patterns — check before stripping to classify the source.
+	hasBashInput  = regexp.MustCompile(`<bash-input>`)
+	hasBashOutput = regexp.MustCompile(`<bash-(?:stdout|stderr)>`)
 )
 
-// FormatPromptText cleans up raw prompt text from agent session files.
-// Claude Code's ! bash mode and /slash commands wrap content in XML-like
-// tags that are not useful for audit display. This function:
-//   - Strips internal instruction tags entirely (local-command-caveat, command-*)
-//   - Formats <bash-input> as "$ command"
-//   - Unwraps <bash-stdout>/<bash-stderr> content
-//   - Returns empty string for prompts that contain only stripped tags
-func FormatPromptText(text string) string {
+// FormatPromptResult holds the cleaned prompt text and its classified source.
+type FormatPromptResult struct {
+	Text   string
+	Source PromptSource
+}
+
+// FormatPromptText cleans up raw prompt text from agent session files and
+// classifies the prompt source. Claude Code's ! bash mode and /slash commands
+// wrap content in XML-like tags that are not useful for audit display.
+//
+// Returns empty Text for prompts that contain only stripped tags (e.g.
+// local-command-caveat instructions). Source is classified as:
+//   - "bash" for <bash-input> commands
+//   - "bash_output" for <bash-stdout>/<bash-stderr> output
+//   - "user" for plain text prompts
+func FormatPromptText(text string) FormatPromptResult {
+	// Classify before stripping tags.
+	source := PromptSourceUser
+	if hasBashInput.MatchString(text) {
+		source = PromptSourceBash
+	} else if hasBashOutput.MatchString(text) {
+		source = PromptSourceBashOutput
+	}
+
 	// Strip tags whose content is not useful for audit.
 	result := stripTags.ReplaceAllString(text, "")
 
@@ -68,7 +100,7 @@ func FormatPromptText(text string) string {
 	result = bashOutputTags.ReplaceAllString(result, "")
 
 	result = strings.TrimSpace(result)
-	return result
+	return FormatPromptResult{Text: result, Source: source}
 }
 
 // TruncateString caps a string at maxLen runes, appending "…" if truncated.

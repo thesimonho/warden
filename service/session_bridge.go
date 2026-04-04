@@ -45,8 +45,11 @@ func SessionEventToContainerEvent(event agent.ParsedEvent, ctx SessionContext) *
 			ToolInput: event.ToolInput,
 		})
 	case agent.EventUserPrompt:
-		// User prompt text goes in the ContainerEvent as data with a "prompt" field.
-		ce.Data = marshalData(map[string]string{"prompt": event.Prompt})
+		promptData := map[string]string{"prompt": event.Prompt}
+		if event.PromptSource != "" && event.PromptSource != agent.PromptSourceUser {
+			promptData["promptSource"] = string(event.PromptSource)
+		}
+		ce.Data = marshalData(promptData)
 	case agent.EventTokenUpdate:
 		ce.Data = marshalData(eventbus.CostData{
 			TotalCost:   event.EstimatedCostUSD,
