@@ -183,6 +183,11 @@ func (a *ServiceAdapter) GetDefaults(_ context.Context, projectPath string) (*ap
 	return &resp, nil
 }
 
+// ReadProjectTemplate delegates to Service.ReadProjectTemplate.
+func (a *ServiceAdapter) ReadProjectTemplate(_ context.Context, filePath string) (*api.ProjectTemplate, error) {
+	return a.w.Service.ReadProjectTemplate(filePath)
+}
+
 // ListDirectories delegates to Service.ListDirectories.
 func (a *ServiceAdapter) ListDirectories(_ context.Context, path string, includeFiles bool) ([]api.DirEntry, error) {
 	return a.w.Service.ListDirectories(path, includeFiles)

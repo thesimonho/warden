@@ -319,6 +319,17 @@ func (c *Client) GetDefaults(ctx context.Context, projectPath string) (*api.Defa
 	return &resp, nil
 }
 
+// ReadProjectTemplate reads a .warden.json project template from an
+// arbitrary file path. Used by the import feature.
+func (c *Client) ReadProjectTemplate(ctx context.Context, filePath string) (*api.ProjectTemplate, error) {
+	path := "/api/v1/template?path=" + url.QueryEscape(filePath)
+	var resp api.ProjectTemplate
+	if err := c.get(ctx, path, &resp); err != nil {
+		return nil, err
+	}
+	return &resp, nil
+}
+
 // ListDirectories returns filesystem entries at a path for the browser.
 // When includeFiles is true, files are returned alongside directories.
 func (c *Client) ListDirectories(ctx context.Context, path string, includeFiles bool) ([]api.DirEntry, error) {

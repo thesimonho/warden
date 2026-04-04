@@ -1,16 +1,24 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { ArrowRight, Info, Loader2, Plus, Trash2 } from 'lucide-react'
+import { ArrowRight, FileUp, Info, Loader2, Plus, Trash2 } from 'lucide-react'
+import { toast } from 'sonner'
 import type {
   AccessItemResponse,
   AgentType,
   ContainerConfig,
   Mount,
   NetworkMode,
+  ProjectTemplate,
   RuntimeDefault,
 } from '@/lib/types'
 import type { DefaultMount } from '@/lib/api'
 import { agentTypeLabels, agentTypeOptions, DEFAULT_AGENT_TYPE } from '@/lib/types'
-import { fetchAccessItems, fetchDefaults, fetchSettings } from '@/lib/api'
+import { fetchAccessItems, fetchDefaults, fetchSettings, readProjectTemplate } from '@/lib/api'
+import {
+  resolveRuntimeToggles,
+  resolveRuntimeEnvVars,
+  resolveTemplateDomains,
+  mergeRuntimeDomains,
+} from '@/lib/template'
 import { containerPathToDisplay, containerPathToAbsolute } from '@/lib/utils'
 import { getRestrictedDomains } from '@/lib/domain-groups'
 import { Button } from '@/components/ui/button'
@@ -156,9 +164,51 @@ export default function ProjectConfigForm({
   const [homeDir, setHomeDir] = useState('')
   const [containerHomeDir, setContainerHomeDir] = useState('')
   const [requiredContainerPath, setRequiredContainerPath] = useState<string | null>(null)
+  const [importBrowserOpen, setImportBrowserOpen] = useState(false)
+  const [importPath, setImportPath] = useState('')
   const defaultsLoaded = useRef(false)
   const defaultMountsRef = useRef<DefaultMount[]>([])
   const restrictedDomainsRef = useRef<Record<string, string[]>>({})
+  const templateRef = useRef<ProjectTemplate | null>(null)
+
+  /**
+   * Applies a project template to the form state.
+   * Only used in create mode — edit mode uses initialValues from the DB.
+   */
+  const applyTemplate = useCallback(
+    (
+      tmpl: ProjectTemplate,
+      currentAgentType: AgentType,
+      runtimes: RuntimeDefault[] = runtimeDefaults,
+      currentToggles?: Record<string, boolean>,
+    ) => {
+      templateRef.current = tmpl
+      if (tmpl.image) setImage(tmpl.image)
+      if (tmpl.skipPermissions !== undefined) setSkipPermissions(tmpl.skipPermissions)
+      if (tmpl.networkMode) setNetworkMode(tmpl.networkMode)
+      if (tmpl.costBudget !== undefined && tmpl.costBudget > 0) {
+        setCostBudget(String(tmpl.costBudget))
+      }
+
+      // Apply runtime toggles — template runtimes override detection.
+      // Also sync env vars since they're derived from which runtimes are enabled.
+      let toggles = currentToggles
+      if (tmpl.runtimes) {
+        toggles = resolveRuntimeToggles(runtimes, tmpl)
+        setRuntimeToggles(toggles)
+        setEnvVars(resolveRuntimeEnvVars(runtimes, toggles))
+      }
+
+      // Apply agent-specific domains with runtime domains merged in.
+      const baseDomains = resolveTemplateDomains(tmpl, currentAgentType)
+      if (baseDomains && toggles) {
+        setAllowedDomains(mergeRuntimeDomains(baseDomains, runtimes, toggles).join('\n'))
+      } else if (baseDomains) {
+        setAllowedDomains(baseDomains.join('\n'))
+      }
+    },
+    [runtimeDefaults],
+  )
 
   /** Fetches server-resolved defaults and access items on first render. */
   useEffect(() => {
@@ -181,33 +231,46 @@ export default function ProjectConfigForm({
         if (defaults.restrictedDomains) {
           restrictedDomainsRef.current = defaults.restrictedDomains
         }
-        if (defaults.runtimes) {
-          setRuntimeDefaults(defaults.runtimes)
-          if (mode === 'create') {
-            const toggles: Record<string, boolean> = {}
-            for (const r of defaults.runtimes) {
-              toggles[r.id] = r.alwaysEnabled || r.detected
-            }
-            setRuntimeToggles(toggles)
-          } else {
-            const enabled = new Set(initialValues?.enabledRuntimes ?? [])
-            const toggles: Record<string, boolean> = {}
-            for (const r of defaults.runtimes) {
-              toggles[r.id] = r.alwaysEnabled || enabled.has(r.id)
-            }
-            setRuntimeToggles(toggles)
+        const runtimes = defaults.runtimes ?? []
+        if (runtimes.length > 0) {
+          setRuntimeDefaults(runtimes)
+        }
+
+        // Compute runtime toggles for both create and edit mode.
+        // In create mode these feed into domain and env var resolution below.
+        let rToggles: Record<string, boolean> = {}
+        if (mode === 'create') {
+          rToggles = resolveRuntimeToggles(runtimes)
+          setRuntimeToggles(rToggles)
+          setEnvVars(resolveRuntimeEnvVars(runtimes, rToggles))
+        } else if (runtimes.length > 0) {
+          const enabled = new Set(initialValues?.enabledRuntimes ?? [])
+          for (const r of runtimes) {
+            rToggles[r.id] = r.alwaysEnabled || enabled.has(r.id)
+          }
+          setRuntimeToggles(rToggles)
+          // Re-populate runtime env vars (stripped at save time, not in DB).
+          const runtimeEnvs = resolveRuntimeEnvVars(runtimes, rToggles)
+          if (runtimeEnvs.length > 0) {
+            setEnvVars((prev) => {
+              const existing = new Set(prev.map((e) => e.key))
+              const toAdd = runtimeEnvs.filter((e) => !existing.has(e.key))
+              return [...prev, ...toAdd]
+            })
           }
         }
+
         if (mode === 'create') {
           if (defaults.mounts?.length > 0) {
             setMounts(defaults.mounts.filter((m) => isMountForAgent(m, agentType)))
           }
           if (defaults.restrictedDomains && !initialValues?.allowedDomains) {
-            const domains = getRestrictedDomains(defaults.restrictedDomains, agentType)
-            setAllowedDomains(domains.join('\n'))
+            const baseDomains = [...getRestrictedDomains(defaults.restrictedDomains, agentType)]
+            setAllowedDomains(mergeRuntimeDomains(baseDomains, runtimes, rToggles).join('\n'))
           }
-          if (defaults.envVars?.length) {
-            setEnvVars(defaults.envVars)
+          // Apply template after setting defaults so template overrides take effect.
+          if (defaults.template) {
+            applyTemplate(defaults.template, agentType, runtimes, rToggles)
           }
         } else if (defaults.mounts?.length > 0) {
           // Ensure the required agent config mount is present (covers
@@ -252,6 +315,43 @@ export default function ProjectConfigForm({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- initialValues is stable across renders; only mode determines create/edit behavior
   }, [mode])
 
+  /** Re-fetches defaults when project path changes in create mode to pick up .warden.json. */
+  useEffect(() => {
+    if (mode !== 'create' || !defaultsLoaded.current || !projectPath) return
+
+    let stale = false
+    fetchDefaults(projectPath)
+      .then((defaults) => {
+        if (stale) return
+        if (defaults.restrictedDomains) {
+          restrictedDomainsRef.current = defaults.restrictedDomains
+        }
+        if (defaults.runtimes) {
+          setRuntimeDefaults(defaults.runtimes)
+        }
+        const runtimes = defaults.runtimes ?? []
+        if (defaults.template) {
+          // Template handles its own toggle/envvar/domain resolution.
+          applyTemplate(defaults.template, agentType, runtimes)
+        } else {
+          templateRef.current = null
+          // No template — resolve from detection and merge runtime domains.
+          const toggles = resolveRuntimeToggles(runtimes)
+          setRuntimeToggles(toggles)
+          setEnvVars(resolveRuntimeEnvVars(runtimes, toggles))
+          if (defaults.restrictedDomains) {
+            const baseDomains = [...getRestrictedDomains(defaults.restrictedDomains, agentType)]
+            setAllowedDomains(mergeRuntimeDomains(baseDomains, runtimes, toggles).join('\n'))
+          }
+        }
+      })
+      .catch(() => {})
+    return () => {
+      stale = true
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only re-fetch when projectPath changes
+  }, [projectPath])
+
   /** Updates agent type, re-filters default mounts, and updates allowed domains. */
   const handleAgentTypeChange = (newType: AgentType) => {
     setAgentType(newType)
@@ -261,8 +361,13 @@ export default function ProjectConfigForm({
       setMounts(defaultMountsRef.current.filter((m) => isMountForAgent(m, newType)))
     }
     if (mode === 'create') {
-      const domains = getRestrictedDomains(restrictedDomainsRef.current, newType)
-      setAllowedDomains(domains.join('\n'))
+      const templateDomains = resolveTemplateDomains(templateRef.current, newType)
+      const baseDomains = templateDomains ?? [
+        ...getRestrictedDomains(restrictedDomainsRef.current, newType),
+      ]
+      setAllowedDomains(
+        mergeRuntimeDomains(baseDomains, runtimeDefaults, runtimeToggles).join('\n'),
+      )
     }
   }
 
@@ -895,7 +1000,41 @@ export default function ProjectConfigForm({
 
       {displayError && <p className="text-error">{displayError}</p>}
 
-      <div className="flex justify-end">
+      {mode === 'create' && importBrowserOpen && (
+        <FormField
+          label="Import Template"
+          description="Select a .warden.json file to import settings from."
+        >
+          <DirectoryBrowser
+            value={importPath}
+            onChange={(path) => {
+              setImportPath(path)
+              setImportBrowserOpen(false)
+              readProjectTemplate(path)
+                .then((tmpl) => {
+                  applyTemplate(tmpl, agentType, runtimeDefaults, runtimeToggles)
+                  toast.success('Template imported')
+                })
+                .catch(() => toast.error('Failed to import template'))
+            }}
+            defaultPath={homeDir}
+            mode="file"
+            placeholder="/path/to/.warden.json"
+          />
+        </FormField>
+      )}
+
+      <div className="flex justify-end gap-2">
+        {mode === 'create' && (
+          <Button
+            variant="outline"
+            onClick={() => setImportBrowserOpen(!importBrowserOpen)}
+            disabled={isSubmitting}
+            icon={FileUp}
+          >
+            Import
+          </Button>
+        )}
         <Button onClick={handleSubmit} disabled={isSubmitting || !isValid}>
           {isSubmitting ? (
             <>

@@ -250,6 +250,14 @@ components:
         method:
           $ref: '#/components/schemas/access.Method'
       type: object
+    api.AgentTemplateOverride:
+      properties:
+        allowedDomains:
+          items:
+            type: string
+          type: array
+          uniqueItems: false
+      type: object
     api.AuditEntry:
       properties:
         agentType:
@@ -564,6 +572,26 @@ components:
           type: string
         message:
           type: string
+      type: object
+    api.ProjectTemplate:
+      properties:
+        agents:
+          additionalProperties:
+            $ref: '#/components/schemas/api.AgentTemplateOverride'
+          type: object
+        costBudget:
+          type: number
+        image:
+          type: string
+        networkMode:
+          $ref: '#/components/schemas/api.NetworkMode'
+        runtimes:
+          items:
+            type: string
+          type: array
+          uniqueItems: false
+        skipPermissions:
+          type: boolean
       type: object
     api.ResolveAccessItemsRequest:
       properties:
@@ -2660,6 +2688,40 @@ paths:
       summary: Update settings
       tags:
       - settings
+  /api/v1/template:
+    get:
+      description: |-
+        Reads and parses a .warden.json file from the given path.
+        Used to import templates from outside the project directory.
+      parameters:
+      - description: Absolute path to .warden.json
+        in: query
+        name: path
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/api.ProjectTemplate'
+          description: OK
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/server.apiError'
+          description: Bad Request
+        "404":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/server.apiError'
+          description: Not Found
+      summary: Read project template
+      tags:
+      - host
 servers:
 - description: Local development server
   url: http://localhost:8090

@@ -5,11 +5,14 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
 	"github.com/thesimonho/warden/agent"
 	"github.com/thesimonho/warden/api"
+	"github.com/thesimonho/warden/constants"
 	"github.com/thesimonho/warden/db"
 	"github.com/thesimonho/warden/engine"
 	"github.com/thesimonho/warden/runtimes"
@@ -34,6 +37,10 @@ func (s *Service) CreateContainer(ctx context.Context, req api.CreateContainerRe
 	if err := s.ResolveAccessItemsForContainer(&req); err != nil {
 		return nil, fmt.Errorf("resolving access items: %w", err)
 	}
+
+	// Write template BEFORE mergeRuntimeDomains mutates req.AllowedDomains,
+	// so the file stores only user-specified domains (not runtime-contributed ones).
+	go writeProjectTemplate(req.ProjectPath, req)
 
 	// Merge runtime domains into the allowed list for restricted mode.
 	// This runs after projectRowFromRequest so the DB stores only user-entered
@@ -257,6 +264,9 @@ func (s *Service) updateContainerSettings(ctx context.Context, project *db.Proje
 
 	s.auditContainerUpdate(project, req, "settings", containerName)
 
+	// Write-back template with full config reconstructed from DB + update.
+	go writeProjectTemplate(project.HostPath, reconstructRequestFromRow(project, req))
+
 	return &ContainerResult{
 		ContainerID: project.ContainerID,
 		Name:        containerName,
@@ -276,6 +286,9 @@ func (s *Service) recreateContainer(ctx context.Context, project *db.ProjectRow,
 	if err := s.ResolveAccessItemsForContainer(&req); err != nil {
 		return nil, fmt.Errorf("resolving access items: %w", err)
 	}
+
+	// Write template BEFORE mergeRuntimeDomains mutates req.AllowedDomains.
+	go writeProjectTemplate(req.ProjectPath, req)
 
 	// Merge runtime domains into the allowed list for restricted mode.
 	mergeRuntimeDomains(&req)
@@ -562,6 +575,95 @@ func projectRowFromRequest(req api.CreateContainerRequest) (db.ProjectRow, error
 	}
 
 	return row, nil
+}
+
+// reconstructRequestFromRow builds a full CreateContainerRequest from a
+// DB row merged with lightweight update fields. Used by updateContainerSettings
+// to provide writeProjectTemplate with the complete config.
+func reconstructRequestFromRow(project *db.ProjectRow, update api.CreateContainerRequest) api.CreateContainerRequest {
+	req := api.CreateContainerRequest{
+		Name:               update.Name,
+		Image:              project.Image,
+		ProjectPath:        project.HostPath,
+		AgentType:          constants.AgentType(project.AgentType),
+		SkipPermissions:    update.SkipPermissions,
+		NetworkMode:        api.NetworkMode(project.NetworkMode),
+		AllowedDomains:     update.AllowedDomains,
+		CostBudget:         update.CostBudget,
+		EnabledAccessItems: splitCSV(project.EnabledAccessItems),
+		EnabledRuntimes:    splitCSV(project.EnabledRuntimes),
+	}
+	if len(project.EnvVars) > 0 {
+		_ = json.Unmarshal(project.EnvVars, &req.EnvVars)
+	}
+	return req
+}
+
+// writeProjectTemplate writes the current container config back to
+// .warden.json in the project directory. Preserves agent overrides for
+// other agent types from the existing file. Best-effort: failures are
+// logged but do not affect the create/update operation.
+func writeProjectTemplate(projectPath string, req api.CreateContainerRequest) {
+	templatePath := filepath.Join(projectPath, templateFileName)
+
+	// Read existing file to preserve other agent overrides.
+	var existing api.ProjectTemplate
+	if data, err := os.ReadFile(templatePath); err == nil {
+		_ = json.Unmarshal(data, &existing)
+	}
+
+	// Build template from the request's current config.
+	// Excluded: envVars (may contain secrets) and accessItems (credentials).
+	tmpl := api.ProjectTemplate{
+		Image:       req.Image,
+		NetworkMode: req.NetworkMode,
+		Runtimes:    req.EnabledRuntimes,
+	}
+
+	// Pointer fields only set when non-default to keep the file clean.
+	if req.SkipPermissions {
+		skipPerms := true
+		tmpl.SkipPermissions = &skipPerms
+	}
+	if req.CostBudget > 0 {
+		budget := req.CostBudget
+		tmpl.CostBudget = &budget
+	}
+
+	// Preserve existing agent overrides, update only the current agent.
+	agents := existing.Agents
+	if agents == nil {
+		agents = make(map[string]api.AgentTemplateOverride)
+	}
+	if req.NetworkMode == api.NetworkModeRestricted && len(req.AllowedDomains) > 0 {
+		agents[string(req.AgentType)] = api.AgentTemplateOverride{
+			AllowedDomains: req.AllowedDomains,
+		}
+	} else {
+		// Clear domains for this agent when not restricted.
+		delete(agents, string(req.AgentType))
+	}
+	if len(agents) > 0 {
+		tmpl.Agents = agents
+	}
+
+	data, err := json.MarshalIndent(tmpl, "", "  ")
+	if err != nil {
+		slog.Warn("failed to marshal .warden.json", "err", err)
+		return
+	}
+	data = append(data, '\n')
+
+	// Write atomically via temp file + rename.
+	tmpFile := templatePath + ".tmp"
+	if err := os.WriteFile(tmpFile, data, 0o644); err != nil {
+		slog.Warn("failed to write .warden.json", "path", templatePath, "err", err)
+		return
+	}
+	if err := os.Rename(tmpFile, templatePath); err != nil {
+		slog.Warn("failed to rename .warden.json", "path", templatePath, "err", err)
+		_ = os.Remove(tmpFile)
+	}
 }
 
 // mergeRuntimeDomains adds runtime-contributed network domains to the

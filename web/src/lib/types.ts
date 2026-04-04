@@ -19,6 +19,26 @@ export const agentTypeLabels: Record<AgentType, string> = {
 /** Network isolation level for a container. */
 export type NetworkMode = 'full' | 'restricted' | 'none'
 
+/** Agent-specific overrides within a project template. */
+export interface AgentTemplateOverride {
+  allowedDomains?: string[]
+}
+
+/**
+ * Project template loaded from a .warden.json file.
+ *
+ * Excluded fields (security): envVars (may contain secrets) and
+ * accessItems (resolve to credentials).
+ */
+export interface ProjectTemplate {
+  image?: string
+  skipPermissions?: boolean
+  networkMode?: NetworkMode
+  costBudget?: number
+  runtimes?: string[]
+  agents?: Record<string, AgentTemplateOverride>
+}
+
 /** Whether the agent CLI is actively running inside a container. */
 export type AgentStatus = 'idle' | 'working' | 'unknown'
 

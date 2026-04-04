@@ -49,3 +49,4 @@ Thumbs.db
 
 # warden
 .warden/
+.warden.json

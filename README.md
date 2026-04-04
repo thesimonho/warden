@@ -58,6 +58,7 @@ You can easily use it from Day 1 as its own agent orchestrator, running as a web
 - **Network access controls** — per-container policy: full access, restricted (domain allowlist), or air-gapped.
 - **Language runtimes** — declare which runtimes a project needs (Python, Go, Rust, Ruby, Lua). Warden installs them and opens only the required network domains. Auto-detected from project marker files.
 - **Credential passthrough** — share Git, SSH, and custom credentials with containers automatically without storing them.
+- **Project templates** — commit a `.warden.json` to your repo for shareable, version-controlled project configs that auto-populate the creation form.
 
 ### Agent operations
 

@@ -160,7 +160,7 @@ export default function AddProjectDialog({
           <DialogDescription>{description}</DialogDescription>
         </DialogHeader>
 
-        <div className="max-h-[70vh] overflow-y-auto px-1">
+        <div className="max-h-[70vh] overflow-y-auto p-2">
           {isLoadingConfig && (
             <div className="flex items-center justify-center py-16">
               <Loader2 className="text-muted-foreground h-5 w-5 animate-spin" />

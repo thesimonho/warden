@@ -28,4 +28,6 @@ type (
 	RuntimeDefault          = api.RuntimeDefault
 	Mount                   = api.Mount
 	NetworkMode             = api.NetworkMode
+	ProjectTemplate         = api.ProjectTemplate
+	AgentTemplateOverride   = api.AgentTemplateOverride
 )
