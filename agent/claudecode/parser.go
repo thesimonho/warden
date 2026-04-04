@@ -151,14 +151,18 @@ func encodeWorkspacePath(workspaceDir string) string {
 // are user messages submitted while Claude is still working — they should be
 // logged as user_prompt events just like regular user messages.
 func parseQueueOperation(entry SessionEntry) []agent.ParsedEvent {
-	if entry.Operation != "enqueue" || entry.Content == "" {
+	if entry.Operation != "enqueue" {
+		return nil
+	}
+	promptText := agent.FormatPromptText(entry.Content)
+	if promptText == "" {
 		return nil
 	}
 	return []agent.ParsedEvent{{
 		Type:      agent.EventUserPrompt,
 		SessionID: entry.SessionID,
 		Timestamp: entry.Timestamp,
-		Prompt:    agent.TruncateString(entry.Content, agent.MaxPromptLength),
+		Prompt:    agent.TruncateString(promptText, agent.MaxPromptLength),
 	}}
 }
 
@@ -236,8 +240,9 @@ func (p *Parser) parseUser(entry SessionEntry) []agent.ParsedEvent {
 		return p.parseToolResults(entry)
 	}
 
-	// Plain text user messages.
-	promptText := entry.Message.Content.Text
+	// Plain text user messages. Format to strip internal tags from
+	// bash mode (!) and slash commands before storing in audit log.
+	promptText := agent.FormatPromptText(entry.Message.Content.Text)
 	if promptText == "" {
 		return nil
 	}
