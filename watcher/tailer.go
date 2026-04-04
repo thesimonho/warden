@@ -7,6 +7,7 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"io"
 	"log/slog"
 	"os"
 	"sync"
@@ -33,12 +34,22 @@ type TailerConfig struct {
 
 	// Logger is the structured logger. Defaults to slog.Default() if nil.
 	Logger *slog.Logger
+
+	// OffsetStore persists byte offsets so the tailer can resume from
+	// where it left off after a restart. Nil means read from byte 0.
+	OffsetStore OffsetStore
+
+	// ProjectID identifies the project for offset storage.
+	ProjectID string
+
+	// AgentType identifies the agent type for offset storage.
+	AgentType string
 }
 
 // FileTailer monitors files for new lines appended over time.
 // Files are discovered via a pluggable Discover function and tailed
-// from the start, with periodic polling for new content. Designed for
-// JSONL session files that are written to continuously.
+// from the last stored offset (or the start if no offset exists).
+// Periodic polling picks up new content and new files.
 //
 // Lifecycle: single-use. Call Start once to begin watching, Stop once
 // to shut down. Do not call Start again after Stop.
@@ -92,12 +103,29 @@ func (t *FileTailer) Stop() {
 }
 
 // discoverAndTail calls Discover and starts tailing any files not
-// already being tailed.
+// already being tailed. Prunes stored offsets for files that have
+// disappeared from the discovery list.
 func (t *FileTailer) discoverAndTail(ctx context.Context) {
 	files := t.cfg.Discover()
+	discovered := make(map[string]struct{}, len(files))
+	for _, f := range files {
+		discovered[f] = struct{}{}
+	}
 
 	t.mu.Lock()
 	defer t.mu.Unlock()
+
+	// Prune offsets for files no longer discovered.
+	if t.cfg.OffsetStore != nil {
+		for path := range t.tailedFiles {
+			if _, still := discovered[path]; !still {
+				if err := t.cfg.OffsetStore.DeleteOffset(t.cfg.ProjectID, t.cfg.AgentType, path); err != nil {
+					t.cfg.Logger.Warn("failed to delete stale offset", "path", path, "err", err)
+				}
+				delete(t.tailedFiles, path)
+			}
+		}
+	}
 
 	for _, path := range files {
 		if _, exists := t.tailedFiles[path]; exists {
@@ -136,10 +164,9 @@ func (t *FileTailer) pollLoop(ctx context.Context) {
 	}
 }
 
-// tailFile reads a file from the start, processing all existing lines,
-// then polls for new appended lines. Partial lines (no trailing newline)
-// are buffered until the next read completes them. Returns false if the
-// file could not be opened.
+// tailFile opens a file and tails it from the stored offset (or byte 0
+// if no offset exists or the file is smaller than the stored offset).
+// Returns false if the file could not be opened.
 func (t *FileTailer) tailFile(ctx context.Context, path string) bool {
 	f, err := os.Open(path)
 	if err != nil {
@@ -148,11 +175,39 @@ func (t *FileTailer) tailFile(ctx context.Context, path string) bool {
 	}
 	defer func() { _ = f.Close() }()
 
+	// Resume from stored offset when available.
+	var startOffset int64
+	if t.cfg.OffsetStore != nil {
+		stored, loadErr := t.cfg.OffsetStore.LoadOffset(t.cfg.ProjectID, t.cfg.AgentType, path)
+		if loadErr != nil {
+			t.cfg.Logger.Warn("failed to load offset, reading from start", "path", path, "err", loadErr)
+		} else if stored > 0 {
+			// Safety: if file is smaller than stored offset, the file was
+			// truncated or replaced — reset to 0.
+			info, statErr := f.Stat()
+			if statErr == nil && info.Size() < stored {
+				t.cfg.Logger.Info("file smaller than stored offset, resetting", "path", path, "stored", stored, "size", info.Size())
+				stored = 0
+			}
+			if stored > 0 {
+				if _, seekErr := f.Seek(stored, io.SeekStart); seekErr != nil {
+					t.cfg.Logger.Warn("failed to seek, reading from start", "path", path, "err", seekErr)
+				} else {
+					startOffset = stored
+				}
+			}
+		}
+	}
+
 	reader := bufio.NewReader(f)
+	consumed := startOffset
 	var partial []byte
 
-	// Process all existing lines from the start.
-	partial = t.readNewLines(reader, path, partial)
+	// Process all existing lines from the current position.
+	var newBytes int
+	partial, newBytes = t.readNewLines(reader, path, partial)
+	consumed += int64(newBytes)
+	t.persistOffset(path, consumed)
 
 	ticker := time.NewTicker(t.cfg.PollInterval)
 	defer ticker.Stop()
@@ -162,25 +217,49 @@ func (t *FileTailer) tailFile(ctx context.Context, path string) bool {
 		case <-ctx.Done():
 			return true
 		case <-ticker.C:
-			partial = t.readNewLines(reader, path, partial)
+			partial, newBytes = t.readNewLines(reader, path, partial)
+			if newBytes > 0 {
+				consumed += int64(newBytes)
+				t.persistOffset(path, consumed)
+			}
 		}
 	}
 }
 
+// persistOffset saves the current byte offset if an OffsetStore is configured.
+func (t *FileTailer) persistOffset(path string, offset int64) {
+	if t.cfg.OffsetStore == nil {
+		return
+	}
+	if err := t.cfg.OffsetStore.SaveOffset(t.cfg.ProjectID, t.cfg.AgentType, path, offset); err != nil {
+		t.cfg.Logger.Warn("failed to save offset", "path", path, "err", err)
+	}
+}
+
 // readNewLines reads all available complete lines from the reader and
-// dispatches them via OnLine. Any incomplete trailing data is returned
-// as partial so it can be prepended to the next read.
-func (t *FileTailer) readNewLines(reader *bufio.Reader, path string, partial []byte) []byte {
+// dispatches them via OnLine. Returns any incomplete trailing data as
+// partial and the total number of bytes consumed (including newlines).
+func (t *FileTailer) readNewLines(reader *bufio.Reader, path string, partial []byte) ([]byte, int) {
+	bytesConsumed := 0
+
 	for {
 		chunk, err := reader.ReadBytes('\n')
+		bytesConsumed += len(chunk)
+
 		if err != nil {
 			// Incomplete line — buffer it for next poll.
 			partial = append(partial, chunk...)
-			return partial
+			// Don't count partial bytes as consumed — they haven't been
+			// delivered yet and we need to re-read them if we restart.
+			bytesConsumed -= len(partial)
+			return partial, bytesConsumed
 		}
 
 		// Prepend any buffered partial data.
 		if len(partial) > 0 {
+			// The partial bytes were excluded from consumed in a previous
+			// call, so count them now that the line is complete.
+			bytesConsumed += len(partial)
 			chunk = append(partial, chunk...)
 			partial = nil
 		}

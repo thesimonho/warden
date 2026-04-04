@@ -80,6 +80,14 @@ CREATE TABLE IF NOT EXISTS access_items (
     credentials TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS tailer_offsets (
+    project_id  TEXT NOT NULL,
+    agent_type  TEXT NOT NULL,
+    file_path   TEXT NOT NULL,
+    byte_offset INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (project_id, agent_type, file_path)
+);
+
 CREATE INDEX IF NOT EXISTS idx_projects_host_path ON projects(host_path);
 CREATE INDEX IF NOT EXISTS idx_session_costs_project_time ON session_costs(project_id, agent_type, updated_at);
 `

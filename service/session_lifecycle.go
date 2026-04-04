@@ -9,6 +9,7 @@ import (
 	"github.com/thesimonho/warden/constants"
 	"github.com/thesimonho/warden/db"
 	"github.com/thesimonho/warden/engine"
+	"github.com/thesimonho/warden/watcher"
 )
 
 // watcherCooldown prevents rapid watcher start/stop cycles during
@@ -58,6 +59,7 @@ func (s *Service) StartSessionWatcher(projectID, containerName, agentType, works
 
 	projectInfo := agent.ProjectInfo{
 		ProjectID:    projectID,
+		AgentType:    agentType,
 		WorkspaceDir: workspaceDir,
 		ProjectName:  containerName,
 	}
@@ -88,7 +90,14 @@ func (s *Service) StartSessionWatcher(projectID, containerName, agentType, works
 	// The store's handleTurnComplete rejects events older than UpdatedAt.
 	s.store.SeedWorktreeBaseline(containerName, "main")
 
-	sw := agent.NewSessionWatcher(parser, s.homeDir, projectInfo, callback)
+	// Wire the DB-backed offset store so the tailer resumes from where
+	// it left off after a server restart instead of replaying from byte 0.
+	var offsetStore watcher.OffsetStore
+	if s.db != nil {
+		offsetStore = &db.OffsetStoreAdapter{Store: s.db}
+	}
+
+	sw := agent.NewSessionWatcher(parser, s.homeDir, projectInfo, callback, offsetStore)
 	if err := sw.Start(context.Background()); err != nil {
 		slog.Warn("failed to start session watcher", "project", projectID, "err", err)
 		return
