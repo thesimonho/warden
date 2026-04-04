@@ -242,6 +242,8 @@ func (s *Store) HandleEvent(event ContainerEvent) {
 		broadcasts = s.handleRuntimeStatus(event)
 	case EventAgentInstalling, EventAgentInstalled:
 		broadcasts = s.handleAgentStatus(event)
+	case EventNetworkBlocked:
+		// No state change — blocked connections are logged for audit.
 	case EventTerminalConnected:
 		broadcasts = s.handleTerminalConnected(key, event)
 	case EventTerminalDisconnected:
@@ -941,6 +943,18 @@ func (s *Store) writeToAuditLog(writer *db.AuditWriter, event ContainerEvent) {
 	switch event.Type {
 	case EventTerminalConnected, EventTerminalDisconnected, EventProcessKilled, EventSessionExit:
 		source = db.SourceContainer
+	case EventNetworkBlocked:
+		source = db.SourceContainer
+		if event.Data != nil {
+			var data NetworkBlockedData
+			if err := json.Unmarshal(event.Data, &data); err == nil {
+				if data.Domain != "" {
+					message = data.Domain + " (" + data.IP + ")"
+				} else {
+					message = data.IP
+				}
+			}
+		}
 	case EventToolUse:
 		if event.Data != nil {
 			var data ToolUseData
@@ -1008,7 +1022,7 @@ func (s *Store) writeToAuditLog(writer *db.AuditWriter, event ContainerEvent) {
 
 	level := db.LevelInfo
 	switch event.Type {
-	case EventToolUseFailure, EventStopFailure:
+	case EventToolUseFailure, EventStopFailure, EventNetworkBlocked:
 		level = db.LevelError
 	}
 

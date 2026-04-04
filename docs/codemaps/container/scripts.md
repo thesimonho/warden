@@ -19,6 +19,7 @@ container/scripts/
     warden-write-event.sh       # Shared atomic event file write library
     warden-push-event.sh        # Terminal lifecycle event helper
     warden-heartbeat.sh         # Background heartbeat (every 10s)
+    warden-network-block-logger.sh # Polls xt_recent for blocked IPs, writes audit events
     setup-network-isolation.sh  # iptables OUTPUT rules for network modes
     install-clipboard-shim.sh   # Install xclip wrapper for web terminal image paste
   claude/
@@ -72,6 +73,10 @@ Shared library sourced by all event-producing scripts. Provides:
 ### warden-heartbeat.sh
 
 Background process (started by entrypoint.sh). Writes heartbeat event every 10s for backend liveness detection.
+
+### warden-network-block-logger.sh
+
+Background process (started by user-entrypoint.sh for non-full network modes). Polls `/proc/net/xt_recent/warden_blocked` every 30s for destination IPs blocked by iptables. Resolves IPs to hostnames via reverse DNS and writes `network_blocked` events to the audit log. Deduplicates by IP — each blocked destination is reported once per container lifetime. Exits silently if `xt_recent` is not available.
 
 ### warden-push-event.sh
 

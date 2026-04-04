@@ -182,11 +182,11 @@ type DefaultsResponse struct {
 // accessItems (resolve to credentials). These are never read from or
 // written to .warden.json.
 type ProjectTemplate struct {
-	Image           string                          `json:"image,omitempty"`
-	SkipPermissions *bool                           `json:"skipPermissions,omitempty"`
-	NetworkMode     NetworkMode                     `json:"networkMode,omitempty"`
-	CostBudget      *float64                        `json:"costBudget,omitempty"`
-	Runtimes        []string                        `json:"runtimes,omitempty"`
+	Image           string                           `json:"image,omitempty"`
+	SkipPermissions *bool                            `json:"skipPermissions,omitempty"`
+	NetworkMode     NetworkMode                      `json:"networkMode,omitempty"`
+	CostBudget      *float64                         `json:"costBudget,omitempty"`
+	Runtimes        []string                         `json:"runtimes,omitempty"`
 	Agents          map[string]AgentTemplateOverride `json:"agents,omitempty"`
 }
 

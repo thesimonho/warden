@@ -23,7 +23,7 @@ func TestReadProjectTemplate(t *testing.T) {
 			SkipPermissions: &skipPerms,
 			NetworkMode:     api.NetworkModeRestricted,
 			CostBudget:      &budget,
-			Runtimes: []string{"node", "python"},
+			Runtimes:        []string{"node", "python"},
 			Agents: map[string]api.AgentTemplateOverride{
 				"claude-code": {AllowedDomains: []string{"*.anthropic.com"}},
 			},
@@ -100,12 +100,12 @@ func TestWriteProjectTemplate(t *testing.T) {
 		t.Parallel()
 		dir := t.TempDir()
 		req := api.CreateContainerRequest{
-			Image:              "custom:latest",
-			ProjectPath:        dir,
-			AgentType:          constants.AgentClaudeCode,
-			SkipPermissions:    true,
-			NetworkMode:        api.NetworkModeRestricted,
-			AllowedDomains:     []string{"*.anthropic.com", "*.github.com"},
+			Image:           "custom:latest",
+			ProjectPath:     dir,
+			AgentType:       constants.AgentClaudeCode,
+			SkipPermissions: true,
+			NetworkMode:     api.NetworkModeRestricted,
+			AllowedDomains:  []string{"*.anthropic.com", "*.github.com"},
 			CostBudget:      10.0,
 			EnabledRuntimes: []string{"node", "python"},
 		}
