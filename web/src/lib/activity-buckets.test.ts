@@ -9,6 +9,7 @@ function entry(
   source: AuditLogEntry['source'] = 'agent',
 ): AuditLogEntry {
   return {
+    id: 0,
     ts,
     source,
     level: 'info',
@@ -150,6 +151,7 @@ describe('bucketEventsByCategory', () => {
   it('skips events without a category', () => {
     const events: AuditLogEntry[] = [
       {
+        id: 0,
         ts: '2026-03-25T10:00:00Z',
         source: 'agent',
         level: 'info',
