@@ -1,5 +1,29 @@
 # Changelog
 
+## [0.6.0](https://github.com/thesimonho/warden/compare/v0.5.2...v0.6.0) (2026-04-04)
+
+
+### Features
+
+* audit access item CRUD operations ([#60](https://github.com/thesimonho/warden/issues/60)) ([e7ee75d](https://github.com/thesimonho/warden/commit/e7ee75d79e24956a6914cbe6c8b3f5db137af6f6))
+* hot-reload allowed domains without container recreate ([#75](https://github.com/thesimonho/warden/issues/75)) ([7542ae6](https://github.com/thesimonho/warden/commit/7542ae64a75e496deda712f2353d2279449c8873))
+* image paste/drag-and-drop + remove Podman support ([#67](https://github.com/thesimonho/warden/issues/67)) ([39f8503](https://github.com/thesimonho/warden/commit/39f850331c453d6900422fd3b9dfd5dbb09c182b))
+* language runtime declarations for containers ([#76](https://github.com/thesimonho/warden/issues/76)) ([0e1da2a](https://github.com/thesimonho/warden/commit/0e1da2a79979bf59f5d1c840e91cd8294998af80))
+* scope restricted network domains by agent type ([#74](https://github.com/thesimonho/warden/issues/74)) ([8c61d5d](https://github.com/thesimonho/warden/commit/8c61d5df3b0e4159efb0a63314e59983f55c6790))
+* version check and display at startup ([#66](https://github.com/thesimonho/warden/issues/66)) ([39ff17e](https://github.com/thesimonho/warden/commit/39ff17e7d161b8cc9e6c8209c7bf29d5a6e28e7d))
+
+
+### Bug Fixes
+
+* clarify container name-taken error message ([#69](https://github.com/thesimonho/warden/issues/69)) ([c866faa](https://github.com/thesimonho/warden/commit/c866faa0d1674043cd7ea75867e46121b3887d1b))
+* deduplicate browser notifications ([#71](https://github.com/thesimonho/warden/issues/71)) ([c900f70](https://github.com/thesimonho/warden/commit/c900f7074eebd9677101a0bcda9c2d0b849e1c5d))
+* default audit timeline brush to past 7 days ([#72](https://github.com/thesimonho/warden/issues/72)) ([560be3e](https://github.com/thesimonho/warden/commit/560be3ebae62b7cd6b241b20e40d3df47c17f0f0))
+* log discarded errors and fix errcheck lint ([#62](https://github.com/thesimonho/warden/issues/62)) ([0f1f039](https://github.com/thesimonho/warden/commit/0f1f039d60e28f16871ba92e1dde9f66c87b11bc))
+* prevent stale needs-input state on container start ([#73](https://github.com/thesimonho/warden/issues/73)) ([34525d6](https://github.com/thesimonho/warden/commit/34525d6cd14fe7e7baecbe50b1d63eac796e12b6))
+* sanitize worktree names instead of rejecting invalid characters ([#70](https://github.com/thesimonho/warden/issues/70)) ([5d640ec](https://github.com/thesimonho/warden/commit/5d640ecf2280716b922c05ddb81d6608b25574e8))
+* synthesize session_start from JSONL for Claude Code ([#68](https://github.com/thesimonho/warden/issues/68)) ([ebaab68](https://github.com/thesimonho/warden/commit/ebaab68f6f7fd53923476f09041b93af9499897e))
+* worktree status indicators and state rename ([#64](https://github.com/thesimonho/warden/issues/64)) ([29332e8](https://github.com/thesimonho/warden/commit/29332e8f30e39f79a9836955f81c774fe09f0c59))
+
 ## [0.5.2](https://github.com/thesimonho/warden/compare/v0.5.1...v0.5.2) (2026-04-03)
 
 
