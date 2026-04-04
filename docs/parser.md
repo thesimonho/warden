@@ -77,6 +77,15 @@ Parsers are **stateful** — they accumulate token counts across lines within a 
 - **Tool extraction:** From `response_item` entries — `function_call`, `local_shell_call`, `web_search_call`, `custom_tool_call`, `image_generation_call`, `tool_search_call`
 - **Persistence policy:** Codex filters which events land in JSONL. Limited mode (CLI default) persists core events; extended mode (app-server only) adds errors and tool end events. See `docs/events_codex.md` for details.
 
+## Unparsed JSONL Events
+
+Both agents write assistant text responses to JSONL, but these are deliberately not parsed into `ParsedEvent`s:
+
+- **Claude Code:** `"assistant"` entries contain `content.blocks[].type == "text"` with the agent's response text. The parser extracts tool use and token counts from these entries but discards text blocks.
+- **Codex:** `"response_item"` entries with `type == "message"` and `role == "assistant"` contain `output_text` content. The parser produces no events for these.
+
+This is intentional — agent responses are conversational glue between tool calls and provide limited audit value. The JSONL files on the host are the source of truth for full conversation history. If full-text logging is needed for compliance, the raw JSONL files should be used directly rather than the parsed event pipeline.
+
 ## Hooks vs JSONL
 
 JSONL is the **primary** data source for all event types: session lifecycle, tool use, cost, prompts, and turn completion. Claude Code hooks are a **supplementary** channel used only for attention/notification state (permission prompts, idle state, elicitation dialogs). Codex does not support hooks — attention tracking for Codex is a known upstream gap.
