@@ -227,7 +227,6 @@ export function ActivityTimeline({ entries, since, until, onRangeChange }: Activ
             <YAxis hide />
             <ChartTooltip
               position={{ y: -120 }}
-              allowEscapeViewBox={{ x: true, y: true }}
               content={
                 <ChartTooltipContent
                   className="bg-content-2"
