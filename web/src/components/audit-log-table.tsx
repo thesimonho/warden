@@ -183,7 +183,6 @@ const columns: ColumnDef<AuditLogEntry, unknown>[] = [
     accessorKey: 'agentType',
     header: 'Agent',
     size: 70,
-    minSize: 50,
     sortUndefined: 'last',
     cell: ({ getValue }) => {
       const at = getValue<AgentType | undefined>()
@@ -206,8 +205,7 @@ const columns: ColumnDef<AuditLogEntry, unknown>[] = [
   {
     accessorKey: 'containerName',
     header: 'Name',
-    size: 160,
-    minSize: 100,
+    minSize: 120,
     sortUndefined: 'last',
     cell: ({ getValue }) => (
       <span className="text-muted-foreground truncate">{getValue<string>() ?? ''}</span>
@@ -216,8 +214,7 @@ const columns: ColumnDef<AuditLogEntry, unknown>[] = [
   {
     accessorKey: 'worktree',
     header: 'Worktree',
-    size: 160,
-    minSize: 100,
+    minSize: 120,
     sortUndefined: 'last',
     cell: ({ getValue }) => {
       const wt = getValue<string>()
@@ -252,8 +249,7 @@ const columns: ColumnDef<AuditLogEntry, unknown>[] = [
   {
     accessorKey: 'event',
     header: 'Event',
-    size: 220,
-    minSize: 120,
+    minSize: 220,
     cell: ({ getValue }) => (
       <span className="text-muted-foreground font-semibold">{eventLabel(getValue<string>())}</span>
     ),
@@ -262,8 +258,6 @@ const columns: ColumnDef<AuditLogEntry, unknown>[] = [
     id: 'message',
     accessorFn: (row) => entryMessage(row),
     header: 'Message',
-    size: 500,
-    minSize: 150,
     enableSorting: false,
     meta: { flex: true },
     cell: ({ getValue }) => (
