@@ -328,7 +328,7 @@ func (k worktreeHelpKeyMap) ShortHelp() []key.Binding {
 func (k worktreeHelpKeyMap) FullHelp() [][]key.Binding {
 	return [][]key.Binding{
 		{k.keys.Connect, k.disconnectHint, k.keys.Disconnect, k.keys.Kill},
-		{k.keys.Remove, k.keys.New, k.keys.Cleanup, filterBinding, k.keys.Back},
+		{k.keys.Reset, k.keys.Remove, k.keys.New, k.keys.Cleanup, filterBinding, k.keys.Back},
 	}
 }
 
@@ -352,6 +352,11 @@ func (v *ProjectDetailView) handleKey(msg tea.KeyPressMsg) (View, tea.Cmd) {
 	case key.Matches(msg, v.keys.Kill):
 		if hasSelected {
 			return v, killWorktree(v.client, v.projectID, v.agentType, selected.wt.ID)
+		}
+
+	case key.Matches(msg, v.keys.Reset):
+		if hasSelected {
+			return v, resetWorktree(v.client, v.projectID, v.agentType, selected.wt.ID)
 		}
 
 	case key.Matches(msg, v.keys.Remove):
@@ -420,6 +425,13 @@ func killWorktree(client Client, projectID, agentType, worktreeID string) tea.Cm
 	return func() tea.Msg {
 		_, err := client.KillWorktreeProcess(context.Background(), projectID, agentType, worktreeID)
 		return OperationResultMsg{Operation: "kill", Err: err}
+	}
+}
+
+func resetWorktree(client Client, projectID, agentType, worktreeID string) tea.Cmd {
+	return func() tea.Msg {
+		_, err := client.ResetWorktree(context.Background(), projectID, agentType, worktreeID)
+		return OperationResultMsg{Operation: "reset", Err: err}
 	}
 }
 

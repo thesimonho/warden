@@ -13,30 +13,38 @@ import {
 interface RemoveWorktreeDialogProps {
   open: boolean
   label: string
+  /** Controls the dialog copy. Defaults to "delete" (remove worktree from disk). */
+  variant?: 'delete' | 'reset'
   onOpenChange: (open: boolean) => void
   onConfirm: () => void
 }
 
 /**
- * Confirmation dialog shown before removing a worktree.
+ * Confirmation dialog shown before removing or resetting a worktree.
  *
- * Explains that `git worktree remove` will run and uncommitted changes
- * will be lost, while the branch itself is preserved.
+ * In "delete" mode (default), warns that `git worktree remove` will run.
+ * In "reset" mode, warns that all history will be cleared but the worktree is preserved.
  */
 export default function RemoveWorktreeDialog({
   open,
   label,
+  variant = 'delete',
   onOpenChange,
   onConfirm,
 }: RemoveWorktreeDialogProps) {
+  const isReset = variant === 'reset'
+
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>Delete worktree &quot;{label}&quot;?</AlertDialogTitle>
+          <AlertDialogTitle>
+            {isReset ? <>Reset &quot;{label}&quot;?</> : <>Delete worktree &quot;{label}&quot;?</>}
+          </AlertDialogTitle>
           <AlertDialogDescription>
-            This will run <code>git worktree remove</code> and delete the working directory. Any
-            uncommitted changes in this worktree will be lost.
+            {isReset
+              ? 'This will stop the agent, clear session data, and start fresh. The worktree and audit history are preserved.'
+              : 'This will run git worktree remove and delete the working directory. Any uncommitted changes in this worktree will be lost.'}
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
@@ -45,7 +53,7 @@ export default function RemoveWorktreeDialog({
             onClick={onConfirm}
             className="bg-error text-error-foreground hover:bg-error/90"
           >
-            Delete
+            {isReset ? 'Reset' : 'Delete'}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

@@ -21,7 +21,13 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { connectTerminal, disconnectTerminal, killWorktreeProcess, removeWorktree } from '@/lib/api'
+import {
+  connectTerminal,
+  disconnectTerminal,
+  killWorktreeProcess,
+  removeWorktree,
+  resetWorktree,
+} from '@/lib/api'
 import { formatCost } from '@/lib/cost'
 import { buildPanelId } from '@/lib/canvas-store'
 import { useProjects } from '@/hooks/use-projects'
@@ -383,6 +389,24 @@ function ProjectWorktreeList({
     [projectId, agentType, onRemovePanel, refetch],
   )
 
+  /** Resets a worktree — clears all history without removing it from disk. */
+  const handleReset = useCallback(
+    async (worktreeId: string) => {
+      try {
+        await resetWorktree(projectId, agentType, worktreeId)
+        const panelId = buildPanelId(projectId, worktreeId)
+        onRemovePanel(panelId)
+        refetch()
+        toast.success('Worktree reset')
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Unknown error'
+        toast.error('Failed to reset worktree', { description: message })
+        refetch()
+      }
+    },
+    [projectId, agentType, onRemovePanel, refetch],
+  )
+
   /** Removes a worktree entirely (git worktree remove + cleanup). */
   const handleRemove = useCallback(
     async (worktreeId: string) => {
@@ -458,6 +482,7 @@ function ProjectWorktreeList({
         onFocus={handleFocusOrReconnect}
         onDisconnect={handleDisconnect}
         onStop={handleStop}
+        onReset={handleReset}
         onRemove={handleRemove}
         onReveal={handleReveal ?? undefined}
         newDialogOpen={isNewDialogOpen}

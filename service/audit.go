@@ -26,9 +26,9 @@ var auditEventsByCategory = map[api.AuditCategory][]string{
 		string(eventbus.EventTerminalConnected), string(eventbus.EventTerminalDisconnected),
 		"container_heartbeat_stale", "container_startup_failed",
 		// Worktree lifecycle.
-		"worktree_created", "worktree_removed", "worktree_cleaned_up",
+		"worktree_created", "worktree_removed", "worktree_reset", "worktree_cleaned_up",
 		"worktree_create_failed", "terminal_connect_failed", "terminal_disconnect_failed",
-		"worktree_kill_failed", "worktree_remove_failed", "worktree_cleanup_failed",
+		"worktree_kill_failed", "worktree_remove_failed", "worktree_reset_failed", "worktree_cleanup_failed",
 		string(eventbus.EventStopFailure),
 	},
 	api.AuditCategoryAgent: {

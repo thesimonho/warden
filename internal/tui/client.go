@@ -62,6 +62,10 @@ type Client interface {
 	// API: POST /api/v1/projects/{projectId}/{agentType}/worktrees/{wid}/kill
 	KillWorktreeProcess(ctx context.Context, projectID, agentType, worktreeID string) (*api.WorktreeResult, error)
 
+	// ResetWorktree clears all history for a worktree without removing it.
+	// API: POST /api/v1/projects/{projectId}/{agentType}/worktrees/{wid}/reset
+	ResetWorktree(ctx context.Context, projectID, agentType, worktreeID string) (*api.WorktreeResult, error)
+
 	// RemoveWorktree kills the process and removes the git worktree.
 	// API: DELETE /api/v1/projects/{projectId}/{agentType}/worktrees/{wid}
 	RemoveWorktree(ctx context.Context, projectID, agentType, worktreeID string) (*api.WorktreeResult, error)

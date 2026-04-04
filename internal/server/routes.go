@@ -64,6 +64,7 @@ func registerAPIRoutes(mux *http.ServeMux, svc *service.Service, broker *eventbu
 	mux.HandleFunc("POST /api/v1/projects/{projectId}/{agentType}/worktrees/{wid}/connect", rt.handleConnectTerminal)
 	mux.HandleFunc("POST /api/v1/projects/{projectId}/{agentType}/worktrees/{wid}/disconnect", rt.handleDisconnectTerminal)
 	mux.HandleFunc("POST /api/v1/projects/{projectId}/{agentType}/worktrees/{wid}/kill", rt.handleKillWorktreeProcess)
+	mux.HandleFunc("POST /api/v1/projects/{projectId}/{agentType}/worktrees/{wid}/reset", rt.handleResetWorktree)
 	mux.HandleFunc("DELETE /api/v1/projects/{projectId}/{agentType}/worktrees/{wid}", rt.handleRemoveWorktree)
 	mux.HandleFunc("GET /api/v1/projects/{projectId}/{agentType}/worktrees/{wid}/diff", rt.handleGetWorktreeDiff)
 	mux.HandleFunc("POST /api/v1/projects/{projectId}/{agentType}/worktrees/cleanup", rt.handleCleanupWorktrees)
@@ -571,6 +572,48 @@ func (rt *routes) handleKillWorktreeProcess(w http.ResponseWriter, r *http.Reque
 		}
 		writeError(w, ErrCodeInternal, err.Error(), http.StatusInternalServerError)
 		slog.Error("kill worktree process", "projectId", projectID, "wid", wid, "err", err)
+		return
+	}
+
+	writeJSON(w, result)
+}
+
+// handleResetWorktree clears all history for a worktree without removing it.
+//
+//	@Summary		Reset worktree
+//	@Description	Clears session state for a worktree: kills any running process, deletes agent
+//	@Description	session files, and removes terminal tracking state. Audit events are preserved.
+//	@Description	The worktree itself is preserved.
+//	@Tags			worktrees
+//	@Param			projectId	path		string	true	"Project ID"
+//	@Param			wid			path		string	true	"Worktree ID"
+//	@Success		200			{object}	service.WorktreeResult
+//	@Failure		400			{object}	apiError
+//	@Failure		404			{object}	apiError
+//	@Failure		500			{object}	apiError
+//	@Router			/api/v1/projects/{projectId}/{agentType}/worktrees/{wid}/reset [post]
+func (rt *routes) handleResetWorktree(w http.ResponseWriter, r *http.Request) {
+	projectID := r.PathValue("projectId")
+
+	wid := r.PathValue("wid")
+	if !isValidWorktreeID(wid) {
+		writeError(w, ErrCodeInvalidWorktreeID, "invalid worktree ID", http.StatusBadRequest)
+		return
+	}
+
+	agentType, ok := extractAgentType(r)
+	if !ok {
+		writeError(w, ErrCodeInvalidBody, "invalid agent type", http.StatusBadRequest)
+		return
+	}
+
+	result, err := rt.svc.ResetWorktree(r.Context(), projectID, agentType, wid)
+	if err != nil {
+		if writeServiceError(w, err) {
+			return
+		}
+		writeError(w, ErrCodeInternal, err.Error(), http.StatusInternalServerError)
+		slog.Error("reset worktree", "projectId", projectID, "wid", wid, "err", err)
 		return
 	}
 

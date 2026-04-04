@@ -1,5 +1,15 @@
 import { useCallback, useMemo, useState } from 'react'
-import { FolderOpen, GitBranch, Info, Plus, RefreshCw, Square, Trash2, Unplug } from 'lucide-react'
+import {
+  FolderOpen,
+  GitBranch,
+  Info,
+  Plus,
+  RefreshCw,
+  RotateCcw,
+  Square,
+  Trash2,
+  Unplug,
+} from 'lucide-react'
 import { toast } from 'sonner'
 import {
   ContextMenu,
@@ -48,6 +58,7 @@ interface WorktreeListProps {
   onFocus: (worktree: Worktree) => void
   onDisconnect: (worktreeId: string) => void
   onStop: (worktreeId: string) => void
+  onReset: (worktreeId: string) => void
   onRemove: (worktreeId: string) => void
   /** Opens a worktree's host directory in the system file manager. */
   onReveal?: (worktree: Worktree) => void
@@ -122,6 +133,7 @@ export default function WorktreeList({
   onFocus,
   onDisconnect,
   onStop,
+  onReset,
   onRemove,
   onReveal,
   newDialogOpen,
@@ -177,6 +189,7 @@ export default function WorktreeList({
         onFocus={() => onFocus(wt)}
         onDisconnect={() => onDisconnect(wt.id)}
         onStop={() => onStop(wt.id)}
+        onReset={() => onReset(wt.id)}
         onRemove={() => onRemove(wt.id)}
         onReveal={onReveal ? () => onReveal(wt) : undefined}
       />
@@ -271,6 +284,7 @@ interface WorktreeRowProps {
   onFocus: () => void
   onDisconnect: () => void
   onStop: () => void
+  onReset: () => void
   onRemove: () => void
   onReveal?: () => void
 }
@@ -291,10 +305,12 @@ function WorktreeRow({
   onFocus,
   onDisconnect,
   onStop,
+  onReset,
   onRemove,
   onReveal,
 }: WorktreeRowProps) {
   const [showRemoveDialog, setShowRemoveDialog] = useState(false)
+  const [showResetDialog, setShowResetDialog] = useState(false)
 
   const stateInfo = worktreeStateIndicator[worktree.state]
   const attentionDot = worktree.needsInput ? getAttentionConfig(worktree.notificationType) : null
@@ -382,22 +398,44 @@ function WorktreeRow({
               </div>
             </div>
           </ContextMenuItem>
-          <ContextMenuItem
-            disabled={!canRemove}
-            onClick={() => setShowRemoveDialog(true)}
-            className="text-error focus:text-error"
-          >
-            <Trash2 className="h-4 w-4" />
-            <div>
-              <div>Delete</div>
-              <div className="text-muted-foreground text-xs font-normal">
-                Completely delete worktree from disk
+          {isMain ? (
+            <ContextMenuItem
+              onClick={() => setShowResetDialog(true)}
+              className="text-error focus:text-error"
+            >
+              <RotateCcw className="h-4 w-4" />
+              <div>
+                <div>Reset</div>
+                <div className="text-muted-foreground text-xs font-normal">
+                  Clear all history and start fresh
+                </div>
               </div>
-            </div>
-          </ContextMenuItem>
+            </ContextMenuItem>
+          ) : (
+            <ContextMenuItem
+              disabled={!canRemove}
+              onClick={() => setShowRemoveDialog(true)}
+              className="text-error focus:text-error"
+            >
+              <Trash2 className="h-4 w-4" />
+              <div>
+                <div>Delete</div>
+                <div className="text-muted-foreground text-xs font-normal">
+                  Remove this worktree and all its history
+                </div>
+              </div>
+            </ContextMenuItem>
+          )}
         </ContextMenuContent>
       </ContextMenu>
 
+      <RemoveWorktreeDialog
+        open={showResetDialog}
+        label={label}
+        variant="reset"
+        onOpenChange={setShowResetDialog}
+        onConfirm={onReset}
+      />
       <RemoveWorktreeDialog
         open={showRemoveDialog}
         label={label}

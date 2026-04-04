@@ -2540,6 +2540,53 @@ paths:
       summary: Kill worktree process
       tags:
       - worktrees
+  /api/v1/projects/{projectId}/{agentType}/worktrees/{wid}/reset:
+    post:
+      description: |-
+        Clears session state for a worktree: kills any running process, deletes agent
+        session files, and removes terminal tracking state. Audit events are preserved.
+        The worktree itself is preserved.
+      parameters:
+      - description: Project ID
+        in: path
+        name: projectId
+        required: true
+        schema:
+          type: string
+      - description: Worktree ID
+        in: path
+        name: wid
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/service.WorktreeResult'
+          description: OK
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/server.apiError'
+          description: Bad Request
+        "404":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/server.apiError'
+          description: Not Found
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/server.apiError'
+          description: Internal Server Error
+      summary: Reset worktree
+      tags:
+      - worktrees
   /api/v1/projects/{projectId}/{agentType}/worktrees/cleanup:
     post:
       description: |-

@@ -139,6 +139,7 @@ type WorktreeKeyMap struct {
 	Connect    key.Binding
 	Disconnect key.Binding
 	Kill       key.Binding
+	Reset      key.Binding
 	Remove     key.Binding
 	New        key.Binding
 	Cleanup    key.Binding
@@ -159,6 +160,10 @@ func DefaultWorktreeKeyMap() WorktreeKeyMap {
 		Kill: key.NewBinding(
 			key.WithKeys("X"),
 			key.WithHelp("X", "kill"),
+		),
+		Reset: key.NewBinding(
+			key.WithKeys("r"),
+			key.WithHelp("r", "reset"),
 		),
 		Remove: key.NewBinding(
 			key.WithKeys("x"),
@@ -187,7 +192,7 @@ func (k WorktreeKeyMap) ShortHelp() []key.Binding {
 // FullHelp returns bindings shown in expanded help.
 func (k WorktreeKeyMap) FullHelp() [][]key.Binding {
 	return [][]key.Binding{
-		{k.Connect, k.Disconnect, k.Kill, k.Remove},
+		{k.Connect, k.Disconnect, k.Kill, k.Reset, k.Remove},
 		{k.New, k.Cleanup, k.Back},
 	}
 }

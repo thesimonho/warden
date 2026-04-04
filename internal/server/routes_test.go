@@ -106,6 +106,10 @@ func (m *mockEngineClient) KillWorktreeProcess(_ context.Context, _, _ string) e
 	return m.killWorktreeErr
 }
 
+func (m *mockEngineClient) ResetWorktree(_ context.Context, _, _ string) error {
+	return nil
+}
+
 func (m *mockEngineClient) RemoveWorktree(_ context.Context, _, _ string) error {
 	return nil
 }
