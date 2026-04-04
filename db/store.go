@@ -168,7 +168,7 @@ func (l *Store) Query(filters QueryFilters) ([]Entry, error) {
 
 	where, args := buildWhereClause(filters)
 
-	query := "SELECT ts, source, level, event, project_id, agent_type, container_name, worktree, msg, data, attrs FROM events"
+	query := "SELECT id, ts, source, level, event, project_id, agent_type, container_name, worktree, msg, data, attrs FROM events"
 	if len(where) > 0 {
 		query += " WHERE " + strings.Join(where, " AND ")
 	}
@@ -1069,6 +1069,7 @@ func scanEntries(rows *sql.Rows) ([]Entry, error) {
 
 	for rows.Next() {
 		var (
+			id            int64
 			tsStr         string
 			source        string
 			level         string
@@ -1081,7 +1082,7 @@ func scanEntries(rows *sql.Rows) ([]Entry, error) {
 			dataStr       sql.NullString
 			attrsStr      sql.NullString
 		)
-		if err := rows.Scan(&tsStr, &source, &level, &event, &projectID, &agentType, &containerName, &worktree, &msg, &dataStr, &attrsStr); err != nil {
+		if err := rows.Scan(&id, &tsStr, &source, &level, &event, &projectID, &agentType, &containerName, &worktree, &msg, &dataStr, &attrsStr); err != nil {
 			return nil, fmt.Errorf("scanning audit log row: %w", err)
 		}
 
@@ -1091,6 +1092,7 @@ func scanEntries(rows *sql.Rows) ([]Entry, error) {
 		}
 
 		entry := Entry{
+			ID:            id,
 			Timestamp:     ts,
 			Source:        Source(source),
 			Level:         Level(level),

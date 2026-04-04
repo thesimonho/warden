@@ -544,6 +544,8 @@ export type AuditLogLevel = 'info' | 'warn' | 'error'
 
 /** A single entry from the centralized audit log. */
 export interface AuditLogEntry {
+  /** Database row identifier. Unique across all entries. */
+  id: number
   /** ISO 8601 timestamp with milliseconds. */
   ts: string
   /** Origin layer. */

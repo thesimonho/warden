@@ -141,7 +141,7 @@ export async function copyEntry(entry: AuditLogEntry): Promise<void> {
 
 /** Builds a stable key for an audit log entry. */
 export function entryKey(entry: AuditLogEntry): string {
-  return `${entry.ts}-${entry.source}-${entry.event}-${entry.projectId ?? ''}-${entry.worktree ?? ''}-${entry.msg ?? ''}`
+  return String(entry.id)
 }
 
 /** Converts a snake_case event name to a human-readable label. */

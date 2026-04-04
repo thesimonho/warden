@@ -310,7 +310,10 @@ function ExpandedRowDetail({ entry }: { entry: AuditLogEntry }) {
   const prompt = entry.data?.prompt as string | undefined
 
   return (
-    <div className="border-border/30 animate-in fade-in slide-in-from-top-1 w-full border-t pr-2 pb-2 pl-16 duration-150">
+    <td
+      colSpan={999}
+      className="border-border/30 animate-in fade-in slide-in-from-top-1 w-full border-t pr-2 pb-2 pl-16 duration-150"
+    >
       {source && prompt ? (
         <pre className="text-muted-foreground overflow-x-auto text-xs leading-relaxed whitespace-pre select-text">
           {cleanTerminalOutput(prompt)}
@@ -332,7 +335,7 @@ function ExpandedRowDetail({ entry }: { entry: AuditLogEntry }) {
           )}
         </pre>
       )}
-    </div>
+    </td>
   )
 }
 
