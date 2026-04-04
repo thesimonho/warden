@@ -1,7 +1,7 @@
 import { useCallback, useState } from 'react'
 import { AlertTriangle, Loader2, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
-import { deleteContainer, removeProject, resetProjectCosts, purgeProjectAudit } from '@/lib/api'
+import { deleteContainer, removeProject, resetProjectCosts } from '@/lib/api'
 import type { Project } from '@/lib/types'
 import {
   Dialog,
@@ -13,8 +13,6 @@ import {
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
-import { Input } from '@/components/ui/input'
-import { cn } from '@/lib/utils'
 
 /** Props for the DeleteProjectDialog component. */
 interface DeleteProjectDialogProps {
@@ -26,20 +24,10 @@ interface DeleteProjectDialogProps {
 }
 
 /**
- * Returns the text the user must type to confirm audit purge.
- *
- * Uses the project name so the confirmation is project-specific.
- */
-function purgeConfirmation(name: string): string {
-  return name
-}
-
-/**
- * Management dialog with four independent destructive actions.
+ * Management dialog with three independent destructive actions.
  *
  * Each action is an unchecked checkbox — nothing is assumed. The user
- * explicitly opts into each operation. "Purge audit history" requires
- * type-to-confirm to prevent accidental data loss.
+ * explicitly opts into each operation.
  *
  * @param props.project - The project being managed.
  * @param props.onComplete - Called after operations finish so the caller can refetch.
@@ -53,21 +41,15 @@ export default function DeleteProjectDialog({
   const [removeFromWarden, setRemoveFromWarden] = useState(false)
   const [shouldDeleteContainer, setShouldDeleteContainer] = useState(false)
   const [resetCosts, setResetCosts] = useState(false)
-  const [purgeAudit, setPurgeAudit] = useState(false)
-  const [purgeConfirmText, setPurgeConfirmText] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   const hasContainer = project?.hasContainer ?? false
-  const hasAnyAction = removeFromWarden || shouldDeleteContainer || resetCosts || purgeAudit
-  const confirmWord = project ? purgeConfirmation(project.name) : ''
-  const isPurgeConfirmed = !purgeAudit || purgeConfirmText === confirmWord
+  const hasAnyAction = removeFromWarden || shouldDeleteContainer || resetCosts
 
   const resetState = useCallback(() => {
     setRemoveFromWarden(false)
     setShouldDeleteContainer(false)
     setResetCosts(false)
-    setPurgeAudit(false)
-    setPurgeConfirmText('')
   }, [])
 
   const handleOpenChange = useCallback(
@@ -80,7 +62,7 @@ export default function DeleteProjectDialog({
   )
 
   const handleConfirm = useCallback(async () => {
-    if (!project || !hasAnyAction || !isPurgeConfirmed) return
+    if (!project || !hasAnyAction) return
 
     setIsSubmitting(true)
     const errors: string[] = []
@@ -94,17 +76,16 @@ export default function DeleteProjectDialog({
       }
     }
 
-    // Cost reset and audit purge are independent — run in parallel.
-    const dataCleanup: Promise<unknown>[] = []
-    if (resetCosts) dataCleanup.push(resetProjectCosts(project.projectId, project.agentType))
-    if (purgeAudit) dataCleanup.push(purgeProjectAudit(project.projectId, project.agentType))
-    const results = await Promise.allSettled(dataCleanup)
-    const dataLabels = [resetCosts && 'reset costs', purgeAudit && 'purge audit'].filter(Boolean)
-    results.forEach((r, i) => {
-      if (r.status === 'rejected') errors.push(dataLabels[i] as string)
-    })
+    // Cost reset is independent.
+    if (resetCosts) {
+      try {
+        await resetProjectCosts(project.projectId, project.agentType)
+      } catch {
+        errors.push('reset costs')
+      }
+    }
 
-    // Remove from Warden last so cost/audit cleanup can resolve the project row.
+    // Remove from Warden last so cost cleanup can resolve the project row.
     if (removeFromWarden) {
       try {
         await removeProject(project.projectId, project.agentType)
@@ -127,11 +108,9 @@ export default function DeleteProjectDialog({
   }, [
     project,
     hasAnyAction,
-    isPurgeConfirmed,
     shouldDeleteContainer,
     hasContainer,
     resetCosts,
-    purgeAudit,
     removeFromWarden,
     resetState,
     onOpenChange,
@@ -178,37 +157,6 @@ export default function DeleteProjectDialog({
             description="Clear all tracked cost data for this project."
           />
 
-          <ActionCheckbox
-            id="purge-audit"
-            checked={purgeAudit}
-            onCheckedChange={setPurgeAudit}
-            disabled={isSubmitting}
-            label="Audit history"
-            description="Permanently purge all audit events for this project."
-          />
-
-          <div
-            className={cn(
-              'ml-7 grid transition-all duration-200 ease-out',
-              purgeAudit ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0',
-            )}
-          >
-            <div className="overflow-hidden">
-              <div className="space-y-2 pb-1">
-                <p className="text-error text-sm">
-                  This is irreversible. Type <strong>{confirmWord}</strong> to confirm.
-                </p>
-                <Input
-                  value={purgeConfirmText}
-                  onChange={(e) => setPurgeConfirmText(e.target.value)}
-                  placeholder={confirmWord}
-                  disabled={isSubmitting}
-                  className="max-w-48"
-                />
-              </div>
-            </div>
-          </div>
-
           {removeFromWarden && !shouldDeleteContainer && hasContainer && (
             <div className="border-warning/50 bg-warning/10 flex items-start gap-2 rounded border p-3">
               <AlertTriangle className="text-warning mt-0.5 h-4 w-4 shrink-0" />
@@ -226,7 +174,7 @@ export default function DeleteProjectDialog({
           <Button
             variant="error"
             onClick={handleConfirm}
-            disabled={!hasAnyAction || !isPurgeConfirmed || isSubmitting}
+            disabled={!hasAnyAction || isSubmitting}
             icon={isSubmitting ? Loader2 : Trash2}
             loading={isSubmitting}
           >

@@ -8,7 +8,6 @@ import (
 
 	"charm.land/bubbles/v2/help"
 	"charm.land/bubbles/v2/key"
-	"charm.land/bubbles/v2/textinput"
 	tea "charm.land/bubbletea/v2"
 )
 
@@ -19,19 +18,12 @@ const (
 	actionRemove manageAction = iota
 	actionDeleteContainer
 	actionResetCosts
-	actionPurgeAudit
 	actionCount // sentinel — number of actions
 )
 
-// purgeConfirmWord returns the text the user must type to confirm audit purge.
-// Uses the project name so the confirmation is project-specific.
-func purgeConfirmWord(name string) string {
-	return name
-}
-
 // ManageProjectView is an inline overlay for managing a project.
-// It presents four independent destructive actions as toggleable
-// checkboxes, mirroring the web manage-project-dialog.
+// It presents three independent destructive actions as toggleable
+// checkboxes, mirroring the web delete-project-dialog.
 type ManageProjectView struct {
 	client    Client
 	projectID string
@@ -44,10 +36,6 @@ type ManageProjectView struct {
 	checked [actionCount]bool
 	cursor  manageAction
 
-	// Purge audit confirmation input.
-	confirmInput textinput.Model
-	confirming   bool
-
 	// Execution state.
 	executing bool
 	err       error
@@ -57,18 +45,12 @@ type ManageProjectView struct {
 
 // NewManageProjectView creates a manage dialog for the given project.
 func NewManageProjectView(client Client, projectID, agentType, name string, hasContainer bool) *ManageProjectView {
-	ti := textinput.New()
-	ti.Placeholder = purgeConfirmWord(name)
-	ti.Prompt = "> "
-	ti.CharLimit = len(name) + 5
-
 	return &ManageProjectView{
 		client:       client,
 		projectID:    projectID,
 		agentType:    agentType,
 		name:         name,
 		hasContainer: hasContainer,
-		confirmInput: ti,
 		keys:         DefaultManageKeyMap(),
 	}
 }
@@ -88,10 +70,6 @@ func (v *ManageProjectView) Update(msg tea.Msg) (View, tea.Cmd) {
 		return v, func() tea.Msg { return NavigateBackMsg{} }
 
 	case tea.KeyPressMsg:
-		if v.confirming {
-			return v.updateConfirm(msg)
-		}
-
 		if v.err != nil {
 			v.err = nil
 			return v, nil
@@ -135,13 +113,11 @@ func (v *ManageProjectView) Render(width, height int) string {
 		"Remove from Warden",
 		"Delete container",
 		"Reset cost history",
-		"Purge audit history",
 	}
 	descs := [actionCount]string{
 		"Untrack this project from Warden",
 		"Stop and permanently remove the container",
 		"Clear all tracked cost data",
-		"Permanently delete all audit events",
 	}
 
 	for i := manageAction(0); i < actionCount; i++ {
@@ -167,14 +143,6 @@ func (v *ManageProjectView) Render(width, height int) string {
 
 		s.WriteString(cursor + checkbox + " " + label + "\n")
 		s.WriteString("      " + Styles.Muted.Render(desc) + "\n")
-	}
-
-	if v.confirming {
-		s.WriteString("\n")
-		s.WriteString(Styles.Error.Render("Type '"+purgeConfirmWord(v.name)+"' to confirm audit deletion:") + "\n")
-		s.WriteString(v.confirmInput.View() + "\n")
-		s.WriteString(Styles.Muted.Render("enter to confirm · esc to cancel") + "\n")
-		return s.String()
 	}
 
 	if v.checked[actionRemove] && !v.checked[actionDeleteContainer] && v.hasContainer {
@@ -226,53 +194,25 @@ func (v *ManageProjectView) hasAnyChecked() bool {
 }
 
 // startExecution validates and begins executing the selected actions.
-// If purge-audit is checked, shows the text confirmation first.
 func (v *ManageProjectView) startExecution() (View, tea.Cmd) {
 	if !v.hasAnyChecked() {
 		return v, nil
-	}
-
-	if v.checked[actionPurgeAudit] && !v.confirming {
-		v.confirming = true
-		return v, v.confirmInput.Focus()
 	}
 
 	v.executing = true
 	return v, v.executeActions()
 }
 
-// updateConfirm handles key presses during the purge confirmation input.
-func (v *ManageProjectView) updateConfirm(msg tea.KeyPressMsg) (View, tea.Cmd) {
-	switch msg.String() {
-	case "esc":
-		v.confirming = false
-		v.confirmInput.SetValue("")
-		return v, nil
-	case "enter":
-		if v.confirmInput.Value() == purgeConfirmWord(v.name) {
-			v.confirming = false
-			v.executing = true
-			return v, v.executeActions()
-		}
-		return v, nil
-	}
-
-	var cmd tea.Cmd
-	v.confirmInput, cmd = v.confirmInput.Update(msg)
-	return v, cmd
-}
-
 // executeActions runs the selected actions in the correct order and
 // returns an OperationResultMsg when done. Container deletion runs
-// first, cost reset and audit purge run concurrently, and project
-// removal runs last so earlier steps can still resolve the project row.
+// first, cost reset runs next, and project removal runs last so
+// earlier steps can still resolve the project row.
 func (v *ManageProjectView) executeActions() tea.Cmd {
 	projectID := v.projectID
 	agentType := v.agentType
 	client := v.client
 	doDelete := v.checked[actionDeleteContainer] && v.hasContainer
 	doReset := v.checked[actionResetCosts]
-	doPurge := v.checked[actionPurgeAudit]
 	doRemove := v.checked[actionRemove]
 
 	return func() tea.Msg {
@@ -287,30 +227,9 @@ func (v *ManageProjectView) executeActions() tea.Cmd {
 			}
 		}
 
-		// Cost reset and audit purge are independent — run concurrently.
-		type result struct {
-			label string
-			err   error
-		}
-		ch := make(chan result, 2)
-		concurrent := 0
-
 		if doReset {
-			concurrent++
-			go func() {
-				ch <- result{"reset costs", client.ResetProjectCosts(ctx, projectID, agentType)}
-			}()
-		}
-		if doPurge {
-			concurrent++
-			go func() {
-				ch <- result{"purge audit", client.PurgeProjectAudit(ctx, projectID, agentType)}
-			}()
-		}
-		for range concurrent {
-			r := <-ch
-			if r.err != nil {
-				errors = append(errors, fmt.Sprintf("%s: %v", r.label, r.err))
+			if err := client.ResetProjectCosts(ctx, projectID, agentType); err != nil {
+				errors = append(errors, fmt.Sprintf("reset costs: %v", err))
 			}
 		}
 
