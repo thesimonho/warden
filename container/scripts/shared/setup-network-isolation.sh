@@ -199,15 +199,15 @@ if [ "$MODE" = "restricted" ]; then
     sleep 0.1
   done
 
-  # Make the log file readable by the warden user so the block logger
-  # can parse DNS replies. Must run after dnsmasq starts because
-  # dnsmasq creates the file with its own permissions (nobody:root 0660).
-  chmod 644 /var/log/dnsmasq.log 2>/dev/null || true
-
   if ! kill -0 "$DNSMASQ_PID" 2>/dev/null; then
     echo "[warden] error: dnsmasq failed to start" >&2
     exit 1
   fi
+
+  # Make the log file readable by the warden user so the block logger
+  # can parse DNS replies. Runs after confirming dnsmasq is alive so
+  # the file exists.
+  chmod 644 /var/log/dnsmasq.log 2>/dev/null || true
 
   # --- Rewrite resolv.conf to route DNS through dnsmasq ---
   if ! echo "nameserver 127.0.0.53" > /etc/resolv.conf 2>/dev/null; then

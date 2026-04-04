@@ -1613,3 +1613,63 @@ func TestStore_WriteToAuditLog_SameLineDifferentIndex_DifferentSourceIDs(t *test
 		t.Fatalf("expected 2 entries (same line, different index = different hash), got %d", len(result))
 	}
 }
+
+func TestStore_WriteToAuditLog_NetworkBlocked(t *testing.T) {
+	dbStore, err := db.New(t.TempDir())
+	if err != nil {
+		t.Fatalf("db.New() error: %v", err)
+	}
+	defer dbStore.Close() //nolint:errcheck
+
+	allEvents := map[string]bool{"network_blocked": true}
+	writer := db.NewAuditWriter(dbStore, db.AuditStandard, allEvents)
+	store := NewStore(nil, writer)
+
+	t.Run("with domain", func(t *testing.T) {
+		store.HandleEvent(ContainerEvent{
+			Type:          EventNetworkBlocked,
+			ContainerName: "proj-1",
+			ProjectID:     "aabbccddee01",
+			Data:          mustMarshal(t, NetworkBlockedData{IP: "104.18.27.120", Domain: "example.com"}),
+			Timestamp:     time.Now(),
+		})
+
+		result, err := dbStore.Query(db.QueryFilters{ProjectID: "aabbccddee01"})
+		if err != nil {
+			t.Fatalf("Query() error: %v", err)
+		}
+		if len(result) != 1 {
+			t.Fatalf("expected 1 entry, got %d", len(result))
+		}
+		if result[0].Source != db.SourceContainer {
+			t.Errorf("expected source %q, got %q", db.SourceContainer, result[0].Source)
+		}
+		if result[0].Level != db.LevelError {
+			t.Errorf("expected level %q, got %q", db.LevelError, result[0].Level)
+		}
+		if result[0].Message != "example.com (104.18.27.120)" {
+			t.Errorf("expected message %q, got %q", "example.com (104.18.27.120)", result[0].Message)
+		}
+	})
+
+	t.Run("without domain", func(t *testing.T) {
+		store.HandleEvent(ContainerEvent{
+			Type:          EventNetworkBlocked,
+			ContainerName: "proj-2",
+			ProjectID:     "aabbccddee02",
+			Data:          mustMarshal(t, NetworkBlockedData{IP: "1.2.3.4"}),
+			Timestamp:     time.Now(),
+		})
+
+		result, err := dbStore.Query(db.QueryFilters{ProjectID: "aabbccddee02"})
+		if err != nil {
+			t.Fatalf("Query() error: %v", err)
+		}
+		if len(result) != 1 {
+			t.Fatalf("expected 1 entry, got %d", len(result))
+		}
+		if result[0].Message != "1.2.3.4" {
+			t.Errorf("expected message %q, got %q", "1.2.3.4", result[0].Message)
+		}
+	})
+}

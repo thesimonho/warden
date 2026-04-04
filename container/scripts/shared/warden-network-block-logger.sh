@@ -49,14 +49,20 @@ while [ ! -f "$RECENT_FILE" ]; do
   fi
 done
 
-# Skip private/internal IPs — they're infrastructure addresses (Docker
-# gateway, bridge network) that users can't add to a domain allow list.
+# Skip private/internal IPs (RFC 1918 + link-local) — they're
+# infrastructure addresses (Docker gateway, bridge network) that
+# users can't add to a domain allow list.
 is_private_ip() {
-  local ip="$1"
-  case "$ip" in
-    10.*|172.1[6-9].*|172.2[0-9].*|172.3[0-1].*|192.168.*|169.254.*) return 0 ;;
-    *) return 1 ;;
+  local ip="$1" octet1 octet2
+  octet1="${ip%%.*}"
+  octet2="${ip#*.}"; octet2="${octet2%%.*}"
+  case "$octet1" in
+    10|127) return 0 ;;
+    172) [ "$octet2" -ge 16 ] && [ "$octet2" -le 31 ] && return 0 ;;
+    192) [ "$octet2" -eq 168 ] && return 0 ;;
+    169) [ "$octet2" -eq 254 ] && return 0 ;;
   esac
+  return 1
 }
 
 # Resolve an IP to a domain. Checks the dnsmasq-derived DNS_MAP first,
@@ -85,9 +91,8 @@ fi
 # Check if a domain is covered by the allowed domains list.
 is_allowed_domain() {
   local domain="$1"
-  [ -z "$domain" ] && return 1
+  if [ -z "$domain" ]; then return 1; fi
   for allowed in "${ALLOWED_DOMAINS[@]}"; do
-    # Match exact domain or any subdomain.
     if [ "$domain" = "$allowed" ] || [[ "$domain" == *."$allowed" ]]; then
       return 0
     fi
@@ -100,36 +105,42 @@ declare -A REPORTED_IPS
 declare -A DNS_MAP
 # Container-level event — no specific worktree.
 WORKTREE_ID=""
+# Byte offset for incremental dnsmasq log parsing.
+LOG_OFFSET=0
 
 while true; do
   [ -f "$RECENT_FILE" ] || { sleep "$INTERVAL"; continue; }
 
-  # Refresh IP→domain mapping from dnsmasq log before processing.
-  # Inline rather than a function to avoid declare -gA resetting the array.
-  if [ -f "$DNSMASQ_LOG" ]; then
-    while read -r _ip _domain; do
-      if [ -n "$_ip" ]; then DNS_MAP["$_ip"]="$_domain"; fi
-    done < <(awk '/reply .* is [0-9]+\./{
-      for(i=1;i<=NF;i++){
-        if($i=="reply"){domain=$(i+1)}
-        if($i=="is" && $(i+1)~/^[0-9]+\./){print $(i+1), domain}
-      }
-    }' "$DNSMASQ_LOG")
-  fi
-
-  # xt_recent always labels the tracked address as "src=" even when
-  # recorded via --rdest. With our rules, this is the blocked
-  # destination IP.
+  # Collect new (unreported) IPs from xt_recent before doing any work.
+  declare -a NEW_IPS=()
   while IFS= read -r line; do
     if [[ "$line" =~ src=([0-9]+\.[0-9]+\.[0-9]+\.[0-9]+) ]]; then
       ip="${BASH_REMATCH[1]}"
-    else
-      continue
+      if is_private_ip "$ip"; then continue; fi
+      if [ -n "${REPORTED_IPS[$ip]+x}" ]; then continue; fi
+      NEW_IPS+=("$ip")
     fi
+  done < "$RECENT_FILE"
 
-    # Skip private/internal and already-reported IPs.
-    if is_private_ip "$ip"; then continue; fi
-    if [ -n "${REPORTED_IPS[$ip]+x}" ]; then continue; fi
+  # Only parse the dnsmasq log if there are new IPs to resolve.
+  if [ ${#NEW_IPS[@]} -gt 0 ] && [ -f "$DNSMASQ_LOG" ]; then
+    # Incremental parse — only read new bytes since last poll.
+    current_size=$(wc -c < "$DNSMASQ_LOG" 2>/dev/null || echo 0)
+    if [ "$current_size" -gt "$LOG_OFFSET" ]; then
+      while read -r _ip _domain; do
+        if [ -n "$_ip" ]; then DNS_MAP["$_ip"]="$_domain"; fi
+      done < <(tail -c +"$((LOG_OFFSET + 1))" "$DNSMASQ_LOG" | awk '/reply .* is [0-9]+\./{
+        for(i=1;i<=NF;i++){
+          if($i=="reply"){domain=$(i+1)}
+          if($i=="is" && $(i+1)~/^[0-9]+\./){print $(i+1), domain}
+        }
+      }')
+      LOG_OFFSET=$current_size
+    fi
+  fi
+
+  # Process new blocked IPs.
+  for ip in "${NEW_IPS[@]}"; do
     REPORTED_IPS["$ip"]=1
 
     domain=$(resolve_domain "$ip")
@@ -142,7 +153,8 @@ while true; do
     data=$(jq -nc --arg ip "$ip" --arg domain "$domain" \
       'if $domain == "" then {ip: $ip} else {ip: $ip, domain: $domain} end')
     warden_write_event "$(warden_build_event_json "network_blocked" "$data")"
-  done < "$RECENT_FILE"
+  done
+  unset NEW_IPS
 
   sleep "$INTERVAL"
 done
