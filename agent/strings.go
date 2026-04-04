@@ -45,6 +45,12 @@ const (
 	PromptSourceBashOutput PromptSource = "bash_output"
 )
 
+// IsBash returns true if the prompt originated from a ! bash command
+// (either the command itself or its stdout/stderr output).
+func (s PromptSource) IsBash() bool {
+	return s == PromptSourceBash || s == PromptSourceBashOutput
+}
+
 // Tag patterns for Claude Code's ! bash mode and /slash command messages.
 // These XML-like tags wrap user input, command output, and internal caveats
 // in the JSONL session file.
@@ -60,10 +66,6 @@ var (
 
 	// Bash output tags — content kept but tags removed.
 	bashOutputTags = regexp.MustCompile(`</?(?:bash-stdout|bash-stderr)>`)
-
-	// Detection patterns — check before stripping to classify the source.
-	hasBashInput  = regexp.MustCompile(`<bash-input>`)
-	hasBashOutput = regexp.MustCompile(`<bash-(?:stdout|stderr)>`)
 )
 
 // FormatPromptResult holds the cleaned prompt text and its classified source.
@@ -82,11 +84,11 @@ type FormatPromptResult struct {
 //   - "bash_output" for <bash-stdout>/<bash-stderr> output
 //   - "user" for plain text prompts
 func FormatPromptText(text string) FormatPromptResult {
-	// Classify before stripping tags.
+	// Classify before stripping tags — reuse the replacement regexps for detection.
 	source := PromptSourceUser
-	if hasBashInput.MatchString(text) {
+	if bashInputTag.MatchString(text) {
 		source = PromptSourceBash
-	} else if hasBashOutput.MatchString(text) {
+	} else if bashOutputTags.MatchString(text) {
 		source = PromptSourceBashOutput
 	}
 

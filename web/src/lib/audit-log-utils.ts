@@ -191,8 +191,7 @@ export function entryMessage(entry: AuditLogEntry): string {
   if (entry.event === 'tool_use' && data.toolName) return data.toolName as string
   if (entry.event === 'user_prompt' && data.prompt) {
     const prompt = data.prompt as string
-    const source = data.promptSource as string | undefined
-    const prefix = source === 'bash' || source === 'bash_output' ? '[bash] ' : ''
+    const prefix = promptSource(entry) ? '[bash] ' : ''
     const display = prompt.length > 100 ? prompt.slice(0, 100) + '...' : prompt
     return prefix + display
   }
