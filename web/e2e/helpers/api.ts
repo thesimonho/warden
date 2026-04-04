@@ -189,6 +189,14 @@ export async function removeTestProject(projectId: string, agentType = 'claude-c
   } catch {
     /* Container may already be gone. */
   }
+  // Purge audit events and costs before removing the project so test
+  // data doesn't leak into the user's real DB when reusing a dev server.
+  try {
+    await apiFetch(`/api/v1/projects/${projectId}/${agentType}/audit`, { method: 'DELETE' })
+  } catch { /* best-effort */ }
+  try {
+    await apiFetch(`/api/v1/projects/${projectId}/${agentType}/costs`, { method: 'DELETE' })
+  } catch { /* best-effort */ }
   try {
     await apiFetch(`/api/v1/projects/${projectId}/${agentType}`, { method: 'DELETE' })
   } catch {

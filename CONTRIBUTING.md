@@ -28,14 +28,25 @@ npm --prefix web install
 Start the dev servers (Go + Vite):
 
 ```bash
-# Terminal 1: Go API server
-go run ./cmd/warden-desktop
-
-# Terminal 2: Vite dev server
-npm --prefix web run dev
+just dev
 ```
 
 Open `http://localhost:5173` (Vite proxies `/api/*` to Go on `:8090`).
+
+### Database isolation
+
+The dev server uses a separate database (`/tmp/warden-dev/warden.db`) so development and testing don't interfere with your production Warden data at `~/.config/warden/`. E2E tests use their own database at `/tmp/warden-e2e-db/`.
+
+| Environment                   | DB location           | Port            |
+| ----------------------------- | --------------------- | --------------- |
+| Production (`warden-desktop`) | `~/.config/warden/`   | `:8090`         |
+| Development (`just dev`)      | `/tmp/warden-dev/`    | `:8090`         |
+| E2E tests (standalone)        | `/tmp/warden-e2e-db/` | `:8090`         |
+| E2E tests (piggybacking)      | Same as dev server    | Dev server port |
+
+Note: dev and production both use `:8090`, so they cannot run simultaneously. If you need to use Warden as a user, stop the dev server first.
+
+E2E tests will piggyback on a running dev server if one is available, otherwise they start their own. Test projects are cleaned up automatically after each run.
 
 ## Local container image
 
