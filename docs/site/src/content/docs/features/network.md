@@ -33,7 +33,7 @@ When selecting Restricted mode, you specify a list of domains. Both exact domain
 
 Each domain entry automatically includes all subdomains.
 
-Warden pre-populates the domain list based on the selected agent type: Claude Code gets `*.anthropic.com`, Codex gets `*.openai.com`, and both include shared infrastructure domains (GitHub, npm, PyPI, Go modules). You can customize this list at creation time or edit it later.
+Warden pre-populates the domain list based on the selected agent type: Claude Code gets `*.anthropic.com`, Codex gets `*.openai.com`, and both include shared infrastructure domains (GitHub, Ubuntu apt repos). Runtime-specific domains (npm, PyPI, Go modules, etc.) are added automatically based on the runtimes enabled for the project. You can customize this list at creation time or edit it later.
 
 **Live domain updates:**
 

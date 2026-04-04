@@ -15,6 +15,7 @@ import (
 	"github.com/thesimonho/warden/api"
 	"github.com/thesimonho/warden/constants"
 	"github.com/thesimonho/warden/runtime"
+	"github.com/thesimonho/warden/runtimes"
 )
 
 // containerHomeDir is the home directory of the non-root user inside containers.
@@ -39,17 +40,14 @@ var userMounts = []preferredMount{
 }
 
 // sharedRestrictedDomains are infrastructure domains included for all agent
-// types in restricted network mode (GitHub, package registries).
+// types in restricted network mode. Runtime-specific domains (npm, PyPI,
+// Go proxy, etc.) are managed by the runtimes package and merged at
+// container creation time based on selected runtimes.
 var sharedRestrictedDomains = []string{
 	"*.github.com",
 	"*.githubusercontent.com",
-	"pypi.org",
-	"files.pythonhosted.org",
-	"registry.npmjs.org",
-	"registry.yarnpkg.com",
-	"go.dev",
-	"proxy.golang.org",
-	"sum.golang.org",
+	"archive.ubuntu.com",
+	"security.ubuntu.com",
 }
 
 // agentRestrictedDomains maps agent types to their API-specific domains.
@@ -74,8 +72,10 @@ func buildRestrictedDomains() map[string][]string {
 }
 
 // GetDefaults returns server-resolved default values for the create
-// container form, including auto-detected bind mounts.
-func (s *Service) GetDefaults() DefaultsResponse {
+// container form, including auto-detected bind mounts and runtimes.
+// When projectPath is non-empty, runtime detection scans that directory
+// for marker files.
+func (s *Service) GetDefaults(projectPath string) DefaultsResponse {
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
 		homeDir = ""
@@ -104,12 +104,33 @@ func (s *Service) GetDefaults() DefaultsResponse {
 		}
 	}
 
+	// Build runtime defaults with detection results.
+	var detected map[string]bool
+	if projectPath != "" {
+		detected = runtimes.Detect(projectPath)
+	}
+
+	reg := runtimes.Registry()
+	runtimeDefaults := make([]api.RuntimeDefault, len(reg))
+	for i, r := range reg {
+		runtimeDefaults[i] = api.RuntimeDefault{
+			ID:            r.ID,
+			Label:         r.Label,
+			Description:   r.Description,
+			AlwaysEnabled: r.AlwaysEnabled,
+			Detected:      detected[r.ID],
+			Domains:       r.Domains,
+			EnvVars:       r.EnvVars,
+		}
+	}
+
 	return DefaultsResponse{
 		HomeDir:           homeDir,
 		ContainerHomeDir:  containerHomeDir,
 		Mounts:            mounts,
 		EnvVars:           envVars,
 		RestrictedDomains: buildRestrictedDomains(),
+		Runtimes:          runtimeDefaults,
 	}
 }
 

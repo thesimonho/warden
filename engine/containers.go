@@ -11,6 +11,7 @@ import (
 
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/image"
+	"github.com/docker/docker/api/types/mount"
 
 	"github.com/thesimonho/warden/agent"
 	"github.com/thesimonho/warden/api"
@@ -146,6 +147,21 @@ func (ec *EngineClient) CreateContainer(ctx context.Context, req api.CreateConta
 	// directory is bind-mounted at containerEventDir inside the container.
 	envList = append(envList, fmt.Sprintf("WARDEN_EVENT_DIR=%s", containerEventDir))
 
+	// Pass enabled runtimes so the entrypoint can install them.
+	if len(req.EnabledRuntimes) > 0 {
+		envList = append(envList, fmt.Sprintf("WARDEN_ENABLED_RUNTIMES=%s", strings.Join(req.EnabledRuntimes, ",")))
+	}
+
+	// Mount the shared cache volume only when runtimes beyond the
+	// pre-installed Node need package caching.
+	needsCache := false
+	for _, r := range req.EnabledRuntimes {
+		if r != "node" {
+			needsCache = true
+			break
+		}
+	}
+
 	containerConfig := &container.Config{
 		Image:      image,
 		Env:        envList,
@@ -208,6 +224,16 @@ func (ec *EngineClient) CreateContainer(ctx context.Context, req api.CreateConta
 		CapDrop:     capDrop,
 		CapAdd:      capAdd,
 		SecurityOpt: securityOpts,
+	}
+
+	if needsCache {
+		hostConfig.Mounts = []mount.Mount{
+			{
+				Type:   mount.TypeVolume,
+				Source: "warden-cache",
+				Target: "/home/warden/.cache/warden-runtimes",
+			},
+		}
 	}
 
 	resp, err := ec.api.ContainerCreate(ctx, containerConfig, hostConfig, nil, nil, req.Name)
@@ -405,11 +431,6 @@ func (ec *EngineClient) RecreateContainer(ctx context.Context, id string, req ap
 	if err := ec.stopAndRemove(ctx, id); err != nil {
 		slog.Warn("replacement created but failed to remove old container",
 			"oldId", id, "newId", newID, "err", err)
-	}
-
-	// Stop the new container so it doesn't auto-start — the user can start it manually.
-	if err := ec.api.ContainerStop(ctx, newID, container.StopOptions{}); err != nil {
-		slog.Warn("could not stop recreated container", "id", newID, "err", err)
 	}
 
 	slog.Info("recreated container", "oldId", id, "newId", newID, "name", req.Name)

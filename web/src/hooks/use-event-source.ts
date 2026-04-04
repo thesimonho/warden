@@ -166,6 +166,20 @@ export type BudgetExceededHandler = (event: BudgetExceededEvent) => void
 /** Callback for budget_container_stopped SSE events. */
 export type BudgetContainerStoppedHandler = (event: BudgetContainerStoppedEvent) => void
 
+/** Payload for runtime_status SSE events. */
+export interface RuntimeStatusEvent {
+  projectId: string
+  agentType?: string
+  containerName: string
+  /** "installing" or "installed". */
+  phase: 'installing' | 'installed'
+  runtimeId: string
+  runtimeLabel: string
+}
+
+/** Callback for runtime_status SSE events. */
+export type RuntimeStatusHandler = (event: RuntimeStatusEvent) => void
+
 /** Options for subscribing to SSE events. */
 interface UseEventSourceOptions {
   /** Handler for worktree_state events. */
@@ -178,6 +192,8 @@ interface UseEventSourceOptions {
   onBudgetExceeded?: BudgetExceededHandler
   /** Handler for budget_container_stopped events. */
   onBudgetContainerStopped?: BudgetContainerStoppedHandler
+  /** Handler for runtime_status events (runtime install progress). */
+  onRuntimeStatus?: RuntimeStatusHandler
 }
 
 /** Creates a MessageEvent handler that parses JSON and forwards to a ref callback. */
@@ -208,6 +224,7 @@ export function useEventSource(options: UseEventSourceOptions): EventSourceStatu
   const onWorktreeListChangedRef = useRef(options.onWorktreeListChanged)
   const onBudgetExceededRef = useRef(options.onBudgetExceeded)
   const onBudgetContainerStoppedRef = useRef(options.onBudgetContainerStopped)
+  const onRuntimeStatusRef = useRef(options.onRuntimeStatus)
 
   // Keep refs current without re-subscribing.
   useEffect(() => {
@@ -216,12 +233,14 @@ export function useEventSource(options: UseEventSourceOptions): EventSourceStatu
     onWorktreeListChangedRef.current = options.onWorktreeListChanged
     onBudgetExceededRef.current = options.onBudgetExceeded
     onBudgetContainerStoppedRef.current = options.onBudgetContainerStopped
+    onRuntimeStatusRef.current = options.onRuntimeStatus
   }, [
     options.onWorktreeState,
     options.onProjectState,
     options.onWorktreeListChanged,
     options.onBudgetExceeded,
     options.onBudgetContainerStopped,
+    options.onRuntimeStatus,
   ])
 
   useEffect(() => {
@@ -241,6 +260,7 @@ export function useEventSource(options: UseEventSourceOptions): EventSourceStatu
     const handleWorktreeListChanged = makeSSEHandler(onWorktreeListChangedRef)
     const handleBudgetExceeded = makeSSEHandler(onBudgetExceededRef)
     const handleBudgetContainerStopped = makeSSEHandler(onBudgetContainerStoppedRef)
+    const handleRuntimeStatus = makeSSEHandler(onRuntimeStatusRef)
 
     // We need to listen on the current source AND any future reconnected sources.
     // Since sharedSource can change on reconnect, we add listeners at the module level.
@@ -251,6 +271,7 @@ export function useEventSource(options: UseEventSourceOptions): EventSourceStatu
       src.addEventListener('worktree_list_changed', handleWorktreeListChanged)
       src.addEventListener('budget_exceeded', handleBudgetExceeded)
       src.addEventListener('budget_container_stopped', handleBudgetContainerStopped)
+      src.addEventListener('runtime_status', handleRuntimeStatus)
     }
 
     const detach = (src: EventSource) => {
@@ -259,6 +280,7 @@ export function useEventSource(options: UseEventSourceOptions): EventSourceStatu
       src.removeEventListener('worktree_list_changed', handleWorktreeListChanged)
       src.removeEventListener('budget_exceeded', handleBudgetExceeded)
       src.removeEventListener('budget_container_stopped', handleBudgetContainerStopped)
+      src.removeEventListener('runtime_status', handleRuntimeStatus)
     }
 
     attach(source)

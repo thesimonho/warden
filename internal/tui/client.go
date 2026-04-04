@@ -112,8 +112,9 @@ type Client interface {
 	UpdateSettings(ctx context.Context, req api.UpdateSettingsRequest) (*api.UpdateSettingsResult, error)
 
 	// GetDefaults returns server-resolved defaults for the create container form.
-	// API: GET /api/v1/defaults
-	GetDefaults(ctx context.Context) (*api.DefaultsResponse, error)
+	// When projectPath is non-empty, runtime detection scans that directory.
+	// API: GET /api/v1/defaults?path={projectPath}
+	GetDefaults(ctx context.Context, projectPath string) (*api.DefaultsResponse, error)
 
 	// ListDirectories returns filesystem entries at a path for the browser.
 	// When includeFiles is true, files are returned alongside directories.

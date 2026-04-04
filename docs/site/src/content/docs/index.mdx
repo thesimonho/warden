@@ -26,50 +26,51 @@ import { Card, CardGrid } from "@astrojs/starlight/components";
 ## Two ways to use Warden
 
 <CardGrid>
- <Card title="As a user" icon="laptop">
-  Download a binary and go. **Web dashboard** (`warden-desktop`) opens a
-  browser UI. **Terminal UI** (`warden-tui`) runs natively in your terminal.
-  No Docker knowledge needed.
- </Card>
- <Card title="As a developer" icon="setting">
-  Warden's engine is a **Go library** and **HTTP API**. Container lifecycle,
-  worktree orchestration, agent status, network controls, and an event bus —
-  all behind clean interfaces. Build your own UI, CLI, or orchestration layer
-  on top.
- </Card>
+	<Card title="As a user" icon="laptop">
+		Download a binary and go. **Web dashboard** (`warden-desktop`) opens a
+		browser UI. **Terminal UI** (`warden-tui`) runs natively in your terminal.
+		No Docker knowledge needed.
+	</Card>
+	<Card title="As a developer" icon="setting">
+		Warden's engine is a **Go library** and **HTTP API**. Container lifecycle,
+		worktree orchestration, agent status, network controls, and an event bus —
+		all behind clean interfaces. Build your own UI, CLI, or orchestration layer
+		on top.
+	</Card>
 </CardGrid>
 
 ## What you get
 
 <CardGrid>
- <Card title="Container isolation" icon="approve-check-circle">
-  Each project gets its own filesystem, env vars, and credentials. No
-  credential bleed, no cross-project file access. Containers are hardened with
-  dropped capabilities, a seccomp syscall filter, and no-new-privileges. Run
-  agents in fully autonomous mode without risking your host.
- </Card>
- <Card title="Network access controls" icon="warning">
-  Per-container network policy: full access, domain allowlist (restricted), or
-  air-gapped (none). Enforced via iptables before any user code runs.
- </Card>
- <Card title="Real-time agent status" icon="information">
-  Idle, working, needs permission, needs input, needs answer — across every
-  agent at a glance. Per-project cost tracking with configurable budget
-  enforcement.
- </Card>
- <Card title="Session persistence" icon="random">
-  Terminals survive disconnects via tmux. Close the tab, agent keeps
-  working. Reconnect later. Attention notifications tell you which agent needs
-  you.
- </Card>
- <Card title="Parallel agents via worktrees" icon="random">
-  Run multiple agents on the same repo simultaneously, each in its own git
-  worktree. Isolated branches, no merge conflicts, no stepping on each other.
-  Warden orchestrates creation, cleanup, and status across all of them.
- </Card>
- <Card title="Audit and compliance" icon="approve-check-circle">
-  Unified event logging with activity timeline, summary dashboard, and
-  category filtering. Configurable detail levels (standard/detailed) for
-  cost-volume trade-off. Export audit data as CSV/JSON for compliance review.
- </Card>
+	<Card title="Container isolation" icon="approve-check-circle">
+		Each project gets its own filesystem, env vars, and credentials. No
+		credential bleed, no cross-project file access. Containers are hardened with
+		dropped capabilities, a seccomp syscall filter, and no-new-privileges. Run
+		agents in fully autonomous mode without risking your host.
+	</Card>
+	<Card title="Network access controls" icon="warning">
+		Per-container network policy: full access, domain allowlist (restricted), or
+		air-gapped (none). Enforced via iptables before any user code runs. Language
+		runtimes (Python, Go, Rust, Ruby, Lua) are auto-detected and open only the
+		required package registry domains.
+	</Card>
+	<Card title="Real-time agent status" icon="information">
+		Idle, working, needs permission, needs input, needs answer — across every
+		agent at a glance. Per-project cost tracking with configurable budget
+		enforcement.
+	</Card>
+	<Card title="Session persistence" icon="random">
+		Terminals survive disconnects via tmux. Close the tab, agent keeps working.
+		Reconnect later. Attention notifications tell you which agent needs you.
+	</Card>
+	<Card title="Parallel agents via worktrees" icon="random">
+		Run multiple agents on the same repo simultaneously, each in its own git
+		worktree. Isolated branches, no merge conflicts, no stepping on each other.
+		Warden orchestrates creation, cleanup, and status across all of them.
+	</Card>
+	<Card title="Audit and compliance" icon="approve-check-circle">
+		Unified event logging with activity timeline, summary dashboard, and
+		category filtering. Configurable detail levels (standard/detailed) for
+		cost-volume trade-off. Export audit data as CSV/JSON for compliance review.
+	</Card>
 </CardGrid>

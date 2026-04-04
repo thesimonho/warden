@@ -247,6 +247,8 @@ export interface ProjectResult {
 export interface ContainerResult {
   containerId: string
   name: string
+  /** True when the container was fully recreated (not just settings updated). */
+  recreated?: boolean
 }
 
 /** A bind mount from the host into the container. */
@@ -279,6 +281,8 @@ export interface CreateContainerRequest {
   costBudget?: number
   /** Active access item IDs (e.g. ["git", "ssh"]). */
   enabledAccessItems?: string[]
+  /** Active runtime IDs (e.g. ["node", "python", "go"]). */
+  enabledRuntimes?: string[]
 }
 
 /** Editable configuration of an existing container. */
@@ -299,6 +303,28 @@ export interface ContainerConfig {
   costBudget: number
   /** Active access item IDs (e.g. ["git", "ssh"]). */
   enabledAccessItems?: string[]
+  /** Active runtime IDs (e.g. ["node", "python", "go"]). */
+  enabledRuntimes?: string[]
+}
+
+// --- Runtimes ---
+
+/** A language runtime available for installation in containers. */
+export interface RuntimeDefault {
+  /** Unique identifier (e.g. "node", "python", "go"). */
+  id: string
+  /** Human-readable name (e.g. "Node.js", "Python"). */
+  label: string
+  /** Brief description of what gets installed. */
+  description: string
+  /** Whether this runtime cannot be deselected (e.g. Node for MCP). */
+  alwaysEnabled: boolean
+  /** True when marker files were found in the project directory. */
+  detected: boolean
+  /** Network domains required for this runtime's package registry. */
+  domains: string[]
+  /** Environment variables set when this runtime is enabled. */
+  envVars: Record<string, string>
 }
 
 // --- Access System ---

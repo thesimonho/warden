@@ -22,6 +22,7 @@ type (
 	AuditSummary            = api.AuditSummary
 	CreateContainerRequest  = api.CreateContainerRequest
 	ContainerConfig         = api.ContainerConfig
+	RuntimeDefault          = api.RuntimeDefault
 	Mount                   = api.Mount
 	NetworkMode             = api.NetworkMode
 )

@@ -12,6 +12,7 @@ import (
 	"github.com/thesimonho/warden/api"
 	"github.com/thesimonho/warden/db"
 	"github.com/thesimonho/warden/engine"
+	"github.com/thesimonho/warden/runtimes"
 )
 
 // CreateContainer creates a new project container and saves full
@@ -22,10 +23,22 @@ func (s *Service) CreateContainer(ctx context.Context, req api.CreateContainerRe
 		return nil, err
 	}
 
+	// Validate runtime IDs before passing to the engine.
+	for _, id := range req.EnabledRuntimes {
+		if !runtimes.IsValidID(id) {
+			return nil, fmt.Errorf("unknown runtime: %q", id)
+		}
+	}
+
 	// Resolve enabled access items into env vars and mounts.
 	if err := s.ResolveAccessItemsForContainer(&req); err != nil {
 		return nil, fmt.Errorf("resolving access items: %w", err)
 	}
+
+	// Merge runtime domains into the allowed list for restricted mode.
+	// This runs after projectRowFromRequest so the DB stores only user-entered
+	// domains; merged runtime domains are only passed to the Docker engine.
+	mergeRuntimeDomains(&req)
 
 	// OriginalMounts must include access item mounts so that stale mount
 	// detection compares against the full set Docker actually receives.
@@ -55,6 +68,27 @@ func (s *Service) CreateContainer(ctx context.Context, req api.CreateContainerRe
 		s.eventWatcher.WatchContainerDir(req.Name)
 	}
 	s.startProjectWatcher(row.ProjectID, req.Name, string(req.AgentType))
+
+	configData, _ := json.Marshal(map[string]any{
+		"image":              req.Image,
+		"projectPath":        req.ProjectPath,
+		"networkMode":        req.NetworkMode,
+		"allowedDomains":     req.AllowedDomains,
+		"enabledRuntimes":    req.EnabledRuntimes,
+		"enabledAccessItems": req.EnabledAccessItems,
+		"skipPermissions":    req.SkipPermissions,
+		"costBudget":         req.CostBudget,
+	})
+	s.audit.Write(db.Entry{
+		Source:        db.SourceBackend,
+		Level:         db.LevelInfo,
+		ProjectID:     row.ProjectID,
+		AgentType:     row.AgentType,
+		ContainerName: req.Name,
+		Event:         "container_created",
+		Message:       fmt.Sprintf("container %q created", req.Name),
+		Data:          configData,
+	})
 
 	return &ContainerResult{ContainerID: containerID, Name: req.Name, ProjectID: row.ProjectID}, nil
 }
@@ -144,6 +178,9 @@ func (s *Service) InspectContainer(ctx context.Context, projectID, agentType str
 	cfg.CostBudget = project.CostBudget
 	if project.EnabledAccessItems != "" {
 		cfg.EnabledAccessItems = splitCSV(project.EnabledAccessItems)
+	}
+	if project.EnabledRuntimes != "" {
+		cfg.EnabledRuntimes = splitCSV(project.EnabledRuntimes)
 	}
 
 	return cfg, nil
@@ -240,6 +277,9 @@ func (s *Service) recreateContainer(ctx context.Context, project *db.ProjectRow,
 		return nil, fmt.Errorf("resolving access items: %w", err)
 	}
 
+	// Merge runtime domains into the allowed list for restricted mode.
+	mergeRuntimeDomains(&req)
+
 	// Update OriginalMounts to include access item mounts (see CreateContainer).
 	if len(req.Mounts) > 0 {
 		if data, err := json.Marshal(req.Mounts); err == nil {
@@ -277,7 +317,7 @@ func (s *Service) recreateContainer(ctx context.Context, project *db.ProjectRow,
 
 	s.auditContainerUpdate(project, req, "recreated", req.Name)
 
-	return &ContainerResult{ContainerID: newID, Name: req.Name, ProjectID: row.ProjectID}, nil
+	return &ContainerResult{ContainerID: newID, Name: req.Name, ProjectID: row.ProjectID, Recreated: true}, nil
 }
 
 // needsRecreation reports whether the requested configuration differs from
@@ -319,6 +359,10 @@ func needsRecreation(project *db.ProjectRow, req api.CreateContainerRequest) boo
 	// via docker exec (ReloadAllowedDomains) in the light update path.
 
 	if !stringSlicesEqual(req.EnabledAccessItems, splitCSV(project.EnabledAccessItems)) {
+		return true
+	}
+
+	if !stringSlicesEqual(req.EnabledRuntimes, splitCSV(project.EnabledRuntimes)) {
 		return true
 	}
 
@@ -423,6 +467,9 @@ func (s *Service) auditContainerUpdate(old *db.ProjectRow, req api.CreateContain
 	if req.Image != "" && req.Image != old.Image {
 		changes = append(changes, containerChange{"image", old.Image, req.Image})
 	}
+	if !stringSlicesEqual(req.EnabledRuntimes, splitCSV(old.EnabledRuntimes)) {
+		changes = append(changes, containerChange{"enabledRuntimes", splitCSV(old.EnabledRuntimes), req.EnabledRuntimes})
+	}
 	reqNetwork := string(req.NetworkMode)
 	if reqNetwork != "" && reqNetwork != old.NetworkMode {
 		changes = append(changes, containerChange{"networkMode", old.NetworkMode, reqNetwork})
@@ -510,6 +557,29 @@ func projectRowFromRequest(req api.CreateContainerRequest) (db.ProjectRow, error
 	if len(req.EnabledAccessItems) > 0 {
 		row.EnabledAccessItems = strings.Join(req.EnabledAccessItems, ",")
 	}
+	if len(req.EnabledRuntimes) > 0 {
+		row.EnabledRuntimes = strings.Join(req.EnabledRuntimes, ",")
+	}
 
 	return row, nil
+}
+
+// mergeRuntimeDomains adds runtime-contributed network domains to the
+// request's allowed domain list when network mode is restricted. The DB
+// stores user-entered domains only (via projectRowFromRequest which runs
+// before this); merged domains are only passed to the Docker engine.
+func mergeRuntimeDomains(req *api.CreateContainerRequest) {
+	if req.NetworkMode != api.NetworkModeRestricted || len(req.EnabledRuntimes) == 0 {
+		return
+	}
+	runtimeDomains := runtimes.DomainsForRuntimes(req.EnabledRuntimes)
+	existing := make(map[string]bool, len(req.AllowedDomains))
+	for _, d := range req.AllowedDomains {
+		existing[d] = true
+	}
+	for _, d := range runtimeDomains {
+		if !existing[d] {
+			req.AllowedDomains = append(req.AllowedDomains, d)
+		}
+	}
 }

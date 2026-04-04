@@ -151,6 +151,8 @@ type ProjectRow struct {
 	CostBudget float64
 	// EnabledAccessItems is a comma-separated list of enabled access item IDs (e.g. "git,ssh").
 	EnabledAccessItems string
+	// EnabledRuntimes is a comma-separated list of enabled runtime IDs (e.g. "node,python,go").
+	EnabledRuntimes string
 	// AgentType identifies the CLI agent running in this project (e.g. "claude-code", "codex").
 	AgentType string
 	// ContainerID is the Docker-assigned container ID (empty when no container exists).

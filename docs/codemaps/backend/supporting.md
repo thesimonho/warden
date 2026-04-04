@@ -68,6 +68,14 @@ Multi-agent abstraction for status extraction, session parsing, and event transl
 | `codex/pricing_test.go`         | Tests for Codex pricing: model lookup, token cost calculation                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | `types.go` — Agent display      | Constants updated: "Claude exited" → "Agent exited" in worktree state comments                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 
+## runtimes/
+
+Language runtime registry — defines available runtimes (Node, Python, Go, Rust, Ruby, Lua), auto-detection via marker files, network domain mappings, and cache environment variables.
+
+| File          | Purpose                                                                                                                                                                                |
+| ------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `runtimes.go` | `Runtime` type (ID, Name, MarkerFiles, Domains, CacheEnvVars), `All()` (returns all known runtimes), `Detect(projectPath)` (scans for marker files), `ByID(id)` (lookup by identifier) |
+
 ## runtime/
 
 Container runtime detection (Docker).

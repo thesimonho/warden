@@ -29,6 +29,20 @@ for _, proj := range projects {
 
 Each project includes an `AgentType` field (`"claude-code"` or `"codex"`) that identifies which CLI agent it runs.
 
+## Example: Create a container
+
+```go
+resp, err := c.CreateContainer(ctx, api.CreateContainerRequest{
+    ProjectPath:     "/home/user/projects/my-app",
+    ProjectName:     "my-app",
+    AgentType:       "claude-code",
+    NetworkMode:     api.NetworkModeFull,
+    EnabledRuntimes: []string{"node", "python", "go"},
+})
+```
+
+The `EnabledRuntimes` field specifies which language runtimes to install in the container. Available runtimes are auto-detected from the project and provide network domains and environment variables.
+
 ## Example: Create a worktree
 
 ```go
@@ -83,10 +97,10 @@ See the [HTTP API error codes](../http-api/#error-codes) for the full list.
 
 ## When to use the client vs. the library
 
-| Approach                          | Setup                           | Use when                              |
-| --------------------------------- | ------------------------------- | ------------------------------------- |
-| `client.New()` (HTTP wrapper)     | Run `warden` binary separately  | Multi-process, remote server, or when the binary is already running |
-| `warden.New()` (Layer 1 import)   | No binary needed                | Single-process deployment, embedded applications, full control |
+| Approach                        | Setup                          | Use when                                                            |
+| ------------------------------- | ------------------------------ | ------------------------------------------------------------------- |
+| `client.New()` (HTTP wrapper)   | Run `warden` binary separately | Multi-process, remote server, or when the binary is already running |
+| `warden.New()` (Layer 1 import) | No binary needed               | Single-process deployment, embedded applications, full control      |
 
 If you don't want to run a separate server process, you can import the library directly — see the [Go Library](../go-library/) guide.
 

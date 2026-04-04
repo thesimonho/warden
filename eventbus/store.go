@@ -238,6 +238,8 @@ func (s *Store) HandleEvent(event ContainerEvent) {
 		// No state change — context compaction is logged for audit.
 	case EventSystemInfo:
 		// No state change — informational system messages are logged for audit.
+	case EventRuntimeInstalling, EventRuntimeInstalled:
+		broadcasts = s.handleRuntimeStatus(event)
 	case EventTerminalConnected:
 		broadcasts = s.handleTerminalConnected(key, event)
 	case EventTerminalDisconnected:
@@ -521,6 +523,30 @@ func (s *Store) handleCostUpdate(key worktreeKey, event ContainerEvent) ([]pendi
 	}
 
 	return broadcasts, parsed
+}
+
+// handleRuntimeStatus broadcasts runtime installation progress to SSE clients.
+func (s *Store) handleRuntimeStatus(event ContainerEvent) []pendingBroadcast {
+	var data RuntimeStatusData
+	if err := json.Unmarshal(event.Data, &data); err != nil {
+		slog.Warn("malformed runtime status event", "err", err, "container", event.ContainerName)
+		return nil
+	}
+
+	phase := "installing"
+	if event.Type == EventRuntimeInstalled {
+		phase = "installed"
+	}
+
+	return []pendingBroadcast{{
+		event: SSERuntimeStatus,
+		data: RuntimeStatusPayload{
+			ProjectRef:   event.Ref(),
+			Phase:        phase,
+			RuntimeID:    data.RuntimeID,
+			RuntimeLabel: data.RuntimeLabel,
+		},
+	}}
 }
 
 // handleTerminalConnected sets terminal state when a tmux session starts.
@@ -879,7 +905,7 @@ func (s *Store) aggregateContainerAttention(containerName string) (needsInput bo
 //     is already persisted via handleCostUpdate → PersistSessionCost, so the
 //     audit entry adds noise without value
 func (s *Store) writeToAuditLog(writer *db.AuditWriter, event ContainerEvent) {
-	if writer == nil || event.Type == EventHeartbeat || event.Type == EventAttentionClear || event.Type == EventCostUpdate {
+	if writer == nil || event.Type == EventHeartbeat || event.Type == EventAttentionClear || event.Type == EventCostUpdate || event.Type == EventRuntimeInstalling {
 		return
 	}
 

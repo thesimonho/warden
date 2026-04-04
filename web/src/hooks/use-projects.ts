@@ -2,10 +2,16 @@ import { startTransition, useCallback, useEffect, useRef, useState } from 'react
 import { toast } from 'sonner'
 import type { BudgetExceededEvent, Project, ProjectStateEvent } from '@/lib/types'
 import { fetchProjects } from '@/lib/api'
-import { useEventSource } from '@/hooks/use-event-source'
+import { useEventSource, type RuntimeStatusEvent } from '@/hooks/use-event-source'
 
 /** Default polling interval — reduced from 60s since SSE handles real-time updates. */
 const DEFAULT_POLL_INTERVAL_MS = 30_000
+
+/** Per-project runtime installation status from SSE events. */
+export interface RuntimeStatus {
+  message: string
+  phase: 'installing' | 'installed'
+}
 
 /** Return type for the useProjects hook. */
 interface UseProjectsResult {
@@ -15,6 +21,8 @@ interface UseProjectsResult {
   isRefreshing: boolean
   error: string | null
   refetch: () => void
+  /** Runtime install status keyed by "projectId/agentType". */
+  runtimeStatuses: Map<string, RuntimeStatus>
 }
 
 /**
@@ -45,6 +53,20 @@ export function useProjects(pollIntervalMs = DEFAULT_POLL_INTERVAL_MS): UseProje
           return hasChanged ? data : prev
         })
         setError(null)
+      })
+      // Clear runtime statuses for stopped containers — stale events from
+      // recreation (where the container is briefly started then stopped)
+      // should not persist on the card.
+      setRuntimeStatuses((prev) => {
+        if (prev.size === 0) return prev
+        const running = new Set(
+          data.filter((p) => p.state === 'running').map((p) => `${p.projectId}/${p.agentType}`),
+        )
+        const next = new Map<string, RuntimeStatus>()
+        for (const [key, status] of prev) {
+          if (running.has(key)) next.set(key, status)
+        }
+        return next.size === prev.size ? prev : next
       })
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to fetch projects'
@@ -102,7 +124,70 @@ export function useProjects(pollIntervalMs = DEFAULT_POLL_INTERVAL_MS): UseProje
     [refetch],
   )
 
-  useEventSource({ onProjectState: handleProjectState, onBudgetExceeded: handleBudgetExceeded })
+  const [runtimeStatuses, setRuntimeStatuses] = useState<Map<string, RuntimeStatus>>(new Map())
+  const runtimeTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map())
 
-  return { projects, isLoading, isRefreshing, error, refetch }
+  // Clean up all pending timers on unmount.
+  useEffect(() => {
+    const timers = runtimeTimersRef.current
+    return () => {
+      for (const id of timers.values()) clearTimeout(id)
+      timers.clear()
+    }
+  }, [])
+
+  /** Tracks runtime install progress per project on the card. */
+  const handleRuntimeStatus = useCallback((event: RuntimeStatusEvent) => {
+    const key = `${event.projectId}/${event.agentType ?? ''}`
+
+    // Cancel any pending timer for this key.
+    const existing = runtimeTimersRef.current.get(key)
+    if (existing) clearTimeout(existing)
+
+    if (event.phase === 'installing') {
+      setRuntimeStatuses((prev) => {
+        const next = new Map(prev)
+        next.set(key, { message: `Installing ${event.runtimeLabel}...`, phase: 'installing' })
+        return next
+      })
+      // Safety timeout: clear if no "installed" event arrives within 60s.
+      runtimeTimersRef.current.set(
+        key,
+        setTimeout(() => {
+          runtimeTimersRef.current.delete(key)
+          setRuntimeStatuses((prev) => {
+            const next = new Map(prev)
+            if (next.get(key)?.phase === 'installing') next.delete(key)
+            return next
+          })
+        }, 60_000),
+      )
+    } else {
+      setRuntimeStatuses((prev) => {
+        const next = new Map(prev)
+        next.set(key, { message: `${event.runtimeLabel} installed`, phase: 'installed' })
+        return next
+      })
+      // Clear the "installed" message after a brief delay.
+      runtimeTimersRef.current.set(
+        key,
+        setTimeout(() => {
+          runtimeTimersRef.current.delete(key)
+          setRuntimeStatuses((prev) => {
+            const next = new Map(prev)
+            if (next.get(key)?.phase === 'installed') next.delete(key)
+            return next
+          })
+        }, 3000),
+      )
+    }
+  }, [])
+
+  useEventSource({
+    onProjectState: handleProjectState,
+    onBudgetExceeded: handleBudgetExceeded,
+    onRuntimeStatus: handleRuntimeStatus,
+  })
+
+  return { projects, isLoading, isRefreshing, error, refetch, runtimeStatuses }
 }

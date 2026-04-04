@@ -72,6 +72,14 @@ if [ -n "${WARDEN_NETWORK_MODE:-}" ] && [ "$WARDEN_NETWORK_MODE" != "full" ]; th
 fi
 
 # -------------------------------------------------------------------
+# Runtime installation — install user-selected language runtimes.
+# Runs as root since apt-get and system-level installs require it.
+# -------------------------------------------------------------------
+if [ -n "${WARDEN_ENABLED_RUNTIMES:-}" ] && [ -x /usr/local/bin/install-runtimes.sh ]; then
+  /usr/local/bin/install-runtimes.sh || echo "[warden] warning: runtime installation failed"
+fi
+
+# -------------------------------------------------------------------
 # Drop privileges permanently. gosu replaces this process (exec) so
 # PID 1 becomes user-entrypoint.sh running as warden. No root process
 # remains in the container after this point.

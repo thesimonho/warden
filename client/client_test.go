@@ -155,7 +155,7 @@ func TestGetDefaults(t *testing.T) {
 	}
 	c := newTestServer(t, "GET", "/api/v1/defaults", http.StatusOK, defaults)
 
-	result, err := c.GetDefaults(context.Background())
+	result, err := c.GetDefaults(context.Background(), "")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

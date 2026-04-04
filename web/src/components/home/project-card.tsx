@@ -11,8 +11,10 @@ import {
   ShieldOff,
   RotateCcw,
   Play,
+  Trash2,
 } from 'lucide-react'
 import type { AgentType, Project } from '@/lib/types'
+import type { RuntimeStatus } from '@/hooks/use-projects'
 import { formatCost } from '@/lib/cost'
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -38,6 +40,8 @@ interface ProjectCardProps {
   isRestartPending?: boolean
   /** Whether the "prevent restart" budget enforcement action is enabled. */
   budgetActionPreventStart?: boolean
+  /** Runtime installation status for this project. */
+  runtimeStatus?: RuntimeStatus
 }
 
 /**
@@ -64,6 +68,7 @@ export default function ProjectCard({
   isStopPending = false,
   isRestartPending = false,
   budgetActionPreventStart = false,
+  runtimeStatus,
 }: ProjectCardProps) {
   const navigate = useNavigate()
   const isRunning = project.state === 'running'
@@ -131,7 +136,12 @@ export default function ProjectCard({
           {project.name || project.projectId}
         </CardTitle>
         <div className="flex items-center gap-2">
-          {isRunning ? (
+          {runtimeStatus ? (
+            <span className="text-muted-foreground flex items-center gap-1.5 text-sm">
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              {runtimeStatus.message}
+            </span>
+          ) : isRunning ? (
             <div className="flex gap-0">
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -186,7 +196,7 @@ export default function ProjectCard({
             </Tooltip>
           )}
 
-          <StatusBadge data-testid="status-badge" state={project.state} />
+          {!runtimeStatus && <StatusBadge data-testid="status-badge" state={project.state} />}
         </div>
       </CardHeader>
 
@@ -279,15 +289,15 @@ export default function ProjectCard({
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
-                data-testid="manage-button"
+                data-testid="delete-button"
                 size="sm"
                 variant="ghost"
                 color="error"
                 onClick={() => onRemove(project)}
-                icon={FolderCog}
+                icon={Trash2}
               />
             </TooltipTrigger>
-            <TooltipContent>Manage</TooltipContent>
+            <TooltipContent>Delete</TooltipContent>
           </Tooltip>
         </div>
       </CardFooter>

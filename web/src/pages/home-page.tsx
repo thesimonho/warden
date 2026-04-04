@@ -23,7 +23,7 @@ import { Button } from '@/components/ui/button'
 import CostDashboard from '@/components/home/cost-dashboard'
 import ProjectGrid from '@/components/home/project-grid'
 import AddProjectDialog, { type CreateForProject } from '@/components/home/add-project-dialog'
-import ManageProjectDialog from '@/components/home/manage-project-dialog'
+import DeleteProjectDialog from '@/components/home/delete-project-dialog'
 import StaleMountsDialog from '@/components/home/stale-mounts-dialog'
 import type { LayoutContext } from '@/components/layout'
 
@@ -31,7 +31,7 @@ import type { LayoutContext } from '@/components/layout'
 export default function HomePage() {
   const navigate = useNavigate()
   const { settings, budgetActionPreventStart } = useOutletContext<LayoutContext>()
-  const { projects, isLoading, isRefreshing, error, refetch } = useProjects()
+  const { projects, isLoading, isRefreshing, error, refetch, runtimeStatuses } = useProjects()
   useNotifications(projects, settings.notificationsEnabled)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [pendingStopIds, setPendingStopIds] = useState<Set<string>>(new Set())
@@ -209,7 +209,7 @@ export default function HomePage() {
       if (!serverSettings?.workingDirectory) return
       try {
         const [defaults, accessItems] = await Promise.all([
-          fetchDefaults(),
+          fetchDefaults(serverSettings.workingDirectory),
           fetchAccessItems(),
         ])
         const mounts = defaults.mounts
@@ -218,6 +218,9 @@ export default function HomePage() {
         const enabledAccessItems = accessItems
           .filter((item) => item.detection.available)
           .map((item) => item.id)
+        const enabledRuntimes = (defaults.runtimes ?? [])
+          .filter((r) => r.alwaysEnabled || r.detected)
+          .map((r) => r.id)
 
         const result = await addProject('warden', serverSettings.workingDirectory, agentType)
         await createContainer(result.projectId, agentType, {
@@ -229,6 +232,7 @@ export default function HomePage() {
           networkMode: 'restricted',
           allowedDomains: [...getRestrictedDomains(defaults.restrictedDomains, agentType)],
           enabledAccessItems,
+          enabledRuntimes,
           mounts,
         })
         toast.success(`${agentType} project created`)
@@ -320,6 +324,7 @@ export default function HomePage() {
         pendingStopIds={pendingStopIds}
         pendingRestartIds={pendingRestartIds}
         budgetActionPreventStart={budgetActionPreventStart}
+        runtimeStatuses={runtimeStatuses}
       />
 
       {selectedIds.size > 0 && (
@@ -386,7 +391,7 @@ export default function HomePage() {
         createForProject={createForProject}
       />
 
-      <ManageProjectDialog
+      <DeleteProjectDialog
         open={projectToManage !== null}
         onOpenChange={(open) => {
           if (!open) setProjectToManage(null)

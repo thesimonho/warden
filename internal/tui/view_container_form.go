@@ -31,7 +31,8 @@ const (
 	fieldSkipPerms
 	fieldBudget
 	fieldNetwork
-	fieldDomains // only visible when network == "restricted"
+	fieldDomains  // only visible when network == "restricted"
+	fieldRuntimes // runtime toggles (Node, Python, Go, etc.)
 	fieldAdvanced
 	// --- Advanced fields (visible when advancedOpen) ---
 	fieldImage
@@ -86,6 +87,11 @@ type ContainerFormView struct {
 	// Advanced section.
 	advancedOpen bool
 
+	// Runtimes (Node, Python, Go, etc.).
+	runtimeDefaults []api.RuntimeDefault
+	runtimeToggles  map[string]bool
+	runtimeCursor   int // sub-cursor within runtimes (-1 = header)
+
 	// Access items (Git, SSH, user-defined toggles).
 	accessItems   []api.AccessItemResponse
 	accessToggles map[string]bool
@@ -131,10 +137,11 @@ type containerConfigLoadedMsg struct {
 // NewContainerFormView creates a container creation form.
 func NewContainerFormView(client Client) *ContainerFormView {
 	v := &ContainerFormView{
-		client:        client,
-		loading:       true,
-		keys:          DefaultFormKeyMap(),
-		accessToggles: make(map[string]bool),
+		client:         client,
+		loading:        true,
+		keys:           DefaultFormKeyMap(),
+		accessToggles:  make(map[string]bool),
+		runtimeToggles: make(map[string]bool),
 	}
 	v.initFields("", "", "ghcr.io/thesimonho/warden:latest", "full", "", false)
 	return v
@@ -143,12 +150,13 @@ func NewContainerFormView(client Client) *ContainerFormView {
 // NewContainerEditView creates a container editing form.
 func NewContainerEditView(client Client, editID, editAgentType string) *ContainerFormView {
 	v := &ContainerFormView{
-		client:        client,
-		editID:        editID,
-		editAgentType: editAgentType,
-		loading:       true,
-		keys:          DefaultFormKeyMap(),
-		accessToggles: make(map[string]bool),
+		client:         client,
+		editID:         editID,
+		editAgentType:  editAgentType,
+		loading:        true,
+		keys:           DefaultFormKeyMap(),
+		accessToggles:  make(map[string]bool),
+		runtimeToggles: make(map[string]bool),
 	}
 	v.initFields("", "", "", "", "", false)
 	return v
@@ -208,7 +216,7 @@ func (v *ContainerFormView) Init() tea.Cmd {
 	v.loading = true
 	cmds := []tea.Cmd{
 		func() tea.Msg {
-			defaults, err := v.client.GetDefaults(context.Background())
+			defaults, err := v.client.GetDefaults(context.Background(), v.inputs[fieldPath].Value())
 			return DefaultsLoadedMsg{Defaults: defaults, Err: err}
 		},
 		func() tea.Msg {
@@ -271,6 +279,14 @@ func (v *ContainerFormView) Update(msg tea.Msg) (View, tea.Cmd) {
 		}
 		if v.defaults.RestrictedDomains != nil {
 			v.restrictedDomains = v.defaults.RestrictedDomains
+		}
+		if len(v.defaults.Runtimes) > 0 {
+			v.runtimeDefaults = v.defaults.Runtimes
+			if v.editID == "" {
+				for _, r := range v.runtimeDefaults {
+					v.runtimeToggles[r.ID] = r.AlwaysEnabled || r.Detected
+				}
+			}
 		}
 		if v.editID == "" {
 			// Set initial allowed domains from server defaults for the selected agent type.
@@ -344,7 +360,17 @@ func (v *ContainerFormView) Update(msg tea.Msg) (View, tea.Cmd) {
 		for _, id := range msg.Config.EnabledAccessItems {
 			v.accessToggles[id] = true
 		}
-		// Access items are resolved server-side; no client-side stripping needed.
+
+		// Set toggle state from stored runtimes.
+		if len(msg.Config.EnabledRuntimes) > 0 {
+			enabled := make(map[string]bool, len(msg.Config.EnabledRuntimes))
+			for _, id := range msg.Config.EnabledRuntimes {
+				enabled[id] = true
+			}
+			for _, r := range v.runtimeDefaults {
+				v.runtimeToggles[r.ID] = r.AlwaysEnabled || enabled[r.ID]
+			}
+		}
 
 		v.loading = false
 		return v, nil
@@ -529,6 +555,10 @@ func (v *ContainerFormView) cycleSelection() (View, tea.Cmd) {
 		v.network = (v.network + 1) % len(networkModes)
 	case fieldSkipPerms:
 		v.skipPerm = !v.skipPerm
+	case fieldRuntimes:
+		if v.runtimeCursor >= 0 && v.runtimeCursor < len(v.runtimeDefaults) {
+			v.toggleRuntime(v.runtimeDefaults[v.runtimeCursor].ID)
+		}
 	case fieldAccessItems:
 		if v.accessCursor >= 0 && v.accessCursor < len(v.accessItems) {
 			v.toggleAccessItem(v.accessItems[v.accessCursor].ID)
@@ -551,6 +581,21 @@ func (v *ContainerFormView) isFieldVisible(field int) bool {
 // moveCursor moves the cursor by delta, skipping hidden fields.
 // For access/mount/env sections, navigates sub-items.
 func (v *ContainerFormView) moveCursor(delta int) {
+	if v.cursor == fieldRuntimes {
+		next := v.runtimeCursor + delta
+		if next < 0 {
+			v.runtimeCursor = 0
+			v.moveCursorField(delta)
+			return
+		}
+		if next >= len(v.runtimeDefaults) {
+			v.moveCursorField(delta)
+			return
+		}
+		v.runtimeCursor = next
+		return
+	}
+
 	if v.cursor == fieldAccessItems {
 		next := v.accessCursor + delta
 		if next < 0 {
@@ -605,6 +650,13 @@ func (v *ContainerFormView) moveCursorField(delta int) {
 	for next >= 0 && next < fieldCount {
 		if v.isFieldVisible(next) {
 			v.cursor = next
+			if next == fieldRuntimes {
+				if delta > 0 {
+					v.runtimeCursor = 0
+				} else {
+					v.runtimeCursor = max(len(v.runtimeDefaults)-1, 0)
+				}
+			}
 			if next == fieldAccessItems {
 				if delta > 0 {
 					v.accessCursor = 0
@@ -664,6 +716,10 @@ func (v *ContainerFormView) activateField() (View, tea.Cmd) {
 		v.skipPerm = !v.skipPerm
 	case fieldAdvanced:
 		v.advancedOpen = !v.advancedOpen
+	case fieldRuntimes:
+		if v.runtimeCursor >= 0 && v.runtimeCursor < len(v.runtimeDefaults) {
+			v.toggleRuntime(v.runtimeDefaults[v.runtimeCursor].ID)
+		}
 	case fieldAccessItems:
 		if v.accessCursor >= 0 && v.accessCursor < len(v.accessItems) {
 			v.toggleAccessItem(v.accessItems[v.accessCursor].ID)
@@ -883,6 +939,13 @@ func (v *ContainerFormView) submit() tea.Cmd {
 		}
 	}
 
+	// Collect enabled runtime IDs.
+	for _, r := range v.runtimeDefaults {
+		if v.runtimeToggles[r.ID] {
+			req.EnabledRuntimes = append(req.EnabledRuntimes, r.ID)
+		}
+	}
+
 	if v.editID != "" {
 		return func() tea.Msg {
 			_, err := v.client.UpdateContainer(context.Background(), v.editID, v.editAgentType, req)
@@ -892,6 +955,16 @@ func (v *ContainerFormView) submit() tea.Cmd {
 	return func() tea.Msg {
 		_, err := v.client.CreateContainer(context.Background(), "", string(req.AgentType), req)
 		return OperationResultMsg{Operation: "create", Err: err}
+	}
+}
+
+// toggleRuntime flips the toggle for a runtime if it is not always-enabled.
+func (v *ContainerFormView) toggleRuntime(id string) {
+	for _, r := range v.runtimeDefaults {
+		if r.ID == id && !r.AlwaysEnabled {
+			v.runtimeToggles[id] = !v.runtimeToggles[id]
+			return
+		}
 	}
 }
 

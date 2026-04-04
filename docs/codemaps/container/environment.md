@@ -36,6 +36,7 @@ This ensures all vars passed via `docker run -e` are available in terminal sessi
 - `WARDEN_AGENT_TYPE` — agent type (`claude-code` or `codex`). Controls which CLI launches in `create-terminal.sh` and which parser/provider the engine uses.
 - `WARDEN_NETWORK_MODE` — network isolation mode (`full`/`restricted`/`none`)
 - `WARDEN_ALLOWED_DOMAINS` — comma-separated domain list for `restricted` mode (optional)
+- `WARDEN_ENABLED_RUNTIMES` — comma-separated list of enabled runtime IDs (e.g. `node,python,go`). Consumed by `install-runtimes.sh` during container startup to install language toolchains.
 
 ## Storage
 

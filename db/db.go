@@ -25,6 +25,7 @@ CREATE TABLE IF NOT EXISTS projects (
     allowed_domains   TEXT NOT NULL DEFAULT '',
     cost_budget       REAL NOT NULL DEFAULT 0,
     enabled_access_items TEXT NOT NULL DEFAULT '',
+    enabled_runtimes  TEXT NOT NULL DEFAULT 'node',
     agent_type        TEXT NOT NULL,
     container_id      TEXT NOT NULL DEFAULT '',
     container_name    TEXT NOT NULL DEFAULT '',
@@ -123,6 +124,10 @@ func openDB(path string) (*sql.DB, error) {
 		db.Close() //nolint:errcheck
 		return nil, fmt.Errorf("creating schema: %w", err)
 	}
+
+	// Additive column migrations — ALTER TABLE ADD COLUMN is idempotent
+	// when the column already exists (the error is harmlessly ignored).
+	db.Exec("ALTER TABLE projects ADD COLUMN enabled_runtimes TEXT NOT NULL DEFAULT 'node'") //nolint:errcheck
 
 	return db, nil
 }

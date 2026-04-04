@@ -30,14 +30,15 @@ Environment variables configure Warden's server binaries at startup. None are re
 
 These are set automatically by the engine when creating containers. They are not user-configurable — listed here for reference when writing container scripts or debugging.
 
-| Variable                 | Description                                                                         |
-| ------------------------ | ----------------------------------------------------------------------------------- |
-| `WARDEN_CONTAINER_NAME`  | Container name, used by hook scripts in event payloads.                             |
-| `WARDEN_PROJECT_ID`      | Deterministic 12-char hex project identifier (SHA-256 of host path).                |
-| `WARDEN_AGENT_TYPE`      | Agent type running in this container (`claude-code` or `codex`).                    |
-| `WARDEN_WORKSPACE_DIR`   | Workspace directory inside the container (e.g. `/home/warden/my-project`).          |
-| `WARDEN_EVENT_DIR`       | Bind-mounted directory where hook scripts write event files (`/var/warden/events`). |
-| `WARDEN_HOST_UID`        | Host user ID — the entrypoint remaps the container user to match file ownership.    |
-| `WARDEN_HOST_GID`        | Host group ID — paired with `WARDEN_HOST_UID`.                                      |
-| `WARDEN_NETWORK_MODE`    | Network isolation mode (`full`, `restricted`, or `none`).                           |
-| `WARDEN_ALLOWED_DOMAINS` | Comma-separated domain allowlist for `restricted` network mode.                     |
+| Variable                  | Description                                                                         |
+| ------------------------- | ----------------------------------------------------------------------------------- |
+| `WARDEN_CONTAINER_NAME`   | Container name, used by hook scripts in event payloads.                             |
+| `WARDEN_PROJECT_ID`       | Deterministic 12-char hex project identifier (SHA-256 of host path).                |
+| `WARDEN_AGENT_TYPE`       | Agent type running in this container (`claude-code` or `codex`).                    |
+| `WARDEN_WORKSPACE_DIR`    | Workspace directory inside the container (e.g. `/home/warden/my-project`).          |
+| `WARDEN_EVENT_DIR`        | Bind-mounted directory where hook scripts write event files (`/var/warden/events`). |
+| `WARDEN_HOST_UID`         | Host user ID — the entrypoint remaps the container user to match file ownership.    |
+| `WARDEN_HOST_GID`         | Host group ID — paired with `WARDEN_HOST_UID`.                                      |
+| `WARDEN_NETWORK_MODE`     | Network isolation mode (`full`, `restricted`, or `none`).                           |
+| `WARDEN_ALLOWED_DOMAINS`  | Comma-separated domain allowlist for `restricted` network mode.                     |
+| `WARDEN_ENABLED_RUNTIMES` | Comma-separated runtime IDs to install at startup (e.g. `node,python,go`).          |

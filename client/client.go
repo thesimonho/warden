@@ -307,9 +307,14 @@ func (c *Client) UpdateSettings(ctx context.Context, req api.UpdateSettingsReque
 // --- Host Utilities ---
 
 // GetDefaults returns server-resolved defaults for the create container form.
-func (c *Client) GetDefaults(ctx context.Context) (*api.DefaultsResponse, error) {
+// When projectPath is non-empty, runtime detection scans that directory.
+func (c *Client) GetDefaults(ctx context.Context, projectPath string) (*api.DefaultsResponse, error) {
+	path := "/api/v1/defaults"
+	if projectPath != "" {
+		path += "?path=" + url.QueryEscape(projectPath)
+	}
 	var resp api.DefaultsResponse
-	if err := c.get(ctx, "/api/v1/defaults", &resp); err != nil {
+	if err := c.get(ctx, path, &resp); err != nil {
 		return nil, err
 	}
 	return &resp, nil

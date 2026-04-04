@@ -199,6 +199,34 @@ func (v *ContainerFormView) buildFieldLines() ([]string, int) {
 		appendField(fieldDomains, "Allowed Domains", v.fieldView(fieldDomains), "One per line")
 	}
 
+	// Runtime toggles.
+	if len(v.runtimeDefaults) > 0 {
+		isActive := v.cursor == fieldRuntimes
+		markCursor(fieldRuntimes)
+		lines = append(lines, cursorPrefix(isActive && v.runtimeCursor < 0)+formLabel.Render("Runtimes"))
+		lines = append(lines, formDescription.Render("Language runtimes to install in the container"))
+		for i, r := range v.runtimeDefaults {
+			isSelected := isActive && v.runtimeCursor == i
+			if isSelected {
+				cursorLine = len(lines)
+			}
+			prefix := subItemPrefix(isSelected)
+			toggle := boolSelector(v.runtimeToggles[r.ID])
+			if r.AlwaysEnabled {
+				toggle = Styles.Muted.Render("(required)")
+			}
+			suffix := ""
+			if !r.AlwaysEnabled && r.Detected {
+				suffix = " " + Styles.Muted.Render("(detected)")
+			}
+			lines = append(lines, prefix+r.Label+" "+toggle+suffix)
+			if r.Description != "" {
+				lines = append(lines, formDescription.Render("  "+r.Description))
+			}
+		}
+		lines = append(lines, "")
+	}
+
 	// Advanced toggle.
 	markCursor(fieldAdvanced)
 	arrow := "▶"
