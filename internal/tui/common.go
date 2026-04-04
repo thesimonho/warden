@@ -3,7 +3,6 @@ package tui
 import (
 	"github.com/thesimonho/warden/access"
 	"github.com/thesimonho/warden/api"
-	"github.com/thesimonho/warden/db"
 	"github.com/thesimonho/warden/engine"
 	"github.com/thesimonho/warden/eventbus"
 )
@@ -54,7 +53,7 @@ type SettingsLoadedMsg struct {
 
 // AuditLogLoadedMsg carries the result of a GetAuditLog call.
 type AuditLogLoadedMsg struct {
-	Entries []db.Entry
+	Entries []api.AuditEntry
 	Summary *api.AuditSummary
 	Err     error
 }

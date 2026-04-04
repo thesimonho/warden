@@ -58,7 +58,6 @@ import (
 
 	"github.com/thesimonho/warden/access"
 	"github.com/thesimonho/warden/api"
-	"github.com/thesimonho/warden/db"
 	"github.com/thesimonho/warden/engine"
 	"github.com/thesimonho/warden/eventbus"
 	"github.com/thesimonho/warden/runtime"
@@ -380,14 +379,14 @@ func auditParams(filters api.AuditFilters) url.Values {
 }
 
 // GetAuditLog returns filtered audit events.
-func (c *Client) GetAuditLog(ctx context.Context, filters api.AuditFilters) ([]db.Entry, error) {
+func (c *Client) GetAuditLog(ctx context.Context, filters api.AuditFilters) ([]api.AuditEntry, error) {
 	params := auditParams(filters)
 	path := "/api/v1/audit"
 	if encoded := params.Encode(); encoded != "" {
 		path += "?" + encoded
 	}
 
-	var entries []db.Entry
+	var entries []api.AuditEntry
 	if err := c.get(ctx, path, &entries); err != nil {
 		return nil, err
 	}

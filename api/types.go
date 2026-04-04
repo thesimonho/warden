@@ -4,7 +4,12 @@
 // package for types without depending on the service implementation.
 package api
 
-import "github.com/thesimonho/warden/constants"
+import (
+	"encoding/json"
+	"time"
+
+	"github.com/thesimonho/warden/constants"
+)
 
 // ProjectResult is the outcome of a project mutation (create, remove, stop,
 // restart). ProjectID is always populated. ContainerID is populated when the
@@ -204,6 +209,76 @@ type DiffResponse struct {
 }
 
 // --- Audit Log ---
+
+// AuditSource identifies where a log entry originated.
+type AuditSource string
+
+const (
+	// AuditSourceAgent is for agent hook events (attention, session lifecycle, etc.).
+	AuditSourceAgent AuditSource = "agent"
+	// AuditSourceBackend is for Go application events (slog-captured).
+	AuditSourceBackend AuditSource = "backend"
+	// AuditSourceFrontend is for browser-side events posted via the API.
+	AuditSourceFrontend AuditSource = "frontend"
+	// AuditSourceContainer is for container lifecycle events (create, stop, restart, etc.).
+	AuditSourceContainer AuditSource = "container"
+)
+
+// AuditLevel indicates the severity of a log entry.
+type AuditLevel string
+
+const (
+	// AuditLevelInfo is the default severity for informational events.
+	AuditLevelInfo AuditLevel = "info"
+	// AuditLevelWarn indicates a warning condition.
+	AuditLevelWarn AuditLevel = "warn"
+	// AuditLevelError indicates an error condition.
+	AuditLevelError AuditLevel = "error"
+)
+
+// AuditEntry is a single event log record.
+//
+// Source, Level, and Event are required.
+type AuditEntry struct {
+	// Timestamp is when the event occurred (ISO 8601 with milliseconds).
+	Timestamp time.Time `json:"ts"`
+	// Source identifies the origin layer (agent, backend, frontend, container).
+	Source AuditSource `json:"source"`
+	// Level is the severity of the entry (info, warn, error).
+	Level AuditLevel `json:"level"`
+	// Event is a snake_case identifier for the event type (e.g. "session_start").
+	Event string `json:"event"`
+	// ProjectID is the deterministic project identifier (sha256 of host path, 12 hex chars).
+	ProjectID string `json:"projectId,omitempty"`
+	// AgentType identifies the agent that produced this event (e.g. "claude-code", "codex").
+	AgentType string `json:"agentType,omitempty"`
+	// ContainerName is a snapshot of the container name at the time of the event.
+	ContainerName string `json:"containerName,omitempty"`
+	// Worktree is the worktree ID (only for agent events).
+	Worktree string `json:"worktree,omitempty"`
+	// Message is a human-readable description.
+	Message string `json:"msg,omitempty"`
+	// Data carries the raw event payload (for agent events, preserves hook JSON).
+	Data json.RawMessage `json:"data,omitempty"`
+	// Attrs carries structured key-value metadata.
+	Attrs map[string]any `json:"attrs,omitempty"`
+	// Category is the audit category (session, agent, prompt, config, system).
+	// Computed at query time from the event name — not stored in the DB.
+	Category string `json:"category,omitempty"`
+	// SourceID is a content hash for deduplication of JSONL-sourced events.
+	// When set, the DB uses INSERT OR IGNORE to silently drop duplicates.
+	// Empty for hook and backend events (no dedup needed).
+	SourceID string `json:"-"`
+}
+
+// DisplayProject returns the best available project label for human display.
+// Prefers the container name snapshot (human-readable), falls back to ProjectID (hex hash).
+func (e AuditEntry) DisplayProject() string {
+	if e.ContainerName != "" {
+		return e.ContainerName
+	}
+	return e.ProjectID
+}
 
 // AuditCategory groups audit events by purpose.
 type AuditCategory string
