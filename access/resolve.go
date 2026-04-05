@@ -10,6 +10,9 @@ import (
 	"sync"
 )
 
+// defaultEnvResolver is used when nil is passed to Resolve or Detect.
+var defaultEnvResolver EnvResolver = ProcessEnvResolver{}
+
 // cachedHomeDir caches the result of os.UserHomeDir to avoid repeated syscalls.
 var (
 	cachedHomeDir     string
@@ -28,14 +31,21 @@ func homeDir() string {
 // sources are not detected on the host are skipped (partial resolution
 // is normal). An error is returned only for hard failures like an
 // invalid transform configuration.
-func Resolve(item Item) (*ResolvedItem, error) {
+//
+// If env is nil, a default [ProcessEnvResolver] is used (backward
+// compatible with direct os.LookupEnv behavior).
+func Resolve(item Item, env EnvResolver) (*ResolvedItem, error) {
+	if env == nil {
+		env = defaultEnvResolver
+	}
+
 	result := &ResolvedItem{
 		ID:    item.ID,
 		Label: item.Label,
 	}
 
 	for _, cred := range item.Credentials {
-		resolved, err := resolveCredential(cred)
+		resolved, err := resolveCredential(cred, env)
 		if err != nil {
 			return nil, fmt.Errorf("credential %q: %w", cred.Label, err)
 		}
@@ -48,7 +58,13 @@ func Resolve(item Item) (*ResolvedItem, error) {
 // Detect checks whether each credential's sources are available on
 // the host without reading their values. This is a lightweight
 // availability check for the UI.
-func Detect(item Item) DetectionResult {
+//
+// If env is nil, a default [ProcessEnvResolver] is used.
+func Detect(item Item, env EnvResolver) DetectionResult {
+	if env == nil {
+		env = defaultEnvResolver
+	}
+
 	result := DetectionResult{
 		ID:    item.ID,
 		Label: item.Label,
@@ -57,7 +73,7 @@ func Detect(item Item) DetectionResult {
 	for _, cred := range item.Credentials {
 		status := CredentialStatus{Label: cred.Label}
 		for _, src := range cred.Sources {
-			if desc, ok := detectSource(src); ok {
+			if desc, ok := detectSource(src, env); ok {
 				status.Available = true
 				status.SourceMatched = desc
 				break
@@ -75,11 +91,11 @@ func Detect(item Item) DetectionResult {
 // resolveCredential tries each source in order and returns the first
 // that resolves. If no source is detected, it returns a non-resolved
 // result (not an error).
-func resolveCredential(cred Credential) (*ResolvedCredential, error) {
+func resolveCredential(cred Credential, env EnvResolver) (*ResolvedCredential, error) {
 	result := &ResolvedCredential{Label: cred.Label}
 
 	for _, src := range cred.Sources {
-		desc, value, ok := trySource(src)
+		desc, value, ok := trySource(src, env)
 		if !ok {
 			continue
 		}
@@ -109,10 +125,10 @@ func resolveCredential(cred Credential) (*ResolvedCredential, error) {
 // trySource detects and reads a source in a single pass, avoiding the
 // TOCTOU race and double execution that separate detect+read would cause
 // (especially for command sources which fork a child process).
-func trySource(src Source) (desc string, value string, ok bool) {
+func trySource(src Source, env EnvResolver) (desc string, value string, ok bool) {
 	switch src.Type {
 	case SourceEnvVar:
-		v, exists := os.LookupEnv(src.Value)
+		v, exists := env.LookupEnv(src.Value)
 		if !exists {
 			return "", "", false
 		}
@@ -128,7 +144,7 @@ func trySource(src Source) (desc string, value string, ok bool) {
 		return fmt.Sprintf("file %s", src.Value), path, true
 
 	case SourceSocketPath:
-		path := os.ExpandEnv(src.Value)
+		path := env.ExpandEnv(src.Value)
 		fi, err := os.Stat(path)
 		if err != nil || fi.Mode().Type() != os.ModeSocket {
 			return "", "", false
@@ -137,7 +153,9 @@ func trySource(src Source) (desc string, value string, ok bool) {
 
 	case SourceCommand:
 		name, args := parseCommand(src.Value)
-		out, err := exec.Command(name, args...).Output()
+		cmd := exec.Command(name, args...)
+		cmd.Env = env.Environ()
+		out, err := cmd.Output()
 		if err != nil {
 			return "", "", false
 		}
@@ -149,10 +167,10 @@ func trySource(src Source) (desc string, value string, ok bool) {
 
 // detectSource checks whether a source is available on the host without
 // reading its value. Used by [Detect] for lightweight availability checks.
-func detectSource(src Source) (string, bool) {
+func detectSource(src Source, env EnvResolver) (string, bool) {
 	switch src.Type {
 	case SourceEnvVar:
-		if _, ok := os.LookupEnv(src.Value); ok {
+		if _, ok := env.LookupEnv(src.Value); ok {
 			return fmt.Sprintf("env $%s", src.Value), true
 		}
 	case SourceFilePath:
@@ -161,13 +179,15 @@ func detectSource(src Source) (string, bool) {
 			return fmt.Sprintf("file %s", src.Value), true
 		}
 	case SourceSocketPath:
-		path := os.ExpandEnv(src.Value)
+		path := env.ExpandEnv(src.Value)
 		if fi, err := os.Stat(path); err == nil && fi.Mode().Type() == os.ModeSocket {
 			return fmt.Sprintf("socket %s", src.Value), true
 		}
 	case SourceCommand:
 		name, args := parseCommand(src.Value)
-		if err := exec.Command(name, args...).Run(); err == nil {
+		cmd := exec.Command(name, args...)
+		cmd.Env = env.Environ()
+		if err := cmd.Run(); err == nil {
 			return fmt.Sprintf("command %q", src.Value), true
 		}
 	}

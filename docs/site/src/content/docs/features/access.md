@@ -214,8 +214,11 @@ resolved, _ := c.ResolveAccessItems(ctx, api.ResolveAccessItemsRequest{
 
 The `access` package (`github.com/thesimonho/warden/access`) is public and importable with no dependencies on other Warden packages:
 
-- `access.Resolve(item)` — resolve an item's credentials and return injections
-- `access.Detect(item)` — check credential availability without reading values
+- `access.Resolve(item, env)` — resolve an item's credentials and return injections
+- `access.Detect(item, env)` — check credential availability without reading values
+- `access.NewShellEnvResolver()` — create a resolver that captures the user's shell environment
 - `access.BuiltInItems()` — get the default Git and SSH items
+
+The `env` parameter accepts an `access.EnvResolver` interface. Pass `nil` to use the default process environment, or use `access.NewShellEnvResolver()` to also capture env vars from the user's shell config (`.bashrc`, `.zshrc`, `.profile`). This is important when Warden is launched from a desktop entry rather than a terminal.
 
 See the [Go Packages](/warden/reference/go/) reference for full API documentation.

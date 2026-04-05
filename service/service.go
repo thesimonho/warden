@@ -12,6 +12,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/thesimonho/warden/access"
 	"github.com/thesimonho/warden/agent"
 	"github.com/thesimonho/warden/db"
 	"github.com/thesimonho/warden/engine"
@@ -38,6 +39,11 @@ type ServiceDeps struct {
 	EventHandler    func(eventbus.ContainerEvent)
 	HomeDir         string
 	DockerAvailable bool
+
+	// EnvResolver provides environment variable lookup for access item
+	// detection and resolution. When nil, a default ProcessEnvResolver
+	// is used (direct os.LookupEnv delegation).
+	EnvResolver access.EnvResolver
 }
 
 // Service provides business logic for all Warden operations. It is
@@ -61,6 +67,10 @@ type Service struct {
 	homeDir       string
 	workingDir    string
 
+	// envResolver provides combined process + shell environment lookup
+	// for access item detection and resolution.
+	envResolver access.EnvResolver
+
 	// dockerAvailable indicates whether Docker was reachable at startup.
 	// When false, container-mutating operations return ErrDockerUnavailable.
 	dockerAvailable bool
@@ -76,6 +86,12 @@ type Service struct {
 // session watcher operations degrade gracefully when absent.
 func New(deps ServiceDeps) *Service {
 	wd, _ := os.Getwd()
+
+	envResolver := deps.EnvResolver
+	if envResolver == nil {
+		envResolver = access.ProcessEnvResolver{}
+	}
+
 	return &Service{
 		docker:                  deps.Engine,
 		db:                      deps.DB,
@@ -86,6 +102,7 @@ func New(deps ServiceDeps) *Service {
 		eventHandler:            deps.EventHandler,
 		homeDir:                 deps.HomeDir,
 		workingDir:              wd,
+		envResolver:             envResolver,
 		dockerAvailable:         deps.DockerAvailable,
 		sessionWatchers:         make(map[db.ProjectAgentKey]*agent.SessionWatcher),
 		sessionWatcherCooldowns: make(map[db.ProjectAgentKey]time.Time),
