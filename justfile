@@ -179,7 +179,8 @@ generate-icons:
     mkdir -p packaging/macos/warden.iconset
     for pair in "16x16:icon_16x16" "32x32:icon_16x16@2x" "32x32:icon_32x32" \
                 "64x64:icon_32x32@2x" "128x128:icon_128x128" "256x256:icon_128x128@2x" \
-                "256x256:icon_256x256" "512x512:icon_256x256@2x" "512x512:icon_512x512"; do
+                "256x256:icon_256x256" "512x512:icon_256x256@2x" "512x512:icon_512x512" \
+                "1024x1024:icon_512x512@2x"; do
         size="${pair%%:*}"
         name="${pair#*:}"
         magick "${HI}" -resize "${size}" "packaging/macos/warden.iconset/${name}.png"
