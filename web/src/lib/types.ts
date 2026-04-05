@@ -478,6 +478,9 @@ export interface ResolvedItem {
 }
 
 /** Information about a detected container runtime. */
+/** Runtime name constant matching the backend's runtime.RuntimeDocker. */
+export const RUNTIME_DOCKER = 'docker' as const
+
 export interface RuntimeInfo {
   /** Runtime identifier. */
   name: string

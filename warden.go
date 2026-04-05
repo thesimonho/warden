@@ -60,6 +60,11 @@ type Warden struct {
 	// Watcher is the file-based event watcher (advanced use only).
 	Watcher *eventbus.Watcher
 
+	// DockerAvailable indicates whether the Docker daemon was reachable
+	// at startup. When false, container operations are disabled but the
+	// API server and database are still functional.
+	DockerAvailable bool
+
 	livenessCancel context.CancelFunc
 	closeOnce      sync.Once
 }
@@ -98,6 +103,20 @@ func New(opts Options) (*Warden, error) {
 	}
 	engineClient.SetSeccompProfile(seccomp.ProfileJSON())
 
+	// Check whether Docker is actually reachable. The Docker SDK client
+	// is lazy — creation succeeds even without a daemon. An explicit ping
+	// determines whether container operations will work.
+	dockerAvailable := true
+	pingCtx, pingCancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer pingCancel()
+	if err := engineClient.Ping(pingCtx); err != nil {
+		dockerAvailable = false
+		slog.Warn("Docker is not available — container operations are disabled",
+			"err", err,
+			"install", "https://docs.docker.com/get-docker/",
+		)
+	}
+
 	auditModeStr := database.GetSetting("auditLogMode", "")
 	auditMode := db.AuditMode(auditModeStr)
 	auditWriter := db.NewAuditWriter(database, auditMode, service.StandardAuditEvents())
@@ -133,14 +152,15 @@ func New(opts Options) (*Warden, error) {
 		slog.Warn("failed to get home dir for session watchers", "err", err)
 	}
 	svc := service.New(service.ServiceDeps{
-		Engine:       engineClient,
-		DB:           database,
-		Store:        store,
-		Audit:        auditWriter,
-		Registry:     agentRegistry,
-		EventWatcher: watcher,
-		EventHandler: store.HandleEvent,
-		HomeDir:      homeDir,
+		Engine:          engineClient,
+		DB:              database,
+		Store:           store,
+		Audit:           auditWriter,
+		Registry:        agentRegistry,
+		EventWatcher:    watcher,
+		EventHandler:    store.HandleEvent,
+		HomeDir:         homeDir,
+		DockerAvailable: dockerAvailable,
 	})
 
 	// Wire cost persistence and budget enforcement: on every cost update,
@@ -151,26 +171,29 @@ func New(opts Options) (*Warden, error) {
 	store.SetAliveCallback(svc.HandleContainerAlive)
 
 	w := &Warden{
-		Service:        svc,
-		Broker:         broker,
-		DB:             database,
-		Engine:         engineClient,
-		Watcher:        watcher,
-		livenessCancel: livenessCancel,
+		Service:         svc,
+		Broker:          broker,
+		DB:              database,
+		Engine:          engineClient,
+		Watcher:         watcher,
+		DockerAvailable: dockerAvailable,
+		livenessCancel:  livenessCancel,
 	}
 
-	// Start session watchers for already-running containers so JSONL
-	// event parsing resumes after a server restart.
-	svc.ResumeSessionWatchers(context.Background())
+	if dockerAvailable {
+		// Start session watchers for already-running containers so JSONL
+		// event parsing resumes after a server restart.
+		svc.ResumeSessionWatchers(context.Background())
 
-	// Pre-warm the CLI cache in the background so the first container
-	// create for each agent type is a cache hit (near-instant).
-	// Uses the liveness context so it cancels cleanly on shutdown.
-	go func() {
-		if err := engineClient.PreWarmCLICache(livenessCtx); err != nil {
-			slog.Warn("CLI cache pre-warm failed (first container create will download)", "err", err)
-		}
-	}()
+		// Pre-warm the CLI cache in the background so the first container
+		// create for each agent type is a cache hit (near-instant).
+		// Uses the liveness context so it cancels cleanly on shutdown.
+		go func() {
+			if err := engineClient.PreWarmCLICache(livenessCtx); err != nil {
+				slog.Warn("CLI cache pre-warm failed (first container create will download)", "err", err)
+			}
+		}()
+	}
 
 	return w, nil
 }

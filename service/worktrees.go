@@ -39,6 +39,9 @@ func (s *Service) ListWorktrees(ctx context.Context, projectID, agentType string
 
 // CreateWorktree creates a new git worktree and connects a terminal.
 func (s *Service) CreateWorktree(ctx context.Context, projectID, agentType, name string) (*WorktreeResult, error) {
+	if err := s.requireDocker(); err != nil {
+		return nil, err
+	}
 	project, err := s.resolveProject(projectID, agentType)
 	if err != nil {
 		return nil, err
@@ -194,6 +197,9 @@ func (s *Service) KillWorktreeProcess(ctx context.Context, projectID, agentType,
 // RemoveWorktree fully removes a worktree: kills processes, runs
 // `git worktree remove`, and cleans up tracking state.
 func (s *Service) RemoveWorktree(ctx context.Context, projectID, agentType, worktreeID string) (*WorktreeResult, error) {
+	if err := s.requireDocker(); err != nil {
+		return nil, err
+	}
 	project, err := s.resolveProject(projectID, agentType)
 	if err != nil {
 		return nil, err
@@ -242,6 +248,9 @@ func (s *Service) RemoveWorktree(ctx context.Context, projectID, agentType, work
 // terminal tracking state. Audit events are preserved. The session watcher is
 // restarted so it picks up the clean state instead of replaying deleted files.
 func (s *Service) ResetWorktree(ctx context.Context, projectID, agentType, worktreeID string) (*WorktreeResult, error) {
+	if err := s.requireDocker(); err != nil {
+		return nil, err
+	}
 	project, err := s.resolveProject(projectID, agentType)
 	if err != nil {
 		return nil, err

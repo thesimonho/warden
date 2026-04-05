@@ -1,7 +1,17 @@
 import { useCallback, useEffect, useState } from 'react'
 import type React from 'react'
 import { useNavigate, useOutletContext } from 'react-router-dom'
-import { Square, Play, RotateCw, X, Loader2, Plus, RefreshCw, Box } from 'lucide-react'
+import {
+  Square,
+  Play,
+  RotateCw,
+  X,
+  Loader2,
+  Plus,
+  RefreshCw,
+  Box,
+  TriangleAlert,
+} from 'lucide-react'
 import { toast } from 'sonner'
 import { useNotifications } from '@/hooks/use-notifications'
 import { useProjects } from '@/hooks/use-projects'
@@ -15,8 +25,10 @@ import {
   fetchAccessItems,
   addProject,
   createContainer,
+  fetchRuntimes,
 } from '@/lib/api'
 import { getRestrictedDomains } from '@/lib/domain-groups'
+import { RUNTIME_DOCKER } from '@/lib/types'
 import type { AgentType, ServerSettings } from '@/lib/types'
 import type { Project } from '@/lib/types'
 import { Button } from '@/components/ui/button'
@@ -46,6 +58,22 @@ export default function HomePage() {
     name: string
   } | null>(null)
   const [serverSettings, setServerSettings] = useState<ServerSettings | null>(null)
+  const [dockerAvailable, setDockerAvailable] = useState(true)
+
+  // Check Docker availability on mount and periodically.
+  useEffect(() => {
+    const check = () => {
+      fetchRuntimes()
+        .then((runtimes) => {
+          const docker = runtimes.find((r) => r.name === RUNTIME_DOCKER)
+          setDockerAvailable(docker?.available ?? false)
+        })
+        .catch(() => setDockerAvailable(false))
+    }
+    check()
+    const interval = setInterval(check, 30_000)
+    return () => clearInterval(interval)
+  }, [])
 
   // Fetch server settings in dev mode for the quick-add buttons.
   useEffect(() => {
@@ -285,6 +313,7 @@ export default function HomePage() {
                 color="warning"
                 onClick={() => handleQuickAdd('claude-code')}
                 icon={Plus}
+                disabled={!dockerAvailable}
               >
                 Claude (dev)
               </Button>
@@ -294,6 +323,7 @@ export default function HomePage() {
                 color="warning"
                 onClick={() => handleQuickAdd('codex')}
                 icon={Plus}
+                disabled={!dockerAvailable}
               >
                 Codex (dev)
               </Button>
@@ -304,28 +334,59 @@ export default function HomePage() {
             size="sm"
             onClick={() => setIsAddDialogOpen(true)}
             icon={Plus}
+            disabled={!dockerAvailable}
           >
             Add Project
           </Button>
         </div>
       </div>
 
-      <CostDashboard projects={projects} />
+      {!dockerAvailable ? (
+        <div
+          className={[
+            // Layout
+            'flex flex-col items-center justify-center gap-4 rounded-lg py-16',
+            // Appearance
+            'border-warning/20 bg-warning/5 border border-dashed',
+          ].join(' ')}
+        >
+          <TriangleAlert className="text-warning h-10 w-10" />
+          <div className="text-center">
+            <p className="text-warning text-lg font-medium">Docker is not running</p>
+            <p className="text-muted-foreground mt-1 text-sm">
+              Warden requires Docker to manage containers.{' '}
+              <a
+                href="https://docs.docker.com/get-docker/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-warning hover:text-warning/80 underline"
+              >
+                Install Docker
+              </a>{' '}
+              or start the Docker daemon to get started.
+            </p>
+          </div>
+        </div>
+      ) : (
+        <>
+          <CostDashboard projects={projects} />
 
-      <ProjectGrid
-        projects={projects}
-        isLoading={isLoading}
-        onStop={handleStop}
-        onRestart={handleRestart}
-        onRemove={handleRemove}
-        onEdit={handleEdit}
-        selectedIds={selectedIds}
-        onToggleSelect={handleToggleSelect}
-        pendingStopIds={pendingStopIds}
-        pendingRestartIds={pendingRestartIds}
-        budgetActionPreventStart={budgetActionPreventStart}
-        installStatuses={installStatuses}
-      />
+          <ProjectGrid
+            projects={projects}
+            isLoading={isLoading}
+            onStop={handleStop}
+            onRestart={handleRestart}
+            onRemove={handleRemove}
+            onEdit={handleEdit}
+            selectedIds={selectedIds}
+            onToggleSelect={handleToggleSelect}
+            pendingStopIds={pendingStopIds}
+            pendingRestartIds={pendingRestartIds}
+            budgetActionPreventStart={budgetActionPreventStart}
+            installStatuses={installStatuses}
+          />
+        </>
+      )}
 
       {selectedIds.size > 0 && (
         <div className="bg-background fixed bottom-6 left-1/2 flex -translate-x-1/2 items-center gap-3 rounded border px-5 py-3 shadow-lg">

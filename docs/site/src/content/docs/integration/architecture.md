@@ -16,8 +16,8 @@ Warden is a three-layer system. Each layer is independently usable and testable:
 │  REST + SSE + WebSocket             │  ← /api/v1/* (any language)
 ├─────────────────────────────────────┤
 │  Layer 1: Service                   │
-│  Business logic (project/worktree    │  ← Go library (direct import)
-│  lifecycle, cost tracking, audit)    │  ← Go client (typed HTTP wrapper)
+│  Business logic (project/worktree   │  ← Go library (direct import)
+│  lifecycle, cost tracking, audit)   │  ← Go client (typed HTTP wrapper)
 ├─────────────────────────────────────┤
 │  Container image                    │  ← Agent CLIs + tmux + isolation
 └─────────────────────────────────────┘
@@ -33,7 +33,7 @@ Are you writing Go?
 │         ├─ Yes → Layer 1 (Go library): import warden, call warden.New()
 │         └─ No  → Layer 2 via Layer 2 client (typed HTTP wrapper)
 │
-└─ No  → Use Layer 2 from your language (raw HTTP/SSE/WebSocket)
+└─ No  → Use Layer 2 from any language (raw HTTP/SSE/WebSocket)
 ```
 
 **Layer 1 (Service)** is the engine entry point: `warden.New()` returns `*Warden` with `.Service` exposing all operations. The frontends are reference implementations — they use the exact same Layer 2 and Layer 1 interfaces you would.
@@ -56,7 +56,7 @@ Inside containers, Warden stores agent-specific files and state at dedicated pat
 <workspace>/
 ├── .warden/
 │   ├── terminals/           # Terminal state (ephemeral, per-worktree)
-│   └── worktrees/           # Non-Claude agent worktrees (Codex, future)
+│   └── worktrees/           # Non-Claude agent worktrees (Codex, etc.)
 ├── .claude/
 │   └── worktrees/           # Claude Code worktrees (hardcoded by Claude)
 └── ... (project files)
@@ -73,9 +73,9 @@ Warden runs as a host process that manages project containers. Communication flo
 ```
 ┌──────────────────────────────────────────────────────────────────┐
 │  Browser                                                         │
-│   ├── REST  /api/v1/*     (project CRUD, settings, audit)        │
-│   ├── SSE   /api/v1/events (real-time state, cost, attention)    │
-│   └── WS    /api/v1/projects/{id}/{agentType}/ws/{wid}  (terminal I/O) │
+│   ├── REST /api/v1/*     (project CRUD, settings, audit)         │
+│   ├── SSE  /api/v1/events (real-time state, cost, attention)     │
+│   └── WS   /api/v1/projects/{id}/{agentType}/ws/{wid} (terminal) │
 └──────────┬──────────┬──────────┬─────────────────────────────────┘
            │          │          │
 ┌──────────▼──────────▼──────────▼─────────────────────────────────┐
@@ -97,7 +97,7 @@ Warden runs as a host process that manages project containers. Communication flo
 │  │                                                          │    │
 │  │  ┌──────────────────┐  ┌──────────────────┐              │    │
 │  │  │  project-a       │  │  project-b       │              │    │
-│  │  │  tmux             │  │  tmux             │              │    │
+│  │  │  tmux            │  │  tmux            │              │    │
 │  │  │  hook scripts    │  │  hook scripts    │              │    │
 │  │  │  iptables rules  │  │  iptables rules  │              │    │
 │  │  └──────────────────┘  └──────────────────┘              │    │
@@ -111,10 +111,15 @@ Warden runs as a host process that manages project containers. Communication flo
 
 2. **File-based event delivery** — each container has a host directory bind-mounted at `/var/warden/events/`. Claude Code hook scripts (`warden-event-claude.sh`) write atomic JSON files (`.tmp` → rename to `.json`) containing attention state, session lifecycle, tool use, cost updates, and heartbeats. The backend watches all event directories using fsnotify (sub-millisecond on Linux) with a polling fallback every 2 seconds (reliable on all platforms including Docker Desktop). Filesystem permissions handle access control — no network listener or auth token is needed.
 
-3. **JSONL session parsing** — the primary data source for agent events. Each agent writes JSONL session files to its config directory (`~/.claude/` or `~/.codex/`), which is bind-mounted to the host. The backend watches these locations with `agent.SessionWatcher`, which discovers session files via agent-specific `FindSessionFiles()` methods and tails new lines (polling every 2 seconds). Session discovery is agent-aware: Claude Code scans a per-project directory; Codex reads shell snapshots to filter by project ID. The watcher feeds lines through agent-specific parsers (`agent/claudecode/`, `agent/codex/`) that produce uniform `ParsedEvent` values. These events flow into the event bus for SSE broadcast and audit logging.
+3. **JSONL session parsing** — the primary data source for agent events. Each agent writes JSONL session files to its config directory (`~/.claude/` or `~/.codex/`), which is bind-mounted to the host. The backend watches these locations with `agent.SessionWatcher`, which discovers session files via agent-specific `FindSessionFiles()` methods and tails new lines (polling). Session discovery is agent-aware: Claude Code scans a per-project directory; Codex reads shell snapshots to filter by project ID. The watcher feeds lines through agent-specific parsers (`agent/claudecode/`, `agent/codex/`) that produce uniform `ParsedEvent` values. These events flow into the event bus for SSE broadcast and audit logging.
 
    ```
-   FindSessionFiles() → SessionWatcher (polling every 2s) → SessionParser.ParseLine() → ParsedEvent → eventbus → SSE
+   FindSessionFiles()
+   → SessionWatcher (polling)
+   → SessionParser.ParseLine()
+   → ParsedEvent
+   → eventbus
+   → SSE
    ```
 
    JSONL parsing provides session lifecycle, tool use, cost, and prompt events for both agents. Hook-based events (attention/notification state) are supplementary and only available for Claude Code.
@@ -133,12 +138,12 @@ All cost data flows through one function regardless of source. This guarantees b
 JSONL token updates (cost_update) ─┐
 docker exec fallback read          ├──► PersistSessionCost() ──► DB write
                                   ─┘         │
-                                        ▼
-                                  enforceBudget()
-                                    ├── warn (SSE broadcast)
-                                    ├── stop worktrees
-                                    ├── stop container
-                                    └── prevent restart (403)
+                                             ▼
+                                       enforceBudget()
+                                         ├── warn (SSE broadcast)
+                                         ├── stop worktrees
+                                         ├── stop container
+                                         └── prevent restart (403)
 ```
 
 **Audit writes → `db.AuditWriter.Write()`**
@@ -146,15 +151,15 @@ docker exec fallback read          ├──► PersistSessionCost() ──► D
 All audit events flow through the `AuditWriter`, which applies mode filtering before persisting. Direct `db.Store` writes for audit events are prohibited.
 
 ```
-Container hooks (session_end, attention, ...)    ─┐
+Container hooks (session_end, attention, ...)   ─┐
 Backend events (slog warnings/errors)            ├──► AuditWriter.Write()
 Frontend events (POST /api/v1/audit)             │         │
 Budget enforcement events                       ─┘         ▼
-                                                     Mode filter
-                                                   (off/standard/detailed)
-                                                         │
-                                                         ▼
-                                                   SQLite events table
+                                                        Mode filter
+                                                  (off/standard/detailed)
+                                                           │
+                                                           ▼
+                                                    SQLite events table
 ```
 
 Standard mode writes only session lifecycle, terminal lifecycle, budget, and system events. Detailed mode adds agent events, tool use, prompts, config, and debug events.

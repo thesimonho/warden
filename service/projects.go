@@ -238,6 +238,9 @@ func (s *Service) RestartProject(
 	ctx context.Context,
 	projectID, agentType string,
 ) (*ProjectResult, error) {
+	if err := s.requireDocker(); err != nil {
+		return nil, err
+	}
 	project, err := s.resolveProject(projectID, agentType)
 	if err != nil {
 		return nil, err

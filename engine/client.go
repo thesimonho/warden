@@ -69,6 +69,12 @@ func NewClient(socketPath string, registry *agent.Registry) (*EngineClient, erro
 	}, nil
 }
 
+// Ping checks whether the Docker daemon is reachable.
+func (ec *EngineClient) Ping(ctx context.Context) error {
+	_, err := ec.api.Ping(ctx)
+	return err
+}
+
 // APIClient returns the underlying Docker API client.
 // Used by the terminal proxy to create exec sessions with TTY mode.
 func (ec *EngineClient) APIClient() client.APIClient {

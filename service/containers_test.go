@@ -15,7 +15,7 @@ func TestCreateContainer(t *testing.T) {
 
 	database := testDB(t)
 	mock := &mockEngine{containerID: "new123container"}
-	svc := New(ServiceDeps{Engine: mock, DB: database})
+	svc := New(ServiceDeps{DockerAvailable: true, Engine: mock, DB: database})
 
 	result, err := svc.CreateContainer(context.Background(), api.CreateContainerRequest{
 		Name:        "my-project",
@@ -47,7 +47,7 @@ func TestCreateContainer_NameTaken(t *testing.T) {
 	t.Parallel()
 
 	mock := &mockEngine{containerErr: engine.ErrNameTaken}
-	svc := New(ServiceDeps{Engine: mock, DB: testDB(t)})
+	svc := New(ServiceDeps{DockerAvailable: true, Engine: mock, DB: testDB(t)})
 
 	_, err := svc.CreateContainer(context.Background(), api.CreateContainerRequest{
 		Name:        "existing",
@@ -63,7 +63,7 @@ func TestDeleteContainer(t *testing.T) {
 
 	mock := &mockEngine{}
 	database := testDB(t)
-	svc := New(ServiceDeps{Engine: mock, DB: database})
+	svc := New(ServiceDeps{DockerAvailable: true, Engine: mock, DB: database})
 
 	row := &db.ProjectRow{ProjectID: "proj-1", ContainerID: "abc123def456", ContainerName: "my-project", Name: "my-project", HostPath: "/test/my-project"}
 	insertTestProject(t, database, row)
@@ -92,7 +92,7 @@ func TestInspectContainer(t *testing.T) {
 	}
 	database := testDB(t)
 	insertTestProject(t, database, row)
-	svc := New(ServiceDeps{Engine: mock, DB: database})
+	svc := New(ServiceDeps{DockerAvailable: true, Engine: mock, DB: database})
 
 	cfg, err := svc.InspectContainer(context.Background(), row.ProjectID, "claude-code")
 	if err != nil {
@@ -118,7 +118,7 @@ func TestUpdateContainer(t *testing.T) {
 
 	mock := &mockEngine{recreateID: "new456container"}
 	database := testDB(t)
-	svc := New(ServiceDeps{Engine: mock, DB: database})
+	svc := New(ServiceDeps{DockerAvailable: true, Engine: mock, DB: database})
 
 	row := &db.ProjectRow{ProjectID: "proj-1", ContainerID: "old123container", ContainerName: "my-project", Name: "my-project", HostPath: "/test/my-project"}
 	insertTestProject(t, database, row)
@@ -140,7 +140,7 @@ func TestUpdateContainer_LightUpdate(t *testing.T) {
 
 	database := testDB(t)
 	mock := &mockEngine{containerID: "container123"}
-	svc := New(ServiceDeps{Engine: mock, DB: database})
+	svc := New(ServiceDeps{DockerAvailable: true, Engine: mock, DB: database})
 
 	// Create the project first so the DB row exists.
 	_, err := svc.CreateContainer(context.Background(), api.CreateContainerRequest{
@@ -196,7 +196,7 @@ func TestUpdateContainer_LightUpdate_RenameError(t *testing.T) {
 		containerID: "container123",
 		renameErr:   errors.New("rename failed"),
 	}
-	svc := New(ServiceDeps{Engine: mock, DB: database})
+	svc := New(ServiceDeps{DockerAvailable: true, Engine: mock, DB: database})
 
 	_, err := svc.CreateContainer(context.Background(), api.CreateContainerRequest{
 		Name:        "my-project",
@@ -333,7 +333,7 @@ func TestValidateContainer(t *testing.T) {
 
 	mock := &mockEngine{validateValid: true, validateMissing: []string{}}
 	database := testDB(t)
-	svc := New(ServiceDeps{Engine: mock, DB: database})
+	svc := New(ServiceDeps{DockerAvailable: true, Engine: mock, DB: database})
 
 	row := &db.ProjectRow{ProjectID: "proj-1", ContainerID: "abc123def456", Name: "my-project", HostPath: "/test/my-project"}
 	insertTestProject(t, database, row)
@@ -352,7 +352,7 @@ func TestValidateContainer_Missing(t *testing.T) {
 
 	mock := &mockEngine{validateValid: false, validateMissing: []string{"tmux", "create-terminal.sh"}}
 	database := testDB(t)
-	svc := New(ServiceDeps{Engine: mock, DB: database})
+	svc := New(ServiceDeps{DockerAvailable: true, Engine: mock, DB: database})
 
 	row := &db.ProjectRow{ProjectID: "proj-1", ContainerID: "abc123def456", Name: "my-project", HostPath: "/test/my-project"}
 	insertTestProject(t, database, row)

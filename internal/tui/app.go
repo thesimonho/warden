@@ -11,6 +11,7 @@ import (
 	"github.com/thesimonho/warden/engine"
 	"github.com/thesimonho/warden/eventbus"
 	"github.com/thesimonho/warden/internal/tui/components"
+	"github.com/thesimonho/warden/runtime"
 	"github.com/thesimonho/warden/version"
 )
 
@@ -43,9 +44,10 @@ type App struct {
 	height        int
 	eventCh       <-chan eventbus.SSEEvent
 	unsubscribe   func()
-	err           error
-	auditLogMode  api.AuditLogMode
-	disconnectKey string // e.g. "ctrl+\\"
+	err             error
+	auditLogMode    api.AuditLogMode
+	disconnectKey   string // e.g. "ctrl+\\"
+	dockerAvailable bool
 }
 
 // NewApp creates the root TUI model backed by the given Client.
@@ -70,14 +72,26 @@ func NewApp(client Client) App {
 		disconnectKey = settings.DisconnectKey
 	}
 
+	// Check Docker availability.
+	dockerAvailable := false
+	if runtimes, err := client.ListRuntimes(context.Background()); err == nil {
+		for _, rt := range runtimes {
+			if rt.Name == runtime.RuntimeDocker && rt.Available {
+				dockerAvailable = true
+				break
+			}
+		}
+	}
+
 	app := App{
-		client:        client,
-		activeTab:     TabProjects,
-		activeView:    NewProjectsView(client),
-		keys:          DefaultGlobalKeyMap(),
-		help:          h,
-		auditLogMode:  auditLogMode,
-		disconnectKey: disconnectKey,
+		client:          client,
+		activeTab:       TabProjects,
+		activeView:      NewProjectsView(client),
+		keys:            DefaultGlobalKeyMap(),
+		help:            h,
+		auditLogMode:    auditLogMode,
+		disconnectKey:   disconnectKey,
+		dockerAvailable: dockerAvailable,
 	}
 	app.rebuildTabs()
 
@@ -277,11 +291,24 @@ func (a App) View() tea.View {
 		})
 	}
 
+	// Docker warning banner (shown below header when Docker is unavailable).
+	var dockerWarning string
+	if !a.dockerAvailable {
+		dockerWarning = Styles.Warning.Render(
+			"Docker is not running — container operations are disabled. " +
+				"Install Docker or start the daemon.",
+		)
+	}
+
 	// Content area — fills remaining vertical space.
 	// Vertical budget: header (3) + help bar (1) + app padding (2) = 6.
+	// Add 1 for docker warning line when present.
 	// The "\n" joiners in body don't add extra rows — they transition
 	// from the last line of one section to the first of the next.
 	contentH := a.height - 6
+	if dockerWarning != "" {
+		contentH--
+	}
 	if contentH < 5 {
 		contentH = 5
 	}
@@ -300,7 +327,11 @@ func (a App) View() tea.View {
 		MaxHeight(contentH).
 		Render(content)
 
-	body := header + "\n" + contentBox + "\n" + helpBar
+	body := header
+	if dockerWarning != "" {
+		body += "\n" + dockerWarning
+	}
+	body += "\n" + contentBox + "\n" + helpBar
 
 	appStyle := Styles.App.Width(a.width)
 	view := tea.NewView(appStyle.Render(body))

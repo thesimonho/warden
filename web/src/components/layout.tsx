@@ -89,7 +89,13 @@ export default function Layout() {
           <div className="flex items-center gap-1">
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button data-testid="projects-button" size="sm" variant="ghost" color="primary" asChild>
+                <Button
+                  data-testid="projects-button"
+                  size="sm"
+                  variant="ghost"
+                  color="primary"
+                  asChild
+                >
                   <Link to="/">
                     <Box />
                   </Link>
@@ -99,7 +105,13 @@ export default function Layout() {
             </Tooltip>
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button data-testid="access-button" size="sm" variant="ghost" color="primary" asChild>
+                <Button
+                  data-testid="access-button"
+                  size="sm"
+                  variant="ghost"
+                  color="primary"
+                  asChild
+                >
                   <Link to="/access">
                     <KeyRound />
                   </Link>
@@ -110,7 +122,13 @@ export default function Layout() {
             {auditLogMode !== 'off' && (
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button data-testid="audit-button" size="sm" variant="ghost" color="primary" asChild>
+                  <Button
+                    data-testid="audit-button"
+                    size="sm"
+                    variant="ghost"
+                    color="primary"
+                    asChild
+                  >
                     <Link to="/audit">
                       <ShieldCheck />
                     </Link>
