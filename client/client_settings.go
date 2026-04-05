@@ -28,6 +28,14 @@ func (c *Client) UpdateSettings(ctx context.Context, req api.UpdateSettingsReque
 	return &resp, nil
 }
 
+// --- Server Lifecycle ---
+
+// Shutdown requests a graceful server shutdown. The server sends back
+// a response before initiating the shutdown sequence.
+func (c *Client) Shutdown(ctx context.Context) error {
+	return c.post(ctx, "/api/v1/shutdown", nil, nil)
+}
+
 // --- Host Utilities ---
 
 // GetDefaults returns server-resolved defaults for the create container form.

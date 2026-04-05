@@ -193,6 +193,20 @@ DELETE /api/v1/audit
 
 Delete scoped audit records (e.g., by container, worktree, time range).
 
+## Server lifecycle
+
+```
+GET /api/v1/health
+```
+
+Returns `{"status":"ok","version":"..."}` with an `X-Warden: 1` header. Use this for instance detection and readiness polling.
+
+```
+POST /api/v1/shutdown
+```
+
+Requests a graceful server shutdown. Returns `{"status":"shutting down"}` immediately — the server stops accepting new connections and drains active ones after the response is sent.
+
 ## Real-time events (SSE)
 
 Subscribe to `GET /api/v1/events` for real-time updates:

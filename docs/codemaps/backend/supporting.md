@@ -8,9 +8,9 @@ Smaller backend packages that don't warrant individual files.
 
 | Binary           | File                         | Purpose                                                                                                 |
 | ---------------- | ---------------------------- | ------------------------------------------------------------------------------------------------------- |
-| `warden`         | `cmd/warden/main.go`         | Headless engine server: creates `*Warden`, starts HTTP API server, blocks until SIGTERM/SIGINT          |
-| `warden-desktop` | `cmd/warden-desktop/main.go` | Web dashboard: creates `*Warden`, wires terminal proxy and HTTP server with embedded SPA, opens browser |
-| `warden-desktop` | `cmd/warden-desktop/run.go`  | Server lifecycle: start, wait for ready, open browser, signal handling, graceful shutdown               |
+| `warden`         | `cmd/warden/main.go`         | Headless engine server: creates `*Warden`, starts HTTP API server, blocks until SIGTERM/SIGINT or `POST /api/v1/shutdown` |
+| `warden-desktop` | `cmd/warden-desktop/main.go` | Web dashboard: creates `*Warden`, wires terminal proxy and HTTP server with embedded SPA, opens browser                   |
+| `warden-desktop` | `cmd/warden-desktop/run.go`  | Server lifecycle: start, wait for ready, open browser, signal handling, graceful shutdown via signal or shutdown endpoint  |
 | `warden-tui`     | `cmd/warden-tui/main.go`     | TUI binary: creates `*Warden`, wraps in `ServiceAdapter`, runs Bubble Tea program                       |
 
 ## version/
@@ -31,6 +31,8 @@ Public Go package for general-purpose access item management. Pure library — n
 | `types.go`     | `Item` (user-created access item: ID, Label, Description, Method, Credentials JSON), `Credential`, `Source`, `Transform`, `Injection`, `Method` (enum), `DetectionResult` (Available, HostPathResolved), `AccessItemResponse` (Item + DetectionResult) |
 | `env.go`       | `EnvResolver` interface (LookupEnv, ExpandEnv, Environ), `Refresher` interface, `ProcessEnvResolver` (delegates to `os.*`, default/test-friendly)                                                                                                       |
 | `shellenv.go`  | `ShellEnvResolver` (spawns user's login shell to capture env vars from `.bashrc`/`.zshrc`/`.profile`; process env takes precedence over cache; 30s refresh cooldown)                                                                                    |
+| `shellenv_unix.go` | `configureShellCmd` — sets `Setsid: true` on the spawned shell to prevent SIGTTOU when the TUI is running concurrently                                                                                                                                |
+| `shellenv_windows.go` | `configureShellCmd` — no-op on Windows (shell env resolution returns early before this is called)                                                                                                                                                  |
 | `resolve.go`   | `Resolve(item, env)` (single-item resolution), `Detect(item, env)` (single item detection), `trySource` (internal, tests one source). `env` param accepts `EnvResolver`; `nil` defaults to `ProcessEnvResolver`                                         |
 | `builtin.go`   | `BuiltInGit`, `BuiltInSSH`, `BuiltInItems` (slice), `BuiltInItemByID(id)` (lookup), `IsBuiltInID(id)` (predicate)                                                                                                                                      |
 

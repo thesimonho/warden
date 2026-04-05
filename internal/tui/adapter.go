@@ -279,6 +279,14 @@ func (a *ServiceAdapter) UploadClipboard(ctx context.Context, projectID, agentTy
 	return a.w.Service.UploadClipboard(ctx, projectID, agentType, content, mimeType)
 }
 
+// --- Server Lifecycle ---
+
+// Shutdown is a no-op in embedded mode. The TUI process exits via
+// tea.Quit, which unwinds main() and calls w.Close() via defer.
+func (a *ServiceAdapter) Shutdown(_ context.Context) error {
+	return nil
+}
+
 // --- Real-time Events ---
 
 // SubscribeEvents subscribes to the event broker directly (no SSE).

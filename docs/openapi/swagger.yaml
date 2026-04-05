@@ -980,6 +980,13 @@ components:
           example: /home/user/projects
           type: string
       type: object
+    server.shutdownResponse:
+      properties:
+        status:
+          description: Status is always "shutting down".
+          example: shutting down
+          type: string
+      type: object
     server.updateSettingsResponse:
       properties:
         restartRequired:
@@ -2845,6 +2852,19 @@ paths:
       summary: Update settings
       tags:
       - settings
+  /api/v1/shutdown:
+    post:
+      description: Requests a graceful shutdown of the Warden server process.
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/server.shutdownResponse'
+          description: OK
+      summary: Shutdown server
+      tags:
+      - health
   /api/v1/template:
     get:
       description: |-
