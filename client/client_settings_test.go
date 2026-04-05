@@ -59,3 +59,22 @@ func TestReadProjectTemplate(t *testing.T) {
 		t.Errorf("expected image 'custom:latest', got %q", resp.Image)
 	}
 }
+
+func TestValidateProjectTemplate(t *testing.T) {
+	t.Parallel()
+
+	tmpl := api.ProjectTemplate{
+		Image:       "custom:latest",
+		NetworkMode: "restricted",
+	}
+	c := newTestServer(t, "POST", "/api/v1/template", http.StatusOK, tmpl)
+
+	data := []byte(`{"image":"custom:latest","networkMode":"restricted"}`)
+	resp, err := c.ValidateProjectTemplate(context.Background(), data)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if resp.Image != "custom:latest" {
+		t.Errorf("expected image 'custom:latest', got %q", resp.Image)
+	}
+}

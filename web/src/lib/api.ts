@@ -67,6 +67,7 @@ export {
   updateSettings,
   fetchDefaults,
   readProjectTemplate,
+  validateProjectTemplate,
   shutdownServer,
 } from './api-settings'
 export type { DefaultMount, DefaultEnvVar, Defaults } from './api-settings'

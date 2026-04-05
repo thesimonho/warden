@@ -193,6 +193,11 @@ func (a *ServiceAdapter) ReadProjectTemplate(_ context.Context, filePath string)
 	return a.w.Service.ReadProjectTemplate(filePath)
 }
 
+// ValidateProjectTemplate delegates to Service.ValidateProjectTemplate.
+func (a *ServiceAdapter) ValidateProjectTemplate(_ context.Context, data []byte) (*api.ProjectTemplate, error) {
+	return a.w.Service.ValidateProjectTemplate(data)
+}
+
 // ListDirectories delegates to Service.ListDirectories.
 func (a *ServiceAdapter) ListDirectories(_ context.Context, path string, includeFiles bool) ([]api.DirEntry, error) {
 	return a.w.Service.ListDirectories(path, includeFiles)

@@ -77,6 +77,16 @@ func parseTemplate(filePath string) (*api.ProjectTemplate, error) {
 	return &tmpl, nil
 }
 
+// isEmptyTemplate returns true when no recognized ProjectTemplate fields are set.
+func isEmptyTemplate(tmpl *api.ProjectTemplate) bool {
+	return tmpl.Image == "" &&
+		tmpl.SkipPermissions == nil &&
+		tmpl.NetworkMode == "" &&
+		tmpl.CostBudget == nil &&
+		len(tmpl.Runtimes) == 0 &&
+		len(tmpl.Agents) == 0
+}
+
 // sanitizeTemplate applies security and portability filters to a loaded template.
 func sanitizeTemplate(tmpl *api.ProjectTemplate) {
 	// Discard domains when network mode is not restricted to prevent
@@ -112,6 +122,21 @@ func (s *Service) ReadProjectTemplate(filePath string) (*api.ProjectTemplate, er
 		return nil, fmt.Errorf("path must be absolute: %s", filePath)
 	}
 	return parseTemplate(filePath)
+}
+
+// ValidateProjectTemplate unmarshals and sanitizes a raw JSON template body.
+// Used by the import-from-file flow where the frontend sends the file
+// contents rather than a host path.
+func (s *Service) ValidateProjectTemplate(data []byte) (*api.ProjectTemplate, error) {
+	var tmpl api.ProjectTemplate
+	if err := json.Unmarshal(data, &tmpl); err != nil {
+		return nil, fmt.Errorf("invalid JSON: %w", err)
+	}
+	if isEmptyTemplate(&tmpl) {
+		return nil, fmt.Errorf("file does not contain any recognized .warden.json fields")
+	}
+	sanitizeTemplate(&tmpl)
+	return &tmpl, nil
 }
 
 // --- Template write ---

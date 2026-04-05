@@ -2899,6 +2899,38 @@ paths:
       summary: Read project template
       tags:
       - host
+    post:
+      description: |-
+        Accepts a raw .warden.json body, validates it against the ProjectTemplate
+        schema, applies security sanitization, and returns the cleaned template.
+        Used by the frontend import-from-file flow.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              oneOf:
+              - type: object
+              - $ref: '#/components/schemas/api.ProjectTemplate'
+                description: Raw template JSON
+                summary: body
+        description: Raw template JSON
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/api.ProjectTemplate'
+          description: OK
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/server.apiError'
+          description: Bad Request
+      summary: Validate project template
+      tags:
+      - host
 servers:
 - description: Local development server
   url: http://localhost:8090

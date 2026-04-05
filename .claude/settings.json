@@ -18,6 +18,7 @@
     "excludedCommands": ["docker"],
     "filesystem": {
       "allowWrite": [
+        "~/go/pkg/mod/cache/",
         "~/.cache/go-build/",
         "~/.config/warden/",
         "~/.docker/buildx"

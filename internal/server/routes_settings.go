@@ -3,6 +3,7 @@ package server
 import (
 	"encoding/json"
 	"errors"
+	"io"
 	"log/slog"
 	"net/http"
 	"os"
@@ -92,6 +93,35 @@ func (rt *routes) handleReadTemplate(w http.ResponseWriter, r *http.Request) {
 			writeError(w, ErrCodeNotFound, "template not found", http.StatusNotFound)
 			return
 		}
+		writeError(w, ErrCodeInvalidBody, err.Error(), http.StatusBadRequest)
+		return
+	}
+	writeJSON(w, tmpl)
+}
+
+// handleValidateTemplate validates and sanitizes a .warden.json template body.
+//
+//	@Summary		Validate project template
+//	@Description	Accepts a raw .warden.json body, validates it against the ProjectTemplate
+//	@Description	schema, applies security sanitization, and returns the cleaned template.
+//	@Description	Used by the frontend import-from-file flow.
+//	@Tags			host
+//	@Accept			json
+//	@Param			body	body		api.ProjectTemplate	true	"Raw template JSON"
+//	@Success		200		{object}	api.ProjectTemplate
+//	@Failure		400		{object}	apiError
+//	@Router			/api/v1/template [post]
+func (rt *routes) handleValidateTemplate(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, 64<<10) // 64 KiB limit
+
+	data, err := io.ReadAll(r.Body)
+	if err != nil {
+		writeError(w, ErrCodeInvalidBody, "failed to read request body", http.StatusBadRequest)
+		return
+	}
+
+	tmpl, err := rt.svc.ValidateProjectTemplate(data)
+	if err != nil {
 		writeError(w, ErrCodeInvalidBody, err.Error(), http.StatusBadRequest)
 		return
 	}
