@@ -186,7 +186,7 @@ jobs:
           # Rename binary to match nfpm expected name
           cp warden-desktop-linux-${{ matrix.goarch }} warden-desktop
 
-          go install github.com/goreleaser/nfpm/v2/cmd/nfpm@${{ env.NFPM_VERSION }}
+          GOARCH=amd64 go install github.com/goreleaser/nfpm/v2/cmd/nfpm@${{ env.NFPM_VERSION }}
           export PATH="$(go env GOPATH)/bin:$PATH"
 
           nfpm pkg --config packaging/linux/nfpm.yaml --packager deb --target .
