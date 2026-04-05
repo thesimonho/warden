@@ -92,6 +92,12 @@ func main() {
 	if err := srv.Shutdown(shutdownCtx); err != nil {
 		slog.Error("shutdown error", "err", err)
 	}
+	// Failsafe: force-exit if cleanup blocks (e.g. Docker unresponsive).
+	go func() {
+		time.Sleep(5 * time.Second)
+		os.Exit(0)
+	}()
+
 	cli.PrintRunningContainers(w, "warden")
 	w.Close()
 }
