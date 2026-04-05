@@ -42,7 +42,7 @@ func (s *Service) ListAccessItems() ([]api.AccessItemResponse, error) {
 		}
 		items = append(items, api.AccessItemResponse{
 			Item:      item,
-			Detection: access.Detect(item),
+			Detection: access.Detect(item, s.envResolver),
 		})
 	}
 
@@ -57,7 +57,7 @@ func (s *Service) ListAccessItems() ([]api.AccessItemResponse, error) {
 		}
 		items = append(items, api.AccessItemResponse{
 			Item:      item,
-			Detection: access.Detect(item),
+			Detection: access.Detect(item, s.envResolver),
 		})
 	}
 
@@ -82,7 +82,7 @@ func (s *Service) GetAccessItem(id string) (*api.AccessItemResponse, error) {
 		}
 		return &api.AccessItemResponse{
 			Item:      item,
-			Detection: access.Detect(item),
+			Detection: access.Detect(item, s.envResolver),
 		}, nil
 	}
 
@@ -90,7 +90,7 @@ func (s *Service) GetAccessItem(id string) (*api.AccessItemResponse, error) {
 	if builtIn := access.BuiltInItemByID(id); builtIn != nil {
 		return &api.AccessItemResponse{
 			Item:      *builtIn,
-			Detection: access.Detect(*builtIn),
+			Detection: access.Detect(*builtIn, s.envResolver),
 		}, nil
 	}
 
@@ -291,10 +291,20 @@ func (s *Service) ResetAccessItem(id string) (*access.Item, error) {
 // ResolveAccessItems resolves the given access items and returns their
 // injections. Used by the "Test" button in the UI. Accepts items
 // directly — no DB lookup is performed.
+//
+// Refreshes the shell environment cache before resolving so newly
+// exported env vars are picked up without restarting Warden.
 func (s *Service) ResolveAccessItems(items []access.Item) (*api.ResolveAccessItemsResponse, error) {
+	s.refreshEnvResolver()
+	return s.resolveAccessItems(items)
+}
+
+// resolveAccessItems resolves access items without refreshing the env cache.
+// Used internally when the caller has already refreshed.
+func (s *Service) resolveAccessItems(items []access.Item) (*api.ResolveAccessItemsResponse, error) {
 	resp := &api.ResolveAccessItemsResponse{}
 	for _, item := range items {
-		resolved, err := access.Resolve(item)
+		resolved, err := access.Resolve(item, s.envResolver)
 		if err != nil {
 			return nil, fmt.Errorf("resolving access item %q: %w", item.ID, err)
 		}
@@ -307,17 +317,22 @@ func (s *Service) ResolveAccessItems(items []access.Item) (*api.ResolveAccessIte
 // ResolveAccessItemsForContainer resolves the given access item IDs and
 // merges the resulting env vars and mounts into the container request.
 // Looks up items from the DB/built-ins by ID before resolving.
+//
+// Refreshes the shell environment cache to ensure the container gets
+// the latest env vars from the user's shell configuration.
 func (s *Service) ResolveAccessItemsForContainer(req *api.CreateContainerRequest) error {
 	if len(req.EnabledAccessItems) == 0 {
 		return nil
 	}
+
+	s.refreshEnvResolver()
 
 	items, err := s.getAccessItemsByIDs(req.EnabledAccessItems)
 	if err != nil {
 		return err
 	}
 
-	resp, err := s.ResolveAccessItems(items)
+	resp, err := s.resolveAccessItems(items)
 	if err != nil {
 		return err
 	}
@@ -399,6 +414,19 @@ func accessItemFromRow(row db.AccessItemRow) (access.Item, error) {
 		Method:      access.Method(row.Method),
 		Credentials: creds,
 	}, nil
+}
+
+// refreshEnvResolver triggers a refresh of the shell environment
+// cache if the resolver supports it. This picks up env vars that
+// the user may have exported since Warden started, without requiring
+// a restart. The refresh has a cooldown (typically 30s) to avoid
+// redundant shell spawns on rapid calls.
+func (s *Service) refreshEnvResolver() {
+	if r, ok := s.envResolver.(access.Refresher); ok {
+		if err := r.Refresh(); err != nil {
+			slog.Warn("shell env refresh failed, using cached/process env", "err", err)
+		}
+	}
 }
 
 // generateID returns a random 16-character hex string for use as

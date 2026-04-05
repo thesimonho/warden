@@ -26,11 +26,13 @@ Build-time version embedding and update checking. Zero internal dependencies.
 
 Public Go package for general-purpose access item management. Pure library — no dependencies on service/db/engine.
 
-| File         | Purpose                                                                                                                                                                                                                                                |
-| ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `types.go`   | `Item` (user-created access item: ID, Label, Description, Method, Credentials JSON), `Credential`, `Source`, `Transform`, `Injection`, `Method` (enum), `DetectionResult` (Available, HostPathResolved), `AccessItemResponse` (Item + DetectionResult) |
-| `resolve.go` | `Resolve(item)` (single-item resolution), `Detect(item)` (single item detection), `trySource` (internal, tests one source)                                                                                                                             |
-| `builtin.go` | `BuiltInGit`, `BuiltInSSH`, `BuiltInItems` (slice), `BuiltInItemByID(id)` (lookup), `IsBuiltInID(id)` (predicate)                                                                                                                                      |
+| File           | Purpose                                                                                                                                                                                                                                                |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `types.go`     | `Item` (user-created access item: ID, Label, Description, Method, Credentials JSON), `Credential`, `Source`, `Transform`, `Injection`, `Method` (enum), `DetectionResult` (Available, HostPathResolved), `AccessItemResponse` (Item + DetectionResult) |
+| `env.go`       | `EnvResolver` interface (LookupEnv, ExpandEnv, Environ), `Refresher` interface, `ProcessEnvResolver` (delegates to `os.*`, default/test-friendly)                                                                                                       |
+| `shellenv.go`  | `ShellEnvResolver` (spawns user's login shell to capture env vars from `.bashrc`/`.zshrc`/`.profile`; process env takes precedence over cache; 30s refresh cooldown)                                                                                    |
+| `resolve.go`   | `Resolve(item, env)` (single-item resolution), `Detect(item, env)` (single item detection), `trySource` (internal, tests one source). `env` param accepts `EnvResolver`; `nil` defaults to `ProcessEnvResolver`                                         |
+| `builtin.go`   | `BuiltInGit`, `BuiltInSSH`, `BuiltInItems` (slice), `BuiltInItemByID(id)` (lookup), `IsBuiltInID(id)` (predicate)                                                                                                                                      |
 
 ## watcher/
 

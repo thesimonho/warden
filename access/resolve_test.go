@@ -20,7 +20,7 @@ func TestDetect_EnvVarSource(t *testing.T) {
 		},
 	}
 
-	result := Detect(item)
+	result := Detect(item, nil)
 	if !result.Available {
 		t.Fatal("expected item to be available")
 	}
@@ -44,7 +44,7 @@ func TestDetect_EnvVarSource_Missing(t *testing.T) {
 		},
 	}
 
-	result := Detect(item)
+	result := Detect(item, nil)
 	if result.Available {
 		t.Fatal("expected item to be unavailable")
 	}
@@ -68,7 +68,7 @@ func TestDetect_FileSource(t *testing.T) {
 		},
 	}
 
-	result := Detect(item)
+	result := Detect(item, nil)
 	if !result.Available {
 		t.Fatal("expected item to be available")
 	}
@@ -96,7 +96,7 @@ func TestDetect_FileSource_FallbackOrder(t *testing.T) {
 		},
 	}
 
-	result := Detect(item)
+	result := Detect(item, nil)
 	if !result.Available {
 		t.Fatal("expected item to be available via fallback")
 	}
@@ -119,7 +119,7 @@ func TestDetect_SocketSource(t *testing.T) {
 		},
 	}
 
-	result := Detect(item)
+	result := Detect(item, nil)
 	if result.Available {
 		t.Fatal("expected item to be unavailable for missing socket")
 	}
@@ -143,7 +143,7 @@ func TestDetect_PartialAvailability(t *testing.T) {
 		},
 	}
 
-	result := Detect(item)
+	result := Detect(item, nil)
 	if !result.Available {
 		t.Fatal("expected item to be available (partial)")
 	}
@@ -173,7 +173,7 @@ func TestResolve_EnvVarToEnvVar(t *testing.T) {
 		},
 	}
 
-	result, err := Resolve(item)
+	result, err := Resolve(item, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -222,7 +222,7 @@ func TestResolve_FileToMount(t *testing.T) {
 		},
 	}
 
-	result, err := Resolve(item)
+	result, err := Resolve(item, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -259,7 +259,7 @@ func TestResolve_CommandToEnvVar(t *testing.T) {
 		},
 	}
 
-	result, err := Resolve(item)
+	result, err := Resolve(item, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -291,7 +291,7 @@ func TestResolve_StaticValueOverride(t *testing.T) {
 		},
 	}
 
-	result, err := Resolve(item)
+	result, err := Resolve(item, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -318,7 +318,7 @@ func TestResolve_UnresolvedCredentialSkipped(t *testing.T) {
 		},
 	}
 
-	result, err := Resolve(item)
+	result, err := Resolve(item, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -364,7 +364,7 @@ func TestResolve_TransformStripLines(t *testing.T) {
 		},
 	}
 
-	result, err := Resolve(item)
+	result, err := Resolve(item, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -398,7 +398,7 @@ func TestResolve_MultipleInjections(t *testing.T) {
 		},
 	}
 
-	result, err := Resolve(item)
+	result, err := Resolve(item, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -436,5 +436,94 @@ func TestExpandHome(t *testing.T) {
 		if got != tt.expected {
 			t.Errorf("expandHome(%q) = %q, want %q", tt.input, got, tt.expected)
 		}
+	}
+}
+
+// mockEnvResolver is a test resolver that returns values from a fixed map,
+// proving that the EnvResolver parameter is actually used by Resolve/Detect.
+type mockEnvResolver struct {
+	vars map[string]string
+}
+
+func (m *mockEnvResolver) LookupEnv(key string) (string, bool) {
+	v, ok := m.vars[key]
+	return v, ok
+}
+
+func (m *mockEnvResolver) ExpandEnv(s string) string {
+	return os.Expand(s, func(key string) string {
+		return m.vars[key]
+	})
+}
+
+func (m *mockEnvResolver) Environ() []string {
+	var env []string
+	for k, v := range m.vars {
+		env = append(env, k+"="+v)
+	}
+	return env
+}
+
+func TestResolve_WithCustomEnvResolver(t *testing.T) {
+	// This env var is NOT set in the process — only in the mock resolver.
+	resolver := &mockEnvResolver{
+		vars: map[string]string{
+			"MOCK_ONLY_TOKEN": "secret-from-shell",
+		},
+	}
+
+	item := Item{
+		ID:     "test",
+		Label:  "Test",
+		Method: MethodTransport,
+		Credentials: []Credential{
+			{
+				Label:   "Token",
+				Sources: []Source{{Type: SourceEnvVar, Value: "MOCK_ONLY_TOKEN"}},
+				Injections: []Injection{
+					{Type: InjectionEnvVar, Key: "CONTAINER_TOKEN"},
+				},
+			},
+		},
+	}
+
+	result, err := Resolve(item, resolver)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	cred := result.Credentials[0]
+	if !cred.Resolved {
+		t.Fatal("expected credential to be resolved via custom resolver")
+	}
+	if cred.Injections[0].Value != "secret-from-shell" {
+		t.Errorf("expected 'secret-from-shell', got %q", cred.Injections[0].Value)
+	}
+}
+
+func TestDetect_WithCustomEnvResolver(t *testing.T) {
+	resolver := &mockEnvResolver{
+		vars: map[string]string{
+			"MOCK_DETECT_VAR": "present",
+		},
+	}
+
+	item := Item{
+		ID:    "test",
+		Label: "Test",
+		Credentials: []Credential{
+			{
+				Label:   "Var",
+				Sources: []Source{{Type: SourceEnvVar, Value: "MOCK_DETECT_VAR"}},
+			},
+		},
+	}
+
+	result := Detect(item, resolver)
+	if !result.Available {
+		t.Fatal("expected item to be available via custom resolver")
+	}
+	if !result.Credentials[0].Available {
+		t.Fatal("expected credential to be available via custom resolver")
 	}
 }

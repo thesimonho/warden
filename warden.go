@@ -20,6 +20,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/thesimonho/warden/access"
 	"github.com/thesimonho/warden/agent"
 	"github.com/thesimonho/warden/agent/claudecode"
 	"github.com/thesimonho/warden/agent/codex"
@@ -147,6 +148,17 @@ func New(opts Options) (*Warden, error) {
 	livenessCtx, livenessCancel := context.WithCancel(context.Background())
 	go eventbus.StartLivenessChecker(livenessCtx, store)
 
+	// Shell env resolver: spawns the user's login shell to capture env
+	// vars that aren't inherited when launched from a desktop entry
+	// (AppImage, .deb, .dmg, Windows installer). The background load
+	// warms the cache before the user interacts with access items.
+	shellEnv := access.NewShellEnvResolver()
+	go func() {
+		if err := shellEnv.Load(); err != nil {
+			slog.Warn("shell env load failed, access items will use process env only", "err", err)
+		}
+	}()
+
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
 		slog.Warn("failed to get home dir for session watchers", "err", err)
@@ -161,6 +173,7 @@ func New(opts Options) (*Warden, error) {
 		EventHandler:    store.HandleEvent,
 		HomeDir:         homeDir,
 		DockerAvailable: dockerAvailable,
+		EnvResolver:     shellEnv,
 	})
 
 	// Wire cost persistence and budget enforcement: on every cost update,
