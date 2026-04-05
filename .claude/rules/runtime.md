@@ -29,6 +29,8 @@ There is a single binary with no build tags or CGo. On launch it starts the serv
 
 Platform packaging files are in `packaging/`:
 
-- `macos/` — `Info.plist` + `bundle.sh` to create a `.app` bundle (CI only, macOS runner)
-- `linux/` — `.desktop` file for desktop integration
-- `windows/` — `versioninfo.json` for icon/version embedding via goversioninfo (applied in CI with `-H windowsgui`)
+- `macos/` — `Info.plist` + `bundle.sh` to create a universal (amd64+arm64) `.app` bundle via `lipo`, packaged as a `.dmg` installer via `create-dmg` (CI only, macOS runner)
+- `linux/` — `.desktop` file + `nfpm.yaml` for building `.deb`, `.rpm`, and Arch (`.pkg.tar.zst`) packages via nfpm. AppImages are built for both amd64 and arm64 via `appimagetool`.
+- `windows/` — `versioninfo.json` for icon/version embedding via goversioninfo (applied in CI with `-H windowsgui`), plus `warden.iss` Inno Setup script that produces a `Warden-Setup-amd64.exe` installer with optional PATH integration
+
+Release CI also generates `checksums.txt` (SHA-256) and `sbom.spdx.json` (SPDX SBOM via syft) covering all release assets. All Go builds use `-trimpath` for reproducibility.

@@ -1,9 +1,10 @@
 [Desktop Entry]
 Type=Application
 Name=Warden
-Comment=Dashboard and control plane for Claude Code agents
+Comment=Dashboard and control plane for AI coding agents
 Exec=warden-desktop
 Icon=warden
 Categories=Development;
 Terminal=false
+StartupNotify=true
 StartupWMClass=warden

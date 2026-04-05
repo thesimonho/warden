@@ -16,8 +16,21 @@ homepage: https://github.com/thesimonho/warden
 license: MIT
 description: Dashboard and control plane for AI coding agents.
 
-depends:
-  - docker-ce | docker.io | docker-desktop | podman
+recommends:
+  - docker-ce
+
+overrides:
+  deb:
+    depends:
+      - docker-ce | docker.io | docker-desktop
+  rpm:
+    depends: []
+    recommends:
+      - docker-ce
+  archlinux:
+    depends: []
+    recommends:
+      - docker
 
 contents:
   - src: warden-desktop
