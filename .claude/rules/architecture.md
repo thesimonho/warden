@@ -2,13 +2,16 @@
 
 Warden is an **engine-first product**. The container engine and security model are the core value. The web dashboard and TUI are **reference implementations** — they exist both as usable products AND as documented examples for developers building their own frontends.
 
-## Three binaries
+## Four binaries
 
-| Binary           | What it is                                    | Code location         |
-| ---------------- | --------------------------------------------- | --------------------- |
-| `warden`         | Headless engine + API server (for developers) | `cmd/warden/`         |
-| `warden-desktop` | Engine + web UI + browser launch (for users)  | `cmd/warden-desktop/` |
-| `warden-tui`     | Engine + TUI (for terminal users)             | `cmd/warden-tui/`     |
+| Binary           | What it is                                              | Code location         | CGo required |
+| ---------------- | ------------------------------------------------------- | --------------------- | ------------ |
+| `warden`         | Headless engine + API server (for developers)           | `cmd/warden/`         | No           |
+| `warden-desktop` | Engine + web UI + browser launch (for users)            | `cmd/warden-desktop/` | No           |
+| `warden-tui`     | Engine + TUI (for terminal users)                       | `cmd/warden-tui/`     | No           |
+| `warden-tray`    | System tray companion for `warden-desktop` (HTTP only)  | `cmd/warden-tray/`    | Yes          |
+
+`warden-tray` is a separate Go module with its own `go.mod`. It talks to `warden-desktop` over HTTP and does not import any packages from the main module. This isolates the CGo dependency (needed for native tray APIs) so the three core binaries remain pure Go with zero C toolchain requirements.
 
 ## Three layers
 

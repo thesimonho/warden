@@ -8,10 +8,12 @@ Smaller backend packages that don't warrant individual files.
 
 | Binary           | File                         | Purpose                                                                                                 |
 | ---------------- | ---------------------------- | ------------------------------------------------------------------------------------------------------- |
-| `warden`         | `cmd/warden/main.go`         | Headless engine server: creates `*Warden`, starts HTTP API server, blocks until SIGTERM/SIGINT or `POST /api/v1/shutdown` |
+| `warden`         | `cmd/warden/main.go`         | Headless engine server: creates `*Warden`, starts HTTP API server, blocks until SIGTERM/SIGINT or `POST /api/v1/shutdown`. Prints running container count on exit. |
 | `warden-desktop` | `cmd/warden-desktop/main.go` | Web dashboard: creates `*Warden`, wires terminal proxy and HTTP server with embedded SPA, opens browser                   |
-| `warden-desktop` | `cmd/warden-desktop/run.go`  | Server lifecycle: start, wait for ready, open browser, signal handling, graceful shutdown via signal or shutdown endpoint  |
-| `warden-tui`     | `cmd/warden-tui/main.go`     | TUI binary: creates `*Warden`, wraps in `ServiceAdapter`, runs Bubble Tea program                       |
+| `warden-desktop` | `cmd/warden-desktop/run.go`  | Server lifecycle: start, wait for ready, launch tray companion, open browser, signal handling, graceful shutdown           |
+| `warden-desktop` | `cmd/warden-desktop/tray.go` | Tray launcher: finds and spawns `warden-tray` as a child process, gracefully degrades if binary is missing                |
+| `warden-tui`     | `cmd/warden-tui/main.go`     | TUI binary: creates `*Warden`, wraps in `ServiceAdapter`, runs Bubble Tea program. Prints running container count on exit. |
+| `warden-tray`    | `cmd/warden-tray/`           | System tray companion (separate Go module, requires CGo). Talks to `warden-desktop` over HTTP. See `cmd/warden-tray/README.md`. |
 
 ## version/
 
