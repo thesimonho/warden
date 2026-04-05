@@ -52,3 +52,9 @@ type healthResponse struct {
 	// Version is the server build version.
 	Version string `json:"version" example:"v0.5.2"`
 }
+
+// shutdownResponse is the response from the shutdown endpoint.
+type shutdownResponse struct {
+	// Status is always "shutting down".
+	Status string `json:"status" example:"shutting down"`
+}

@@ -184,6 +184,10 @@ type Client interface {
 	// API: POST /api/v1/projects/{projectId}/{agentType}/clipboard
 	UploadClipboard(ctx context.Context, projectID, agentType string, content []byte, mimeType string) (*api.ClipboardUploadResponse, error)
 
+	// Shutdown requests a graceful server shutdown.
+	// API: POST /api/v1/shutdown
+	Shutdown(ctx context.Context) error
+
 	// SubscribeEvents returns a channel of real-time SSE events and an
 	// unsubscribe function. The channel is closed when the context is
 	// cancelled or the connection drops.

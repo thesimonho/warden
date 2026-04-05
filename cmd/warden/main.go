@@ -76,10 +76,13 @@ func main() {
 		}
 	}()
 
-	// Block until SIGTERM/SIGINT.
+	// Block until SIGTERM/SIGINT or API shutdown request.
 	ctx, stop := signal.NotifyContext(context.Background(), shutdownSignals...)
 	defer stop()
-	<-ctx.Done()
+	select {
+	case <-ctx.Done():
+	case <-srv.ShutdownCh():
+	}
 
 	// Graceful shutdown.
 	slog.Info("shutting down")

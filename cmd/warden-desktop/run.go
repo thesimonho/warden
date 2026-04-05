@@ -45,7 +45,10 @@ func run(srv *wardenserver.Server, url string, cleanup ...func()) {
 		openBrowser(url)
 	}
 
-	<-ctx.Done()
+	select {
+	case <-ctx.Done():
+	case <-srv.ShutdownCh():
+	}
 	shutdown(srv)
 	for _, fn := range cleanup {
 		fn()

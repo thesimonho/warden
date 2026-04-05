@@ -43,6 +43,14 @@ export async function updateSettings(
   return response.json() as Promise<{ restartRequired: boolean }>
 }
 
+/**
+ * Requests a graceful server shutdown. The server responds before
+ * initiating the shutdown sequence.
+ */
+export async function shutdownServer(): Promise<void> {
+  await apiFetch('/api/v1/shutdown', { method: 'POST' })
+}
+
 /** A default mount resolved by the server. */
 export interface DefaultMount {
   hostPath: string

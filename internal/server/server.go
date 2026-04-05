@@ -20,15 +20,17 @@ var staticFiles embed.FS
 type Server struct {
 	addr       string
 	httpServer *http.Server
+	shutdownCh chan struct{}
 }
 
 // New creates a Server listening on addr with the given service, SSE event
 // broker, and terminal proxy wired into all API route handlers.
 func New(addr string, svc *service.Service, broker *eventbus.Broker, termProxy *terminal.Proxy) *Server {
 	mux := http.NewServeMux()
+	shutdownCh := make(chan struct{}, 1)
 
 	// API routes
-	registerAPIRoutes(mux, svc, broker, termProxy)
+	registerAPIRoutes(mux, svc, broker, termProxy, shutdownCh)
 
 	// Static frontend — served from embedded ui/ directory
 	uiFS, err := fs.Sub(staticFiles, "ui")
@@ -40,7 +42,8 @@ func New(addr string, svc *service.Service, broker *eventbus.Broker, termProxy *
 	handler := loggingMiddleware(corsMiddleware(mux))
 
 	return &Server{
-		addr: addr,
+		addr:       addr,
+		shutdownCh: shutdownCh,
 		httpServer: &http.Server{
 			Addr:              addr,
 			Handler:           handler,
@@ -48,6 +51,13 @@ func New(addr string, svc *service.Service, broker *eventbus.Broker, termProxy *
 			IdleTimeout:       120 * time.Second,
 		},
 	}
+}
+
+// ShutdownCh returns a channel that receives when shutdown is requested
+// via the POST /api/v1/shutdown endpoint. Callers should select on this
+// alongside OS signal contexts.
+func (s *Server) ShutdownCh() <-chan struct{} {
+	return s.shutdownCh
 }
 
 // Start begins listening and serving. Blocks until the server exits.
@@ -98,4 +108,25 @@ func spaHandler(fileServer http.Handler, fsys fs.FS) http.Handler {
 func handleHealth(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Set("X-Warden", "1")
 	writeJSON(w, healthResponse{Status: "ok", Version: version.Version})
+}
+
+// makeHandleShutdown returns a handler that signals the server to shut down.
+// The response is written before the signal is sent so the client receives
+// a clean reply before the connection closes.
+//
+//	@Summary		Shutdown server
+//	@Description	Requests a graceful shutdown of the Warden server process.
+//	@Tags			health
+//	@Success		200	{object}	shutdownResponse
+//	@Router			/api/v1/shutdown [post]
+func makeHandleShutdown(ch chan<- struct{}) http.HandlerFunc {
+	return func(w http.ResponseWriter, _ *http.Request) {
+		writeJSON(w, shutdownResponse{Status: "shutting down"})
+		go func() {
+			select {
+			case ch <- struct{}{}:
+			default: // already signalled
+			}
+		}()
+	}
 }
