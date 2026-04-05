@@ -210,16 +210,15 @@ jobs:
           # Symlink AppRun to the binary
           ln -s usr/bin/warden-desktop Warden.AppDir/AppRun
 
-          # Determine appimagetool arch and output name
+          # appimagetool must match the runner arch (always x86_64).
+          # APPIMAGE_ARCH is the target arch embedded in the output.
           if [ "${{ matrix.goarch }}" = "amd64" ]; then
-            TOOL_ARCH="x86_64"
             APPIMAGE_ARCH="x86_64"
           else
-            TOOL_ARCH="aarch64"
             APPIMAGE_ARCH="aarch64"
           fi
 
-          curl -Lo appimagetool "https://github.com/AppImage/appimagetool/releases/download/${{ env.APPIMAGETOOL_VERSION }}/appimagetool-${TOOL_ARCH}.AppImage"
+          curl -Lo appimagetool "https://github.com/AppImage/appimagetool/releases/download/${{ env.APPIMAGETOOL_VERSION }}/appimagetool-x86_64.AppImage"
           chmod +x appimagetool
           ARCH=$APPIMAGE_ARCH ./appimagetool --no-appstream \
             --updateinformation "gh-releases-zsync|thesimonho|warden|latest|warden-desktop-linux-${{ matrix.goarch }}.AppImage.zsync" \
