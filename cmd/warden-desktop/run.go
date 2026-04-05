@@ -41,6 +41,9 @@ func run(srv *wardenserver.Server, url string, cleanup ...func()) {
 		os.Exit(1)
 	}
 
+	// Start the tray companion (non-critical — server works without it).
+	trayProc := startTray(url)
+
 	if os.Getenv("WARDEN_NO_OPEN") == "" {
 		openBrowser(url)
 	}
@@ -49,6 +52,14 @@ func run(srv *wardenserver.Server, url string, cleanup ...func()) {
 	case <-ctx.Done():
 	case <-srv.ShutdownCh():
 	}
+
+	// Kill the tray process if it's still running. The tray may have
+	// already exited (e.g. it initiated shutdown via the quit menu).
+	if trayProc != nil {
+		_ = trayProc.Kill()
+		_, _ = trayProc.Wait()
+	}
+
 	shutdown(srv)
 	for _, fn := range cleanup {
 		fn()
