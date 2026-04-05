@@ -189,9 +189,10 @@ jobs:
           GOARCH=amd64 go install github.com/goreleaser/nfpm/v2/cmd/nfpm@${{ env.NFPM_VERSION }}
           export PATH="$(go env GOPATH)/bin:$PATH"
 
-          nfpm pkg --config packaging/linux/nfpm.yaml --packager deb --target .
-          nfpm pkg --config packaging/linux/nfpm.yaml --packager rpm --target .
-          nfpm pkg --config packaging/linux/nfpm.yaml --packager archlinux --target .
+          ARCH=${{ matrix.goarch }}
+          nfpm pkg --config packaging/linux/nfpm.yaml --packager deb --target "warden-desktop-linux-${ARCH}.deb"
+          nfpm pkg --config packaging/linux/nfpm.yaml --packager rpm --target "warden-desktop-linux-${ARCH}.rpm"
+          nfpm pkg --config packaging/linux/nfpm.yaml --packager archlinux --target "warden-desktop-linux-${ARCH}.pkg.tar.zst"
       - name: Build AppImage
         run: |
           # Set up AppDir structure
@@ -229,11 +230,11 @@ jobs:
         run: |
           gh release upload --clobber \
             ${{ needs.setup.outputs.tag_name }} \
+            warden-desktop-linux-${{ matrix.goarch }}.deb \
+            warden-desktop-linux-${{ matrix.goarch }}.rpm \
+            warden-desktop-linux-${{ matrix.goarch }}.pkg.tar.zst \
             warden-desktop-linux-${{ matrix.goarch }}.AppImage \
-            warden-desktop-linux-${{ matrix.goarch }}.AppImage.zsync \
-            *.deb \
-            *.rpm \
-            *.pkg.tar.zst
+            warden-desktop-linux-${{ matrix.goarch }}.AppImage.zsync
   # ---------------------------------------------------------------------------
   # Desktop — macOS: universal binary (amd64 + arm64 via lipo) → DMG.
   # ---------------------------------------------------------------------------
@@ -349,7 +350,7 @@ jobs:
         run: |
           gh release upload --clobber \
             ${{ needs.setup.outputs.tag_name }} \
-            Warden-Setup-amd64.exe
+            warden-desktop-windows-amd64.exe
   # ---------------------------------------------------------------------------
   # Container images (reusable workflow).
   # ---------------------------------------------------------------------------
