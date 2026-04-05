@@ -1,3 +1,4 @@
+import type React from 'react'
 import { Fragment } from 'react'
 import { ArrowRight, Info, Plus, Trash2 } from 'lucide-react'
 import type { Mount } from '@/lib/types'
@@ -6,6 +7,28 @@ import { Input } from '@/components/ui/input'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import DirectoryBrowser from '@/components/ui/directory-browser'
 import type { EnvVarEntry } from './project-config-form-types'
+
+/** Props for FormField. */
+interface FormFieldProps {
+  label: React.ReactNode
+  description?: string
+  required?: boolean
+  children: React.ReactNode
+}
+
+/** Simple labelled form field wrapper. */
+export function FormField({ label, description, required, children }: FormFieldProps) {
+  return (
+    <div className="space-y-1.5">
+      <label className="font-medium">
+        {label}
+        {required && <span className="text-error ml-0.5">*</span>}
+      </label>
+      {description && <p className="text-muted-foreground text-sm">{description}</p>}
+      {children}
+    </div>
+  )
+}
 
 /** Props for the BindMountsField component. */
 interface BindMountsFieldProps {

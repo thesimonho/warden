@@ -24,7 +24,7 @@ function Switch({
         // Appearance
         'shadow-xs transition-all outline-none',
         // Checked/unchecked state
-        'data-[state=checked]:bg-primary',
+        'data-[state=checked]:bg-secondary',
         'data-[state=unchecked]:bg-input dark:data-[state=unchecked]:bg-input/80',
         // Focus
         'focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]',
@@ -48,7 +48,7 @@ function Switch({
           'data-[state=checked]:translate-x-[calc(100%-2px)]',
           'data-[state=unchecked]:translate-x-0',
           // Dark mode
-          'dark:data-[state=checked]:bg-primary-foreground',
+          'dark:data-[state=checked]:bg-secondary-foreground',
           'dark:data-[state=unchecked]:bg-foreground',
         )}
       />

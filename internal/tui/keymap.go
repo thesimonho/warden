@@ -123,13 +123,14 @@ func DefaultProjectKeyMap() ProjectKeyMap {
 
 // ShortHelp returns bindings shown in the compact help bar.
 func (k ProjectKeyMap) ShortHelp() []key.Binding {
-	return []key.Binding{k.Open, k.New, k.Toggle, moreHelp}
+	return []key.Binding{k.Open, k.New, k.Edit, k.Toggle, moreHelp}
 }
 
 // FullHelp returns bindings shown in expanded help.
 func (k ProjectKeyMap) FullHelp() [][]key.Binding {
 	return [][]key.Binding{
-		{k.Open, k.New, k.Toggle, k.Edit},
+		{k.Open, k.New},
+		{k.Edit, k.Toggle},
 		{k.Remove, k.Refresh},
 	}
 }
@@ -192,7 +193,8 @@ func (k WorktreeKeyMap) ShortHelp() []key.Binding {
 // FullHelp returns bindings shown in expanded help.
 func (k WorktreeKeyMap) FullHelp() [][]key.Binding {
 	return [][]key.Binding{
-		{k.Connect, k.Disconnect, k.Kill, k.Reset, k.Remove},
+		{k.Connect, k.Disconnect},
+		{k.Kill, k.Reset, k.Remove},
 		{k.New, k.Cleanup, k.Back},
 	}
 }
@@ -280,8 +282,9 @@ func (k AuditLogKeyMap) ShortHelp() []key.Binding {
 // FullHelp returns bindings shown in expanded help.
 func (k AuditLogKeyMap) FullHelp() [][]key.Binding {
 	return [][]key.Binding{
-		{k.CategoryFilter, k.LevelFilter, k.SourceFilter, k.ProjectFilter},
-		{k.TimeRange, k.AutoRefresh, k.Refresh, k.Clear},
+		{k.CategoryFilter, k.LevelFilter, k.SourceFilter},
+		{k.ProjectFilter, k.TimeRange},
+		{k.AutoRefresh, k.Refresh, k.Clear},
 	}
 }
 

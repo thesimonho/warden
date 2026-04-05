@@ -10,6 +10,8 @@ type FormKeyMap struct {
 	Activate key.Binding
 	Back     key.Binding
 	Remove   key.Binding
+	PrevStep key.Binding
+	NextStep key.Binding
 }
 
 // DefaultFormKeyMap returns the default form key bindings.
@@ -27,18 +29,27 @@ func DefaultFormKeyMap() FormKeyMap {
 			key.WithKeys("x"),
 			key.WithHelp("x", "remove"),
 		),
+		PrevStep: key.NewBinding(
+			key.WithKeys("["),
+			key.WithHelp("[", "prev step"),
+		),
+		NextStep: key.NewBinding(
+			key.WithKeys("]"),
+			key.WithHelp("]", "next step"),
+		),
 	}
 }
 
 // ShortHelp returns bindings for the short help bar.
 func (k FormKeyMap) ShortHelp() []key.Binding {
-	return []key.Binding{k.Activate, k.Back, moreHelp}
+	return []key.Binding{k.Activate, k.PrevStep, k.NextStep, k.Back, moreHelp}
 }
 
 // FullHelp returns bindings for the expanded help.
 func (k FormKeyMap) FullHelp() [][]key.Binding {
 	return [][]key.Binding{
 		{k.Activate, k.Back},
+		{k.PrevStep, k.NextStep},
 	}
 }
 
@@ -53,13 +64,16 @@ func (v *ContainerFormView) HelpKeyMap() help.KeyMap {
 	if v.editingMount || v.editingEnv {
 		return inlineEditHelpKeyMap
 	}
-	if v.cursor == fieldMounts && v.mountCursor >= 0 {
+	if v.step == stepAdvanced && v.fieldCursor == advMounts && v.mountCursor >= 0 {
 		return formWithRemoveKeyMap{keys: v.keys, isMounts: true}
 	}
-	if v.cursor == fieldEnvVars && v.envCursor >= 0 {
+	if v.step == stepAdvanced && v.fieldCursor == advEnvVars && v.envCursor >= 0 {
 		return formWithRemoveKeyMap{keys: v.keys, isMounts: false}
 	}
-	if v.cursor == fieldNetwork || v.cursor == fieldSkipPerms {
+	if v.step == stepGeneral && v.fieldCursor == genSkipPerms {
+		return formSelectionKeyMap{keys: v.keys}
+	}
+	if v.step == stepNetwork && v.fieldCursor == netNetwork {
 		return formSelectionKeyMap{keys: v.keys}
 	}
 	return v.keys
@@ -114,11 +128,14 @@ type formSelectionKeyMap struct {
 }
 
 func (k formSelectionKeyMap) ShortHelp() []key.Binding {
-	return []key.Binding{bindingCycle, k.keys.Back, moreHelp}
+	return []key.Binding{bindingCycle, k.keys.PrevStep, k.keys.NextStep, k.keys.Back, moreHelp}
 }
 
 func (k formSelectionKeyMap) FullHelp() [][]key.Binding {
-	return [][]key.Binding{{bindingCycle, k.keys.Back}}
+	return [][]key.Binding{
+		{bindingCycle, k.keys.Back},
+		{k.keys.PrevStep, k.keys.NextStep},
+	}
 }
 
 // formWithRemoveKeyMap shows remove alongside edit/back.
@@ -132,13 +149,17 @@ func (k formWithRemoveKeyMap) ShortHelp() []key.Binding {
 	if k.isMounts {
 		bindings = append(bindings, bindingRO)
 	}
-	return append(bindings, k.keys.Back, moreHelp)
+	return append(bindings, k.keys.PrevStep, k.keys.NextStep, k.keys.Back, moreHelp)
 }
 
 func (k formWithRemoveKeyMap) FullHelp() [][]key.Binding {
-	bindings := []key.Binding{k.keys.Activate, k.keys.Remove}
+	col1 := []key.Binding{k.keys.Activate, k.keys.Remove}
 	if k.isMounts {
-		bindings = append(bindings, bindingRO)
+		col1 = append(col1, bindingRO)
 	}
-	return [][]key.Binding{append(bindings, k.keys.Back)}
+	return [][]key.Binding{
+		col1,
+		{k.keys.PrevStep, k.keys.NextStep},
+		{k.keys.Back},
+	}
 }

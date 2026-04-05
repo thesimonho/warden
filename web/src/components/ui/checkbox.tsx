@@ -18,8 +18,8 @@ function Checkbox({ className, ...props }: React.ComponentProps<typeof CheckboxP
         // Focus
         'focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]',
         // Checked state
-        'data-[state=checked]:border-primary data-[state=checked]:bg-primary',
-        'data-[state=checked]:text-primary-foreground',
+        'data-[state=checked]:border-secondary data-[state=checked]:bg-secondary',
+        'data-[state=checked]:text-secondary-foreground',
         // Validation
         'aria-invalid:border-error aria-invalid:ring-error/20',
         'dark:aria-invalid:ring-error/40',

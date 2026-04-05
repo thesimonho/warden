@@ -22,24 +22,54 @@ func defaultDomainsForAgent(restrictedDomains map[string][]string, agentType con
 	return strings.Join(domains, "\n")
 }
 
-// Form field indices.
+// formStep identifies which step of the form is active.
+type formStep int
+
 const (
-	fieldAgentType = iota
-	fieldName
-	fieldPath
-	fieldSkipPerms
-	fieldBudget
-	fieldNetwork
-	fieldDomains  // only visible when network == "restricted"
-	fieldRuntimes // runtime toggles (Node, Python, Go, etc.)
-	fieldAdvanced
-	// --- Advanced fields (visible when advancedOpen) ---
-	fieldImage
-	fieldAccessItems // dynamic access item toggles (Git, SSH, user-defined)
-	fieldMounts      // section header with "add" action
-	fieldEnvVars     // section header with "add" action
-	fieldSubmit
-	fieldCount
+	stepGeneral formStep = iota
+	stepEnvironment
+	stepNetwork
+	stepAdvanced
+	stepCount
+)
+
+// stepLabels are human-readable names for each step.
+var stepLabels = [stepCount]string{"General", "Environment", "Network", "Advanced"}
+
+// General step field indices.
+const (
+	genAgentType = iota
+	genName
+	genPath
+	genSkipPerms
+	genBudget
+	genSubmit
+	genFieldCount
+)
+
+// Environment step field indices.
+const (
+	envRuntimes = iota
+	envAccessItems
+	envSubmit
+	envFieldCount
+)
+
+// Network step field indices.
+const (
+	netNetwork = iota
+	netDomains // only visible when network == "restricted"
+	netSubmit
+	netFieldCount
+)
+
+// Advanced step field indices.
+const (
+	advImage = iota
+	advMounts
+	advEnvVars
+	advSubmit
+	advFieldCount
 )
 
 // Agent type options sourced from the agent registry.
@@ -50,6 +80,16 @@ var agentTypeLabels = agent.DisplayLabels
 
 // Network mode options.
 var networkModes = []string{"full", "restricted", "none"}
+
+// defaultContainerImage is the default warden container image.
+const defaultContainerImage = "ghcr.io/thesimonho/warden:latest"
+
+// Named indices into the inputs[3] array for readability.
+const (
+	inputName  = 0
+	inputPath  = 1
+	inputImage = 2
+)
 
 // networkDescriptions provides help text for each network mode.
 var networkDescriptions = map[string]string{
@@ -69,9 +109,10 @@ type ContainerFormView struct {
 	err           error
 
 	// Field state.
-	cursor   int
-	editing  bool // true when a text field is actively receiving input
-	browsing bool // true when the directory browser is open
+	step        formStep // current step
+	fieldCursor int      // field index within the current step
+	editing     bool     // true when a text field is actively receiving input
+	browsing    bool     // true when the directory browser is open
 
 	// Text input fields.
 	inputs      [3]textinput.Model // name, path, image
@@ -82,9 +123,6 @@ type ContainerFormView struct {
 	agentType int // index into agentTypes
 	network   int // index into networkModes
 	skipPerm  bool
-
-	// Advanced section.
-	advancedOpen bool
 
 	// Runtimes (Node, Python, Go, etc.).
 	runtimeDefaults []api.RuntimeDefault
@@ -133,16 +171,32 @@ type containerConfigLoadedMsg struct {
 	Err    error
 }
 
+// fieldCountForStep returns the number of fields in a given step.
+func fieldCountForStep(s formStep) int {
+	switch s {
+	case stepGeneral:
+		return genFieldCount
+	case stepEnvironment:
+		return envFieldCount
+	case stepNetwork:
+		return netFieldCount
+	case stepAdvanced:
+		return advFieldCount
+	}
+	return 0
+}
+
 // NewContainerFormView creates a container creation form.
 func NewContainerFormView(client Client) *ContainerFormView {
 	v := &ContainerFormView{
 		client:         client,
 		loading:        true,
+		step:           stepGeneral,
 		keys:           DefaultFormKeyMap(),
 		accessToggles:  make(map[string]bool),
 		runtimeToggles: make(map[string]bool),
 	}
-	v.initFields("", "", "ghcr.io/thesimonho/warden:latest", "full", "", false)
+	v.initFields("", "", defaultContainerImage, "full", "", false)
 	return v
 }
 
@@ -153,6 +207,7 @@ func NewContainerEditView(client Client, editID, editAgentType string) *Containe
 		editID:         editID,
 		editAgentType:  editAgentType,
 		loading:        true,
+		step:           stepGeneral,
 		keys:           DefaultFormKeyMap(),
 		accessToggles:  make(map[string]bool),
 		runtimeToggles: make(map[string]bool),
@@ -166,12 +221,12 @@ func (v *ContainerFormView) initFields(name, path, image, network, domains strin
 		v.inputs[i] = textinput.New()
 		v.inputs[i].Prompt = ""
 	}
-	v.inputs[0].Placeholder = "my-project"
-	v.inputs[0].SetValue(name)
-	v.inputs[1].Placeholder = "/home/user/project"
-	v.inputs[1].SetValue(path)
-	v.inputs[2].Placeholder = "ghcr.io/thesimonho/warden:latest"
-	v.inputs[2].SetValue(image)
+	v.inputs[inputName].Placeholder = "my-project"
+	v.inputs[inputName].SetValue(name)
+	v.inputs[inputPath].Placeholder = "/home/user/project"
+	v.inputs[inputPath].SetValue(path)
+	v.inputs[inputImage].Placeholder = defaultContainerImage
+	v.inputs[inputImage].SetValue(image)
 
 	v.budgetInput = textinput.New()
 	v.budgetInput.Prompt = ""
@@ -215,7 +270,7 @@ func (v *ContainerFormView) Init() tea.Cmd {
 	v.loading = true
 	cmds := []tea.Cmd{
 		func() tea.Msg {
-			defaults, err := v.client.GetDefaults(context.Background(), v.inputs[fieldPath].Value())
+			defaults, err := v.client.GetDefaults(context.Background(), v.inputs[inputPath].Value())
 			return DefaultsLoadedMsg{Defaults: defaults, Err: err}
 		},
 		func() tea.Msg {
@@ -254,8 +309,8 @@ func (v *ContainerFormView) Update(msg tea.Msg) (View, tea.Cmd) {
 			return v, nil
 		}
 		v.defaults = msg.Defaults
-		if v.inputs[1].Value() == "" && v.defaults.HomeDir != "" {
-			v.inputs[1].SetValue(v.defaults.HomeDir)
+		if v.inputs[inputPath].Value() == "" && v.defaults.HomeDir != "" {
+			v.inputs[inputPath].SetValue(v.defaults.HomeDir)
 		}
 
 		if v.editID == "" && len(v.mounts) == 0 && len(v.defaults.Mounts) > 0 {
@@ -329,9 +384,9 @@ func (v *ContainerFormView) Update(msg tea.Msg) (View, tea.Cmd) {
 			v.loading = false
 			return v, nil
 		}
-		v.inputs[0].SetValue(msg.Config.Name)
-		v.inputs[1].SetValue(msg.Config.ProjectPath)
-		v.inputs[2].SetValue(msg.Config.Image)
+		v.inputs[inputName].SetValue(msg.Config.Name)
+		v.inputs[inputPath].SetValue(msg.Config.ProjectPath)
+		v.inputs[inputImage].SetValue(msg.Config.Image)
 		for i, at := range agentTypes {
 			if at == msg.Config.AgentType {
 				v.agentType = i

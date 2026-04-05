@@ -1,6 +1,23 @@
 import type { AgentType, Mount, NetworkMode } from '@/lib/types'
 import type { DefaultMount } from '@/lib/api'
 
+/** Identifies each step of the project config form. */
+export type FormStep = 'general' | 'environment' | 'network' | 'advanced'
+
+/** Ordered list of form steps for navigation. */
+export const FORM_STEPS: FormStep[] = ['general', 'environment', 'network', 'advanced']
+
+/** Human-readable labels for each form step. */
+export const FORM_STEP_LABELS: Record<FormStep, string> = {
+  general: 'General',
+  environment: 'Environment',
+  network: 'Network',
+  advanced: 'Advanced',
+}
+
+/** Badge state for a form step tab. */
+export type StepBadge = 'required' | 'configured' | 'empty'
+
 /** A single key-value pair for environment variables. */
 export interface EnvVarEntry {
   key: string
