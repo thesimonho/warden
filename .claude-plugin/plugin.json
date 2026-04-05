@@ -1,0 +1,14 @@
+{
+  "name": "warden",
+  "version": "1.0.0",
+  "description": "Skills for integrating with Warden — the container engine for AI coding agents.",
+  "author": {
+    "name": "Simon Ho",
+    "email": "simonho.ubc@gmail.com",
+    "url": "https://github.com/thesimonho"
+  },
+  "homepage": "https://thesimonho.github.io/warden/",
+  "repository": "https://github.com/thesimonho/warden",
+  "license": "MIT",
+  "keywords": ["warden", "containers", "ai-agents", "claude-code", "codex"]
+}
