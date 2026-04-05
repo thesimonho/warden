@@ -17,12 +17,14 @@ export default function ServerStoppedOverlay() {
       ].join(' ')}
     >
       <img src="/logo.svg" alt="Warden" className="h-8 opacity-40 dark:invert" />
-      <h2 className="text-foreground text-xl font-semibold">Warden has stopped</h2>
-      <p className="text-muted-foreground max-w-sm text-center text-sm">
-        The server has been shut down. Running containers are unaffected.
-        <br />
-        Restart Warden to reconnect.
-      </p>
+      <div className="flex flex-col items-center gap-4">
+        <h2 className="text-foreground text-xl font-semibold">Warden has stopped</h2>
+        <p className="text-muted-foreground max-w-sm text-center text-sm">
+          The server has been shut down. Running containers are unaffected.
+          <br />
+          Restart Warden to reconnect.
+        </p>
+      </div>
     </div>
   )
 }

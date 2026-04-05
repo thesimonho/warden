@@ -41,8 +41,8 @@ func TestIsHealthy_ServerDown(t *testing.T) {
 
 func TestListProjects(t *testing.T) {
 	projects := []project{
-		{ID: "abc123", Name: "test", AgentType: "claude-code", State: "running"},
-		{ID: "def456", Name: "other", AgentType: "codex", State: "exited"},
+		{ProjectID: "abc123", Name: "test", AgentType: "claude-code", State: "running"},
+		{ProjectID: "def456", Name: "other", AgentType: "codex", State: "exited"},
 	}
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {

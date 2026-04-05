@@ -171,7 +171,7 @@ func (t *trayState) stopAllContainers(running []project) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			if err := t.srv.stopProject(p.ID, p.AgentType); err != nil {
+			if err := t.srv.stopProject(p.ProjectID, p.AgentType); err != nil {
 				log.Printf("failed to stop %s: %v", p.Name, err)
 			}
 		}()

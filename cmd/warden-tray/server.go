@@ -30,8 +30,10 @@ type serverClient struct {
 }
 
 // project is the minimal subset of engine.Project the tray needs.
+// ProjectID is the stable identifier used in API paths; ID is the
+// Docker container ID (not used by the tray).
 type project struct {
-	ID        string `json:"id"`
+	ProjectID string `json:"projectId"`
 	Name      string `json:"name"`
 	AgentType string `json:"agentType"`
 	State     string `json:"state"`
