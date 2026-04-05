@@ -3,6 +3,7 @@ package access
 import (
 	"context"
 	"fmt"
+	"io"
 	"log/slog"
 	"os"
 	"os/exec"
@@ -150,7 +151,9 @@ func spawnShell(timeout time.Duration) (map[string]string, error) {
 	defer cancel()
 
 	cmd := exec.CommandContext(ctx, shell, "-ilc", "env")
-	cmd.Stdin = nil // stdin closed — prevents interactive prompts
+	cmd.Stdin = nil         // stdin closed — prevents interactive prompts
+	cmd.Stderr = io.Discard // suppress shell startup messages from reaching the terminal
+	configureShellCmd(cmd)  // isolate from the terminal to prevent SIGTTOU races
 
 	out, err := cmd.Output()
 	if err != nil {
