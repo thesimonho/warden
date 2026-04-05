@@ -72,6 +72,7 @@ build: build-web
     go build -o bin/warden ./cmd/warden
     go build -o bin/warden-desktop ./cmd/warden-desktop
     go build -o bin/warden-tui ./cmd/warden-tui
+    cd cmd/warden-tray && CGO_ENABLED=1 go build -o ../../bin/warden-tray .
 
 # Build project container image
 build-container:

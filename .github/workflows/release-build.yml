@@ -175,6 +175,23 @@ jobs:
             -ldflags="${VERSION_LDFLAGS}=${{ needs.setup.outputs.tag_name }}" \
             -o warden-desktop-${{ matrix.goos }}-${{ matrix.goarch }} \
             ./cmd/warden-desktop
+      - name: Install cross-compiler (arm64)
+        if: matrix.goarch == 'arm64'
+        uses: awalsh128/cache-apt-pkgs-action@latest
+        with:
+          packages: gcc-aarch64-linux-gnu
+          version: 1.0
+      - name: Build tray binary
+        env:
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: "1"
+        run: |
+          # arm64 cross-compilation needs the aarch64 C compiler.
+          if [ "${{ matrix.goarch }}" = "arm64" ]; then
+            export CC=aarch64-linux-gnu-gcc
+          fi
+          cd cmd/warden-tray
+          go build -trimpath -o ../../warden-tray .
       - name: Build deb/rpm/Arch packages
         env:
           VERSION: ${{ needs.setup.outputs.tag_name }}
@@ -200,6 +217,7 @@ jobs:
           mkdir -p Warden.AppDir/usr/share/applications
 
           cp warden-desktop Warden.AppDir/usr/bin/warden-desktop
+          cp warden-tray Warden.AppDir/usr/bin/warden-tray
           cp packaging/linux/warden.desktop Warden.AppDir/usr/share/applications/warden.desktop
 
           # Install all icon sizes so DEs pick the right resolution
@@ -258,7 +276,7 @@ jobs:
         with:
           name: embedded-ui
           path: internal/server/ui/
-      - name: Build universal binary
+      - name: Build universal desktop binary
         env:
           CGO_ENABLED: "0"
         run: |
@@ -274,6 +292,14 @@ jobs:
 
           lipo -create -output bin/warden-desktop bin/warden-desktop-amd64 bin/warden-desktop-arm64
           lipo -info bin/warden-desktop
+      - name: Build universal tray binary
+        run: |
+          cd cmd/warden-tray
+          CGO_ENABLED=1 GOARCH=amd64 go build -trimpath -o ../../bin/warden-tray-amd64 .
+          CGO_ENABLED=1 GOARCH=arm64 go build -trimpath -o ../../bin/warden-tray-arm64 .
+
+          lipo -create -output ../../bin/warden-tray ../../bin/warden-tray-amd64 ../../bin/warden-tray-arm64
+          lipo -info ../../bin/warden-tray
       - name: Create .app bundle
         run: bash packaging/macos/bundle.sh ${{ needs.setup.outputs.tag_name }}
       - name: Create DMG
@@ -342,6 +368,13 @@ jobs:
             -ldflags="${VERSION_LDFLAGS}=${{ needs.setup.outputs.tag_name }} -H windowsgui" \
             -o warden-desktop-windows-amd64.exe \
             ./cmd/warden-desktop
+      - name: Build tray binary
+        shell: bash
+        run: |
+          cd cmd/warden-tray
+          CGO_ENABLED=1 go build -trimpath \
+            -ldflags="-H windowsgui" \
+            -o ../../warden-tray-windows-amd64.exe .
       - name: Install Inno Setup
         shell: pwsh
         run: choco install innosetup --no-progress -y

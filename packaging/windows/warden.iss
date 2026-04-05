@@ -33,6 +33,7 @@ ChangesEnvironment=yes
 
 [Files]
 Source: "warden-desktop-windows-amd64.exe"; DestDir: "{app}"; DestName: "warden-desktop.exe"; Flags: ignoreversion
+Source: "warden-tray-windows-amd64.exe"; DestDir: "{app}"; DestName: "warden-tray.exe"; Flags: ignoreversion
 
 [Icons]
 Name: "{group}\Warden"; Filename: "{app}\warden-desktop.exe"

@@ -18,9 +18,15 @@ rm -rf "${APP_DIR}"
 mkdir -p "${CONTENTS}/MacOS"
 mkdir -p "${CONTENTS}/Resources"
 
-# Binary
+# Binaries
 cp "${ROOT_DIR}/bin/warden-desktop" "${CONTENTS}/MacOS/warden"
 chmod +x "${CONTENTS}/MacOS/warden"
+
+# Tray companion (optional — bundle works without it)
+if [ -f "${ROOT_DIR}/bin/warden-tray" ]; then
+    cp "${ROOT_DIR}/bin/warden-tray" "${CONTENTS}/MacOS/warden-tray"
+    chmod +x "${CONTENTS}/MacOS/warden-tray"
+fi
 
 # Info.plist with version substituted (strip leading 'v' for CFBundleVersion)
 PLIST_VERSION="${VERSION#v}"
