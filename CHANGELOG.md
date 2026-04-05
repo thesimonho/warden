@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.6.2](https://github.com/thesimonho/warden/compare/v1.6.1...v1.6.2) (2026-04-05)
+
+
+### Bug Fixes
+
+* install nfpm for host arch, not target arch ([#107](https://github.com/thesimonho/warden/issues/107)) ([df6b2a9](https://github.com/thesimonho/warden/commit/df6b2a91061447133b1bcfa74c1c4716a966d34a))
+
 ## [1.6.1](https://github.com/thesimonho/warden/compare/v1.6.0...v1.6.1) (2026-04-05)
 
 
