@@ -173,6 +173,24 @@ func TestIsValidID(t *testing.T) {
 	}
 }
 
+func TestAlwaysEnabledIDs(t *testing.T) {
+	t.Parallel()
+	ids := AlwaysEnabledIDs()
+	if len(ids) == 0 {
+		t.Fatal("expected at least one always-enabled runtime (node)")
+	}
+	if ids[0] != "node" {
+		t.Errorf("expected node as first always-enabled runtime, got %q", ids[0])
+	}
+	// Verify all returned IDs are actually always-enabled.
+	for _, id := range ids {
+		r := ByID(id)
+		if r == nil || !r.AlwaysEnabled {
+			t.Errorf("runtime %q returned by AlwaysEnabledIDs but is not always-enabled", id)
+		}
+	}
+}
+
 func TestAllIDs(t *testing.T) {
 	t.Parallel()
 	ids := AllIDs()

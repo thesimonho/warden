@@ -295,7 +295,7 @@ func TestWriteAuditCSV(t *testing.T) {
 
 func TestGetAuditLog_NilDB(t *testing.T) {
 	t.Parallel()
-	svc := New(ServiceDeps{DockerAvailable: true, })
+	svc := New(ServiceDeps{DockerAvailable: true})
 
 	entries, err := svc.GetAuditLog(api.AuditFilters{})
 	if err != nil {

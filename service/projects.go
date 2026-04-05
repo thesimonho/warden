@@ -85,9 +85,7 @@ func (s *Service) AddProject(name, hostPath, agentType string) (*ProjectResult, 
 		return nil, fmt.Errorf("computing project ID: %w", err)
 	}
 
-	if agentType == "" {
-		agentType = string(constants.DefaultAgentType)
-	}
+	agentType = normalizeAgentType(agentType)
 
 	has, err := s.db.HasProject(projectID, agentType)
 	if err != nil {

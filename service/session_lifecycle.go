@@ -20,9 +20,7 @@ const watcherCooldown = 10 * time.Second
 // container and delegates to StartSessionWatcher. Reduces the repeated
 // three-line normalization block at every lifecycle callsite.
 func (s *Service) startProjectWatcher(projectID, containerName, agentType string) {
-	if agentType == "" {
-		agentType = string(agent.DefaultType)
-	}
+	agentType = normalizeAgentType(agentType)
 	workspaceDir := engine.ContainerWorkspaceDir(containerName)
 	s.StartSessionWatcher(projectID, containerName, agentType, workspaceDir)
 }

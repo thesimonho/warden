@@ -5,12 +5,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
-	"os"
-	"path/filepath"
 	"strings"
 	"time"
 
-	"github.com/thesimonho/warden/agent"
 	"github.com/thesimonho/warden/api"
 	"github.com/thesimonho/warden/constants"
 	"github.com/thesimonho/warden/db"
@@ -43,7 +40,7 @@ func (s *Service) CreateContainer(ctx context.Context, req api.CreateContainerRe
 
 	// Write template BEFORE mergeRuntimeDomains mutates req.AllowedDomains,
 	// so the file stores only user-specified domains (not runtime-contributed ones).
-	go writeProjectTemplate(req.ProjectPath, req)
+	go writeProjectTemplate(newTemplateData(req))
 
 	// Merge runtime domains into the allowed list for restricted mode.
 	// This runs after projectRowFromRequest so the DB stores only user-entered
@@ -243,10 +240,7 @@ func (s *Service) updateContainerSettings(ctx context.Context, project *db.Proje
 	// Best-effort: if the exec fails (e.g. container stopped), the DB is still
 	// updated so the correct domains apply on next container start/recreation.
 	newDomains := strings.Join(req.AllowedDomains, ",")
-	existingMode := api.NetworkMode(project.NetworkMode)
-	if existingMode == "" {
-		existingMode = api.NetworkModeFull
-	}
+	existingMode := normalizeNetworkMode(api.NetworkMode(project.NetworkMode))
 	if newDomains != project.AllowedDomains && existingMode == api.NetworkModeRestricted {
 		if err := s.docker.ReloadAllowedDomains(ctx, project.ContainerID, req.AllowedDomains); err != nil {
 			slog.Warn("failed to hot-reload domains (container may be stopped)", "err", err)
@@ -268,7 +262,7 @@ func (s *Service) updateContainerSettings(ctx context.Context, project *db.Proje
 	s.auditContainerUpdate(project, req, "settings", containerName)
 
 	// Write-back template with full config reconstructed from DB + update.
-	go writeProjectTemplate(project.HostPath, reconstructRequestFromRow(project, req))
+	go writeProjectTemplate(newTemplateData(reconstructRequestFromRow(project, req)))
 
 	return &ContainerResult{
 		ContainerID: project.ContainerID,
@@ -291,7 +285,7 @@ func (s *Service) recreateContainer(ctx context.Context, project *db.ProjectRow,
 	}
 
 	// Write template BEFORE mergeRuntimeDomains mutates req.AllowedDomains.
-	go writeProjectTemplate(req.ProjectPath, req)
+	go writeProjectTemplate(newTemplateData(req))
 
 	// Merge runtime domains into the allowed list for restricted mode.
 	mergeRuntimeDomains(&req)
@@ -346,28 +340,10 @@ func needsRecreation(project *db.ProjectRow, req api.CreateContainerRequest) boo
 	if req.ProjectPath != project.HostPath {
 		return true
 	}
-
-	reqAgent := string(req.AgentType)
-	if reqAgent == "" {
-		reqAgent = string(agent.DefaultType)
-	}
-	existingAgent := project.AgentType
-	if existingAgent == "" {
-		existingAgent = string(agent.DefaultType)
-	}
-	if reqAgent != existingAgent {
+	if normalizeAgentType(string(req.AgentType)) != normalizeAgentType(project.AgentType) {
 		return true
 	}
-
-	reqNetwork := req.NetworkMode
-	if reqNetwork == "" {
-		reqNetwork = api.NetworkModeFull
-	}
-	existingNetwork := api.NetworkMode(project.NetworkMode)
-	if existingNetwork == "" {
-		existingNetwork = api.NetworkModeFull
-	}
-	if reqNetwork != existingNetwork {
+	if normalizeNetworkMode(req.NetworkMode) != normalizeNetworkMode(api.NetworkMode(project.NetworkMode)) {
 		return true
 	}
 
@@ -377,15 +353,12 @@ func needsRecreation(project *db.ProjectRow, req api.CreateContainerRequest) boo
 	if !stringSlicesEqual(req.EnabledAccessItems, splitCSV(project.EnabledAccessItems)) {
 		return true
 	}
-
-	if !stringSlicesEqual(req.EnabledRuntimes, splitCSV(project.EnabledRuntimes)) {
+	if !stringSlicesEqual(normalizeRuntimes(req.EnabledRuntimes), normalizeRuntimes(splitCSV(project.EnabledRuntimes))) {
 		return true
 	}
-
 	if !envVarsEqual(req.EnvVars, project.EnvVars) {
 		return true
 	}
-
 	if !mountsEqual(req.Mounts, project.Mounts) {
 		return true
 	}
@@ -483,8 +456,10 @@ func (s *Service) auditContainerUpdate(old *db.ProjectRow, req api.CreateContain
 	if req.Image != "" && req.Image != old.Image {
 		changes = append(changes, containerChange{"image", old.Image, req.Image})
 	}
-	if !stringSlicesEqual(req.EnabledRuntimes, splitCSV(old.EnabledRuntimes)) {
-		changes = append(changes, containerChange{"enabledRuntimes", splitCSV(old.EnabledRuntimes), req.EnabledRuntimes})
+	newRT := normalizeRuntimes(req.EnabledRuntimes)
+	oldRT := normalizeRuntimes(splitCSV(old.EnabledRuntimes))
+	if !stringSlicesEqual(newRT, oldRT) {
+		changes = append(changes, containerChange{"enabledRuntimes", oldRT, newRT})
 	}
 	reqNetwork := string(req.NetworkMode)
 	if reqNetwork != "" && reqNetwork != old.NetworkMode {
@@ -536,18 +511,13 @@ func projectRowFromRequest(req api.CreateContainerRequest) (db.ProjectRow, error
 		return db.ProjectRow{}, fmt.Errorf("computing project ID: %w", err)
 	}
 
-	agentType := string(req.AgentType)
-	if agentType == "" {
-		agentType = string(agent.DefaultType)
-	}
-
 	row := db.ProjectRow{
 		ProjectID:       projectID,
 		Name:            req.Name,
 		AddedAt:         time.Now().UTC(),
 		Image:           req.Image,
 		HostPath:        req.ProjectPath,
-		AgentType:       agentType,
+		AgentType:       normalizeAgentType(string(req.AgentType)),
 		SkipPermissions: req.SkipPermissions,
 		NetworkMode:     string(req.NetworkMode),
 	}
@@ -573,9 +543,7 @@ func projectRowFromRequest(req api.CreateContainerRequest) (db.ProjectRow, error
 	if len(req.EnabledAccessItems) > 0 {
 		row.EnabledAccessItems = strings.Join(req.EnabledAccessItems, ",")
 	}
-	if len(req.EnabledRuntimes) > 0 {
-		row.EnabledRuntimes = strings.Join(req.EnabledRuntimes, ",")
-	}
+	row.EnabledRuntimes = strings.Join(normalizeRuntimes(req.EnabledRuntimes), ",")
 
 	return row, nil
 }
@@ -600,73 +568,6 @@ func reconstructRequestFromRow(project *db.ProjectRow, update api.CreateContaine
 		_ = json.Unmarshal(project.EnvVars, &req.EnvVars)
 	}
 	return req
-}
-
-// writeProjectTemplate writes the current container config back to
-// .warden.json in the project directory. Preserves agent overrides for
-// other agent types from the existing file. Best-effort: failures are
-// logged but do not affect the create/update operation.
-func writeProjectTemplate(projectPath string, req api.CreateContainerRequest) {
-	templatePath := filepath.Join(projectPath, templateFileName)
-
-	// Read existing file to preserve other agent overrides.
-	var existing api.ProjectTemplate
-	if data, err := os.ReadFile(templatePath); err == nil {
-		_ = json.Unmarshal(data, &existing)
-	}
-
-	// Build template from the request's current config.
-	// Excluded: envVars (may contain secrets) and accessItems (credentials).
-	tmpl := api.ProjectTemplate{
-		Image:       req.Image,
-		NetworkMode: req.NetworkMode,
-		Runtimes:    req.EnabledRuntimes,
-	}
-
-	// Pointer fields only set when non-default to keep the file clean.
-	if req.SkipPermissions {
-		skipPerms := true
-		tmpl.SkipPermissions = &skipPerms
-	}
-	if req.CostBudget > 0 {
-		budget := req.CostBudget
-		tmpl.CostBudget = &budget
-	}
-
-	// Preserve existing agent overrides, update only the current agent.
-	agents := existing.Agents
-	if agents == nil {
-		agents = make(map[string]api.AgentTemplateOverride)
-	}
-	if req.NetworkMode == api.NetworkModeRestricted && len(req.AllowedDomains) > 0 {
-		agents[string(req.AgentType)] = api.AgentTemplateOverride{
-			AllowedDomains: req.AllowedDomains,
-		}
-	} else {
-		// Clear domains for this agent when not restricted.
-		delete(agents, string(req.AgentType))
-	}
-	if len(agents) > 0 {
-		tmpl.Agents = agents
-	}
-
-	data, err := json.MarshalIndent(tmpl, "", "  ")
-	if err != nil {
-		slog.Warn("failed to marshal .warden.json", "err", err)
-		return
-	}
-	data = append(data, '\n')
-
-	// Write atomically via temp file + rename.
-	tmpFile := templatePath + ".tmp"
-	if err := os.WriteFile(tmpFile, data, 0o644); err != nil {
-		slog.Warn("failed to write .warden.json", "path", templatePath, "err", err)
-		return
-	}
-	if err := os.Rename(tmpFile, templatePath); err != nil {
-		slog.Warn("failed to rename .warden.json", "path", templatePath, "err", err)
-		_ = os.Remove(tmpFile)
-	}
 }
 
 // mergeRuntimeDomains adds runtime-contributed network domains to the

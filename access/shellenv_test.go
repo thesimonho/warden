@@ -241,4 +241,3 @@ func TestShellEnvResolver_RefreshAfterCooldown(t *testing.T) {
 		t.Error("expected loadedAt to be updated after refresh")
 	}
 }
-

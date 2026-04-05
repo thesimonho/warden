@@ -216,6 +216,19 @@ func EnvVarsForRuntimes(ids []string) map[string]string {
 	return result
 }
 
+// AlwaysEnabledIDs returns the IDs of runtimes that are always enabled
+// (e.g. Node.js for MCP servers). Used as a fallback when no runtimes
+// are explicitly configured.
+func AlwaysEnabledIDs() []string {
+	var ids []string
+	for _, r := range registry {
+		if r.AlwaysEnabled {
+			ids = append(ids, r.ID)
+		}
+	}
+	return ids
+}
+
 // AllIDs returns the IDs of all registered runtimes in registry order.
 func AllIDs() []string {
 	ids := make([]string, len(registry))

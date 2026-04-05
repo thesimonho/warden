@@ -90,7 +90,79 @@ func TestReadProjectTemplate(t *testing.T) {
 			t.Error("expected agent override to be deleted when networkMode is not restricted")
 		}
 	})
+}
 
+func TestNewTemplateData(t *testing.T) {
+	t.Parallel()
+
+	t.Run("defaults empty agent type", func(t *testing.T) {
+		t.Parallel()
+		td := newTemplateData(api.CreateContainerRequest{AgentType: ""})
+		if td.AgentType != "claude-code" {
+			t.Errorf("expected 'claude-code', got %q", td.AgentType)
+		}
+	})
+
+	t.Run("preserves explicit agent type", func(t *testing.T) {
+		t.Parallel()
+		td := newTemplateData(api.CreateContainerRequest{AgentType: "codex"})
+		if td.AgentType != "codex" {
+			t.Errorf("expected 'codex', got %q", td.AgentType)
+		}
+	})
+
+	t.Run("defaults empty runtimes to always-enabled", func(t *testing.T) {
+		t.Parallel()
+		td := newTemplateData(api.CreateContainerRequest{EnabledRuntimes: nil})
+		if len(td.Runtimes) == 0 {
+			t.Fatal("expected non-empty runtimes")
+		}
+		if td.Runtimes[0] != "node" {
+			t.Errorf("expected 'node', got %q", td.Runtimes[0])
+		}
+	})
+
+	t.Run("preserves explicit runtimes", func(t *testing.T) {
+		t.Parallel()
+		td := newTemplateData(api.CreateContainerRequest{
+			EnabledRuntimes: []string{"node", "python", "go"},
+		})
+		if len(td.Runtimes) != 3 {
+			t.Errorf("expected 3 runtimes, got %d", len(td.Runtimes))
+		}
+	})
+
+	t.Run("copies all fields", func(t *testing.T) {
+		t.Parallel()
+		td := newTemplateData(api.CreateContainerRequest{
+			ProjectPath:     "/home/user/project",
+			Image:           "custom:latest",
+			AgentType:       constants.AgentClaudeCode,
+			SkipPermissions: true,
+			NetworkMode:     api.NetworkModeRestricted,
+			CostBudget:      25.0,
+			EnabledRuntimes: []string{"node", "python"},
+			AllowedDomains:  []string{"*.anthropic.com"},
+		})
+		if td.ProjectPath != "/home/user/project" {
+			t.Errorf("ProjectPath = %q", td.ProjectPath)
+		}
+		if td.Image != "custom:latest" {
+			t.Errorf("Image = %q", td.Image)
+		}
+		if !td.SkipPermissions {
+			t.Error("expected SkipPermissions=true")
+		}
+		if td.NetworkMode != api.NetworkModeRestricted {
+			t.Errorf("NetworkMode = %q", td.NetworkMode)
+		}
+		if td.CostBudget != 25.0 {
+			t.Errorf("CostBudget = %f", td.CostBudget)
+		}
+		if len(td.AllowedDomains) != 1 {
+			t.Errorf("expected 1 domain, got %d", len(td.AllowedDomains))
+		}
+	})
 }
 
 func TestWriteProjectTemplate(t *testing.T) {
@@ -99,7 +171,7 @@ func TestWriteProjectTemplate(t *testing.T) {
 	t.Run("writes correct structure", func(t *testing.T) {
 		t.Parallel()
 		dir := t.TempDir()
-		req := api.CreateContainerRequest{
+		td := newTemplateData(api.CreateContainerRequest{
 			Image:           "custom:latest",
 			ProjectPath:     dir,
 			AgentType:       constants.AgentClaudeCode,
@@ -108,9 +180,9 @@ func TestWriteProjectTemplate(t *testing.T) {
 			AllowedDomains:  []string{"*.anthropic.com", "*.github.com"},
 			CostBudget:      10.0,
 			EnabledRuntimes: []string{"node", "python"},
-		}
+		})
 
-		writeProjectTemplate(dir, req)
+		writeProjectTemplate(td)
 
 		data, err := os.ReadFile(filepath.Join(dir, templateFileName))
 		if err != nil {
@@ -128,7 +200,9 @@ func TestWriteProjectTemplate(t *testing.T) {
 		if tmpl.SkipPermissions == nil || !*tmpl.SkipPermissions {
 			t.Error("expected skipPermissions to be true")
 		}
-		// Domains should be written for the current agent type.
+		if len(tmpl.Runtimes) != 2 || tmpl.Runtimes[0] != "node" || tmpl.Runtimes[1] != "python" {
+			t.Errorf("expected [node python], got %v", tmpl.Runtimes)
+		}
 		domains := tmpl.Agents["claude-code"].AllowedDomains
 		if len(domains) != 2 {
 			t.Errorf("expected 2 domains, got %v", domains)
@@ -148,13 +222,13 @@ func TestWriteProjectTemplate(t *testing.T) {
 		writeJSON(t, dir, initial)
 
 		// Write-back as claude-code.
-		req := api.CreateContainerRequest{
+		td := newTemplateData(api.CreateContainerRequest{
 			ProjectPath:    dir,
 			AgentType:      constants.AgentClaudeCode,
 			NetworkMode:    api.NetworkModeRestricted,
 			AllowedDomains: []string{"*.anthropic.com"},
-		}
-		writeProjectTemplate(dir, req)
+		})
+		writeProjectTemplate(td)
 
 		data, _ := os.ReadFile(filepath.Join(dir, templateFileName))
 		var tmpl api.ProjectTemplate
@@ -175,14 +249,14 @@ func TestWriteProjectTemplate(t *testing.T) {
 	t.Run("does not write domains when networkMode is not restricted", func(t *testing.T) {
 		t.Parallel()
 		dir := t.TempDir()
-		req := api.CreateContainerRequest{
+		td := newTemplateData(api.CreateContainerRequest{
 			ProjectPath:    dir,
 			AgentType:      constants.AgentClaudeCode,
 			NetworkMode:    api.NetworkModeNone,
 			AllowedDomains: []string{"should-not-appear"},
-		}
+		})
 
-		writeProjectTemplate(dir, req)
+		writeProjectTemplate(td)
 
 		data, _ := os.ReadFile(filepath.Join(dir, templateFileName))
 		var tmpl api.ProjectTemplate
@@ -194,10 +268,58 @@ func TestWriteProjectTemplate(t *testing.T) {
 	})
 }
 
+func TestNormalizeHelpers(t *testing.T) {
+	t.Parallel()
+
+	t.Run("normalizeAgentType defaults empty", func(t *testing.T) {
+		t.Parallel()
+		if got := normalizeAgentType(""); got != "claude-code" {
+			t.Errorf("expected 'claude-code', got %q", got)
+		}
+	})
+
+	t.Run("normalizeAgentType preserves value", func(t *testing.T) {
+		t.Parallel()
+		if got := normalizeAgentType("codex"); got != "codex" {
+			t.Errorf("expected 'codex', got %q", got)
+		}
+	})
+
+	t.Run("normalizeRuntimes defaults empty", func(t *testing.T) {
+		t.Parallel()
+		got := normalizeRuntimes(nil)
+		if len(got) == 0 || got[0] != "node" {
+			t.Errorf("expected [node ...], got %v", got)
+		}
+	})
+
+	t.Run("normalizeRuntimes preserves value", func(t *testing.T) {
+		t.Parallel()
+		got := normalizeRuntimes([]string{"python"})
+		if len(got) != 1 || got[0] != "python" {
+			t.Errorf("expected [python], got %v", got)
+		}
+	})
+
+	t.Run("normalizeNetworkMode defaults empty", func(t *testing.T) {
+		t.Parallel()
+		if got := normalizeNetworkMode(""); got != api.NetworkModeFull {
+			t.Errorf("expected 'full', got %q", got)
+		}
+	})
+
+	t.Run("normalizeNetworkMode preserves value", func(t *testing.T) {
+		t.Parallel()
+		if got := normalizeNetworkMode(api.NetworkModeRestricted); got != api.NetworkModeRestricted {
+			t.Errorf("expected 'restricted', got %q", got)
+		}
+	})
+}
+
 func TestReadProjectTemplateExported(t *testing.T) {
 	t.Parallel()
 
-	svc := New(ServiceDeps{DockerAvailable: true, })
+	svc := New(ServiceDeps{DockerAvailable: true})
 
 	t.Run("reads valid file", func(t *testing.T) {
 		t.Parallel()
