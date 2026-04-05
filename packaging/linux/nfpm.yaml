@@ -1,0 +1,45 @@
+# nFPM configuration for building deb, rpm, and Arch Linux packages.
+# Usage:
+#   nfpm pkg --packager deb --target .
+#   nfpm pkg --packager rpm --target .
+#   nfpm pkg --packager archlinux --target .
+#
+# VERSION and GOARCH are injected via environment variables in CI.
+
+name: warden-desktop
+arch: ${GOARCH}
+version: ${VERSION}
+platform: linux
+maintainer: thesimonho
+vendor: thesimonho
+homepage: https://github.com/thesimonho/warden
+license: MIT
+description: Dashboard and control plane for AI coding agents.
+
+recommends:
+  - docker-ce
+
+overrides:
+  deb:
+    depends:
+      - docker-ce | docker.io | docker-desktop
+  rpm:
+    depends: []
+    recommends:
+      - docker-ce
+  archlinux:
+    depends: []
+    recommends:
+      - docker
+
+contents:
+  - src: warden-desktop
+    dst: /usr/bin/warden-desktop
+    file_info:
+      mode: 0755
+
+  - src: packaging/linux/warden.desktop
+    dst: /usr/share/applications/warden.desktop
+
+  - src: packaging/linux/warden.png
+    dst: /usr/share/icons/hicolor/512x512/apps/warden.png

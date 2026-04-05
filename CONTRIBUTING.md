@@ -160,12 +160,13 @@ test: add E2E tests for worktree lifecycle
 
 Your PR will be checked by these workflows:
 
-| Workflow                  | Trigger                                  | What it does                                                                            |
-| ------------------------- | ---------------------------------------- | --------------------------------------------------------------------------------------- |
-| `ci.yml`                  | PRs targeting `main`                     | Go tests, TS typecheck, TS tests                                                        |
-| `release-please.yml`      | Push to `main`                           | Automated releases, cross-platform binary builds (linux/darwin/windows × amd64/arm64)   |
-| `container.yml`           | Push to `main` (`container/**`), release | Build container image + devcontainer feature (`:latest` on push, semver on release)     |
-| `container-scheduled.yml` | Daily schedule (5 AM UTC)                | Validates container image, builds CLIs, validates JSONL parsers, pushes only on success |
+| Workflow                  | Trigger                                  | What it does                                                                              |
+| ------------------------- | ---------------------------------------- | ----------------------------------------------------------------------------------------- |
+| `ci.yml`                  | PRs targeting `main`                     | Go tests, TS typecheck, TS tests                                                          |
+| `release-please.yml`      | Push to `main`                           | Automated release creation and version tagging                                            |
+| `release-build.yml`       | Release published, or manual dispatch    | Cross-platform builds, installers (DMG/deb/rpm/Arch/AppImage/Inno Setup), checksums, SBOM |
+| `container.yml`           | Push to `main` (`container/**`), release | Build container image + devcontainer feature (`:latest` on push, semver on release)       |
+| `container-scheduled.yml` | Daily schedule (5 AM UTC)                | Validates container image, builds CLIs, validates JSONL parsers, pushes only on success   |
 
 ## Stack
 

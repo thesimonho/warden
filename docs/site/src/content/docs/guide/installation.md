@@ -5,44 +5,44 @@ description: Platform-specific installation instructions for all three Warden bi
 
 ## Download
 
-Grab the binary for your platform from the [releases page](https://github.com/thesimonho/warden/releases). Each release includes builds for:
-
-- **Linux** — `amd64` and `arm64`
-- **macOS** — `amd64` (Intel) and `arm64` (Apple Silicon)
-- **Windows** — `amd64` and `arm64`
+Grab the installer for your platform from the [releases page](https://github.com/thesimonho/warden/releases).
 
 ## Linux
 
+Choose the format that suits your system:
+
+| Format                  | File                                  | Install method                        |
+| ----------------------- | ------------------------------------- | ------------------------------------- |
+| **deb** (Debian/Ubuntu) | `warden-desktop_*_amd64.deb`          | `sudo dpkg -i *.deb`                  |
+| **rpm** (Fedora/RHEL)   | `warden-desktop-*.x86_64.rpm`         | `sudo rpm -i *.rpm`                   |
+| **Arch**                | `warden-desktop-*-x86_64.pkg.tar.zst` | `sudo pacman -U *.pkg.tar.zst`        |
+| **AppImage** (portable) | `warden-desktop-linux-amd64.AppImage` | `chmod +x *.AppImage && ./*.AppImage` |
+
+ARM64 builds are also available for all formats. AppImages support delta updates via [AppImageUpdate](https://github.com/AppImage/AppImageUpdate).
+
+### Headless server and TUI
+
+The headless server (`warden`) and TUI (`warden-tui`) are distributed as standalone binaries:
+
 ```bash
-# Download (replace with your architecture)
-curl -L -o warden-desktop https://github.com/thesimonho/warden/releases/latest/download/warden-desktop-linux-amd64
-
-# Make executable
-chmod +x warden-desktop
-
-# Run
-./warden-desktop
+# Download (replace binary name and architecture as needed)
+curl -L -o warden https://github.com/thesimonho/warden/releases/latest/download/warden-linux-amd64
+chmod +x warden
 ```
 
 ## macOS
 
-```bash
-# Download (Apple Silicon)
-curl -L -o warden-desktop https://github.com/thesimonho/warden/releases/latest/download/warden-desktop-darwin-arm64
+Download the DMG from the releases page:
 
-# Make executable
-chmod +x warden-desktop
+1. Open `warden-desktop-macos-universal.dmg`
+2. Drag **Warden.app** to Applications
+3. On first launch, right-click → Open to bypass Gatekeeper (the app is not yet code-signed)
 
-# Remove quarantine (macOS Gatekeeper)
-xattr -d com.apple.quarantine warden-desktop
-
-# Run
-./warden-desktop
-```
+The DMG contains a universal binary that runs natively on both Intel and Apple Silicon Macs.
 
 ## Windows
 
-Download the `.exe` from the releases page and run it directly. No installation required.
+Download and run `Warden-Setup-amd64.exe`. The installer optionally adds Warden to your PATH and creates a desktop shortcut.
 
 ## Prerequisites
 

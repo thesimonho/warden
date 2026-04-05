@@ -17,7 +17,7 @@ description: Get up and running with Warden in under a minute.
 | Use the terminal UI       | `warden-tui`     |
 | Integrate into my own app | `warden`         |
 
-Download the binary for your platform from the [releases page](https://github.com/thesimonho/warden/releases). See [Installation](../installation/) for platform-specific instructions.
+Download the installer for your platform from the [releases page](https://github.com/thesimonho/warden/releases). See [Installation](../installation/) for platform-specific instructions.
 
 ## Run it
 

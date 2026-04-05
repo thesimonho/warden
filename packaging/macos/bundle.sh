@@ -22,8 +22,9 @@ mkdir -p "${CONTENTS}/Resources"
 cp "${ROOT_DIR}/bin/warden-desktop" "${CONTENTS}/MacOS/warden"
 chmod +x "${CONTENTS}/MacOS/warden"
 
-# Info.plist with version substituted
-sed "s/__VERSION__/${VERSION}/g" "${SCRIPT_DIR}/Info.plist" > "${CONTENTS}/Info.plist"
+# Info.plist with version substituted (strip leading 'v' for CFBundleVersion)
+PLIST_VERSION="${VERSION#v}"
+sed "s/__VERSION__/${PLIST_VERSION}/g" "${SCRIPT_DIR}/Info.plist" > "${CONTENTS}/Info.plist"
 
 # Icon — convert from iconset on macOS, or use pre-built .icns if available
 if [ -f "${SCRIPT_DIR}/warden.icns" ]; then

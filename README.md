@@ -60,7 +60,6 @@ Example web apps built up from core Warden features:
   <a href="docs/site/public/hero-dark.webp" target="_blank"><img width="400" alt="dark" src="docs/site/public/hero-dark.webp" /></a>
 </div>
 
-
 ### Security model
 
 - **Full container isolation** — each project gets its own filesystem, env vars, and credentials. No credential bleed, no cross-project file access.
@@ -110,17 +109,19 @@ Example web apps built up from core Warden features:
 
 There are 2 ways to use Warden: as a user or as a developer
 
-Grab the binary for your use case from the [releases page](https://github.com/thesimonho/warden/releases):
+Grab the installer for your use case from the [releases page](https://github.com/thesimonho/warden/releases):
 
-| I want to...              | Download         |
-| ------------------------- | ---------------- |
-| Use the web dashboard     | `warden-desktop` |
-| Use the terminal UI       | `warden-tui`     |
-| Integrate into my own app | `warden`         |
+| Platform    | Use the web dashboard                          | Use the terminal UI | Integrate into my own app |
+| ----------- | ---------------------------------------------- | ------------------- | ------------------------- |
+| **Linux**   | `.deb` / `.rpm` / `.pkg.tar.zst` / `.AppImage` | `warden-tui` binary | `warden` binary           |
+| **macOS**   | `.dmg` (universal)                             | `warden-tui` binary | `warden` binary           |
+| **Windows** | `Warden-Setup-amd64.exe`                       | `warden-tui` binary | `warden` binary           |
+
+See [Installation](https://thesimonho.github.io/warden/guide/installation/) for detailed instructions.
 
 ### As a user — run agents from a web dashboard or terminal
 
-Download the binary and go. No Docker knowledge, no terminal wrangling, no infrastructure setup.
+Download and install. No Docker knowledge, no terminal wrangling, no infrastructure setup.
 
 **Web dashboard** (`warden-desktop`): A single binary that opens a browser UI. Create projects, spin up worktrees, monitor every agent's status and cost in one view. Close the tab — agents keep working in the background. Reconnect anytime.
 

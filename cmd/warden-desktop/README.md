@@ -25,9 +25,9 @@ This binary embeds the full Warden engine (via `warden.New()`) and serves the Re
 
 ## Platform packaging
 
-- **macOS** — packaged as a `.app` bundle via `packaging/macos/bundle.sh`
-- **Linux** — `.desktop` file in `packaging/linux/`
-- **Windows** — built with `-H windowsgui` flag and icon embedding via `goversioninfo`
+- **macOS** — universal binary (Intel + Apple Silicon) packaged as a `.dmg` installer via `create-dmg`
+- **Linux** — `.deb`, `.rpm`, Arch (`.pkg.tar.zst`), and AppImage with zsync auto-update. Packaging config in `packaging/linux/`
+- **Windows** — Inno Setup installer (`Warden-Setup-amd64.exe`) with optional PATH integration. Built with `-H windowsgui` and icon embedding via `goversioninfo`
 
 ## Architecture
 

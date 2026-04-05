@@ -1,0 +1,402 @@
+name: Release Build
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: "Release tag to build against (e.g. v0.6.0)"
+        required: true
+permissions:
+  contents: write
+  packages: write
+env:
+  # Shared build constants — update versions here, not in individual steps.
+  VERSION_LDFLAGS: "-s -w -X github.com/thesimonho/warden/version.Version"
+  NFPM_VERSION: "v2.46.0"
+  APPIMAGETOOL_VERSION: "1.9.1"
+  INNOSETUP_VERSION: "6.6.0"
+  NODE_VERSION: "24"
+jobs:
+  # ---------------------------------------------------------------------------
+  # Setup: resolve tag name and version components for all downstream jobs.
+  # ---------------------------------------------------------------------------
+  setup:
+    runs-on: ubuntu-latest
+    outputs:
+      tag_name: ${{ steps.vars.outputs.tag_name }}
+      major: ${{ steps.vars.outputs.major }}
+      minor: ${{ steps.vars.outputs.minor }}
+    steps:
+      - name: Resolve version
+        id: vars
+        run: |
+          TAG="${{ github.event.release.tag_name || inputs.tag_name }}"
+          echo "tag_name=${TAG}" >> "$GITHUB_OUTPUT"
+
+          # Parse major.minor from tag (e.g. v1.2.3 → major=1, minor=2)
+          VERSION="${TAG#v}"
+          echo "major=${VERSION%%.*}" >> "$GITHUB_OUTPUT"
+          echo "minor=$(echo "$VERSION" | cut -d. -f2)" >> "$GITHUB_OUTPUT"
+  # ---------------------------------------------------------------------------
+  # Frontend: build the embedded SPA and upload as artifact.
+  # ---------------------------------------------------------------------------
+  build-webapp:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "npm"
+          cache-dependency-path: web/package-lock.json
+      - run: npm --prefix web install
+      - run: npm --prefix web run build
+      - run: rm -rf internal/server/ui && cp -r web/dist internal/server/ui
+      - uses: actions/upload-artifact@v4
+        with:
+          name: embedded-ui
+          path: internal/server/ui/
+  # ---------------------------------------------------------------------------
+  # Headless server binaries (linux/mac × amd64/arm64, windows amd64).
+  # ---------------------------------------------------------------------------
+  build-server:
+    needs: setup
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - goos: linux
+            goarch: amd64
+          - goos: linux
+            goarch: arm64
+          - goos: darwin
+            goarch: amd64
+          - goos: darwin
+            goarch: arm64
+          - goos: windows
+            goarch: amd64
+            ext: .exe
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Build headless server
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: "0"
+        run: |
+          go build -trimpath \
+            -ldflags="${VERSION_LDFLAGS}=${{ needs.setup.outputs.tag_name }}" \
+            -o warden-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.ext }} \
+            ./cmd/warden
+      - name: Upload to release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload --clobber \
+            ${{ needs.setup.outputs.tag_name }} \
+            warden-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.ext }}
+  # ---------------------------------------------------------------------------
+  # TUI binaries (same matrix as server).
+  # ---------------------------------------------------------------------------
+  build-tui:
+    needs: setup
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - goos: linux
+            goarch: amd64
+          - goos: linux
+            goarch: arm64
+          - goos: darwin
+            goarch: amd64
+          - goos: darwin
+            goarch: arm64
+          - goos: windows
+            goarch: amd64
+            ext: .exe
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Build TUI binary
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: "0"
+        run: |
+          go build -trimpath \
+            -ldflags="${VERSION_LDFLAGS}=${{ needs.setup.outputs.tag_name }}" \
+            -o warden-tui-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.ext }} \
+            ./cmd/warden-tui
+      - name: Upload to release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload --clobber \
+            ${{ needs.setup.outputs.tag_name }} \
+            warden-tui-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.ext }}
+  # ---------------------------------------------------------------------------
+  # Desktop — Linux: deb, rpm, Arch, AppImage (amd64 + arm64).
+  # ---------------------------------------------------------------------------
+  build-desktop-linux:
+    needs: [setup, build-webapp]
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - goos: linux
+            goarch: amd64
+          - goos: linux
+            goarch: arm64
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+      - uses: actions/download-artifact@v8
+        with:
+          name: embedded-ui
+          path: internal/server/ui/
+      - name: Build desktop binary
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: "0"
+        run: |
+          go build -trimpath \
+            -ldflags="${VERSION_LDFLAGS}=${{ needs.setup.outputs.tag_name }}" \
+            -o warden-desktop-${{ matrix.goos }}-${{ matrix.goarch }} \
+            ./cmd/warden-desktop
+      - name: Build deb/rpm/Arch packages
+        env:
+          VERSION: ${{ needs.setup.outputs.tag_name }}
+          GOARCH: ${{ matrix.goarch }}
+        run: |
+          # Strip leading 'v' from tag for package version (e.g. v0.5.3 → 0.5.3)
+          export VERSION="${VERSION#v}"
+
+          # Rename binary to match nfpm expected name
+          cp warden-desktop-linux-${{ matrix.goarch }} warden-desktop
+
+          go install github.com/goreleaser/nfpm/v2/cmd/nfpm@${{ env.NFPM_VERSION }}
+
+          nfpm pkg --config packaging/linux/nfpm.yaml --packager deb --target .
+          nfpm pkg --config packaging/linux/nfpm.yaml --packager rpm --target .
+          nfpm pkg --config packaging/linux/nfpm.yaml --packager archlinux --target .
+      - name: Build AppImage
+        run: |
+          # Set up AppDir structure
+          mkdir -p Warden.AppDir/usr/bin
+          mkdir -p Warden.AppDir/usr/share/applications
+          mkdir -p Warden.AppDir/usr/share/icons/hicolor/512x512/apps
+
+          cp warden-desktop Warden.AppDir/usr/bin/warden-desktop
+          cp packaging/linux/warden.desktop Warden.AppDir/usr/share/applications/warden.desktop
+          cp packaging/linux/warden.png Warden.AppDir/usr/share/icons/hicolor/512x512/apps/warden.png
+
+          # AppImage requires desktop file and icon at root
+          cp packaging/linux/warden.desktop Warden.AppDir/warden.desktop
+          cp packaging/linux/warden.png Warden.AppDir/warden.png
+
+          # Symlink AppRun to the binary
+          ln -s usr/bin/warden-desktop Warden.AppDir/AppRun
+
+          # Determine appimagetool arch and output name
+          if [ "${{ matrix.goarch }}" = "amd64" ]; then
+            TOOL_ARCH="x86_64"
+            APPIMAGE_ARCH="x86_64"
+          else
+            TOOL_ARCH="aarch64"
+            APPIMAGE_ARCH="aarch64"
+          fi
+
+          curl -Lo appimagetool "https://github.com/AppImage/appimagetool/releases/download/${{ env.APPIMAGETOOL_VERSION }}/appimagetool-${TOOL_ARCH}.AppImage"
+          chmod +x appimagetool
+          ARCH=$APPIMAGE_ARCH ./appimagetool --no-appstream \
+            --updateinformation "gh-releases-zsync|thesimonho|warden|latest|warden-desktop-linux-${{ matrix.goarch }}.AppImage.zsync" \
+            Warden.AppDir "warden-desktop-linux-${{ matrix.goarch }}.AppImage"
+      - name: Upload to release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload --clobber \
+            ${{ needs.setup.outputs.tag_name }} \
+            warden-desktop-linux-${{ matrix.goarch }}.AppImage \
+            warden-desktop-linux-${{ matrix.goarch }}.AppImage.zsync \
+            *.deb \
+            *.rpm \
+            *.pkg.tar.zst
+  # ---------------------------------------------------------------------------
+  # Desktop — macOS: universal binary (amd64 + arm64 via lipo) → DMG.
+  # ---------------------------------------------------------------------------
+  build-desktop-macos:
+    needs: [setup, build-webapp]
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+      - uses: actions/download-artifact@v8
+        with:
+          name: embedded-ui
+          path: internal/server/ui/
+      - name: Build universal binary
+        env:
+          CGO_ENABLED: "0"
+        run: |
+          GOOS=darwin GOARCH=amd64 go build -trimpath \
+            -ldflags="${VERSION_LDFLAGS}=${{ needs.setup.outputs.tag_name }}" \
+            -o bin/warden-desktop-amd64 \
+            ./cmd/warden-desktop
+
+          GOOS=darwin GOARCH=arm64 go build -trimpath \
+            -ldflags="${VERSION_LDFLAGS}=${{ needs.setup.outputs.tag_name }}" \
+            -o bin/warden-desktop-arm64 \
+            ./cmd/warden-desktop
+
+          lipo -create -output bin/warden-desktop bin/warden-desktop-amd64 bin/warden-desktop-arm64
+          lipo -info bin/warden-desktop
+      - name: Create .app bundle
+        run: bash packaging/macos/bundle.sh ${{ needs.setup.outputs.tag_name }}
+      - name: Create DMG
+        run: |
+          brew install create-dmg
+          mkdir dmg-staging
+          cp -r bin/Warden.app dmg-staging/
+
+          # create-dmg returns exit code 2 if it can't set the background
+          # (cosmetic-only failure). Treat only that as success.
+          set +e
+          create-dmg \
+            --volname "Warden" \
+            --no-internet-enable \
+            --window-size 600 400 \
+            --icon-size 128 \
+            --icon "Warden.app" 150 200 \
+            --app-drop-link 450 200 \
+            bin/warden-desktop-macos-universal.dmg \
+            dmg-staging/
+          rc=$?
+          set -e
+
+          if [ $rc -ne 0 ] && [ $rc -ne 2 ]; then
+            echo "create-dmg failed with exit code $rc"
+            exit $rc
+          fi
+
+          # Verify the DMG was actually produced
+          test -f bin/warden-desktop-macos-universal.dmg
+      - name: Upload to release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload --clobber \
+            ${{ needs.setup.outputs.tag_name }} \
+            bin/warden-desktop-macos-universal.dmg
+  # ---------------------------------------------------------------------------
+  # Desktop — Windows: Inno Setup installer.
+  # ---------------------------------------------------------------------------
+  build-desktop-windows:
+    needs: [setup, build-webapp]
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+      - uses: actions/download-artifact@v8
+        with:
+          name: embedded-ui
+          path: internal/server/ui/
+      - name: Embed icon and version info
+        shell: bash
+        run: |
+          go install github.com/josephspurrier/goversioninfo/cmd/goversioninfo@latest
+          goversioninfo -64 \
+            -icon packaging/windows/warden.ico \
+            -o cmd/warden-desktop/resource_windows.syso \
+            packaging/windows/versioninfo.json
+      - name: Build desktop binary
+        shell: bash
+        run: |
+          CGO_ENABLED=0 go build -trimpath \
+            -ldflags="${VERSION_LDFLAGS}=${{ needs.setup.outputs.tag_name }} -H windowsgui" \
+            -o warden-desktop-windows-amd64.exe \
+            ./cmd/warden-desktop
+      - name: Install Inno Setup
+        shell: pwsh
+        run: choco install innosetup --version=${{ env.INNOSETUP_VERSION }} --no-progress -y
+      - name: Create installer
+        shell: pwsh
+        run: |
+          $version = "${{ needs.setup.outputs.tag_name }}" -replace '^v',''
+          iscc "/DVERSION=$version" packaging\windows\warden.iss
+      - name: Upload to release
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload --clobber \
+            ${{ needs.setup.outputs.tag_name }} \
+            Warden-Setup-amd64.exe
+  # ---------------------------------------------------------------------------
+  # Container images (reusable workflow).
+  # ---------------------------------------------------------------------------
+  container-artifacts:
+    needs: setup
+    uses: ./.github/workflows/container.yml
+    with:
+      tag_name: ${{ needs.setup.outputs.tag_name }}
+      major: ${{ needs.setup.outputs.major }}
+      minor: ${{ needs.setup.outputs.minor }}
+    secrets: inherit
+  # ---------------------------------------------------------------------------
+  # Checksums + SBOM: fan-in after all build jobs complete.
+  # ---------------------------------------------------------------------------
+  checksums-and-sbom:
+    needs:
+      - setup
+      - build-server
+      - build-tui
+      - build-desktop-linux
+      - build-desktop-macos
+      - build-desktop-windows
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Download all release assets
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release download \
+            ${{ needs.setup.outputs.tag_name }} \
+            --repo ${{ github.repository }} \
+            --dir assets
+      - name: Generate checksums
+        run: |
+          cd assets
+          sha256sum * > ../checksums.txt
+      - name: Generate SBOM
+        run: |
+          curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s -- -b /usr/local/bin
+          syft scan dir:. --output spdx-json=sbom.spdx.json
+      - name: Upload checksums and SBOM
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload --clobber \
+            ${{ needs.setup.outputs.tag_name }} \
+            checksums.txt \
+            sbom.spdx.json
