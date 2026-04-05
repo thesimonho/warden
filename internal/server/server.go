@@ -122,11 +122,9 @@ func handleHealth(w http.ResponseWriter, _ *http.Request) {
 func makeHandleShutdown(ch chan<- struct{}) http.HandlerFunc {
 	return func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, shutdownResponse{Status: "shutting down"})
-		go func() {
-			select {
-			case ch <- struct{}{}:
-			default: // already signalled
-			}
-		}()
+		select {
+		case ch <- struct{}{}:
+		default: // already signalled
+		}
 	}
 }

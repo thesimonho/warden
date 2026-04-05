@@ -85,6 +85,17 @@ if err != nil {
 fmt.Printf("Image: %s, Network: %s\n", tmpl.Image, tmpl.NetworkMode)
 ```
 
+## Example: Server lifecycle
+
+```go
+// Check if the server is running.
+resp, err := http.Get("http://localhost:8090/api/v1/health")
+// resp.Header.Get("X-Warden") == "1" confirms it's a Warden server.
+
+// Gracefully shut down the server.
+err := c.Shutdown(ctx)
+```
+
 ## Error handling
 
 HTTP errors are wrapped in `client.APIError` with machine-readable codes:
