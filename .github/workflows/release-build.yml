@@ -15,7 +15,6 @@ env:
   VERSION_LDFLAGS: "-s -w -X github.com/thesimonho/warden/version.Version"
   NFPM_VERSION: "v2.46.0"
   APPIMAGETOOL_VERSION: "1.9.1"
-  INNOSETUP_VERSION: "6.6.0"
   NODE_VERSION: "24"
 jobs:
   # ---------------------------------------------------------------------------
@@ -188,6 +187,7 @@ jobs:
           cp warden-desktop-linux-${{ matrix.goarch }} warden-desktop
 
           go install github.com/goreleaser/nfpm/v2/cmd/nfpm@${{ env.NFPM_VERSION }}
+          export PATH="$(go env GOPATH)/bin:$PATH"
 
           nfpm pkg --config packaging/linux/nfpm.yaml --packager deb --target .
           nfpm pkg --config packaging/linux/nfpm.yaml --packager rpm --target .
@@ -337,7 +337,7 @@ jobs:
             ./cmd/warden-desktop
       - name: Install Inno Setup
         shell: pwsh
-        run: choco install innosetup --version=${{ env.INNOSETUP_VERSION }} --no-progress -y
+        run: choco install innosetup --no-progress -y
       - name: Create installer
         shell: pwsh
         run: |
