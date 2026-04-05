@@ -32,18 +32,18 @@ type View interface {
 // App is the root tea.Model that manages tab navigation, SSE events,
 // and delegates to the active view.
 type App struct {
-	client        Client
-	activeTab     Tab
-	activeView    View
-	detailView    View // non-nil when inside project detail
-	tabs          []Tab
-	tabLabels     []string
-	keys          GlobalKeyMap
-	help          help.Model
-	width         int
-	height        int
-	eventCh       <-chan eventbus.SSEEvent
-	unsubscribe   func()
+	client          Client
+	activeTab       Tab
+	activeView      View
+	detailView      View // non-nil when inside project detail
+	tabs            []Tab
+	tabLabels       []string
+	keys            GlobalKeyMap
+	help            help.Model
+	width           int
+	height          int
+	eventCh         <-chan eventbus.SSEEvent
+	unsubscribe     func()
 	err             error
 	auditLogMode    api.AuditLogMode
 	disconnectKey   string // e.g. "ctrl+\\"

@@ -81,7 +81,7 @@ Language runtime registry — defines available runtimes (Node, Python, Go, Rust
 
 | File          | Purpose                                                                                                                                                                                |
 | ------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `runtimes.go` | `Runtime` type (ID, Name, MarkerFiles, Domains, CacheEnvVars), `All()` (returns all known runtimes), `Detect(projectPath)` (scans for marker files), `ByID(id)` (lookup by identifier) |
+| `runtimes.go` | `Runtime` type (ID, Label, Description, AlwaysEnabled, Domains, EnvVars, MarkerFiles), `Registry()` (ordered list of all runtimes), `Detect(projectPath)` (scans for marker files), `ByID(id)` (lookup by identifier), `AllIDs()` / `AlwaysEnabledIDs()` (ID lists), `DomainsForRuntimes(ids)` / `EnvVarsForRuntimes(ids)` (aggregate domains/env vars for enabled runtimes), `IsValidID(id)` (validation), `DomainsByRuntime(ids)` / `FilterUserDomains(domains, ids)` (domain attribution helpers) |
 
 ## runtime/
 

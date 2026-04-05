@@ -58,8 +58,8 @@ func TestUpdateContainer(t *testing.T) {
 		http.StatusOK, service.ContainerResult{ContainerID: "ctr456", Name: "my-project"})
 
 	resp, err := c.UpdateContainer(context.Background(), "abc123def456", "claude-code", api.CreateContainerRequest{
-		ProjectPath: "/home/user/project",
-		NetworkMode: api.NetworkModeRestricted,
+		ProjectPath:    "/home/user/project",
+		NetworkMode:    api.NetworkModeRestricted,
 		AllowedDomains: []string{"github.com"},
 	})
 	if err != nil {
