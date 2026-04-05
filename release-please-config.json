@@ -4,7 +4,8 @@
       "release-type": "go",
       "include-component-in-tag": false,
       "extra-files": [
-        "container/devcontainer-feature/devcontainer-feature.json"
+        "container/devcontainer-feature/devcontainer-feature.json",
+        ".claude-plugin/plugin.json"
       ]
     }
   }
