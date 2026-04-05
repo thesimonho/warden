@@ -25,7 +25,7 @@ func enforceBudgetTestSetup(t *testing.T) (*Service, *mockEngine) {
 			{ID: "wt-2"},
 		},
 	}
-	svc := New(ServiceDeps{Engine: mock, DB: store})
+	svc := New(ServiceDeps{DockerAvailable: true, Engine: mock, DB: store})
 
 	// Set a $10 per-project budget.
 	_ = store.InsertProject(testProjectRow("test-project", 10.00))
@@ -126,7 +126,7 @@ func TestPersistSessionCost_NoBudget(t *testing.T) {
 	t.Parallel()
 	store := testDB(t)
 	mock := &mockEngine{}
-	svc := New(ServiceDeps{Engine: mock, DB: store})
+	svc := New(ServiceDeps{DockerAvailable: true, Engine: mock, DB: store})
 
 	// No budget set — should be a no-op even with all actions enabled.
 	setBudgetAction(svc, settingBudgetActionStopWorktrees, "true")
@@ -177,7 +177,7 @@ func TestPersistSessionCost_ZeroCostStillEnforces(t *testing.T) {
 func TestIsOverBudget_PreventStartEnabled(t *testing.T) {
 	t.Parallel()
 	store := testDB(t)
-	svc := New(ServiceDeps{Engine: &mockEngine{}, DB: store})
+	svc := New(ServiceDeps{DockerAvailable: true, Engine: &mockEngine{}, DB: store})
 
 	_ = store.InsertProject(testProjectRow("proj", 10.00))
 	_ = store.UpsertSessionCost("proj", "claude-code", "session-1", 15.00, false)
@@ -192,7 +192,7 @@ func TestIsOverBudget_PreventStartEnabled(t *testing.T) {
 func TestIsOverBudget_PreventStartDisabled(t *testing.T) {
 	t.Parallel()
 	store := testDB(t)
-	svc := New(ServiceDeps{Engine: &mockEngine{}, DB: store})
+	svc := New(ServiceDeps{DockerAvailable: true, Engine: &mockEngine{}, DB: store})
 
 	_ = store.InsertProject(testProjectRow("proj", 10.00))
 	_ = store.UpsertSessionCost("proj", "claude-code", "session-1", 15.00, false)
@@ -206,7 +206,7 @@ func TestIsOverBudget_PreventStartDisabled(t *testing.T) {
 func TestIsOverBudget_WithinBudget(t *testing.T) {
 	t.Parallel()
 	store := testDB(t)
-	svc := New(ServiceDeps{Engine: &mockEngine{}, DB: store})
+	svc := New(ServiceDeps{DockerAvailable: true, Engine: &mockEngine{}, DB: store})
 
 	_ = store.InsertProject(testProjectRow("proj", 10.00))
 	_ = store.UpsertSessionCost("proj", "claude-code", "session-1", 5.00, false)
@@ -227,7 +227,7 @@ func TestRestartProject_BlockedByBudget(t *testing.T) {
 		},
 		inspectConfig: &api.ContainerConfig{Name: "proj"},
 	}
-	svc := New(ServiceDeps{Engine: mock, DB: store})
+	svc := New(ServiceDeps{DockerAvailable: true, Engine: mock, DB: store})
 
 	_ = store.InsertProject(testProjectRow("proj", 10.00))
 	_ = store.UpsertSessionCost("proj", "claude-code", "session-1", 15.00, false)
@@ -276,7 +276,7 @@ func TestPersistSessionCost_WritesAuditEntries(t *testing.T) {
 	}
 
 	audit := db.NewAuditWriter(store, db.AuditDetailed, nil)
-	svc := New(ServiceDeps{Engine: mock, DB: store, Audit: audit})
+	svc := New(ServiceDeps{DockerAvailable: true, Engine: mock, DB: store, Audit: audit})
 
 	_ = store.InsertProject(testProjectRow("test-project", 10.00))
 
@@ -309,7 +309,7 @@ func TestPersistSessionCost_WorksWhenAuditOff(t *testing.T) {
 	}
 
 	audit := db.NewAuditWriter(store, db.AuditOff, nil)
-	svc := New(ServiceDeps{Engine: mock, DB: store, Audit: audit})
+	svc := New(ServiceDeps{DockerAvailable: true, Engine: mock, DB: store, Audit: audit})
 
 	_ = store.InsertProject(testProjectRow("test-project", 10.00))
 	setBudgetAction(svc, settingBudgetActionStopWorktrees, "true")
@@ -340,7 +340,7 @@ func TestRestartProject_AllowedWhenPreventStartOff(t *testing.T) {
 		},
 		inspectConfig: &api.ContainerConfig{Name: "proj"},
 	}
-	svc := New(ServiceDeps{Engine: mock, DB: store})
+	svc := New(ServiceDeps{DockerAvailable: true, Engine: mock, DB: store})
 
 	_ = store.InsertProject(testProjectRow("proj", 10.00))
 	_ = store.UpsertSessionCost("proj", "claude-code", "session-1", 15.00, false)

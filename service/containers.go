@@ -21,6 +21,9 @@ import (
 // CreateContainer creates a new project container and saves full
 // project metadata to the database.
 func (s *Service) CreateContainer(ctx context.Context, req api.CreateContainerRequest) (*ContainerResult, error) {
+	if err := s.requireDocker(); err != nil {
+		return nil, err
+	}
 	row, err := projectRowFromRequest(req)
 	if err != nil {
 		return nil, err

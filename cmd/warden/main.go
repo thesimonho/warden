@@ -45,7 +45,11 @@ func main() {
 	settings := w.Service.GetSettings()
 	url := formatURL(addr)
 	slog.Info("starting warden server", "url", url, "runtime", settings.Runtime, "version", version.Version)
-	fmt.Fprintf(os.Stderr, "\n  Warden API → %s\n\n", url)
+	if !w.DockerAvailable {
+		fmt.Fprintf(os.Stderr, "\n  Warden API → %s (Docker unavailable — container operations disabled)\n\n", url)
+	} else {
+		fmt.Fprintf(os.Stderr, "\n  Warden API → %s\n\n", url)
+	}
 
 	go version.CheckAndPrint()
 

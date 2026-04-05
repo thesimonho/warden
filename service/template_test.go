@@ -197,7 +197,7 @@ func TestWriteProjectTemplate(t *testing.T) {
 func TestReadProjectTemplateExported(t *testing.T) {
 	t.Parallel()
 
-	svc := New(ServiceDeps{})
+	svc := New(ServiceDeps{DockerAvailable: true, })
 
 	t.Run("reads valid file", func(t *testing.T) {
 		t.Parallel()

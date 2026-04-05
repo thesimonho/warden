@@ -7,6 +7,7 @@
 package service
 
 import (
+	"errors"
 	"os"
 	"sync"
 	"time"
@@ -17,17 +18,26 @@ import (
 	"github.com/thesimonho/warden/eventbus"
 )
 
+// ErrDockerUnavailable is returned by container-mutating operations
+// when Docker was not reachable at startup.
+var ErrDockerUnavailable = errors.New(
+	"Docker is required but not available. " +
+		"Install Docker (https://docs.docker.com/get-docker/) " +
+		"and make sure the daemon is running",
+)
+
 // ServiceDeps holds all dependencies for constructing a Service.
 // Using a struct because the constructor has many parameters.
 type ServiceDeps struct {
-	Engine       engine.Client
-	DB           *db.Store
-	Store        *eventbus.Store
-	Audit        *db.AuditWriter
-	Registry     *agent.Registry
-	EventWatcher *eventbus.Watcher
-	EventHandler func(eventbus.ContainerEvent)
-	HomeDir      string
+	Engine          engine.Client
+	DB              *db.Store
+	Store           *eventbus.Store
+	Audit           *db.AuditWriter
+	Registry        *agent.Registry
+	EventWatcher    *eventbus.Watcher
+	EventHandler    func(eventbus.ContainerEvent)
+	HomeDir         string
+	DockerAvailable bool
 }
 
 // Service provides business logic for all Warden operations. It is
@@ -51,6 +61,10 @@ type Service struct {
 	homeDir       string
 	workingDir    string
 
+	// dockerAvailable indicates whether Docker was reachable at startup.
+	// When false, container-mutating operations return ErrDockerUnavailable.
+	dockerAvailable bool
+
 	// Session watcher state — one watcher per project+agent, keyed by compound key.
 	sessionWatchers         map[db.ProjectAgentKey]*agent.SessionWatcher
 	sessionWatchersMu       sync.Mutex
@@ -72,7 +86,17 @@ func New(deps ServiceDeps) *Service {
 		eventHandler:            deps.EventHandler,
 		homeDir:                 deps.HomeDir,
 		workingDir:              wd,
+		dockerAvailable:         deps.DockerAvailable,
 		sessionWatchers:         make(map[db.ProjectAgentKey]*agent.SessionWatcher),
 		sessionWatcherCooldowns: make(map[db.ProjectAgentKey]time.Time),
 	}
+}
+
+// requireDocker returns ErrDockerUnavailable when Docker was not
+// reachable at startup. Call at the top of container-mutating methods.
+func (s *Service) requireDocker() error {
+	if !s.dockerAvailable {
+		return ErrDockerUnavailable
+	}
+	return nil
 }

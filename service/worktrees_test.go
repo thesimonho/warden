@@ -42,7 +42,7 @@ func TestListWorktrees(t *testing.T) {
 		},
 	}
 	database := testDB(t)
-	svc := New(ServiceDeps{Engine: mock, DB: database})
+	svc := New(ServiceDeps{DockerAvailable: true, Engine: mock, DB: database})
 
 	row := testProjectRowMinimal("abc123def456", "my-project")
 	insertTestProject(t, database, row)
@@ -61,7 +61,7 @@ func TestListWorktrees_Error(t *testing.T) {
 
 	mock := &mockEngine{worktreesErr: errors.New("container not found")}
 	database := testDB(t)
-	svc := New(ServiceDeps{Engine: mock, DB: database})
+	svc := New(ServiceDeps{DockerAvailable: true, Engine: mock, DB: database})
 
 	row := testProjectRowMinimal("abc123def456", "my-project")
 	insertTestProject(t, database, row)
@@ -104,7 +104,7 @@ func TestListWorktrees_OverlaysState(t *testing.T) {
 	})
 
 	database := testDB(t)
-	svc := New(ServiceDeps{Engine: mock, DB: database, Store: store})
+	svc := New(ServiceDeps{DockerAvailable: true, Engine: mock, DB: database, Store: store})
 
 	row := testProjectRowMinimal("abc123def456", "my-project")
 	insertTestProject(t, database, row)
@@ -126,7 +126,7 @@ func TestCreateWorktree(t *testing.T) {
 		createWorktreeResp: "feature-y",
 	}
 	database := testDB(t)
-	svc := New(ServiceDeps{Engine: mock, DB: database})
+	svc := New(ServiceDeps{DockerAvailable: true, Engine: mock, DB: database})
 
 	row := testProjectRowMinimal("abc123def456", "my-project")
 	insertTestProject(t, database, row)
@@ -144,7 +144,7 @@ func TestCreateWorktree_Error(t *testing.T) {
 
 	mock := &mockEngine{createWorktreeErr: errors.New("failed")}
 	database := testDB(t)
-	svc := New(ServiceDeps{Engine: mock, DB: database})
+	svc := New(ServiceDeps{DockerAvailable: true, Engine: mock, DB: database})
 
 	row := testProjectRowMinimal("abc123def456", "my-project")
 	insertTestProject(t, database, row)
@@ -165,7 +165,7 @@ func TestCreateWorktree_BroadcastsListChanged(t *testing.T) {
 	defer broker.Shutdown()
 	store := eventbus.NewStore(broker, nil)
 	database := testDB(t)
-	svc := New(ServiceDeps{Engine: mock, DB: database, Store: store})
+	svc := New(ServiceDeps{DockerAvailable: true, Engine: mock, DB: database, Store: store})
 
 	// Subscribe before creating to catch the broadcast.
 	ch, unsub := broker.Subscribe()
@@ -204,7 +204,7 @@ func TestConnectTerminal(t *testing.T) {
 		connectResp: "main",
 	}
 	database := testDB(t)
-	svc := New(ServiceDeps{Engine: mock, DB: database})
+	svc := New(ServiceDeps{DockerAvailable: true, Engine: mock, DB: database})
 
 	row := testProjectRowMinimal("abc123def456", "my-project")
 	insertTestProject(t, database, row)
@@ -228,7 +228,7 @@ func TestConnectTerminal_PushesEvent(t *testing.T) {
 	defer broker.Shutdown()
 	store := eventbus.NewStore(broker, nil)
 	database := testDB(t)
-	svc := New(ServiceDeps{Engine: mock, DB: database, Store: store})
+	svc := New(ServiceDeps{DockerAvailable: true, Engine: mock, DB: database, Store: store})
 
 	row := testProjectRowMinimal("abc123def456", "my-project")
 	insertTestProject(t, database, row)
@@ -252,7 +252,7 @@ func TestRemoveWorktree(t *testing.T) {
 	defer broker.Shutdown()
 	store := eventbus.NewStore(broker, nil)
 	database := testDB(t)
-	svc := New(ServiceDeps{Engine: mock, DB: database, Store: store})
+	svc := New(ServiceDeps{DockerAvailable: true, Engine: mock, DB: database, Store: store})
 
 	row := testProjectRowMinimal("abc123def456", "my-project")
 	insertTestProject(t, database, row)
@@ -267,7 +267,7 @@ func TestRemoveWorktree_Error(t *testing.T) {
 
 	mock := &mockEngine{removeWorktreeErr: errors.New("cannot remove main")}
 	database := testDB(t)
-	svc := New(ServiceDeps{Engine: mock, DB: database})
+	svc := New(ServiceDeps{DockerAvailable: true, Engine: mock, DB: database})
 
 	row := testProjectRowMinimal("abc123def456", "my-project")
 	insertTestProject(t, database, row)
@@ -288,7 +288,7 @@ func TestCleanupWorktrees(t *testing.T) {
 	defer broker.Shutdown()
 	store := eventbus.NewStore(broker, nil)
 	database := testDB(t)
-	svc := New(ServiceDeps{Engine: mock, DB: database, Store: store})
+	svc := New(ServiceDeps{DockerAvailable: true, Engine: mock, DB: database, Store: store})
 
 	row := testProjectRowMinimal("abc123def456", "my-project")
 	insertTestProject(t, database, row)
@@ -307,7 +307,7 @@ func TestKillWorktreeProcess(t *testing.T) {
 
 	mock := &mockEngine{}
 	database := testDB(t)
-	svc := New(ServiceDeps{Engine: mock, DB: database})
+	svc := New(ServiceDeps{DockerAvailable: true, Engine: mock, DB: database})
 
 	row := testProjectRowMinimal("abc123def456", "my-project")
 	insertTestProject(t, database, row)
@@ -322,7 +322,7 @@ func TestKillWorktreeProcess_Error(t *testing.T) {
 
 	mock := &mockEngine{killWorktreeErr: errors.New("process not found")}
 	database := testDB(t)
-	svc := New(ServiceDeps{Engine: mock, DB: database})
+	svc := New(ServiceDeps{DockerAvailable: true, Engine: mock, DB: database})
 
 	row := testProjectRowMinimal("abc123def456", "my-project")
 	insertTestProject(t, database, row)
@@ -337,7 +337,7 @@ func TestDisconnectTerminal(t *testing.T) {
 
 	mock := &mockEngine{}
 	database := testDB(t)
-	svc := New(ServiceDeps{Engine: mock, DB: database})
+	svc := New(ServiceDeps{DockerAvailable: true, Engine: mock, DB: database})
 
 	row := testProjectRowMinimal("abc123def456", "my-project")
 	insertTestProject(t, database, row)

@@ -1,7 +1,17 @@
 import { useCallback, useEffect, useState } from 'react'
 import type React from 'react'
 import { useNavigate, useOutletContext } from 'react-router-dom'
-import { Square, Play, RotateCw, X, Loader2, Plus, RefreshCw, Box } from 'lucide-react'
+import {
+  Square,
+  Play,
+  RotateCw,
+  X,
+  Loader2,
+  Plus,
+  RefreshCw,
+  Box,
+  TriangleAlert,
+} from 'lucide-react'
 import { toast } from 'sonner'
 import { useNotifications } from '@/hooks/use-notifications'
 import { useProjects } from '@/hooks/use-projects'
@@ -15,6 +25,7 @@ import {
   fetchAccessItems,
   addProject,
   createContainer,
+  fetchRuntimes,
 } from '@/lib/api'
 import { getRestrictedDomains } from '@/lib/domain-groups'
 import type { AgentType, ServerSettings } from '@/lib/types'
@@ -46,6 +57,22 @@ export default function HomePage() {
     name: string
   } | null>(null)
   const [serverSettings, setServerSettings] = useState<ServerSettings | null>(null)
+  const [dockerAvailable, setDockerAvailable] = useState(true)
+
+  // Check Docker availability on mount and periodically.
+  useEffect(() => {
+    const check = () => {
+      fetchRuntimes()
+        .then((runtimes) => {
+          const docker = runtimes.find((r) => r.name === 'docker')
+          setDockerAvailable(docker?.available ?? false)
+        })
+        .catch(() => setDockerAvailable(false))
+    }
+    check()
+    const interval = setInterval(check, 30_000)
+    return () => clearInterval(interval)
+  }, [])
 
   // Fetch server settings in dev mode for the quick-add buttons.
   useEffect(() => {
@@ -304,11 +331,42 @@ export default function HomePage() {
             size="sm"
             onClick={() => setIsAddDialogOpen(true)}
             icon={Plus}
+            disabled={!dockerAvailable}
           >
             Add Project
           </Button>
         </div>
       </div>
+
+      {!dockerAvailable && (
+        <div
+          className={[
+            // Layout
+            'flex items-center gap-3 rounded-lg p-4',
+            // Appearance
+            'border-warning/30 bg-warning/10 border',
+            // Typography
+            'text-warning text-sm',
+          ].join(' ')}
+        >
+          <TriangleAlert className="h-5 w-5 shrink-0" />
+          <div>
+            <p className="font-medium">Docker is not running</p>
+            <p className="text-warning/80">
+              Warden requires Docker to manage containers.{' '}
+              <a
+                href="https://docs.docker.com/get-docker/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="hover:text-warning underline"
+              >
+                Install Docker
+              </a>{' '}
+              or start the Docker daemon to get started.
+            </p>
+          </div>
+        </div>
+      )}
 
       <CostDashboard projects={projects} />
 
