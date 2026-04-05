@@ -48,5 +48,8 @@ skills-lock.json
 Thumbs.db
 
 # warden
+warden
+warden-tui
+warden-desktop
 .warden/
 .warden.json
