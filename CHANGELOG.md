@@ -1,5 +1,24 @@
 # Changelog
 
+## [1.6.0](https://github.com/thesimonho/warden/compare/v1.5.1...v1.6.0) (2026-04-05)
+
+
+### Features
+
+* graceful Docker unavailability with prerequisite warnings ([#103](https://github.com/thesimonho/warden/issues/103)) ([806904f](https://github.com/thesimonho/warden/commit/806904f8b65c5b24db7c139de77df4659e635d0b))
+* platform packaging ([#102](https://github.com/thesimonho/warden/issues/102)) ([f247bd2](https://github.com/thesimonho/warden/commit/f247bd23caa06f28d16707ada097ad40ebdc5db4))
+
+
+### Bug Fixes
+
+* add missing agentType to AttachTerminal ([cb99c70](https://github.com/thesimonho/warden/commit/cb99c70e76fe81cf698d87277b5470e290dc7bfd))
+* use primary color for nav icons ([#95](https://github.com/thesimonho/warden/issues/95)) ([02fd069](https://github.com/thesimonho/warden/commit/02fd069801b03ecc3b356c6d394b76104710bffd))
+
+
+### Performance Improvements
+
+* lazy-load routes to reduce initial bundle by 87% ([#104](https://github.com/thesimonho/warden/issues/104)) ([3f4e2b2](https://github.com/thesimonho/warden/commit/3f4e2b208bbbccbe15ffbb2fa250d411f725687b))
+
 ## [1.5.1](https://github.com/thesimonho/warden/compare/v1.5.0...v1.5.1) (2026-04-04)
 
 
