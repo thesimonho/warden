@@ -5,15 +5,23 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"time"
 
 	warden "github.com/thesimonho/warden"
 )
+
+// printRunningContainersTimeout caps the Docker API call so a slow or
+// unresponsive daemon doesn't leave the process hanging after the UI exits.
+const printRunningContainersTimeout = 3 * time.Second
 
 // PrintRunningContainers lists containers that will keep running after
 // the process exits. Helps users understand that Docker containers are
 // independent of the Warden process.
 func PrintRunningContainers(w *warden.Warden, binaryName string) {
-	projects, err := w.Service.ListProjects(context.Background())
+	ctx, cancel := context.WithTimeout(context.Background(), printRunningContainersTimeout)
+	defer cancel()
+
+	projects, err := w.Service.ListProjects(ctx)
 	if err != nil {
 		return
 	}
