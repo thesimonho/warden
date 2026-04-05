@@ -198,15 +198,22 @@ jobs:
           # Set up AppDir structure
           mkdir -p Warden.AppDir/usr/bin
           mkdir -p Warden.AppDir/usr/share/applications
-          mkdir -p Warden.AppDir/usr/share/icons/hicolor/512x512/apps
 
           cp warden-desktop Warden.AppDir/usr/bin/warden-desktop
           cp packaging/linux/warden.desktop Warden.AppDir/usr/share/applications/warden.desktop
-          cp packaging/linux/warden.png Warden.AppDir/usr/share/icons/hicolor/512x512/apps/warden.png
 
-          # AppImage requires desktop file and icon at root
+          # Install all icon sizes so DEs pick the right resolution
+          # instead of downscaling 512x512 (which causes blurry icons).
+          for size in 16 32 48 64 128 256 512; do
+            dir="Warden.AppDir/usr/share/icons/hicolor/${size}x${size}/apps"
+            mkdir -p "${dir}"
+            cp "packaging/linux/icons/${size}x${size}/warden.png" "${dir}/warden.png"
+          done
+
+          # AppImage requires desktop file and icon at root.
+          # Use 256x256 — the best balance for app launchers on most DEs.
           cp packaging/linux/warden.desktop Warden.AppDir/warden.desktop
-          cp packaging/linux/warden.png Warden.AppDir/warden.png
+          cp packaging/linux/icons/256x256/warden.png Warden.AppDir/warden.png
 
           # Symlink AppRun to the binary
           ln -s usr/bin/warden-desktop Warden.AppDir/AppRun
