@@ -312,6 +312,7 @@ export default function HomePage() {
                 color="warning"
                 onClick={() => handleQuickAdd('claude-code')}
                 icon={Plus}
+                disabled={!dockerAvailable}
               >
                 Claude (dev)
               </Button>
@@ -321,6 +322,7 @@ export default function HomePage() {
                 color="warning"
                 onClick={() => handleQuickAdd('codex')}
                 icon={Plus}
+                disabled={!dockerAvailable}
               >
                 Codex (dev)
               </Button>
@@ -338,27 +340,25 @@ export default function HomePage() {
         </div>
       </div>
 
-      {!dockerAvailable && (
+      {!dockerAvailable ? (
         <div
           className={[
             // Layout
-            'flex items-center gap-3 rounded-lg p-4',
+            'flex flex-col items-center justify-center gap-4 rounded-lg py-16',
             // Appearance
-            'border-warning/30 bg-warning/10 border',
-            // Typography
-            'text-warning text-sm',
+            'border-warning/20 bg-warning/5 border border-dashed',
           ].join(' ')}
         >
-          <TriangleAlert className="h-5 w-5 shrink-0" />
-          <div>
-            <p className="font-medium">Docker is not running</p>
-            <p className="text-warning/80">
+          <TriangleAlert className="text-warning h-10 w-10" />
+          <div className="text-center">
+            <p className="text-warning text-lg font-medium">Docker is not running</p>
+            <p className="text-muted-foreground mt-1 text-sm">
               Warden requires Docker to manage containers.{' '}
               <a
                 href="https://docs.docker.com/get-docker/"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="hover:text-warning underline"
+                className="text-warning hover:text-warning/80 underline"
               >
                 Install Docker
               </a>{' '}
@@ -366,24 +366,26 @@ export default function HomePage() {
             </p>
           </div>
         </div>
+      ) : (
+        <>
+          <CostDashboard projects={projects} />
+
+          <ProjectGrid
+            projects={projects}
+            isLoading={isLoading}
+            onStop={handleStop}
+            onRestart={handleRestart}
+            onRemove={handleRemove}
+            onEdit={handleEdit}
+            selectedIds={selectedIds}
+            onToggleSelect={handleToggleSelect}
+            pendingStopIds={pendingStopIds}
+            pendingRestartIds={pendingRestartIds}
+            budgetActionPreventStart={budgetActionPreventStart}
+            installStatuses={installStatuses}
+          />
+        </>
       )}
-
-      <CostDashboard projects={projects} />
-
-      <ProjectGrid
-        projects={projects}
-        isLoading={isLoading}
-        onStop={handleStop}
-        onRestart={handleRestart}
-        onRemove={handleRemove}
-        onEdit={handleEdit}
-        selectedIds={selectedIds}
-        onToggleSelect={handleToggleSelect}
-        pendingStopIds={pendingStopIds}
-        pendingRestartIds={pendingRestartIds}
-        budgetActionPreventStart={budgetActionPreventStart}
-        installStatuses={installStatuses}
-      />
 
       {selectedIds.size > 0 && (
         <div className="bg-background fixed bottom-6 left-1/2 flex -translate-x-1/2 items-center gap-3 rounded border px-5 py-3 shadow-lg">
