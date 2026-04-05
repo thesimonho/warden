@@ -13,6 +13,6 @@ require (
 	github.com/godbus/dbus/v5 v5.1.0 // indirect
 	github.com/josephspurrier/goversioninfo v1.4.1 // indirect
 	github.com/randall77/makefat v0.0.0-20210315173500-7ddd0e42c844 // indirect
-	golang.org/x/image v0.20.0 // indirect
+	golang.org/x/image v0.38.0 // indirect
 	golang.org/x/sys v0.25.0 // indirect
 )
