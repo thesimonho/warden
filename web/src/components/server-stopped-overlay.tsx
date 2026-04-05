@@ -11,7 +11,7 @@ export default function ServerStoppedOverlay() {
     <div
       className={[
         // Layout — full viewport overlay
-        'fixed inset-0 z-50 flex flex-col items-center justify-center gap-8',
+        'fixed inset-0 z-50 flex flex-col items-center justify-center gap-16',
         // Appearance
         'bg-background/95 backdrop-blur-sm',
       ].join(' ')}

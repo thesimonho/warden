@@ -12,10 +12,13 @@ const (
 	readyTimeout   = 30 * time.Second
 	readyInterval  = 500 * time.Millisecond
 	requestTimeout = 5 * time.Second
-	healthPath     = "/api/v1/health"
-	projectsPath   = "/api/v1/projects"
-	shutdownPath   = "/api/v1/shutdown"
-	stateRunning   = "running"
+	// stopTimeout must exceed the Docker stop timeout (30s) so the
+	// HTTP request doesn't time out before the container stops.
+	stopTimeout  = 35 * time.Second
+	healthPath   = "/api/v1/health"
+	projectsPath = "/api/v1/projects"
+	shutdownPath = "/api/v1/shutdown"
+	stateRunning = "running"
 )
 
 // serverClient is a minimal HTTP client for the Warden API.
@@ -99,10 +102,13 @@ func (s *serverClient) runningContainerCount() int {
 	return count
 }
 
-// stopProject stops a running project's container.
+// stopProject stops a running project's container. Uses a longer
+// timeout than other requests because Docker stop waits up to 30s
+// for the container to exit gracefully.
 func (s *serverClient) stopProject(projectID, agentType string) error {
 	url := fmt.Sprintf("%s/api/v1/projects/%s/%s/stop", s.baseURL, projectID, agentType)
-	resp, err := s.http.Post(url, "", nil) //nolint:noctx
+	client := &http.Client{Timeout: stopTimeout}
+	resp, err := client.Post(url, "", nil) //nolint:noctx
 	if err != nil {
 		return err
 	}
