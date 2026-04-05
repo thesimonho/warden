@@ -86,7 +86,7 @@ export default function StaleMountsDialog({
             Dismiss
           </Button>
           <Button
-            variant="warning"
+            variant="success"
             onClick={handleRecreate}
             disabled={isRecreating}
             icon={isRecreating ? Loader2 : RefreshCw}
