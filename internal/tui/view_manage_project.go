@@ -297,6 +297,7 @@ func (k ManageKeyMap) ShortHelp() []key.Binding {
 // FullHelp returns bindings shown in expanded help.
 func (k ManageKeyMap) FullHelp() [][]key.Binding {
 	return [][]key.Binding{
-		{k.Up, k.Down, k.Toggle, k.Confirm, k.Back},
+		{k.Up, k.Down, k.Toggle},
+		{k.Confirm, k.Back},
 	}
 }

@@ -41,6 +41,10 @@ func (v *ContainerFormView) handleKey(msg tea.KeyPressMsg) (View, tea.Cmd) {
 		v.moveCursor(-1)
 	case msg.String() == "down" || msg.String() == "j":
 		v.moveCursor(1)
+	case msg.String() == "]":
+		v.switchStep(1)
+	case msg.String() == "[":
+		v.switchStep(-1)
 	case msg.String() == "enter" || msg.String() == " ":
 		return v.activateField()
 	case msg.String() == "tab":
@@ -48,7 +52,7 @@ func (v *ContainerFormView) handleKey(msg tea.KeyPressMsg) (View, tea.Cmd) {
 	case msg.String() == "x":
 		return v.removeCurrentItem()
 	case msg.String() == "r":
-		if v.cursor == fieldMounts && v.mountCursor >= 0 && v.mountCursor < len(v.mounts) {
+		if v.step == stepAdvanced && v.fieldCursor == advMounts && v.mountCursor >= 0 && v.mountCursor < len(v.mounts) {
 			v.mounts[v.mountCursor].ReadOnly = !v.mounts[v.mountCursor].ReadOnly
 		}
 	}
@@ -137,7 +141,7 @@ func (v *ContainerFormView) handleBrowsingKey(msg tea.KeyPressMsg) (View, tea.Cm
 		v.dirBrowser = nil
 		return v, nil
 	case "space", " ":
-		v.inputs[1].SetValue(v.dirBrowser.Path())
+		v.inputs[inputPath].SetValue(v.dirBrowser.Path())
 		v.browsing = false
 		v.dirBrowser = nil
 		return v, nil
@@ -147,46 +151,69 @@ func (v *ContainerFormView) handleBrowsingKey(msg tea.KeyPressMsg) (View, tea.Cm
 	return v, cmd
 }
 
+// switchStep moves to a different step, resetting the field cursor.
+func (v *ContainerFormView) switchStep(delta int) {
+	next := int(v.step) + delta
+	if next < 0 || next >= int(stepCount) {
+		return
+	}
+	v.step = formStep(next)
+	v.fieldCursor = 0
+	v.resetSubCursors()
+}
+
+// resetSubCursors resets all sub-cursors to their default positions.
+func (v *ContainerFormView) resetSubCursors() {
+	v.runtimeCursor = 0
+	v.accessCursor = 0
+	v.mountCursor = -1
+	v.envCursor = -1
+}
+
 // cycleSelection cycles the value of selection fields (tab key).
 func (v *ContainerFormView) cycleSelection() (View, tea.Cmd) {
-	switch v.cursor {
-	case fieldAgentType:
-		if v.editID == "" { // read-only in edit mode
-			v.agentType = (v.agentType + 1) % len(agentTypes)
-			v.refilterDefaultMounts()
-			v.domains.SetValue(defaultDomainsForAgent(v.restrictedDomains, agentTypes[v.agentType]))
+	switch v.step {
+	case stepGeneral:
+		switch v.fieldCursor {
+		case genAgentType:
+			if v.editID == "" {
+				v.agentType = (v.agentType + 1) % len(agentTypes)
+				v.refilterDefaultMounts()
+				v.domains.SetValue(defaultDomainsForAgent(v.restrictedDomains, agentTypes[v.agentType]))
+			}
+		case genSkipPerms:
+			v.skipPerm = !v.skipPerm
 		}
-	case fieldNetwork:
-		v.network = (v.network + 1) % len(networkModes)
-	case fieldSkipPerms:
-		v.skipPerm = !v.skipPerm
-	case fieldRuntimes:
-		if v.runtimeCursor >= 0 && v.runtimeCursor < len(v.runtimeDefaults) {
-			v.toggleRuntime(v.runtimeDefaults[v.runtimeCursor].ID)
+	case stepEnvironment:
+		switch v.fieldCursor {
+		case envRuntimes:
+			if v.runtimeCursor >= 0 && v.runtimeCursor < len(v.runtimeDefaults) {
+				v.toggleRuntime(v.runtimeDefaults[v.runtimeCursor].ID)
+			}
+		case envAccessItems:
+			if v.accessCursor >= 0 && v.accessCursor < len(v.accessItems) {
+				v.toggleAccessItem(v.accessItems[v.accessCursor].ID)
+			}
 		}
-	case fieldAccessItems:
-		if v.accessCursor >= 0 && v.accessCursor < len(v.accessItems) {
-			v.toggleAccessItem(v.accessItems[v.accessCursor].ID)
+	case stepNetwork:
+		if v.fieldCursor == netNetwork {
+			v.network = (v.network + 1) % len(networkModes)
 		}
 	}
 	return v, nil
 }
 
-// isFieldVisible returns whether a field should be shown.
+// isFieldVisible returns whether a field should be shown in the current step.
 func (v *ContainerFormView) isFieldVisible(field int) bool {
-	switch field {
-	case fieldDomains:
+	if v.step == stepNetwork && field == netDomains {
 		return networkModes[v.network] == "restricted"
-	case fieldImage, fieldAccessItems, fieldMounts, fieldEnvVars:
-		return v.advancedOpen
 	}
 	return true
 }
 
-// moveCursor moves the cursor by delta, skipping hidden fields.
-// For access/mount/env sections, navigates sub-items.
+// moveCursor moves the cursor by delta, navigating sub-items within sections.
 func (v *ContainerFormView) moveCursor(delta int) {
-	if v.cursor == fieldRuntimes {
+	if v.step == stepEnvironment && v.fieldCursor == envRuntimes {
 		next := v.runtimeCursor + delta
 		if next < 0 {
 			v.runtimeCursor = 0
@@ -201,7 +228,7 @@ func (v *ContainerFormView) moveCursor(delta int) {
 		return
 	}
 
-	if v.cursor == fieldAccessItems {
+	if v.step == stepEnvironment && v.fieldCursor == envAccessItems {
 		next := v.accessCursor + delta
 		if next < 0 {
 			v.accessCursor = 0
@@ -216,7 +243,7 @@ func (v *ContainerFormView) moveCursor(delta int) {
 		return
 	}
 
-	if v.cursor == fieldMounts {
+	if v.step == stepAdvanced && v.fieldCursor == advMounts {
 		next := v.mountCursor + delta
 		if next < -1 {
 			v.mountCursor = -1
@@ -231,7 +258,7 @@ func (v *ContainerFormView) moveCursor(delta int) {
 		return
 	}
 
-	if v.cursor == fieldEnvVars {
+	if v.step == stepAdvanced && v.fieldCursor == advEnvVars {
 		next := v.envCursor + delta
 		if next < -1 {
 			v.envCursor = -1
@@ -249,92 +276,134 @@ func (v *ContainerFormView) moveCursor(delta int) {
 	v.moveCursorField(delta)
 }
 
-// moveCursorField moves the main field cursor, skipping hidden fields.
+// moveCursorField moves the main field cursor within the current step,
+// skipping hidden fields. Initializes sub-cursors when entering sections.
 func (v *ContainerFormView) moveCursorField(delta int) {
-	next := v.cursor + delta
-	for next >= 0 && next < fieldCount {
+	count := fieldCountForStep(v.step)
+	next := v.fieldCursor + delta
+	for next >= 0 && next < count {
 		if v.isFieldVisible(next) {
-			v.cursor = next
-			if next == fieldRuntimes {
-				if delta > 0 {
-					v.runtimeCursor = 0
-				} else {
-					v.runtimeCursor = max(len(v.runtimeDefaults)-1, 0)
-				}
-			}
-			if next == fieldAccessItems {
-				if delta > 0 {
-					v.accessCursor = 0
-				} else {
-					v.accessCursor = max(len(v.accessItems)-1, 0)
-				}
-			}
-			if next == fieldMounts {
-				if delta > 0 {
-					v.mountCursor = -1
-				} else {
-					v.mountCursor = max(len(v.mounts)-1, -1)
-				}
-			}
-			if next == fieldEnvVars {
-				if delta > 0 {
-					v.envCursor = -1
-				} else {
-					v.envCursor = max(len(v.envVars)-1, -1)
-				}
-			}
+			v.fieldCursor = next
+			v.initSubCursorForField(delta)
 			return
 		}
 		next += delta
 	}
 }
 
-func (v *ContainerFormView) activateField() (View, tea.Cmd) {
-	switch v.cursor {
-	case fieldName, fieldImage:
-		idx := 0
-		if v.cursor == fieldImage {
-			idx = 2
+// initSubCursorForField sets the correct sub-cursor position when
+// the field cursor enters a section with sub-items.
+func (v *ContainerFormView) initSubCursorForField(delta int) {
+	switch v.step {
+	case stepEnvironment:
+		switch v.fieldCursor {
+		case envRuntimes:
+			if delta > 0 {
+				v.runtimeCursor = 0
+			} else {
+				v.runtimeCursor = max(len(v.runtimeDefaults)-1, 0)
+			}
+		case envAccessItems:
+			if delta > 0 {
+				v.accessCursor = 0
+			} else {
+				v.accessCursor = max(len(v.accessItems)-1, 0)
+			}
 		}
-		v.editing = true
-		return v, v.inputs[idx].Focus()
+	case stepAdvanced:
+		switch v.fieldCursor {
+		case advMounts:
+			if delta > 0 {
+				v.mountCursor = -1
+			} else {
+				v.mountCursor = max(len(v.mounts)-1, -1)
+			}
+		case advEnvVars:
+			if delta > 0 {
+				v.envCursor = -1
+			} else {
+				v.envCursor = max(len(v.envVars)-1, -1)
+			}
+		}
+	}
+}
 
-	case fieldBudget:
-		v.editing = true
-		return v, v.budgetInput.Focus()
+func (v *ContainerFormView) activateField() (View, tea.Cmd) {
+	switch v.step {
+	case stepGeneral:
+		return v.activateGeneralField()
+	case stepEnvironment:
+		return v.activateEnvironmentField()
+	case stepNetwork:
+		return v.activateNetworkField()
+	case stepAdvanced:
+		return v.activateAdvancedField()
+	}
+	return v, nil
+}
 
-	case fieldPath:
-		return v.openDirectoryBrowser()
-
-	case fieldDomains:
-		v.editing = true
-		return v, v.domains.Focus()
-
-	case fieldAgentType:
+func (v *ContainerFormView) activateGeneralField() (View, tea.Cmd) {
+	switch v.fieldCursor {
+	case genAgentType:
 		if v.editID == "" {
 			v.agentType = (v.agentType + 1) % len(agentTypes)
 			v.refilterDefaultMounts()
 		}
-	case fieldNetwork:
-		v.network = (v.network + 1) % len(networkModes)
-	case fieldSkipPerms:
+	case genName:
+		v.editing = true
+		return v, v.inputs[inputName].Focus()
+	case genPath:
+		return v.openDirectoryBrowser()
+	case genSkipPerms:
 		v.skipPerm = !v.skipPerm
-	case fieldAdvanced:
-		v.advancedOpen = !v.advancedOpen
-	case fieldRuntimes:
+	case genBudget:
+		v.editing = true
+		return v, v.budgetInput.Focus()
+	case genSubmit:
+		return v, v.submit()
+	}
+	return v, nil
+}
+
+func (v *ContainerFormView) activateEnvironmentField() (View, tea.Cmd) {
+	switch v.fieldCursor {
+	case envRuntimes:
 		if v.runtimeCursor >= 0 && v.runtimeCursor < len(v.runtimeDefaults) {
 			v.toggleRuntime(v.runtimeDefaults[v.runtimeCursor].ID)
 		}
-	case fieldAccessItems:
+	case envAccessItems:
 		if v.accessCursor >= 0 && v.accessCursor < len(v.accessItems) {
 			v.toggleAccessItem(v.accessItems[v.accessCursor].ID)
 		}
+	case envSubmit:
+		return v, v.submit()
+	}
+	return v, nil
+}
 
-	case fieldMounts:
+func (v *ContainerFormView) activateNetworkField() (View, tea.Cmd) {
+	switch v.fieldCursor {
+	case netNetwork:
+		v.network = (v.network + 1) % len(networkModes)
+	case netDomains:
+		v.editing = true
+		return v, v.domains.Focus()
+	case netSubmit:
+		return v, v.submit()
+	}
+	return v, nil
+}
+
+func (v *ContainerFormView) activateAdvancedField() (View, tea.Cmd) {
+	switch v.fieldCursor {
+	case advImage:
+		v.editing = true
+		return v, v.inputs[inputImage].Focus()
+	case advMounts:
 		return v.activateMountField()
-	case fieldEnvVars:
+	case advEnvVars:
 		return v.activateEnvField()
-	case fieldSubmit:
+	case advSubmit:
 		return v, v.submit()
 	}
 	return v, nil
@@ -392,7 +461,7 @@ func (v *ContainerFormView) startEnvEdit() (View, tea.Cmd) {
 
 // removeCurrentItem removes the selected mount or env var.
 func (v *ContainerFormView) removeCurrentItem() (View, tea.Cmd) {
-	if v.cursor == fieldMounts && v.mountCursor >= 0 && v.mountCursor < len(v.mounts) {
+	if v.step == stepAdvanced && v.fieldCursor == advMounts && v.mountCursor >= 0 && v.mountCursor < len(v.mounts) {
 		if v.isRequiredMount(v.mountCursor) {
 			return v, nil // agent won't function without its config directory
 		}
@@ -405,7 +474,7 @@ func (v *ContainerFormView) removeCurrentItem() (View, tea.Cmd) {
 		}
 		return v, nil
 	}
-	if v.cursor == fieldEnvVars && v.envCursor >= 0 && v.envCursor < len(v.envVars) {
+	if v.step == stepAdvanced && v.fieldCursor == advEnvVars && v.envCursor >= 0 && v.envCursor < len(v.envVars) {
 		v.envVars = append(v.envVars[:v.envCursor], v.envVars[v.envCursor+1:]...)
 		if v.envCursor >= len(v.envVars) {
 			v.envCursor = len(v.envVars) - 1
@@ -419,7 +488,7 @@ func (v *ContainerFormView) removeCurrentItem() (View, tea.Cmd) {
 }
 
 func (v *ContainerFormView) openDirectoryBrowser() (View, tea.Cmd) {
-	startPath := v.inputs[1].Value()
+	startPath := v.inputs[inputPath].Value()
 	if startPath == "" && v.defaults != nil && v.defaults.HomeDir != "" {
 		startPath = v.defaults.HomeDir
 	}
@@ -437,17 +506,24 @@ func (v *ContainerFormView) openDirectoryBrowser() (View, tea.Cmd) {
 }
 
 func (v *ContainerFormView) blurActiveField() {
-	switch v.cursor {
-	case fieldName:
-		v.inputs[0].Blur()
-	case fieldPath:
-		v.inputs[1].Blur()
-	case fieldImage:
-		v.inputs[2].Blur()
-	case fieldBudget:
-		v.budgetInput.Blur()
-	case fieldDomains:
-		v.domains.Blur()
+	switch v.step {
+	case stepGeneral:
+		switch v.fieldCursor {
+		case genName:
+			v.inputs[inputName].Blur()
+		case genPath:
+			v.inputs[inputPath].Blur()
+		case genBudget:
+			v.budgetInput.Blur()
+		}
+	case stepNetwork:
+		if v.fieldCursor == netDomains {
+			v.domains.Blur()
+		}
+	case stepAdvanced:
+		if v.fieldCursor == advImage {
+			v.inputs[inputImage].Blur()
+		}
 	}
 }
 
@@ -466,14 +542,14 @@ func (v *ContainerFormView) updateActiveField(msg tea.Msg) (View, tea.Cmd) {
 		} else {
 			v.envInputs[1], cmd = v.envInputs[1].Update(msg)
 		}
-	case v.cursor == fieldName:
-		v.inputs[0], cmd = v.inputs[0].Update(msg)
-	case v.cursor == fieldImage:
-		v.inputs[2], cmd = v.inputs[2].Update(msg)
-	case v.cursor == fieldBudget:
+	case v.step == stepGeneral && v.fieldCursor == genName:
+		v.inputs[inputName], cmd = v.inputs[inputName].Update(msg)
+	case v.step == stepGeneral && v.fieldCursor == genBudget:
 		v.budgetInput, cmd = v.budgetInput.Update(msg)
-	case v.cursor == fieldDomains:
+	case v.step == stepNetwork && v.fieldCursor == netDomains:
 		v.domains, cmd = v.domains.Update(msg)
+	case v.step == stepAdvanced && v.fieldCursor == advImage:
+		v.inputs[inputImage], cmd = v.inputs[inputImage].Update(msg)
 	}
 	return v, cmd
 }

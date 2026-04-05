@@ -106,6 +106,10 @@ func (v *ContainerFormView) Render(width, height int) string {
 		s.WriteString(Styles.Error.Render("Error: "+v.err.Error()) + "\n\n")
 	}
 
+	// Step bar.
+	s.WriteString(v.renderStepBar())
+	s.WriteString("\n\n")
+
 	rawLines, rawCursorLine := v.buildFieldLines()
 
 	// Flatten multi-line entries (e.g. textarea values) so every entry
@@ -121,7 +125,8 @@ func (v *ContainerFormView) Render(width, height int) string {
 		lines = append(lines, parts...)
 	}
 
-	maxVisible := height - 2
+	// Reserve space for title (2 lines), step bar (1 line), blank (1 line).
+	maxVisible := height - 5
 	if maxVisible < 5 {
 		maxVisible = 5
 	}
@@ -156,34 +161,134 @@ func (v *ContainerFormView) Render(width, height int) string {
 	return s.String()
 }
 
-// buildFieldLines returns all form content as lines for scrolling,
+// renderStepBar renders the horizontal step navigation bar.
+func (v *ContainerFormView) renderStepBar() string {
+	var parts []string
+	for i := formStep(0); i < stepCount; i++ {
+		label := stepLabels[i]
+		badge := v.stepBadge(i)
+
+		if i == v.step {
+			parts = append(parts, formCursor.Render("["+label+badge+"]"))
+		} else {
+			parts = append(parts, Styles.Muted.Render(" "+label+badge+" "))
+		}
+	}
+	return strings.Join(parts, "  ")
+}
+
+// stepBadge returns a badge character for the step tab.
+func (v *ContainerFormView) stepBadge(s formStep) string {
+	switch s {
+	case stepGeneral:
+		if v.inputs[inputName].Value() == "" || v.inputs[inputPath].Value() == "" {
+			return "*"
+		}
+		return "✓"
+	case stepEnvironment:
+		if len(v.runtimeDefaults) > 0 || len(v.accessItems) > 0 {
+			return "✓"
+		}
+	case stepNetwork:
+		return "✓"
+	case stepAdvanced:
+		if v.inputs[inputImage].Value() != defaultContainerImage ||
+			len(v.mounts) > 0 || len(v.envVars) > 0 {
+			return "✓"
+		}
+	}
+	return ""
+}
+
+// stepSummary returns a short description of the step's current state.
+func (v *ContainerFormView) stepSummary(s formStep) string {
+	switch s {
+	case stepGeneral:
+		name := v.inputs[inputName].Value()
+		if name == "" || v.inputs[inputPath].Value() == "" {
+			return "Setup required"
+		}
+		selected := agentTypes[v.agentType]
+		return agentTypeLabels[selected] + ", " + name
+
+	case stepEnvironment:
+		if len(v.runtimeDefaults) == 0 {
+			return "Detecting..."
+		}
+		count := 0
+		for _, r := range v.runtimeDefaults {
+			if v.runtimeToggles[r.ID] {
+				count++
+			}
+		}
+		accessCount := 0
+		for _, item := range v.accessItems {
+			if v.accessToggles[item.ID] {
+				accessCount++
+			}
+		}
+		s := fmt.Sprintf("%d runtime", count)
+		if count != 1 {
+			s += "s"
+		}
+		if accessCount > 0 {
+			s += fmt.Sprintf(", %d access", accessCount)
+		}
+		return s
+
+	case stepNetwork:
+		mode := networkModes[v.network]
+		switch mode {
+		case "full":
+			return "Full access"
+		case "restricted":
+			return "Restricted"
+		default:
+			return "No network"
+		}
+
+	case stepAdvanced:
+		var parts []string
+		if v.inputs[inputImage].Value() != defaultContainerImage {
+			parts = append(parts, "Custom image")
+		}
+		if len(v.mounts) > 0 {
+			parts = append(parts, "Mounts")
+		}
+		if len(v.envVars) > 0 {
+			parts = append(parts, "Env vars")
+		}
+		if len(parts) > 0 {
+			return strings.Join(parts, ", ")
+		}
+		return "Defaults applied"
+	}
+	return ""
+}
+
+// buildFieldLines returns the content lines for the current step,
 // plus the line index of the current cursor for scroll-to-cursor.
 func (v *ContainerFormView) buildFieldLines() ([]string, int) {
+	switch v.step {
+	case stepGeneral:
+		return v.buildGeneralFields()
+	case stepEnvironment:
+		return v.buildEnvironmentFields()
+	case stepNetwork:
+		return v.buildNetworkFields()
+	case stepAdvanced:
+		return v.buildAdvancedFields()
+	}
+	return nil, 0
+}
+
+func (v *ContainerFormView) buildGeneralFields() ([]string, int) {
 	var lines []string
 	cursorLine := 0
 
-	// markCursor records the cursor position when the field is active.
-	markCursor := func(fieldID int) {
-		if fieldID == v.cursor {
-			cursorLine = len(lines)
-		}
-	}
-
-	// appendField renders a standard label + value + description field.
-	appendField := func(id int, label, value, desc string) {
-		markCursor(id)
-		lines = append(lines, cursorPrefix(id == v.cursor)+formLabel.Render(label+":"))
-		lines = append(lines, formValue.Render(value))
-		if desc != "" {
-			lines = append(lines, formDescription.Render(desc))
-		}
-		lines = append(lines, "")
-	}
-
-	// Core fields.
-	appendField(fieldAgentType, "Agent", v.fieldView(fieldAgentType), "")
-	appendField(fieldName, "Name", v.fieldView(fieldName), "")
-	appendField(fieldPath, "Project Path", v.fieldView(fieldPath), "Host directory to mount")
+	v.appendField(&lines, &cursorLine, genAgentType, "Agent", v.fieldViewGeneral(genAgentType), "")
+	v.appendField(&lines, &cursorLine, genName, "Name", v.fieldViewGeneral(genName), "")
+	v.appendField(&lines, &cursorLine, genPath, "Project Path", v.fieldViewGeneral(genPath), "Host directory to mount")
 
 	var skipPermsDesc string
 	if agentTypes[v.agentType] == agent.Codex {
@@ -191,18 +296,25 @@ func (v *ContainerFormView) buildFieldLines() ([]string, int) {
 	} else {
 		skipPermsDesc = "Auto-approve all Claude Code actions (--dangerously-skip-permissions)"
 	}
-	appendField(fieldSkipPerms, "Skip Permissions", v.fieldView(fieldSkipPerms), skipPermsDesc)
-	appendField(fieldBudget, "Project Budget (USD)", v.fieldView(fieldBudget), "Auto-pauses agents when exceeded")
-	appendField(fieldNetwork, "Network", v.fieldView(fieldNetwork), networkDescriptions[networkModes[v.network]])
+	v.appendField(&lines, &cursorLine, genSkipPerms, "Skip Permissions", v.fieldViewGeneral(genSkipPerms), skipPermsDesc)
+	v.appendField(&lines, &cursorLine, genBudget, "Project Budget (USD)", v.fieldViewGeneral(genBudget), "Auto-pauses agents when exceeded")
 
-	if v.isFieldVisible(fieldDomains) {
-		appendField(fieldDomains, "Allowed Domains", v.fieldView(fieldDomains), "One per line")
-	}
+	// Submit button.
+	v.appendSubmitButton(&lines, &cursorLine, genSubmit)
+
+	return lines, cursorLine
+}
+
+func (v *ContainerFormView) buildEnvironmentFields() ([]string, int) {
+	var lines []string
+	cursorLine := 0
 
 	// Runtime toggles.
 	if len(v.runtimeDefaults) > 0 {
-		isActive := v.cursor == fieldRuntimes
-		markCursor(fieldRuntimes)
+		isActive := v.fieldCursor == envRuntimes
+		if isActive && v.runtimeCursor < 0 {
+			cursorLine = len(lines)
+		}
 		lines = append(lines, cursorPrefix(isActive && v.runtimeCursor < 0)+formLabel.Render("Runtimes"))
 		lines = append(lines, formDescription.Render("Language runtimes to install in the container"))
 		for i, r := range v.runtimeDefaults {
@@ -227,70 +339,106 @@ func (v *ContainerFormView) buildFieldLines() ([]string, int) {
 		lines = append(lines, "")
 	}
 
-	// Advanced toggle.
-	markCursor(fieldAdvanced)
-	arrow := "▶"
-	if v.advancedOpen {
-		arrow = "▼"
-	}
-	advLabel := arrow + " Advanced"
-	if v.cursor == fieldAdvanced {
-		lines = append(lines, cursorPrefix(true)+formCursor.Render(advLabel))
-	} else {
-		lines = append(lines, cursorPrefix(false)+Styles.Muted.Render(advLabel))
-	}
-	lines = append(lines, "")
-
-	if v.advancedOpen {
-		appendField(fieldImage, "Image", v.fieldView(fieldImage), "")
-
-		// Access item toggles.
-		if len(v.accessItems) > 0 {
-			isActive := v.cursor == fieldAccessItems
-			markCursor(fieldAccessItems)
-			lines = append(lines, cursorPrefix(isActive && v.accessCursor < 0)+formLabel.Render("Access"))
-			lines = append(lines, formDescription.Render("Passthrough access items to containers"))
-			for i, item := range v.accessItems {
-				isSelected := isActive && v.accessCursor == i
-				if isSelected {
-					cursorLine = len(lines)
-				}
-				prefix := subItemPrefix(isSelected)
-				toggle := boolSelector(v.accessToggles[item.ID])
-				if !item.Detection.Available {
-					toggle = Styles.Muted.Render("(unavailable)")
-				}
-				lines = append(lines, prefix+item.Label+" "+toggle)
-				if item.Description != "" {
-					lines = append(lines, formDescription.Render("  "+item.Description))
-				}
-			}
-			lines = append(lines, "")
+	// Access item toggles.
+	if len(v.accessItems) > 0 {
+		isActive := v.fieldCursor == envAccessItems
+		if isActive && v.accessCursor < 0 {
+			cursorLine = len(lines)
 		}
-
-		v.appendListSection(&lines, &cursorLine,
-			fieldMounts, "Bind Mounts", "Additional host directories",
-			"Add Mount", v.mountCursor, v.renderMountItems)
-
-		v.appendListSection(&lines, &cursorLine,
-			fieldEnvVars, "Environment Variables", "",
-			"Add Variable", v.envCursor, v.renderEnvItems)
+		lines = append(lines, cursorPrefix(isActive && v.accessCursor < 0)+formLabel.Render("Access"))
+		lines = append(lines, formDescription.Render("Passthrough access items to containers"))
+		for i, item := range v.accessItems {
+			isSelected := isActive && v.accessCursor == i
+			if isSelected {
+				cursorLine = len(lines)
+			}
+			prefix := subItemPrefix(isSelected)
+			toggle := boolSelector(v.accessToggles[item.ID])
+			if !item.Detection.Available {
+				toggle = Styles.Muted.Render("(unavailable)")
+			}
+			lines = append(lines, prefix+item.Label+" "+toggle)
+			if item.Description != "" {
+				lines = append(lines, formDescription.Render("  "+item.Description))
+			}
+		}
+		lines = append(lines, "")
 	}
 
 	// Submit button.
-	lines = append(lines, "")
-	markCursor(fieldSubmit)
+	v.appendSubmitButton(&lines, &cursorLine, envSubmit)
+
+	return lines, cursorLine
+}
+
+func (v *ContainerFormView) buildNetworkFields() ([]string, int) {
+	var lines []string
+	cursorLine := 0
+
+	v.appendField(&lines, &cursorLine, netNetwork, "Network", v.fieldViewNetwork(netNetwork), networkDescriptions[networkModes[v.network]])
+
+	if v.isFieldVisible(netDomains) {
+		v.appendField(&lines, &cursorLine, netDomains, "Allowed Domains", v.fieldViewNetwork(netDomains), "One per line")
+	}
+
+	// Submit button.
+	v.appendSubmitButton(&lines, &cursorLine, netSubmit)
+
+	return lines, cursorLine
+}
+
+func (v *ContainerFormView) buildAdvancedFields() ([]string, int) {
+	var lines []string
+	cursorLine := 0
+
+	v.appendField(&lines, &cursorLine, advImage, "Image", v.fieldViewAdvanced(advImage), "")
+
+	// Bind mounts.
+	v.appendListSection(&lines, &cursorLine,
+		advMounts, "Bind Mounts", "Additional host directories",
+		"Add Mount", v.mountCursor, v.renderMountItems)
+
+	// Environment variables.
+	v.appendListSection(&lines, &cursorLine,
+		advEnvVars, "Environment Variables", "",
+		"Add Variable", v.envCursor, v.renderEnvItems)
+
+	// Submit button.
+	v.appendSubmitButton(&lines, &cursorLine, advSubmit)
+
+	return lines, cursorLine
+}
+
+// appendField renders a standard label + value + description field.
+func (v *ContainerFormView) appendField(lines *[]string, cursorLine *int, id int, label, value, desc string) {
+	isActive := id == v.fieldCursor
+	if isActive {
+		*cursorLine = len(*lines)
+	}
+	*lines = append(*lines, cursorPrefix(isActive)+formLabel.Render(label+":"))
+	*lines = append(*lines, formValue.Render(value))
+	if desc != "" {
+		*lines = append(*lines, formDescription.Render(desc))
+	}
+	*lines = append(*lines, "")
+}
+
+// appendSubmitButton appends the Create/Save button to the lines.
+func (v *ContainerFormView) appendSubmitButton(lines *[]string, cursorLine *int, fieldID int) {
+	*lines = append(*lines, "")
+	isActive := fieldID == v.fieldCursor
+	if isActive {
+		*cursorLine = len(*lines)
+	}
 	submitLabel := "Save"
 	if v.editID == "" {
 		submitLabel = "Create"
 	}
-	if v.cursor == fieldSubmit {
-		lines = append(lines, cursorPrefix(true)+formCursor.Render("["+submitLabel+"]"))
+	if isActive {
+		*lines = append(*lines, cursorPrefix(true)+formCursor.Render("["+submitLabel+"]"))
 	} else {
-		lines = append(lines, cursorPrefix(false)+Styles.Muted.Render("["+submitLabel+"]"))
+		*lines = append(*lines, cursorPrefix(false)+Styles.Muted.Render("["+submitLabel+"]"))
 	}
-
-	return lines, cursorLine
 }
 
 // appendListSection appends a section header and items to lines.
@@ -302,7 +450,7 @@ func (v *ContainerFormView) appendListSection(
 	subCursor int,
 	renderItems func(isActive bool) []string,
 ) {
-	isActive := v.cursor == fieldID
+	isActive := v.fieldCursor == fieldID
 	isOnHeader := isActive && subCursor == -1
 
 	if isOnHeader {
@@ -325,13 +473,8 @@ func (v *ContainerFormView) appendListSection(
 	if len(items) == 0 {
 		*lines = append(*lines, formValue.Render(Styles.Muted.Render("None configured.")))
 	} else {
-		// Track cursor line for sub-items.
 		if isActive && subCursor >= 0 {
-			headerSize := 1
-			if desc != "" {
-				headerSize = 2
-			}
-			*cursorLine = len(*lines) + subCursor - headerSize + headerSize
+			*cursorLine = len(*lines) + subCursor
 		}
 		*lines = append(*lines, items...)
 	}
@@ -377,9 +520,10 @@ func (v *ContainerFormView) renderEnvItems(isActive bool) []string {
 	return lines
 }
 
-func (v *ContainerFormView) fieldView(field int) string {
+// fieldViewGeneral renders a General step field value.
+func (v *ContainerFormView) fieldViewGeneral(field int) string {
 	switch field {
-	case fieldAgentType:
+	case genAgentType:
 		selected := agentTypes[v.agentType]
 		var parts []string
 		for _, at := range agentTypes {
@@ -392,23 +536,28 @@ func (v *ContainerFormView) fieldView(field int) string {
 		}
 		return strings.Join(parts, " ")
 
-	case fieldName:
-		return textInputView(v.inputs[0], v.editing && v.cursor == fieldName)
-	case fieldPath:
-		return textInputView(v.inputs[1], false)
-	case fieldImage:
-		return textInputView(v.inputs[2], v.editing && v.cursor == fieldImage)
-
-	case fieldBudget:
-		if v.editing && v.cursor == fieldBudget {
+	case genName:
+		return textInputView(v.inputs[inputName], v.editing && v.fieldCursor == genName)
+	case genPath:
+		return textInputView(v.inputs[inputPath], false)
+	case genSkipPerms:
+		return boolSelector(v.skipPerm)
+	case genBudget:
+		if v.editing && v.fieldCursor == genBudget {
 			return "$ " + v.budgetInput.View()
 		}
 		if val := v.budgetInput.Value(); val != "" {
 			return "$ " + val
 		}
 		return Styles.Muted.Render("unlimited")
+	}
+	return ""
+}
 
-	case fieldNetwork:
+// fieldViewNetwork renders a Network step field value.
+func (v *ContainerFormView) fieldViewNetwork(field int) string {
+	switch field {
+	case netNetwork:
 		mode := networkModes[v.network]
 		var parts []string
 		for _, m := range networkModes {
@@ -420,8 +569,8 @@ func (v *ContainerFormView) fieldView(field int) string {
 		}
 		return strings.Join(parts, " ")
 
-	case fieldDomains:
-		if v.editing && v.cursor == fieldDomains {
+	case netDomains:
+		if v.editing && v.fieldCursor == netDomains {
 			return v.domains.View()
 		}
 		val := v.domains.Value()
@@ -433,10 +582,14 @@ func (v *ContainerFormView) fieldView(field int) string {
 			return strings.Join(domainLines[:10], "\n") + "\n" + Styles.Muted.Render(fmt.Sprintf("... +%d more", len(domainLines)-10))
 		}
 		return val
+	}
+	return ""
+}
 
-	case fieldSkipPerms:
-		return boolSelector(v.skipPerm)
-
+// fieldViewAdvanced renders an Advanced step field value.
+func (v *ContainerFormView) fieldViewAdvanced(field int) string {
+	if field == advImage {
+		return textInputView(v.inputs[inputImage], v.editing && v.fieldCursor == advImage)
 	}
 	return ""
 }

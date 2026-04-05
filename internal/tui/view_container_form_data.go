@@ -13,12 +13,12 @@ import (
 )
 
 func (v *ContainerFormView) submit() tea.Cmd {
-	name := v.inputs[0].Value()
+	name := v.inputs[inputName].Value()
 	if name == "" {
 		v.err = fmt.Errorf("container name is required")
 		return nil
 	}
-	path := v.inputs[1].Value()
+	path := v.inputs[inputPath].Value()
 	if path == "" {
 		v.err = fmt.Errorf("project path is required")
 		return nil
@@ -55,7 +55,7 @@ func (v *ContainerFormView) submit() tea.Cmd {
 	req := api.CreateContainerRequest{
 		Name:            name,
 		ProjectPath:     path,
-		Image:           v.inputs[2].Value(),
+		Image:           v.inputs[inputImage].Value(),
 		AgentType:       agentTypes[v.agentType],
 		NetworkMode:     api.NetworkMode(networkModes[v.network]),
 		AllowedDomains:  domains,
@@ -207,7 +207,7 @@ func (v *ContainerFormView) ensureRequiredMount() {
 // Only used in create mode to pre-populate fields from the template.
 func (v *ContainerFormView) applyTemplate(tmpl *api.ProjectTemplate, currentAgent constants.AgentType) {
 	if tmpl.Image != "" {
-		v.inputs[2].SetValue(tmpl.Image)
+		v.inputs[inputImage].SetValue(tmpl.Image)
 	}
 	if tmpl.SkipPermissions != nil {
 		v.skipPerm = *tmpl.SkipPermissions
@@ -236,9 +236,16 @@ func (v *ContainerFormView) applyTemplate(tmpl *api.ProjectTemplate, currentAgen
 	}
 
 	// Apply agent-specific domains with runtime domains merged in.
+	// If the template has agent-specific domain overrides, use those as
+	// the base. Otherwise fall back to server defaults so that runtime
+	// domains (e.g. Go's proxy.golang.org) still get merged in.
 	if tmpl.NetworkMode == api.NetworkModeRestricted {
 		if override, ok := tmpl.Agents[string(currentAgent)]; ok && len(override.AllowedDomains) > 0 {
 			merged := mergeRuntimeDomainsForToggles(override.AllowedDomains, v.runtimeDefaults, v.runtimeToggles)
+			v.domains.SetValue(strings.Join(merged, "\n"))
+		} else if tmpl.Runtimes != nil && v.restrictedDomains != nil {
+			baseDomains := v.restrictedDomains[string(currentAgent)]
+			merged := mergeRuntimeDomainsForToggles(baseDomains, v.runtimeDefaults, v.runtimeToggles)
 			v.domains.SetValue(strings.Join(merged, "\n"))
 		}
 	}

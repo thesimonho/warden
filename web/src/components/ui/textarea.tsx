@@ -14,6 +14,7 @@ function Textarea({ className, ...props }: React.ComponentProps<'textarea'>) {
         // Typography
         'text-base md:text-sm',
         'placeholder:text-muted-foreground',
+        'selection:bg-secondary selection:text-secondary-foreground',
         // Transitions
         'transition-[color,box-shadow]',
         // Focus

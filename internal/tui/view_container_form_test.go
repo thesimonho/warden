@@ -18,68 +18,50 @@ func TestFieldVisibility(t *testing.T) {
 	}{
 		{
 			name:    "domains visible when restricted",
-			setup:   func(v *ContainerFormView) { v.network = 1 },
-			field:   fieldDomains,
+			setup:   func(v *ContainerFormView) { v.step = stepNetwork; v.network = 1 },
+			field:   netDomains,
 			visible: true,
 		},
 		{
 			name:    "domains hidden when full",
-			setup:   func(v *ContainerFormView) { v.network = 0 },
-			field:   fieldDomains,
+			setup:   func(v *ContainerFormView) { v.step = stepNetwork; v.network = 0 },
+			field:   netDomains,
 			visible: false,
 		},
 		{
 			name:    "domains hidden when none",
-			setup:   func(v *ContainerFormView) { v.network = 2 },
-			field:   fieldDomains,
+			setup:   func(v *ContainerFormView) { v.step = stepNetwork; v.network = 2 },
+			field:   netDomains,
 			visible: false,
 		},
 		{
-			name:    "image hidden when advanced closed",
-			setup:   func(v *ContainerFormView) { v.advancedOpen = false },
-			field:   fieldImage,
-			visible: false,
-		},
-		{
-			name:    "image visible when advanced open",
-			setup:   func(v *ContainerFormView) { v.advancedOpen = true },
-			field:   fieldImage,
+			name:    "name always visible on general step",
+			setup:   func(v *ContainerFormView) { v.step = stepGeneral },
+			field:   genName,
 			visible: true,
 		},
 		{
-			name:    "mounts hidden when advanced closed",
-			setup:   func(v *ContainerFormView) { v.advancedOpen = false },
-			field:   fieldMounts,
-			visible: false,
-		},
-		{
-			name:    "mounts visible when advanced open",
-			setup:   func(v *ContainerFormView) { v.advancedOpen = true },
-			field:   fieldMounts,
+			name:    "network always visible on network step",
+			setup:   func(v *ContainerFormView) { v.step = stepNetwork },
+			field:   netNetwork,
 			visible: true,
 		},
 		{
-			name:    "envvars hidden when advanced closed",
-			setup:   func(v *ContainerFormView) { v.advancedOpen = false },
-			field:   fieldEnvVars,
-			visible: false,
-		},
-		{
-			name:    "envvars visible when advanced open",
-			setup:   func(v *ContainerFormView) { v.advancedOpen = true },
-			field:   fieldEnvVars,
+			name:    "image always visible on advanced step",
+			setup:   func(v *ContainerFormView) { v.step = stepAdvanced },
+			field:   advImage,
 			visible: true,
 		},
 		{
-			name:    "name always visible",
-			setup:   func(v *ContainerFormView) {},
-			field:   fieldName,
+			name:    "mounts always visible on advanced step",
+			setup:   func(v *ContainerFormView) { v.step = stepAdvanced },
+			field:   advMounts,
 			visible: true,
 		},
 		{
-			name:    "network always visible",
-			setup:   func(v *ContainerFormView) {},
-			field:   fieldNetwork,
+			name:    "envvars always visible on advanced step",
+			setup:   func(v *ContainerFormView) { v.step = stepAdvanced },
+			field:   advEnvVars,
 			visible: true,
 		},
 	}
@@ -102,12 +84,14 @@ func TestMoveCursorSkipsHiddenFields(t *testing.T) {
 
 	v := &ContainerFormView{}
 	v.initFields("", "", "", "full", "", false)
-	v.cursor = fieldNetwork
+	v.step = stepNetwork
+	v.fieldCursor = netNetwork
 
-	// Moving down from Network should skip Domains and land on Runtimes.
+	// Moving down from Network should skip Domains (hidden when mode=full)
+	// and land on Submit.
 	v.moveCursor(1)
-	if v.cursor != fieldRuntimes {
-		t.Errorf("after moving down from Network: cursor=%d, want %d (Runtimes)", v.cursor, fieldRuntimes)
+	if v.fieldCursor != netSubmit {
+		t.Errorf("after moving down from Network: fieldCursor=%d, want %d (Submit)", v.fieldCursor, netSubmit)
 	}
 }
 
@@ -117,18 +101,20 @@ func TestMoveCursorStaysInBounds(t *testing.T) {
 	v := &ContainerFormView{}
 	v.initFields("", "", "", "full", "", false)
 
-	// At first field, moving up should stay.
-	v.cursor = fieldAgentType
+	// At first field of General, moving up should stay.
+	v.step = stepGeneral
+	v.fieldCursor = genAgentType
 	v.moveCursor(-1)
-	if v.cursor != fieldAgentType {
-		t.Errorf("at top, after move up: cursor=%d, want %d", v.cursor, fieldAgentType)
+	if v.fieldCursor != genAgentType {
+		t.Errorf("at top, after move up: fieldCursor=%d, want %d", v.fieldCursor, genAgentType)
 	}
 
-	// At submit, moving down should stay.
-	v.cursor = fieldSubmit
+	// At last field of Advanced, moving down should stay.
+	v.step = stepAdvanced
+	v.fieldCursor = advSubmit
 	v.moveCursor(1)
-	if v.cursor != fieldSubmit {
-		t.Errorf("at bottom, after move down: cursor=%d, want %d", v.cursor, fieldSubmit)
+	if v.fieldCursor != advSubmit {
+		t.Errorf("at bottom, after move down: fieldCursor=%d, want %d", v.fieldCursor, advSubmit)
 	}
 }
 
@@ -137,18 +123,18 @@ func TestMountSubCursorNavigation(t *testing.T) {
 
 	v := &ContainerFormView{}
 	v.initFields("", "", "", "full", "", false)
-	v.advancedOpen = true
+	v.step = stepAdvanced
 	v.mounts = []api.Mount{
 		{HostPath: "/a", ContainerPath: "/b"},
 		{HostPath: "/c", ContainerPath: "/d"},
 	}
-	v.cursor = fieldMounts
+	v.fieldCursor = advMounts
 	v.mountCursor = -1
 
 	// Move down into first mount item.
 	v.moveCursor(1)
-	if v.cursor != fieldMounts || v.mountCursor != 0 {
-		t.Errorf("expected fieldMounts/0; got cursor=%d, mountCursor=%d", v.cursor, v.mountCursor)
+	if v.fieldCursor != advMounts || v.mountCursor != 0 {
+		t.Errorf("expected advMounts/0; got fieldCursor=%d, mountCursor=%d", v.fieldCursor, v.mountCursor)
 	}
 
 	// Move down to second mount.
@@ -175,12 +161,12 @@ func TestRemoveMount(t *testing.T) {
 
 	v := &ContainerFormView{}
 	v.initFields("", "", "", "full", "", false)
-	v.advancedOpen = true
+	v.step = stepAdvanced
 	v.mounts = []api.Mount{
 		{HostPath: "/a", ContainerPath: "/b"},
 		{HostPath: "/c", ContainerPath: "/d"},
 	}
-	v.cursor = fieldMounts
+	v.fieldCursor = advMounts
 	v.mountCursor = 0
 
 	v.removeCurrentItem()
@@ -198,11 +184,11 @@ func TestRemoveLastMount(t *testing.T) {
 
 	v := &ContainerFormView{}
 	v.initFields("", "", "", "full", "", false)
-	v.advancedOpen = true
+	v.step = stepAdvanced
 	v.mounts = []api.Mount{
 		{HostPath: "/a", ContainerPath: "/b"},
 	}
-	v.cursor = fieldMounts
+	v.fieldCursor = advMounts
 	v.mountCursor = 0
 
 	v.removeCurrentItem()
@@ -220,12 +206,12 @@ func TestRemoveEnvVar(t *testing.T) {
 
 	v := &ContainerFormView{}
 	v.initFields("", "", "", "full", "", false)
-	v.advancedOpen = true
+	v.step = stepAdvanced
 	v.envVars = []envVarEntry{
 		{key: "FOO", value: "bar"},
 		{key: "BAZ", value: "qux"},
 	}
-	v.cursor = fieldEnvVars
+	v.fieldCursor = advEnvVars
 	v.envCursor = 1
 
 	v.removeCurrentItem()
@@ -316,14 +302,15 @@ func TestFieldViewAgentType(t *testing.T) {
 
 	v := &ContainerFormView{}
 	v.initFields("", "", "", "full", "", false)
+	v.step = stepGeneral
 
-	view := v.fieldView(fieldAgentType)
+	view := v.fieldViewGeneral(genAgentType)
 	if !strings.Contains(view, "[Claude Code]") {
 		t.Errorf("default agent type: view=%q, want to contain [Claude Code]", view)
 	}
 
 	v.agentType = 1
-	view = v.fieldView(fieldAgentType)
+	view = v.fieldViewGeneral(genAgentType)
 	if !strings.Contains(view, "[OpenAI Codex]") {
 		t.Errorf("codex agent type: view=%q, want to contain [OpenAI Codex]", view)
 	}
@@ -334,14 +321,15 @@ func TestFieldViewSkipPerms(t *testing.T) {
 
 	v := &ContainerFormView{}
 	v.initFields("", "", "", "full", "", false)
+	v.step = stepGeneral
 
-	view := v.fieldView(fieldSkipPerms)
+	view := v.fieldViewGeneral(genSkipPerms)
 	if !strings.Contains(view, "[no]") {
 		t.Errorf("skip perms off: view=%q, want to contain [no]", view)
 	}
 
 	v.skipPerm = true
-	view = v.fieldView(fieldSkipPerms)
+	view = v.fieldViewGeneral(genSkipPerms)
 	if !strings.Contains(view, "[yes]") {
 		t.Errorf("skip perms on: view=%q, want to contain [yes]", view)
 	}
@@ -352,20 +340,21 @@ func TestFieldViewNetwork(t *testing.T) {
 
 	v := &ContainerFormView{}
 	v.initFields("", "", "", "full", "", false)
+	v.step = stepNetwork
 
-	view := v.fieldView(fieldNetwork)
+	view := v.fieldViewNetwork(netNetwork)
 	if !strings.Contains(view, "[full]") {
 		t.Errorf("network=full: view=%q, want to contain [full]", view)
 	}
 
 	v.network = 1
-	view = v.fieldView(fieldNetwork)
+	view = v.fieldViewNetwork(netNetwork)
 	if !strings.Contains(view, "[restricted]") {
 		t.Errorf("network=restricted: view=%q, want to contain [restricted]", view)
 	}
 
 	v.network = 2
-	view = v.fieldView(fieldNetwork)
+	view = v.fieldViewNetwork(netNetwork)
 	if !strings.Contains(view, "[none]") {
 		t.Errorf("network=none: view=%q, want to contain [none]", view)
 	}
@@ -401,13 +390,171 @@ func TestRenderShowsFormTitle(t *testing.T) {
 	}
 }
 
+func TestRenderShowsStepBar(t *testing.T) {
+	t.Parallel()
+
+	v := &ContainerFormView{}
+	v.initFields("test", "/tmp", "img", "full", "", false)
+
+	view := v.Render(80, 40)
+	if !strings.Contains(view, "General") {
+		t.Error("should show General tab in step bar")
+	}
+	if !strings.Contains(view, "Environment") {
+		t.Error("should show Environment tab in step bar")
+	}
+	if !strings.Contains(view, "Network") {
+		t.Error("should show Network tab in step bar")
+	}
+	if !strings.Contains(view, "Advanced") {
+		t.Error("should show Advanced tab in step bar")
+	}
+}
+
 func TestRemoveDoesNothingOnWrongField(t *testing.T) {
 	t.Parallel()
 
 	v := &ContainerFormView{}
 	v.initFields("", "", "", "full", "", false)
-	v.cursor = fieldName
+	v.step = stepGeneral
+	v.fieldCursor = genName
 
 	// Should not panic or modify anything.
 	v.removeCurrentItem()
+}
+
+func TestStepSwitching(t *testing.T) {
+	t.Parallel()
+
+	v := &ContainerFormView{}
+	v.initFields("", "", "", "full", "", false)
+	v.step = stepGeneral
+	v.fieldCursor = genBudget
+
+	// Switch to next step — resets field cursor.
+	v.switchStep(1)
+	if v.step != stepEnvironment {
+		t.Errorf("expected stepEnvironment, got %d", v.step)
+	}
+	if v.fieldCursor != 0 {
+		t.Errorf("expected fieldCursor=0 after step switch, got %d", v.fieldCursor)
+	}
+
+	// Switch back.
+	v.switchStep(-1)
+	if v.step != stepGeneral {
+		t.Errorf("expected stepGeneral, got %d", v.step)
+	}
+
+	// Can't go before first step.
+	v.switchStep(-1)
+	if v.step != stepGeneral {
+		t.Errorf("expected to stay on stepGeneral, got %d", v.step)
+	}
+
+	// Jump to last step.
+	v.step = stepAdvanced
+	v.switchStep(1)
+	if v.step != stepAdvanced {
+		t.Errorf("expected to stay on stepAdvanced, got %d", v.step)
+	}
+}
+
+func TestStepBadge(t *testing.T) {
+	t.Parallel()
+
+	v := &ContainerFormView{}
+	v.initFields("", "", "", "full", "", false)
+
+	// General: required when name is empty.
+	badge := v.stepBadge(stepGeneral)
+	if badge != "*" {
+		t.Errorf("general badge with empty name: got %q, want '*'", badge)
+	}
+
+	// General: configured when name + path set.
+	v.inputs[0].SetValue("my-project")
+	v.inputs[1].SetValue("/tmp/proj")
+	badge = v.stepBadge(stepGeneral)
+	if badge != "✓" {
+		t.Errorf("general badge with name+path: got %q, want '✓'", badge)
+	}
+
+	// Network: always configured.
+	badge = v.stepBadge(stepNetwork)
+	if badge != "✓" {
+		t.Errorf("network badge: got %q, want '✓'", badge)
+	}
+
+	// Environment: empty when no runtimes or access items.
+	badge = v.stepBadge(stepEnvironment)
+	if badge != "" {
+		t.Errorf("environment badge with no items: got %q, want ''", badge)
+	}
+
+	// Environment: configured when runtimes loaded.
+	v.runtimeDefaults = []api.RuntimeDefault{{ID: "node", Label: "Node.js"}}
+	badge = v.stepBadge(stepEnvironment)
+	if badge != "✓" {
+		t.Errorf("environment badge with runtimes: got %q, want '✓'", badge)
+	}
+}
+
+func TestStepSummary(t *testing.T) {
+	t.Parallel()
+
+	v := &ContainerFormView{}
+	v.initFields("", "", "", "full", "", false)
+	v.runtimeToggles = make(map[string]bool)
+
+	// General: setup required when empty.
+	summary := v.stepSummary(stepGeneral)
+	if summary != "Setup required" {
+		t.Errorf("general summary empty: got %q, want 'Setup required'", summary)
+	}
+
+	// General: shows agent + name when filled.
+	v.inputs[0].SetValue("my-project")
+	v.inputs[1].SetValue("/tmp/proj")
+	summary = v.stepSummary(stepGeneral)
+	if !strings.Contains(summary, "my-project") {
+		t.Errorf("general summary with name: got %q, want to contain 'my-project'", summary)
+	}
+
+	// Network: reflects mode.
+	summary = v.stepSummary(stepNetwork)
+	if summary != "Full access" {
+		t.Errorf("network summary: got %q, want 'Full access'", summary)
+	}
+	v.network = 1
+	summary = v.stepSummary(stepNetwork)
+	if summary != "Restricted" {
+		t.Errorf("network summary restricted: got %q, want 'Restricted'", summary)
+	}
+
+	// Advanced: defaults applied when nothing customized.
+	v.inputs[2].SetValue("ghcr.io/thesimonho/warden:latest")
+	summary = v.stepSummary(stepAdvanced)
+	if summary != "Defaults applied" {
+		t.Errorf("advanced summary default: got %q, want 'Defaults applied'", summary)
+	}
+}
+
+func TestSubmitFromAnyStep(t *testing.T) {
+	t.Parallel()
+
+	// Submit reads all state fields regardless of current step.
+	v := &ContainerFormView{}
+	v.initFields("test", "/tmp/proj", "img", "full", "", false)
+	v.runtimeToggles = make(map[string]bool)
+	v.accessToggles = make(map[string]bool)
+
+	// Set step to Environment but submit should still validate name+path from General.
+	v.step = stepEnvironment
+	cmd := v.submit()
+
+	// Should proceed (non-nil cmd) because name and path are set.
+	if cmd == nil {
+		t.Errorf("expected submit to produce a command from non-General step, got nil (err: %v)", v.err)
+	}
 }

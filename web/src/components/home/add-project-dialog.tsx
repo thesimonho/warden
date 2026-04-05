@@ -160,7 +160,9 @@ export default function AddProjectDialog({
           <DialogDescription>{description}</DialogDescription>
         </DialogHeader>
 
-        <div className="max-h-[70vh] overflow-y-auto p-2">
+        {/* Fixed height so the dialog doesn't jump when switching between steps.
+            flex-col so the form's internal scroll area (flex-1 + overflow-y-auto) works. */}
+        <div className="flex h-[70vh] flex-col p-2">
           {isLoadingConfig && (
             <div className="flex items-center justify-center py-16">
               <Loader2 className="text-muted-foreground h-5 w-5 animate-spin" />
@@ -174,7 +176,7 @@ export default function AddProjectDialog({
           )}
 
           {!isLoadingConfig && (!isEditMode || editConfig) && (
-            <>
+            <div className="flex min-h-0 flex-1 flex-col">
               {isEditMode && (
                 <p className="text-muted-foreground mb-4 text-sm">
                   Some changes may require the container to be recreated.
@@ -187,7 +189,7 @@ export default function AddProjectDialog({
                 isSubmitting={isSubmitting}
                 error={formError}
               />
-            </>
+            </div>
           )}
         </div>
       </DialogContent>

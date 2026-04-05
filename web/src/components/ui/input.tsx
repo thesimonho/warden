@@ -15,7 +15,7 @@ function Input({ className, type, ...props }: React.ComponentProps<'input'>) {
         // Typography
         'text-base md:text-sm',
         'placeholder:text-muted-foreground',
-        'selection:bg-primary selection:text-primary-foreground',
+        'selection:bg-secondary selection:text-secondary-foreground',
         // Transitions
         'transition-[color,box-shadow]',
         // File input
