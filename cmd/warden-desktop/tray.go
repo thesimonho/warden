@@ -38,7 +38,7 @@ func findTrayBinary() string {
 	// Check next to the current executable (same directory).
 	if exe, err := os.Executable(); err == nil {
 		adjacent := filepath.Join(filepath.Dir(exe), "warden-tray")
-		if _, err := os.Stat(adjacent); err == nil {
+		if _, err := exec.LookPath(adjacent); err == nil {
 			return adjacent
 		}
 	}

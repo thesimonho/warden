@@ -62,15 +62,16 @@ func (t *trayState) onReady() {
 	go t.pollLoop()
 }
 
-// pollLoop periodically updates the container count and checks
-// server health. If the server disappears and we didn't initiate
-// the shutdown, log and exit.
+// pollLoop periodically checks server health (via the projects endpoint)
+// and updates the container count. A single HTTP call per tick serves
+// both purposes — if it fails, the server is unhealthy.
 func (t *trayState) pollLoop() {
 	ticker := time.NewTicker(pollInterval)
 	defer ticker.Stop()
 
 	for range ticker.C {
-		if !t.srv.isHealthy() {
+		projects, err := t.srv.listProjects()
+		if err != nil {
 			if t.shuttingDown.Load() {
 				systray.Quit()
 				return
@@ -79,13 +80,24 @@ func (t *trayState) pollLoop() {
 			systray.Quit()
 			return
 		}
-		t.updateStatus()
+		t.updateStatusFromProjects(projects)
 	}
 }
 
-// updateStatus refreshes the container count menu item.
+// updateStatus fetches projects and refreshes the container count.
 func (t *trayState) updateStatus() {
-	count := t.srv.runningContainerCount()
+	projects, _ := t.srv.listProjects()
+	t.updateStatusFromProjects(projects)
+}
+
+// updateStatusFromProjects refreshes the container count menu item.
+func (t *trayState) updateStatusFromProjects(projects []project) {
+	var count int
+	for _, p := range projects {
+		if p.State == stateRunning {
+			count++
+		}
+	}
 
 	t.mu.Lock()
 	defer t.mu.Unlock()
@@ -129,7 +141,7 @@ func (t *trayState) handleQuit() {
 
 	var running []project
 	for _, p := range projects {
-		if p.State == "running" {
+		if p.State == stateRunning {
 			running = append(running, p)
 		}
 	}
@@ -140,11 +152,7 @@ func (t *trayState) handleQuit() {
 		case quitActionCancel:
 			return
 		case quitActionStopAndQuit:
-			for _, p := range running {
-				if err := t.srv.stopProject(p.ID, p.AgentType); err != nil {
-					log.Printf("failed to stop %s: %v", p.Name, err)
-				}
-			}
+			t.stopAllContainers(running)
 		case quitActionQuit:
 			// Leave containers running.
 		}
@@ -152,8 +160,21 @@ func (t *trayState) handleQuit() {
 
 	t.shuttingDown.Store(true)
 	t.srv.shutdown()
+	// The poll loop will detect the server is gone and call systray.Quit().
+}
 
-	// Give the server a moment to shut down, then exit the tray.
-	time.Sleep(500 * time.Millisecond)
-	systray.Quit()
+// stopAllContainers stops containers concurrently to avoid serial
+// round-trips (each Docker stop can take up to 10s).
+func (t *trayState) stopAllContainers(running []project) {
+	var wg sync.WaitGroup
+	for _, p := range running {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			if err := t.srv.stopProject(p.ID, p.AgentType); err != nil {
+				log.Printf("failed to stop %s: %v", p.Name, err)
+			}
+		}()
+	}
+	wg.Wait()
 }

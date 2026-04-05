@@ -9,7 +9,6 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"io"
 	"log/slog"
@@ -18,6 +17,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	warden "github.com/thesimonho/warden"
+	"github.com/thesimonho/warden/internal/cli"
 	"github.com/thesimonho/warden/internal/tui"
 )
 
@@ -41,26 +41,6 @@ func main() {
 		os.Exit(1)
 	}
 
-	printRunningContainers(w)
+	cli.PrintRunningContainers(w, "warden-tui")
 	w.Close()
-}
-
-// printRunningContainers lists containers that will keep running after
-// the TUI exits. Helps users understand that Docker containers are
-// independent of the Warden process.
-func printRunningContainers(w *warden.Warden) {
-	projects, err := w.Service.ListProjects(context.Background())
-	if err != nil {
-		return
-	}
-	var running int
-	for _, p := range projects {
-		if p.State == "running" {
-			running++
-		}
-	}
-	if running > 0 {
-		fmt.Fprintf(os.Stderr, "\n  %d container(s) still running in Docker.\n", running)
-		fmt.Fprintf(os.Stderr, "  Restart warden-tui to reconnect.\n\n")
-	}
 }

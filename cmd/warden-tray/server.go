@@ -15,6 +15,7 @@ const (
 	healthPath     = "/api/v1/health"
 	projectsPath   = "/api/v1/projects"
 	shutdownPath   = "/api/v1/shutdown"
+	stateRunning   = "running"
 )
 
 // serverClient is a minimal HTTP client for the Warden API.
@@ -91,7 +92,7 @@ func (s *serverClient) runningContainerCount() int {
 	}
 	var count int
 	for _, p := range projects {
-		if p.State == "running" {
+		if p.State == stateRunning {
 			count++
 		}
 	}

@@ -22,6 +22,7 @@ import (
 	"time"
 
 	warden "github.com/thesimonho/warden"
+	"github.com/thesimonho/warden/internal/cli"
 	"github.com/thesimonho/warden/internal/server"
 	"github.com/thesimonho/warden/internal/terminal"
 	"github.com/thesimonho/warden/version"
@@ -91,28 +92,8 @@ func main() {
 	if err := srv.Shutdown(shutdownCtx); err != nil {
 		slog.Error("shutdown error", "err", err)
 	}
-	printRunningContainers(w)
+	cli.PrintRunningContainers(w, "warden")
 	w.Close()
-}
-
-// printRunningContainers lists containers that will keep running after
-// the server exits. Helps users understand that Docker containers are
-// independent of the Warden process.
-func printRunningContainers(w *warden.Warden) {
-	projects, err := w.Service.ListProjects(context.Background())
-	if err != nil {
-		return
-	}
-	var running int
-	for _, p := range projects {
-		if p.State == "running" {
-			running++
-		}
-	}
-	if running > 0 {
-		fmt.Fprintf(os.Stderr, "\n  %d container(s) still running in Docker.\n", running)
-		fmt.Fprintf(os.Stderr, "  Restart warden to reconnect.\n\n")
-	}
 }
 
 // formatURL builds the HTTP URL from the listen address.
