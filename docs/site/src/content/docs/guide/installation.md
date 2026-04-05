@@ -42,7 +42,7 @@ The DMG contains a universal binary that runs natively on both Intel and Apple S
 
 ## Windows
 
-Download and run `warden-desktop-windows-amd64.exe`. The installer optionally adds Warden to your PATH and creates a desktop shortcut.
+Download and run `warden-desktop-setup-windows-amd64.exe`. The installer optionally adds Warden to your PATH and creates a desktop shortcut.
 
 ## Prerequisites
 
