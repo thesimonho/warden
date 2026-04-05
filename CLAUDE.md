@@ -2,7 +2,7 @@
 
 ## What is Warden
 
-A container engine and control plane for running AI coding agents (Claude Code and OpenAI Codex) in isolated containers. Shipped as three binaries: `warden` (headless API server), `warden-desktop` (web UI), and `warden-tui` (terminal UI). The engine is also importable as a Go library. Requires Docker.
+A container engine and control plane for running AI coding agents (Claude Code and OpenAI Codex) in isolated containers. Shipped as four binaries: `warden` (headless API server), `warden-desktop` (web UI), `warden-tui` (terminal UI), and `warden-tray` (system tray companion for desktop). The engine is also importable as a Go library. Requires Docker.
 
 ## Terminology (MUST follow)
 

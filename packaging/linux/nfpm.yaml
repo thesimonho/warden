@@ -38,6 +38,11 @@ contents:
     file_info:
       mode: 0755
 
+  - src: warden-tray
+    dst: /usr/bin/warden-tray
+    file_info:
+      mode: 0755
+
   - src: packaging/linux/warden.desktop
     dst: /usr/share/applications/warden.desktop
 

@@ -25,7 +25,7 @@ Warden supports Linux, macOS, and Windows. Build-tagged signal handlers (`syscal
 
 ## Desktop distribution
 
-There is a single binary with no build tags or CGo. On launch it starts the server, waits for it to be ready, then opens the system default browser (`open` / `xdg-open` / `start`). The `run(srv, url)` function in `cmd/dashboard/run.go` owns this flow.
+The desktop package ships two binaries: `warden-desktop` (CGo-free) and `warden-tray` (requires CGo for native tray APIs). On launch, `warden-desktop` starts the server, waits for it to be ready, spawns `warden-tray` as a child process, then opens the system default browser. The `run(srv, url)` function in `cmd/warden-desktop/run.go` owns this flow. If `warden-tray` is not found (e.g. built from source without CGo), the desktop server runs normally without it.
 
 Platform packaging files are in `packaging/`:
 

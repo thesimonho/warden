@@ -17,6 +17,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 
 	warden "github.com/thesimonho/warden"
+	"github.com/thesimonho/warden/internal/cli"
 	"github.com/thesimonho/warden/internal/tui"
 )
 
@@ -26,7 +27,6 @@ func main() {
 		fmt.Fprintf(os.Stderr, "failed to start warden: %v\n", err)
 		os.Exit(1)
 	}
-	defer w.Close()
 
 	// Discard slog output after engine init so logs don't bleed into the
 	// TUI. Must be after warden.New() which sets its own default logger.
@@ -37,6 +37,10 @@ func main() {
 
 	if _, err := p.Run(); err != nil {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		w.Close()
 		os.Exit(1)
 	}
+
+	cli.PrintRunningContainers(w, "warden-tui")
+	w.Close()
 }

@@ -175,6 +175,30 @@ jobs:
             -ldflags="${VERSION_LDFLAGS}=${{ needs.setup.outputs.tag_name }}" \
             -o warden-desktop-${{ matrix.goos }}-${{ matrix.goarch }} \
             ./cmd/warden-desktop
+      - name: Install cross-compiler (arm64)
+        if: matrix.goarch == 'arm64'
+        uses: awalsh128/cache-apt-pkgs-action@v1
+        with:
+          packages: gcc-aarch64-linux-gnu
+          version: 1.0
+      - name: Cache tray module dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/go/pkg/mod
+          key: tray-linux-${{ hashFiles('cmd/warden-tray/go.sum') }}
+          restore-keys: tray-linux-
+      - name: Build tray binary
+        env:
+          GOOS: linux
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: "1"
+        run: |
+          # arm64 cross-compilation needs the aarch64 C compiler.
+          if [ "${{ matrix.goarch }}" = "arm64" ]; then
+            export CC=aarch64-linux-gnu-gcc
+          fi
+          cd cmd/warden-tray
+          go build -trimpath -o ../../warden-tray .
       - name: Build deb/rpm/Arch packages
         env:
           VERSION: ${{ needs.setup.outputs.tag_name }}
@@ -198,15 +222,23 @@ jobs:
           # Set up AppDir structure
           mkdir -p Warden.AppDir/usr/bin
           mkdir -p Warden.AppDir/usr/share/applications
-          mkdir -p Warden.AppDir/usr/share/icons/hicolor/512x512/apps
 
           cp warden-desktop Warden.AppDir/usr/bin/warden-desktop
+          cp warden-tray Warden.AppDir/usr/bin/warden-tray
           cp packaging/linux/warden.desktop Warden.AppDir/usr/share/applications/warden.desktop
-          cp packaging/linux/warden.png Warden.AppDir/usr/share/icons/hicolor/512x512/apps/warden.png
 
-          # AppImage requires desktop file and icon at root
+          # Install all icon sizes so DEs pick the right resolution
+          # instead of downscaling 512x512 (which causes blurry icons).
+          for size in 16 32 48 64 128 256 512; do
+            dir="Warden.AppDir/usr/share/icons/hicolor/${size}x${size}/apps"
+            mkdir -p "${dir}"
+            cp "packaging/linux/icons/${size}x${size}/warden.png" "${dir}/warden.png"
+          done
+
+          # AppImage requires desktop file and icon at root.
+          # Use 256x256 — the best balance for app launchers on most DEs.
           cp packaging/linux/warden.desktop Warden.AppDir/warden.desktop
-          cp packaging/linux/warden.png Warden.AppDir/warden.png
+          cp packaging/linux/icons/256x256/warden.png Warden.AppDir/warden.png
 
           # Symlink AppRun to the binary
           ln -s usr/bin/warden-desktop Warden.AppDir/AppRun
@@ -251,7 +283,7 @@ jobs:
         with:
           name: embedded-ui
           path: internal/server/ui/
-      - name: Build universal binary
+      - name: Build universal desktop binary
         env:
           CGO_ENABLED: "0"
         run: |
@@ -267,6 +299,25 @@ jobs:
 
           lipo -create -output bin/warden-desktop bin/warden-desktop-amd64 bin/warden-desktop-arm64
           lipo -info bin/warden-desktop
+      - name: Cache tray module dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/go/pkg/mod
+          key: tray-darwin-${{ hashFiles('cmd/warden-tray/go.sum') }}
+          restore-keys: tray-darwin-
+      - name: Build universal tray binary
+        run: |
+          cd cmd/warden-tray
+
+          # Explicit CC ensures clang targets the correct architecture
+          # even when cross-compiling (runner is arm64, amd64 is cross).
+          CGO_ENABLED=1 GOOS=darwin GOARCH=amd64 CC="clang -arch x86_64" \
+            go build -trimpath -o ../../bin/warden-tray-amd64 .
+          CGO_ENABLED=1 GOOS=darwin GOARCH=arm64 CC="clang -arch arm64" \
+            go build -trimpath -o ../../bin/warden-tray-arm64 .
+
+          lipo -create -output ../../bin/warden-tray ../../bin/warden-tray-amd64 ../../bin/warden-tray-arm64
+          lipo -info ../../bin/warden-tray
       - name: Create .app bundle
         run: bash packaging/macos/bundle.sh ${{ needs.setup.outputs.tag_name }}
       - name: Create DMG
@@ -335,6 +386,21 @@ jobs:
             -ldflags="${VERSION_LDFLAGS}=${{ needs.setup.outputs.tag_name }} -H windowsgui" \
             -o warden-desktop-windows-amd64.exe \
             ./cmd/warden-desktop
+      - name: Cache tray module dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/go/pkg/mod
+          key: tray-windows-${{ hashFiles('cmd/warden-tray/go.sum') }}
+          restore-keys: tray-windows-
+      - name: Build tray binary
+        shell: bash
+        run: |
+          # Ensure MinGW gcc is available for CGo.
+          export PATH="/c/msys64/mingw64/bin:$PATH"
+          cd cmd/warden-tray
+          CGO_ENABLED=1 GOOS=windows GOARCH=amd64 go build -trimpath \
+            -ldflags="-H windowsgui" \
+            -o ../../warden-tray-windows-amd64.exe .
       - name: Install Inno Setup
         shell: pwsh
         run: choco install innosetup --no-progress -y

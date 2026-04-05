@@ -22,6 +22,7 @@ import (
 	"time"
 
 	warden "github.com/thesimonho/warden"
+	"github.com/thesimonho/warden/internal/cli"
 	"github.com/thesimonho/warden/internal/server"
 	"github.com/thesimonho/warden/internal/terminal"
 	"github.com/thesimonho/warden/version"
@@ -91,6 +92,7 @@ func main() {
 	if err := srv.Shutdown(shutdownCtx); err != nil {
 		slog.Error("shutdown error", "err", err)
 	}
+	cli.PrintRunningContainers(w, "warden")
 	w.Close()
 }
 

@@ -21,7 +21,7 @@ import (
 
 // ErrDockerUnavailable is returned by container-mutating operations
 // when Docker was not reachable at startup.
-var ErrDockerUnavailable = errors.New(
+var ErrDockerUnavailable = errors.New( //nolint:staticcheck // user-facing message, capitalization intentional
 	"Docker is required but not available. " +
 		"Install Docker (https://docs.docker.com/get-docker/) " +
 		"and make sure the daemon is running",

@@ -3,10 +3,12 @@ import { Link, Outlet } from 'react-router-dom'
 import { toast, Toaster } from 'sonner'
 import { Box, KeyRound, Settings, ShieldCheck } from 'lucide-react'
 import { useTheme } from '@/hooks/use-theme'
+import { useEventSource } from '@/hooks/use-event-source'
 import { loadSettings, saveSettings, type Settings as DashboardSettings } from '@/lib/settings'
 import { fetchSettings } from '@/lib/api'
 import ThemeToggle from '@/components/theme-toggle'
 import SettingsDialog from '@/components/settings-dialog'
+import ServerStoppedOverlay from '@/components/server-stopped-overlay'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import type { AuditLogMode } from '@/lib/types'
@@ -26,6 +28,8 @@ export interface LayoutContext {
  */
 export default function Layout() {
   const { preference, setPreference, resolvedTheme } = useTheme()
+  // Status-only — Layout owns the server_stopped overlay.
+  const sseStatus = useEventSource({})
   const [settings, setSettings] = useState<DashboardSettings>(loadSettings)
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
   const [auditLogMode, setAuditLogMode] = useState<AuditLogMode>('off')
@@ -177,6 +181,7 @@ export default function Layout() {
         onAuditLogModeChange={setAuditLogMode}
       />
       <Toaster theme={resolvedTheme} position="bottom-right" visibleToasts={3} expand richColors />
+      {sseStatus === 'server_stopped' && <ServerStoppedOverlay />}
     </div>
   )
 }

@@ -278,6 +278,10 @@ const (
 	SSEBudgetExceeded SSEEventType = "budget_exceeded"
 	// SSEBudgetContainerStopped is sent after a container is stopped due to budget enforcement.
 	SSEBudgetContainerStopped SSEEventType = "budget_container_stopped"
+	// SSEServerShutdown is sent immediately before the server stops.
+	// Frontends should show a "Warden stopped" state. Integrators can
+	// use this to trigger cleanup or reconnection logic.
+	SSEServerShutdown SSEEventType = "server_shutdown"
 	// SSEHeartbeat is a keepalive sent at regular intervals.
 	SSEHeartbeat SSEEventType = "heartbeat"
 	// SSERuntimeStatus is sent when a runtime installation starts or completes.
