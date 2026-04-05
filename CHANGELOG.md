@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.6.4](https://github.com/thesimonho/warden/compare/v1.6.3...v1.6.4) (2026-04-05)
+
+
+### Bug Fixes
+
+* consistent installer naming (warden-desktop-{platform}-{arch}) ([#111](https://github.com/thesimonho/warden/issues/111)) ([0714fd4](https://github.com/thesimonho/warden/commit/0714fd4c1e1ad10019106cce803139bbcce82215))
+
 ## [1.6.3](https://github.com/thesimonho/warden/compare/v1.6.2...v1.6.3) (2026-04-05)
 
 
