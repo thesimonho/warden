@@ -9,6 +9,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"log/slog"
@@ -26,7 +27,6 @@ func main() {
 		fmt.Fprintf(os.Stderr, "failed to start warden: %v\n", err)
 		os.Exit(1)
 	}
-	defer w.Close()
 
 	// Discard slog output after engine init so logs don't bleed into the
 	// TUI. Must be after warden.New() which sets its own default logger.
@@ -37,6 +37,30 @@ func main() {
 
 	if _, err := p.Run(); err != nil {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		w.Close()
 		os.Exit(1)
+	}
+
+	printRunningContainers(w)
+	w.Close()
+}
+
+// printRunningContainers lists containers that will keep running after
+// the TUI exits. Helps users understand that Docker containers are
+// independent of the Warden process.
+func printRunningContainers(w *warden.Warden) {
+	projects, err := w.Service.ListProjects(context.Background())
+	if err != nil {
+		return
+	}
+	var running int
+	for _, p := range projects {
+		if p.State == "running" {
+			running++
+		}
+	}
+	if running > 0 {
+		fmt.Fprintf(os.Stderr, "\n  %d container(s) still running in Docker.\n", running)
+		fmt.Fprintf(os.Stderr, "  Restart warden-tui to reconnect.\n\n")
 	}
 }
