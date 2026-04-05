@@ -28,6 +28,7 @@ export interface LayoutContext {
  */
 export default function Layout() {
   const { preference, setPreference, resolvedTheme } = useTheme()
+  // Status-only — Layout owns the server_stopped overlay.
   const sseStatus = useEventSource({})
   const [settings, setSettings] = useState<DashboardSettings>(loadSettings)
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)

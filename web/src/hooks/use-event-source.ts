@@ -157,6 +157,7 @@ function releaseSource(): void {
       sharedSource = null
     }
     reconnectAttempt = 0
+    serverStopped = false
     broadcastStatus('closed')
   }
 }
