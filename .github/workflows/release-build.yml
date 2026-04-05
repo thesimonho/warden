@@ -177,12 +177,19 @@ jobs:
             ./cmd/warden-desktop
       - name: Install cross-compiler (arm64)
         if: matrix.goarch == 'arm64'
-        uses: awalsh128/cache-apt-pkgs-action@latest
+        uses: awalsh128/cache-apt-pkgs-action@v1
         with:
           packages: gcc-aarch64-linux-gnu
           version: 1.0
+      - name: Cache tray module dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/go/pkg/mod
+          key: tray-linux-${{ hashFiles('cmd/warden-tray/go.sum') }}
+          restore-keys: tray-linux-
       - name: Build tray binary
         env:
+          GOOS: linux
           GOARCH: ${{ matrix.goarch }}
           CGO_ENABLED: "1"
         run: |
@@ -292,11 +299,22 @@ jobs:
 
           lipo -create -output bin/warden-desktop bin/warden-desktop-amd64 bin/warden-desktop-arm64
           lipo -info bin/warden-desktop
+      - name: Cache tray module dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/go/pkg/mod
+          key: tray-darwin-${{ hashFiles('cmd/warden-tray/go.sum') }}
+          restore-keys: tray-darwin-
       - name: Build universal tray binary
         run: |
           cd cmd/warden-tray
-          CGO_ENABLED=1 GOARCH=amd64 go build -trimpath -o ../../bin/warden-tray-amd64 .
-          CGO_ENABLED=1 GOARCH=arm64 go build -trimpath -o ../../bin/warden-tray-arm64 .
+
+          # Explicit CC ensures clang targets the correct architecture
+          # even when cross-compiling (runner is arm64, amd64 is cross).
+          CGO_ENABLED=1 GOOS=darwin GOARCH=amd64 CC="clang -arch x86_64" \
+            go build -trimpath -o ../../bin/warden-tray-amd64 .
+          CGO_ENABLED=1 GOOS=darwin GOARCH=arm64 CC="clang -arch arm64" \
+            go build -trimpath -o ../../bin/warden-tray-arm64 .
 
           lipo -create -output ../../bin/warden-tray ../../bin/warden-tray-amd64 ../../bin/warden-tray-arm64
           lipo -info ../../bin/warden-tray
@@ -368,11 +386,19 @@ jobs:
             -ldflags="${VERSION_LDFLAGS}=${{ needs.setup.outputs.tag_name }} -H windowsgui" \
             -o warden-desktop-windows-amd64.exe \
             ./cmd/warden-desktop
+      - name: Cache tray module dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/go/pkg/mod
+          key: tray-windows-${{ hashFiles('cmd/warden-tray/go.sum') }}
+          restore-keys: tray-windows-
       - name: Build tray binary
         shell: bash
         run: |
+          # Ensure MinGW gcc is available for CGo.
+          export PATH="/c/msys64/mingw64/bin:$PATH"
           cd cmd/warden-tray
-          CGO_ENABLED=1 go build -trimpath \
+          CGO_ENABLED=1 GOOS=windows GOARCH=amd64 go build -trimpath \
             -ldflags="-H windowsgui" \
             -o ../../warden-tray-windows-amd64.exe .
       - name: Install Inno Setup
