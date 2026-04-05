@@ -115,7 +115,7 @@ Grab the installer for your use case from the [releases page](https://github.com
 | ----------- | ---------------------------------------------- | ------------------- | ------------------------- |
 | **Linux**   | `.deb` / `.rpm` / `.pkg.tar.zst` / `.AppImage` | `warden-tui` binary | `warden` binary           |
 | **macOS**   | `.dmg` (universal)                             | `warden-tui` binary | `warden` binary           |
-| **Windows** | `warden-desktop-windows-amd64.exe`             | `warden-tui` binary | `warden` binary           |
+| **Windows** | `warden-desktop-setup-windows-amd64.exe`       | `warden-tui` binary | `warden` binary           |
 
 See [Installation](https://thesimonho.github.io/warden/guide/installation/) for detailed instructions.
 

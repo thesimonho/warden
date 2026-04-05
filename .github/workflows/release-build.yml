@@ -350,7 +350,7 @@ jobs:
         run: |
           gh release upload --clobber \
             ${{ needs.setup.outputs.tag_name }} \
-            warden-desktop-windows-amd64.exe
+            warden-desktop-setup-windows-amd64.exe
   # ---------------------------------------------------------------------------
   # Container images (reusable workflow).
   # ---------------------------------------------------------------------------
