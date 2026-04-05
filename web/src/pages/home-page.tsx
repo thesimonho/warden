@@ -28,6 +28,7 @@ import {
   fetchRuntimes,
 } from '@/lib/api'
 import { getRestrictedDomains } from '@/lib/domain-groups'
+import { RUNTIME_DOCKER } from '@/lib/types'
 import type { AgentType, ServerSettings } from '@/lib/types'
 import type { Project } from '@/lib/types'
 import { Button } from '@/components/ui/button'
@@ -64,7 +65,7 @@ export default function HomePage() {
     const check = () => {
       fetchRuntimes()
         .then((runtimes) => {
-          const docker = runtimes.find((r) => r.name === 'docker')
+          const docker = runtimes.find((r) => r.name === RUNTIME_DOCKER)
           setDockerAvailable(docker?.available ?? false)
         })
         .catch(() => setDockerAvailable(false))

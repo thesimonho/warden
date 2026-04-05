@@ -44,10 +44,10 @@ type App struct {
 	height        int
 	eventCh       <-chan eventbus.SSEEvent
 	unsubscribe   func()
-	err              error
-	auditLogMode     api.AuditLogMode
-	disconnectKey    string // e.g. "ctrl+\\"
-	dockerAvailable  bool
+	err             error
+	auditLogMode    api.AuditLogMode
+	disconnectKey   string // e.g. "ctrl+\\"
+	dockerAvailable bool
 }
 
 // NewApp creates the root TUI model backed by the given Client.

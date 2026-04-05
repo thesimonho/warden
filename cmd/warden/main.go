@@ -44,15 +44,24 @@ func main() {
 
 	settings := w.Service.GetSettings()
 	url := formatURL(addr)
-	slog.Info("starting warden server", "url", url, "runtime", settings.Runtime, "version", version.Version)
+	slog.Info(
+		"starting warden server",
+		"url",
+		url,
+		"runtime",
+		settings.Runtime,
+		"version",
+		version.Version,
+	)
 	fmt.Fprintf(os.Stderr, "\n  Warden API → %s\n\n", url)
 	if !w.DockerAvailable {
 		fmt.Fprintln(os.Stderr, "  ┌─────────────────────────────────────────────────────────┐")
 		fmt.Fprintln(os.Stderr, "  │  Docker is not available                                │")
 		fmt.Fprintln(os.Stderr, "  │  Container operations are disabled.                     │")
-		fmt.Fprintln(os.Stderr, "  │  The API is still serving — read-only endpoints work.   │")
 		fmt.Fprintln(os.Stderr, "  │                                                         │")
 		fmt.Fprintln(os.Stderr, "  │  Install: https://docs.docker.com/get-docker/           │")
+		fmt.Fprintln(os.Stderr, "  │                                                         │")
+		fmt.Fprintln(os.Stderr, "  │  The API is still serving — read-only endpoints work.   │")
 		fmt.Fprintln(os.Stderr, "  └─────────────────────────────────────────────────────────┘")
 		fmt.Fprintln(os.Stderr)
 	}

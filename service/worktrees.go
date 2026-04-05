@@ -165,9 +165,6 @@ func (s *Service) DisconnectTerminal(ctx context.Context, projectID, agentType, 
 // KillWorktreeProcess kills the tmux session and all child processes for a
 // worktree, destroying the terminal entirely.
 func (s *Service) KillWorktreeProcess(ctx context.Context, projectID, agentType, worktreeID string) (*WorktreeResult, error) {
-	if err := s.requireDocker(); err != nil {
-		return nil, err
-	}
 	project, err := s.resolveProject(projectID, agentType)
 	if err != nil {
 		return nil, err
