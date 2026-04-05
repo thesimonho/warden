@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.6.5](https://github.com/thesimonho/warden/compare/v1.6.4...v1.6.5) (2026-04-05)
+
+
+### Bug Fixes
+
+* rename Windows installer to avoid filename collision ([#113](https://github.com/thesimonho/warden/issues/113)) ([808344f](https://github.com/thesimonho/warden/commit/808344f8fe4c5afddc5ed30a7621e000ad76507e))
+
 ## [1.6.4](https://github.com/thesimonho/warden/compare/v1.6.3...v1.6.4) (2026-04-05)
 
 
