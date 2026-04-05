@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.6.6](https://github.com/thesimonho/warden/compare/v1.6.5...v1.6.6) (2026-04-05)
+
+
+### Bug Fixes
+
+* resolve access items from shell env when launched from desktop ([#115](https://github.com/thesimonho/warden/issues/115)) ([b41d05a](https://github.com/thesimonho/warden/commit/b41d05ab4c9e9752eb41b8c0028a81e2e034430d))
+
 ## [1.6.5](https://github.com/thesimonho/warden/compare/v1.6.4...v1.6.5) (2026-04-05)
 
 
