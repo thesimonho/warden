@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.6.1](https://github.com/thesimonho/warden/compare/v1.6.0...v1.6.1) (2026-04-05)
+
+
+### Bug Fixes
+
+* CI failures in release-build workflow ([#105](https://github.com/thesimonho/warden/issues/105)) ([c402474](https://github.com/thesimonho/warden/commit/c4024744d9df4059f2f44b28c77e832e4a28a202))
+
 ## [1.6.0](https://github.com/thesimonho/warden/compare/v1.5.1...v1.6.0) (2026-04-05)
 
 
