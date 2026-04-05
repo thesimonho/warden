@@ -205,7 +205,7 @@ Returns `{"status":"ok","version":"..."}` with an `X-Warden: 1` header. Use this
 POST /api/v1/shutdown
 ```
 
-Requests a graceful server shutdown. Returns `{"status":"shutting down"}` immediately — the server stops accepting new connections and drains active ones after the response is sent.
+Requests a graceful server shutdown. Broadcasts a `server_shutdown` SSE event to all connected clients, then returns `{"status":"shutting down"}` — the server stops accepting new connections and drains active ones after the response is sent. Integrators can listen for the `server_shutdown` event to trigger cleanup or show a "server stopped" state.
 
 ## Real-time events (SSE)
 

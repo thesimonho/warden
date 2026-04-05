@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"embed"
+	"encoding/json"
 	"io/fs"
 	"net/http"
 	"time"
@@ -119,8 +120,18 @@ func handleHealth(w http.ResponseWriter, _ *http.Request) {
 //	@Tags			health
 //	@Success		200	{object}	shutdownResponse
 //	@Router			/api/v1/shutdown [post]
-func makeHandleShutdown(ch chan<- struct{}) http.HandlerFunc {
+func makeHandleShutdown(ch chan<- struct{}, broker *eventbus.Broker) http.HandlerFunc {
 	return func(w http.ResponseWriter, _ *http.Request) {
+		// Broadcast server_shutdown so SSE clients can react before
+		// the connection drops. Sent before the response so clients
+		// receive it while the connection is still open.
+		if broker != nil {
+			broker.Broadcast(eventbus.SSEEvent{
+				Event: eventbus.SSEServerShutdown,
+				Data:  json.RawMessage(`{}`),
+			})
+		}
+
 		writeJSON(w, shutdownResponse{Status: "shutting down"})
 		select {
 		case ch <- struct{}{}:

@@ -40,7 +40,7 @@ import type {
 } from '@/lib/types'
 
 /** Connection status of the SSE stream. */
-export type EventSourceStatus = 'connecting' | 'open' | 'closed'
+export type EventSourceStatus = 'connecting' | 'open' | 'closed' | 'server_stopped'
 
 // ---------------------------------------------------------------------------
 // Module-level singleton — all hooks share one TCP connection.
@@ -53,6 +53,7 @@ let sharedSource: EventSource | null = null
 let refCount = 0
 let reconnectTimer: ReturnType<typeof setTimeout> | null = null
 let reconnectAttempt = 0
+let serverStopped = false
 
 /**
  * Reduced polling interval for hooks that receive real-time SSE updates.
@@ -91,10 +92,23 @@ function createSource(): EventSource {
     broadcastStatus('open')
   })
 
+  // server_shutdown is broadcast by the server before it stops.
+  // Set the flag so we show "server_stopped" instead of reconnecting.
+  source.addEventListener('server_shutdown', () => {
+    serverStopped = true
+  })
+
   source.addEventListener('error', () => {
     // EventSource auto-closes on error. Clean up and schedule reconnect.
     source.close()
     sharedSource = null
+
+    // If the server sent a shutdown event, don't reconnect.
+    if (serverStopped) {
+      broadcastStatus('server_stopped')
+      return
+    }
+
     broadcastStatus('closed')
 
     if (refCount > 0) {

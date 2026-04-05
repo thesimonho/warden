@@ -47,7 +47,7 @@ func registerAPIRoutes(mux *http.ServeMux, svc *service.Service, broker *eventbu
 	rt := &routes{svc: svc, broker: broker, terminalProxy: termProxy, viewerCounts: make(map[viewerKey]int)}
 
 	mux.HandleFunc("GET /api/v1/health", handleHealth)
-	mux.HandleFunc("POST /api/v1/shutdown", makeHandleShutdown(shutdownCh))
+	mux.HandleFunc("POST /api/v1/shutdown", makeHandleShutdown(shutdownCh, broker))
 	mux.HandleFunc("GET /api/v1/projects", rt.handleListProjects)
 	mux.HandleFunc("POST /api/v1/projects", rt.handleAddProject)
 	mux.HandleFunc("DELETE /api/v1/projects/{projectId}/{agentType}", rt.handleRemoveProject)
