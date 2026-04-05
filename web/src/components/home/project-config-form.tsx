@@ -11,7 +11,7 @@ import type {
 } from '@/lib/types'
 import type { DefaultMount } from '@/lib/api'
 import { agentTypeLabels, agentTypeOptions, DEFAULT_AGENT_TYPE } from '@/lib/types'
-import { fetchAccessItems, fetchDefaults, fetchSettings, readProjectTemplate } from '@/lib/api'
+import { fetchAccessItems, fetchDefaults, fetchSettings, validateProjectTemplate } from '@/lib/api'
 import {
   resolveRuntimeToggles,
   resolveRuntimeEnvVars,
@@ -100,8 +100,7 @@ export default function ProjectConfigForm({
   const [homeDir, setHomeDir] = useState('')
   const [containerHomeDir, setContainerHomeDir] = useState('')
   const [requiredContainerPath, setRequiredContainerPath] = useState<string | null>(null)
-  const [importBrowserOpen, setImportBrowserOpen] = useState(false)
-  const [importPath, setImportPath] = useState('')
+  const importInputRef = useRef<HTMLInputElement>(null)
   const defaultsLoaded = useRef(false)
   const defaultMountsRef = useRef<DefaultMount[]>([])
   const restrictedDomainsRef = useRef<Record<string, string[]>>({})
@@ -769,35 +768,38 @@ export default function ProjectConfigForm({
 
       {displayError && <p className="text-error">{displayError}</p>}
 
-      {mode === 'create' && importBrowserOpen && (
-        <FormField
-          label="Import Template"
-          description="Select a .warden.json file to import settings from."
-        >
-          <DirectoryBrowser
-            value={importPath}
-            onChange={(path) => {
-              setImportPath(path)
-              setImportBrowserOpen(false)
-              readProjectTemplate(path)
-                .then((tmpl) => {
-                  applyTemplate(tmpl, agentType, runtimeDefaults, runtimeToggles)
-                  toast.success('Template imported')
-                })
-                .catch(() => toast.error('Failed to import template'))
-            }}
-            defaultPath={homeDir}
-            mode="file"
-            placeholder="/path/to/.warden.json"
-          />
-        </FormField>
+      {mode === 'create' && (
+        <input
+          ref={importInputRef}
+          type="file"
+          accept=".json,application/json"
+          className="hidden"
+          onChange={(e) => {
+            const file = e.target.files?.[0]
+            if (!file) return
+            file
+              .text()
+              .then((text) => validateProjectTemplate(text))
+              .then((tmpl) => {
+                applyTemplate(tmpl, agentType, runtimeDefaults, runtimeToggles)
+                toast.success('Template imported')
+              })
+              .catch((err: unknown) => {
+                const message =
+                  err instanceof Error ? err.message : 'Failed to import template'
+                toast.error(message)
+              })
+            // Reset so the same file can be re-selected
+            e.target.value = ''
+          }}
+        />
       )}
 
       <div className="flex justify-end gap-2">
         {mode === 'create' && (
           <Button
             variant="outline"
-            onClick={() => setImportBrowserOpen(!importBrowserOpen)}
+            onClick={() => importInputRef.current?.click()}
             disabled={isSubmitting}
             icon={FileUp}
           >

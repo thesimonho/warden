@@ -123,6 +123,10 @@ type Client interface {
 	// API: GET /api/v1/template?path={filePath}
 	ReadProjectTemplate(ctx context.Context, filePath string) (*api.ProjectTemplate, error)
 
+	// ValidateProjectTemplate validates and sanitizes a raw .warden.json body.
+	// API: POST /api/v1/template
+	ValidateProjectTemplate(ctx context.Context, data []byte) (*api.ProjectTemplate, error)
+
 	// ListDirectories returns filesystem entries at a path for the browser.
 	// When includeFiles is true, files are returned alongside directories.
 	// API: GET /api/v1/filesystem/directories?path=...&mode=file

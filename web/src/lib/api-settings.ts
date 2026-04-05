@@ -106,3 +106,20 @@ export async function readProjectTemplate(filePath: string): Promise<ProjectTemp
   const response = await apiFetch(`/api/v1/template?path=${encodeURIComponent(filePath)}`)
   return response.json() as Promise<ProjectTemplate>
 }
+
+/**
+ * Validates and sanitizes a raw .warden.json template body server-side.
+ * Used by the file-based import flow where the frontend reads the file
+ * contents and sends them for validation.
+ *
+ * @param body - Raw JSON string from the imported file.
+ * @returns Sanitized project template.
+ */
+export async function validateProjectTemplate(body: string): Promise<ProjectTemplate> {
+  const response = await apiFetch('/api/v1/template', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body,
+  })
+  return response.json() as Promise<ProjectTemplate>
+}

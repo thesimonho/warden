@@ -2,6 +2,7 @@ package client
 
 import (
 	"context"
+	"encoding/json"
 	"net/url"
 
 	"github.com/thesimonho/warden/api"
@@ -58,6 +59,16 @@ func (c *Client) ReadProjectTemplate(ctx context.Context, filePath string) (*api
 	path := "/api/v1/template?path=" + url.QueryEscape(filePath)
 	var resp api.ProjectTemplate
 	if err := c.get(ctx, path, &resp); err != nil {
+		return nil, err
+	}
+	return &resp, nil
+}
+
+// ValidateProjectTemplate sends a raw .warden.json body to the server for
+// validation and sanitization. Returns the cleaned template.
+func (c *Client) ValidateProjectTemplate(ctx context.Context, data []byte) (*api.ProjectTemplate, error) {
+	var resp api.ProjectTemplate
+	if err := c.post(ctx, "/api/v1/template", json.RawMessage(data), &resp); err != nil {
 		return nil, err
 	}
 	return &resp, nil
