@@ -56,7 +56,7 @@ kill:
 
 # Regenerate OpenAPI 3.1 spec from swag annotations
 openapi:
-    swag init --v3.1 --parseInternal --parseDependency --generalInfo internal/server/doc.go --output docs/openapi --outputTypes yaml
+    ./docs/openapi/generate-spec.sh
 
 # ── Build ────────────────────────────────────────────────────────────────────
 

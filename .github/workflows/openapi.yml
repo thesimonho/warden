@@ -46,7 +46,7 @@ jobs:
           cache: true
       - run: go install github.com/swaggo/swag/v2/cmd/swag@v2.0.0-rc5
       - run: go mod download
-      - run: swag init --v3.1 --parseInternal --parseDependency --generalInfo internal/server/doc.go --output docs/openapi --outputTypes yaml
+      - run: ./docs/openapi/generate-spec.sh
       - name: Commit updated spec if changed
         run: |
           if git diff --quiet docs/openapi/swagger.yaml; then

@@ -26,5 +26,5 @@ Every `@Router` annotation MUST match the corresponding `mux.HandleFunc` registr
 After changing any annotations, regenerate and commit the result:
 
 ```bash
-swag init --v3.1 --parseInternal --parseDependency --generalInfo internal/server/doc.go --output docs/openapi --outputTypes yaml
+just openapi
 ```
