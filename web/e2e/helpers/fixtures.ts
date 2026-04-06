@@ -39,6 +39,25 @@ export function generateProjectName(): string {
   return `warden-e2e-${suffix}`
 }
 
+/**
+ * Creates a unique workspace directory with a git repo inside TEST_WORKSPACE.
+ * Returns the absolute path. Each workspace produces a unique project ID.
+ */
+export function createUniqueWorkspace(name: string): string {
+  const workspace = path.join(TEST_WORKSPACE, name)
+  mkdirSync(workspace, { recursive: true })
+  if (!existsSync(path.join(workspace, '.git'))) {
+    execSync('git init', { cwd: workspace, stdio: 'pipe' })
+    writeFileSync(path.join(workspace, 'README.md'), '# E2E Test Workspace\n')
+    execSync('git add .', { cwd: workspace, stdio: 'pipe' })
+    execSync(
+      'git -c user.email="e2e@warden.test" -c user.name="Warden E2E" commit -m "initial commit"',
+      { cwd: workspace, stdio: 'pipe' },
+    )
+  }
+  return workspace
+}
+
 /** Detects the active runtime from the Warden API. */
 async function detectRuntime(): Promise<ApiRuntime> {
   const runtimes = await fetchRuntimes()
@@ -159,6 +178,61 @@ export const test = base.extend<
       /* Best-effort cleanup — don't fail the test. */
     }
   }, { auto: true }],
+})
+
+/** Info about an isolated test project (per-test, not shared across workers). */
+export interface IsolatedProjectInfo {
+  /** Deterministic project ID. */
+  id: string
+  /** Container name. */
+  name: string
+  /** Agent type. */
+  agentType: string
+  /** Host workspace directory (for cleanup). */
+  workspace: string
+}
+
+/**
+ * Extended test with an `isolatedProject` fixture for destructive flows.
+ *
+ * Creates a fresh project per test (not shared across workers). Use this
+ * when the test stops, restarts, or deletes the container.
+ */
+export const isolatedTest = test.extend<{ isolatedProject: IsolatedProjectInfo }>({
+  isolatedProject: async ({}, use) => {
+    const name = generateProjectName()
+    const agentType = process.env.WARDEN_AGENT_TYPE ?? 'claude-code'
+    const workspace = createUniqueWorkspace(name)
+
+    const maxAttempts = 3
+    let projectId: string | undefined
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        const result = await createTestProject(name, workspace, {
+          skipPermissions: true,
+          agentType,
+        })
+        projectId = result.projectId
+        break
+      } catch (err) {
+        if (attempt === maxAttempts) throw err
+        await new Promise((r) => setTimeout(r, attempt * 3000))
+      }
+    }
+
+    await waitForProjectState(name, 'running', 60_000)
+
+    try {
+      await use({ id: projectId!, name, agentType, workspace })
+    } finally {
+      if (projectId) {
+        await removeTestProject(projectId, agentType).catch(() => {})
+      }
+      if (existsSync(workspace)) {
+        rmSync(workspace, { recursive: true, force: true })
+      }
+    }
+  },
 })
 
 export { expect } from '@playwright/test'
