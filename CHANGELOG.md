@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.8.1](https://github.com/thesimonho/warden/compare/v1.8.0...v1.8.1) (2026-04-06)
+
+
+### Bug Fixes
+
+* harden container security boundary ([#146](https://github.com/thesimonho/warden/issues/146)) ([b08ac5e](https://github.com/thesimonho/warden/commit/b08ac5e410912be107a44866aa55c6dcd0273269))
+
+
+### Performance Improvements
+
+* reduce docker exec calls, polling overhead, and goroutine count ([#149](https://github.com/thesimonho/warden/issues/149)) ([d756cca](https://github.com/thesimonho/warden/commit/d756cca9fe0b294218c17bee12a0db1bfee90b32))
+
 ## [1.8.0](https://github.com/thesimonho/warden/compare/v1.7.2...v1.8.0) (2026-04-06)
 
 
