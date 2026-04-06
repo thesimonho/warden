@@ -128,21 +128,22 @@ func TestAuditWriter_NilSafe(t *testing.T) {
 	w.SetMode(AuditDetailed) // should not panic
 }
 
-func TestAuditWriter_FrontendEventsPassStandard(t *testing.T) {
+func TestAuditWriter_FrontendAndExternalEventsPassStandard(t *testing.T) {
 	store := newTestStore(t)
 	w := NewAuditWriter(store, AuditStandard, testStandardEvents)
 
-	// Frontend-posted events have arbitrary event names. Since they're not
-	// in standardEvents, they're dropped in standard mode. This is correct:
-	// frontend events that need standard visibility should use known names.
+	// Frontend and external events always pass in standard mode, regardless
+	// of event name. This allows integrators and the web UI to post custom
+	// events without needing to register them in the standard allowlist.
 	w.Write(Entry{Source: SourceFrontend, Level: LevelInfo, Event: "custom_frontend_event"})
+	w.Write(Entry{Source: SourceExternal, Level: LevelInfo, Event: "custom_integrator_event"})
 
 	entries, err := store.Read()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(entries) != 0 {
-		t.Fatalf("expected 0 entries for unknown frontend event in standard, got %d", len(entries))
+	if len(entries) != 2 {
+		t.Fatalf("expected 2 entries for frontend/external events in standard, got %d", len(entries))
 	}
 }
 

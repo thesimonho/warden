@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/thesimonho/warden/api"
+	"github.com/thesimonho/warden/constants"
 	"github.com/thesimonho/warden/db"
 	"github.com/thesimonho/warden/eventbus"
 )
@@ -225,10 +226,15 @@ func (s *Service) GetAuditProjects() ([]string, error) {
 	return s.db.DistinctProjectIDs()
 }
 
-// PostAuditEvent writes a frontend-posted event to the audit log.
+// PostAuditEvent writes a custom event to the audit log.
 func (s *Service) PostAuditEvent(req api.PostAuditEventRequest) error {
 	if s.db == nil {
 		return nil
+	}
+
+	source := api.AuditSourceExternal
+	if req.Source != "" && api.IsValidAuditSource(req.Source) {
+		source = api.AuditSource(req.Source)
 	}
 
 	level := db.Level(req.Level)
@@ -237,12 +243,25 @@ func (s *Service) PostAuditEvent(req api.PostAuditEventRequest) error {
 	}
 
 	entry := db.Entry{
-		Source:  db.SourceFrontend,
-		Level:   level,
-		Event:   req.Event,
-		Message: req.Message,
-		Attrs:   req.Attrs,
+		Source:    db.Source(source),
+		Level:    level,
+		Event:    req.Event,
+		Message:  req.Message,
+		Data:     req.Data,
+		Attrs:    req.Attrs,
+		Worktree: req.Worktree,
 	}
+
+	if req.ProjectID != "" {
+		agentType := req.AgentType
+		if at := constants.AgentType(agentType); agentType != "" && !at.Valid() {
+			return ErrInvalidInput
+		}
+		entry.ProjectID = req.ProjectID
+		entry.AgentType = agentType
+		entry.ContainerName = s.resolveProjectName(req.ProjectID, agentType)
+	}
+
 	s.audit.Write(entry)
 	return nil
 }

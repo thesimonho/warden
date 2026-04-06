@@ -21,7 +21,9 @@ paths:
 | `DELETE` | `/api/v1/audit`                         | Clears audit events (scoped with query params)                                              |
 | `GET`    | `/api/v1/audit/export?format=csv\|json` | Compliance-ready downloads                                                                  |
 
-Supports `source` (agent/backend/frontend/container) and `level` (info/warning/error) query params.
+Supports `source` (agent/backend/frontend/container/external) and `level` (info/warning/error) query params.
+
+`POST /api/v1/audit` accepts optional `source`, `projectId`, `agentType`, `worktree`, and `data` (raw JSON) fields. Source defaults to `"external"` if omitted; invalid sources are rejected with 400. Events from frontend and external sources always pass through the standard mode filter regardless of event name.
 
 ## Mode filtering
 
@@ -30,7 +32,7 @@ Supports `source` (agent/backend/frontend/container) and `level` (info/warning/e
 | Mode         | What gets written                                                            |
 | ------------ | ---------------------------------------------------------------------------- |
 | **Off**      | No events written                                                            |
-| **Standard** | Session lifecycle, budget enforcement, system events, frontend-posted events |
+| **Standard** | Session lifecycle, budget enforcement, system events, frontend/external-posted events |
 | **Detailed** | Standard + agent events, prompt, config, debug                               |
 
 The `AuditWriter` is the only path for audit log writes; direct `db.Store.Write()` calls for audit events are prohibited. Settings endpoint returns `auditLogMode` string.

@@ -94,7 +94,7 @@ Returns audit-relevant events (sessions, tool uses, prompts, lifecycle) with opt
 
 - **`source`**
 
-  `string`, possible values: `"agent", "backend", "frontend", "container"` — Source identifies the origin layer (agent, backend, frontend, container).
+  `string`, possible values: `"agent", "backend", "frontend", "container", "external"` — Source identifies the origin layer (agent, backend, frontend, container).
 
 - **`ts`**
 
@@ -137,7 +137,7 @@ Returns audit-relevant events (sessions, tool uses, prompts, lifecycle) with opt
 - **Path:** `/api/v1/audit`
 - **Tags:** audit
 
-Writes a custom audit event from the frontend or an external consumer.
+Writes a custom audit event. Integrators can set source, project scope, and structured data. Source defaults to "external" if omitted.
 
 #### Request Body
 
@@ -145,21 +145,45 @@ Writes a custom audit event from the frontend or an external consumer.
 
 **One of:**
 
+- **`agentType`**
+
+  `string` — AgentType scopes the event to an agent type (e.g. "claude-code", "codex"). Optional.
+
 - **`attrs`**
 
-  `object`
+  `object` — Attrs carries key-value metadata.
+
+- **`data`**
+
+  `array` — Data carries a raw JSON payload for structured event data.
+
+  **Items:**
+
+  `integer`
 
 - **`event`**
 
-  `string`
+  `string` — Event is a snake\_case identifier for the event type (e.g. "deployment\_started"). Required.
 
 - **`level`**
 
-  `string`
+  `string` — Level is the severity ("info", "warn", "error"). Defaults to "info" if omitted.
 
 - **`message`**
 
-  `string`
+  `string` — Message is a human-readable description.
+
+- **`projectId`**
+
+  `string` — ProjectID associates the event with a project. Optional.
+
+- **`source`**
+
+  `string` — Source identifies the origin of the event. Must be a valid AuditSource value. Defaults to "external" if omitted.
+
+- **`worktree`**
+
+  `string` — Worktree associates the event with a worktree. Optional.
 
 **Example:**
 

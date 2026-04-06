@@ -100,8 +100,8 @@ func TestHandlePostAuditEvent(t *testing.T) {
 	if len(entries) != 1 {
 		t.Fatalf("expected 1 entry, got %d", len(entries))
 	}
-	if entries[0].Source != db.SourceFrontend {
-		t.Errorf("expected source %q, got %q", db.SourceFrontend, entries[0].Source)
+	if entries[0].Source != db.SourceExternal {
+		t.Errorf("expected source %q, got %q", db.SourceExternal, entries[0].Source)
 	}
 }
 

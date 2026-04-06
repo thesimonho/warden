@@ -67,6 +67,7 @@ const (
 	SourceBackend   = api.AuditSourceBackend
 	SourceFrontend  = api.AuditSourceFrontend
 	SourceContainer = api.AuditSourceContainer
+	SourceExternal  = api.AuditSourceExternal
 
 	LevelInfo  = api.AuditLevelInfo
 	LevelWarn  = api.AuditLevelWarn
