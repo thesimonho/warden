@@ -6,14 +6,14 @@ Warden is designed to be integrated into your own applications. Start with the [
 
 Warden ships as four binaries that provide different integration levels:
 
-| Binary           | What it is                                              | Code location         | CGo |
-| ---------------- | ------------------------------------------------------- | --------------------- | --- |
-| `warden`         | Headless engine + API server (for developers)           | `cmd/warden/`         | No  |
-| `warden-desktop` | Engine + web UI + browser launch (for users)            | `cmd/warden-desktop/` | No  |
-| `warden-tui`     | Engine + TUI (for terminal users)                       | `cmd/warden-tui/`     | No  |
-| `warden-tray`    | System tray companion for `warden-desktop` (HTTP only)  | `cmd/warden-tray/`    | Yes |
+| Binary           | What it is                                              |
+| ---------------- | ------------------------------------------------------- |
+| `warden`         | Headless engine + API server (for developers)           |
+| `warden-desktop` | Engine + web UI + browser launch (for users)            |
+| `warden-tui`     | Engine + TUI (for terminal users)                       |
+| `warden-tray`    | System tray companion for `warden-desktop` (HTTP only)  |
 
-The first three binaries share the same engine and are CGo-free. `warden-tray` is a separate Go module that talks to `warden-desktop` over HTTP, isolating its native tray dependency. The `cmd/` entry points are thin — they call `warden.New()`, set up their UI layer, and run.
+The first three binaries share the same engine. `warden-tray` is a separate companion that talks to `warden-desktop` over HTTP.
 
 ## Key packages
 

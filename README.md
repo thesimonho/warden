@@ -82,7 +82,7 @@ graph BT
     Containers -- "Agent Activity
     Events
     Output" --> Engine
-    
+
     Engine -- "Lifecycle
     Sessions
     Isolation" --> Containers
@@ -186,7 +186,7 @@ You can find more details in the [documentation](https://thesimonho.github.io/wa
 ### As a developer — add agent isolation to your app
 
 > [!TIP]
-> **Fastest way to get started:** Install the [Warden agent plugin](https://thesimonho.github.io/warden/integration/agent-plugin/) into Claude Code or your AI coding agent. It gives your agent full integration reference docs, API guides, and a codebase surveyor — so it can help you integrate Warden directly.
+> **Fastest way to get started:** Install the [Warden agent skills](https://thesimonho.github.io/warden/integration/agent-plugin/) into Claude Code or your AI coding agent. It gives your agent full integration reference docs, API guides, and a codebase surveyor — so it can help you integrate Warden directly.
 
 Warden's engine is a Go library and HTTP API. You get container lifecycle, worktree orchestration, agent status detection, network access controls, and an event bus — all behind clean interfaces. Build your own UI, CLI, or orchestration layer on top.
 
