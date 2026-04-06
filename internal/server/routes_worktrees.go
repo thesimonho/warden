@@ -41,6 +41,48 @@ func (rt *routes) handleListWorktrees(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, worktrees)
 }
 
+// handleGetWorktree returns a single worktree by ID with terminal state.
+//
+//	@Summary		Get worktree
+//	@Description	Returns a single worktree with terminal connection state,
+//	@Description	Claude attention status, and git branch information.
+//	@Tags			worktrees
+//	@Param			projectId	path		string	true	"Project ID"
+//	@Param			agentType	path		string	true	"Agent type"
+//	@Param			wid			path		string	true	"Worktree ID"
+//	@Success		200			{object}	engine.Worktree
+//	@Failure		400			{object}	apiError
+//	@Failure		404			{object}	apiError
+//	@Failure		500			{object}	apiError
+//	@Router			/api/v1/projects/{projectId}/{agentType}/worktrees/{wid} [get]
+func (rt *routes) handleGetWorktree(w http.ResponseWriter, r *http.Request) {
+	projectID := r.PathValue("projectId")
+
+	wid := r.PathValue("wid")
+	if !isValidWorktreeID(wid) {
+		writeError(w, ErrCodeInvalidWorktreeID, "invalid worktree ID", http.StatusBadRequest)
+		return
+	}
+
+	agentType, ok := extractAgentType(r)
+	if !ok {
+		writeError(w, ErrCodeInvalidBody, "invalid agent type", http.StatusBadRequest)
+		return
+	}
+
+	worktree, err := rt.svc.GetWorktree(r.Context(), projectID, agentType, wid)
+	if err != nil {
+		if writeServiceError(w, err) {
+			return
+		}
+		writeError(w, ErrCodeInternal, err.Error(), http.StatusInternalServerError)
+		slog.Error("get worktree", "projectId", projectID, "wid", wid, "err", err)
+		return
+	}
+
+	writeJSON(w, worktree)
+}
+
 // handleCreateWorktree creates a new git worktree and connects a terminal.
 //
 //	@Summary		Create worktree

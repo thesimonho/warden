@@ -287,6 +287,173 @@ Removes a project by its ID. Does not stop or delete the container.
 ##### Status: 500 Internal Server Error
 ---
 
+## Get project
+
+- **Method:** `GET`
+- **Path:** `/api/v1/projects/{projectId}/{agentType}`
+- **Tags:** projects
+
+Returns a single project enriched with live container state, Claude status, worktree counts, and cost data.
+
+#### Responses
+
+##### Status: 200 OK
+
+###### Content-Type: application/json
+
+- **`activeWorktreeCount`**
+
+  `integer` — ActiveWorktreeCount is the number of worktrees with connected terminals.
+
+- **`agentStatus`**
+
+  `string` — AgentStatus is the agent activity state ("idle", "working", "unknown").
+
+- **`agentType`**
+
+  `string`, possible values: `"claude-code", "codex", "claude-code"` — AgentType identifies the CLI agent running in this project (e.g. "claude-code", "codex").
+
+- **`agentVersion`**
+
+  `string` — AgentVersion is the pinned CLI version installed in this container.
+
+- **`allowedDomains`**
+
+  `array` — AllowedDomains lists domains accessible when NetworkMode is "restricted".
+
+  **Items:**
+
+  `string`
+
+- **`costBudget`**
+
+  `number` — CostBudget is the per-project cost limit in USD (0 = use global default).
+
+- **`createdAt`**
+
+  `integer`
+
+- **`hasContainer`**
+
+  `boolean` — HasContainer is true when a Docker container is associated with this project.
+
+- **`hostPath`**
+
+  `string` — HostPath is the absolute host directory mounted into the container.
+
+- **`id`**
+
+  `string` — ID is the Docker container ID (empty when no container exists).
+
+- **`image`**
+
+  `string`
+
+- **`isEstimatedCost`**
+
+  `boolean` — IsEstimatedCost is true when the cost is an estimate (e.g. subscription users).
+
+- **`isGitRepo`**
+
+  `boolean` — IsGitRepo indicates whether the container's /project is a git repository.
+
+- **`mountedDir`**
+
+  `string` — MountedDir is the host directory mounted into the container.
+
+- **`name`**
+
+  `string` — Name is the user-chosen display label / Docker container name.
+
+- **`needsInput`**
+
+  `boolean` — NeedsInput is true when any worktree requires user attention.
+
+- **`networkMode`**
+
+  `string`, possible values: `"full", "restricted", "none"` — NetworkMode controls the container's network isolation level.
+
+- **`notificationType`**
+
+  `string` — NotificationType indicates why the agent needs attention (e.g. "permission\_prompt", "idle\_prompt", "elicitation\_dialog").
+
+- **`os`**
+
+  `string`
+
+- **`projectId`**
+
+  `string` — ProjectID is the deterministic project identifier (sha256 of host path, 12 hex chars).
+
+- **`skipPermissions`**
+
+  `boolean` — SkipPermissions indicates whether terminals should skip permission prompts.
+
+- **`sshPort`**
+
+  `string`
+
+- **`state`**
+
+  `string` — State is the Docker container state ("running", "exited", "not-found", etc).
+
+- **`status`**
+
+  `string` — Status is the Docker container status string (e.g. "Up 2 hours").
+
+- **`totalCost`**
+
+  `number` — TotalCost is the aggregate cost across all worktrees in USD.
+
+- **`type`**
+
+  `string`
+
+- **`workspaceDir`**
+
+  `string` — WorkspaceDir is the container-side workspace directory (mount destination).
+
+**Example:**
+
+```json
+{
+  "activeWorktreeCount": 1,
+  "agentStatus": "",
+  "agentType": "claude-code",
+  "agentVersion": "",
+  "allowedDomains": [
+    ""
+  ],
+  "costBudget": 1,
+  "createdAt": 1,
+  "hasContainer": true,
+  "hostPath": "",
+  "id": "",
+  "image": "",
+  "isEstimatedCost": true,
+  "isGitRepo": true,
+  "mountedDir": "",
+  "name": "",
+  "needsInput": true,
+  "networkMode": "full",
+  "notificationType": "",
+  "os": "",
+  "projectId": "",
+  "skipPermissions": true,
+  "sshPort": "",
+  "state": "",
+  "status": "",
+  "totalCost": 1,
+  "type": "",
+  "workspaceDir": ""
+}
+```
+
+##### Status: 400 Bad Request
+##### Status: 404 Not Found
+##### Status: 500 Internal Server Error
+---
+
 ## Purge project audit
 
 - **Method:** `DELETE`
@@ -306,6 +473,67 @@ Removes all audit events for the given project.
 ```json
 {
   "additionalProperty": 1
+}
+```
+
+##### Status: 400 Bad Request
+##### Status: 404 Not Found
+##### Status: 500 Internal Server Error
+---
+
+## Get budget status
+
+- **Method:** `GET`
+- **Path:** `/api/v1/projects/{projectId}/{agentType}/budget`
+- **Tags:** projects
+
+Returns the effective budget, current cost, and over-budget state for a project.
+
+#### Responses
+
+##### Status: 200 OK
+
+###### Content-Type: application/json
+
+- **`agentType`**
+
+  `string`
+
+- **`budgetSource`**
+
+  `string` — BudgetSource is "project" (per-project), "global" (default), or "none" (no budget set).
+
+- **`effectiveBudget`**
+
+  `number`
+
+- **`isEstimatedCost`**
+
+  `boolean`
+
+- **`isOverBudget`**
+
+  `boolean`
+
+- **`projectId`**
+
+  `string`
+
+- **`totalCost`**
+
+  `number`
+
+**Example:**
+
+```json
+{
+  "agentType": "",
+  "budgetSource": "",
+  "effectiveBudget": 1,
+  "isEstimatedCost": true,
+  "isOverBudget": true,
+  "projectId": "",
+  "totalCost": 1
 }
 ```
 
@@ -377,6 +605,87 @@ Removes all cost history for the given project.
 #### Responses
 
 ##### Status: 204 No Content
+
+##### Status: 400 Bad Request
+##### Status: 404 Not Found
+##### Status: 500 Internal Server Error
+---
+
+## Get project costs
+
+- **Method:** `GET`
+- **Path:** `/api/v1/projects/{projectId}/{agentType}/costs`
+- **Tags:** projects
+
+Returns session-level cost breakdown for the given project.
+
+#### Responses
+
+##### Status: 200 OK
+
+###### Content-Type: application/json
+
+- **`agentType`**
+
+  `string`
+
+- **`isEstimated`**
+
+  `boolean`
+
+- **`projectId`**
+
+  `string`
+
+- **`sessions`**
+
+  `array`
+
+  **Items:**
+
+  - **`cost`**
+
+    `number`
+
+  - **`createdAt`**
+
+    `string`
+
+  - **`isEstimated`**
+
+    `boolean`
+
+  - **`sessionId`**
+
+    `string`
+
+  - **`updatedAt`**
+
+    `string`
+
+- **`totalCost`**
+
+  `number`
+
+**Example:**
+
+```json
+{
+  "agentType": "",
+  "isEstimated": true,
+  "projectId": "",
+  "sessions": [
+    {
+      "cost": 1,
+      "createdAt": "",
+      "isEstimated": true,
+      "sessionId": "",
+      "updatedAt": ""
+    }
+  ],
+  "totalCost": 1
+}
+```
 
 ##### Status: 400 Bad Request
 ##### Status: 404 Not Found

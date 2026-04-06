@@ -60,6 +60,21 @@ func (a *ServiceAdapter) ListProjects(ctx context.Context) ([]api.ProjectRespons
 	return a.w.Service.ListProjects(ctx)
 }
 
+// GetProject delegates to Service.GetProjectDetails.
+func (a *ServiceAdapter) GetProject(ctx context.Context, projectID, agentType string) (*api.ProjectResponse, error) {
+	return a.w.Service.GetProjectDetails(ctx, projectID, agentType)
+}
+
+// GetProjectCosts delegates to Service.GetProjectCosts.
+func (a *ServiceAdapter) GetProjectCosts(ctx context.Context, projectID, agentType string) (*api.ProjectCostsResponse, error) {
+	return a.w.Service.GetProjectCosts(ctx, projectID, agentType)
+}
+
+// GetBudgetStatus delegates to Service.GetBudgetStatus.
+func (a *ServiceAdapter) GetBudgetStatus(ctx context.Context, projectID, agentType string) (*api.BudgetStatusResponse, error) {
+	return a.w.Service.GetBudgetStatus(ctx, projectID, agentType)
+}
+
 // AddProject delegates to Service.AddProject.
 func (a *ServiceAdapter) AddProject(_ context.Context, req api.AddProjectRequest) (*api.ProjectResult, error) {
 	return a.w.Service.AddProject(req.Name, req.ProjectPath, req.AgentType)
@@ -85,6 +100,11 @@ func (a *ServiceAdapter) RestartProject(ctx context.Context, projectID, agentTyp
 // ListWorktrees delegates to Service.ListWorktrees.
 func (a *ServiceAdapter) ListWorktrees(ctx context.Context, projectID, agentType string) ([]engine.Worktree, error) {
 	return a.w.Service.ListWorktrees(ctx, projectID, agentType)
+}
+
+// GetWorktree delegates to Service.GetWorktree.
+func (a *ServiceAdapter) GetWorktree(ctx context.Context, projectID, agentType, worktreeID string) (*engine.Worktree, error) {
+	return a.w.Service.GetWorktree(ctx, projectID, agentType, worktreeID)
 }
 
 // CreateWorktree delegates to Service.CreateWorktree.

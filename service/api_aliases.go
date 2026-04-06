@@ -8,6 +8,9 @@ type (
 	ProjectResponse         = api.ProjectResponse
 	AddProjectRequest       = api.AddProjectRequest
 	CreateWorktreeRequest   = api.CreateWorktreeRequest
+	ProjectCostsResponse    = api.ProjectCostsResponse
+	SessionCostEntry        = api.SessionCostEntry
+	BudgetStatusResponse    = api.BudgetStatusResponse
 	ProjectResult           = api.ProjectResult
 	WorktreeResult          = api.WorktreeResult
 	ContainerResult         = api.ContainerResult

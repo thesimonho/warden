@@ -37,6 +37,23 @@ func (s *Service) ListWorktrees(ctx context.Context, projectID, agentType string
 	return worktrees, nil
 }
 
+// GetWorktree returns a single worktree by ID with terminal state.
+// Internally fetches all worktrees and filters — acceptable for the
+// typical 1-5 worktrees per project. A targeted single-worktree
+// docker exec would be premature optimization at this scale.
+func (s *Service) GetWorktree(ctx context.Context, projectID, agentType, worktreeID string) (*engine.Worktree, error) {
+	worktrees, err := s.ListWorktrees(ctx, projectID, agentType)
+	if err != nil {
+		return nil, err
+	}
+	for i := range worktrees {
+		if worktrees[i].ID == worktreeID {
+			return &worktrees[i], nil
+		}
+	}
+	return nil, ErrNotFound
+}
+
 // CreateWorktree creates a new git worktree and connects a terminal.
 func (s *Service) CreateWorktree(ctx context.Context, projectID, agentType, name string) (*WorktreeResult, error) {
 	if err := s.requireDocker(); err != nil {

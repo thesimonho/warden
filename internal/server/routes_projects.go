@@ -28,6 +28,106 @@ func (rt *routes) handleListProjects(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, projects)
 }
 
+// handleGetProject returns a single project by ID with full state.
+//
+//	@Summary		Get project
+//	@Description	Returns a single project enriched with live container state,
+//	@Description	Claude status, worktree counts, and cost data.
+//	@Tags			projects
+//	@Param			projectId	path		string	true	"Project ID"
+//	@Param			agentType	path		string	true	"Agent type"
+//	@Success		200			{object}	api.ProjectResponse
+//	@Failure		400			{object}	apiError
+//	@Failure		404			{object}	apiError
+//	@Failure		500			{object}	apiError
+//	@Router			/api/v1/projects/{projectId}/{agentType} [get]
+func (rt *routes) handleGetProject(w http.ResponseWriter, r *http.Request) {
+	projectID := r.PathValue("projectId")
+	agentType, ok := extractAgentType(r)
+	if !ok {
+		writeError(w, ErrCodeInvalidBody, "invalid agent type", http.StatusBadRequest)
+		return
+	}
+
+	result, err := rt.svc.GetProjectDetails(r.Context(), projectID, agentType)
+	if err != nil {
+		if writeServiceError(w, err) {
+			return
+		}
+		writeError(w, ErrCodeInternal, err.Error(), http.StatusInternalServerError)
+		slog.Error("get project", "projectId", projectID, "err", err)
+		return
+	}
+
+	writeJSON(w, result)
+}
+
+// handleGetProjectCosts returns session-level cost data for a project.
+//
+//	@Summary		Get project costs
+//	@Description	Returns session-level cost breakdown for the given project.
+//	@Tags			projects
+//	@Param			projectId	path		string	true	"Project ID"
+//	@Param			agentType	path		string	true	"Agent type"
+//	@Success		200			{object}	api.ProjectCostsResponse
+//	@Failure		400			{object}	apiError
+//	@Failure		404			{object}	apiError
+//	@Failure		500			{object}	apiError
+//	@Router			/api/v1/projects/{projectId}/{agentType}/costs [get]
+func (rt *routes) handleGetProjectCosts(w http.ResponseWriter, r *http.Request) {
+	projectID := r.PathValue("projectId")
+	agentType, ok := extractAgentType(r)
+	if !ok {
+		writeError(w, ErrCodeInvalidBody, "invalid agent type", http.StatusBadRequest)
+		return
+	}
+
+	result, err := rt.svc.GetProjectCosts(r.Context(), projectID, agentType)
+	if err != nil {
+		if writeServiceError(w, err) {
+			return
+		}
+		writeError(w, ErrCodeInternal, err.Error(), http.StatusInternalServerError)
+		slog.Error("get project costs", "projectId", projectID, "err", err)
+		return
+	}
+
+	writeJSON(w, result)
+}
+
+// handleGetBudgetStatus returns the budget state for a project.
+//
+//	@Summary		Get budget status
+//	@Description	Returns the effective budget, current cost, and over-budget state for a project.
+//	@Tags			projects
+//	@Param			projectId	path		string	true	"Project ID"
+//	@Param			agentType	path		string	true	"Agent type"
+//	@Success		200			{object}	api.BudgetStatusResponse
+//	@Failure		400			{object}	apiError
+//	@Failure		404			{object}	apiError
+//	@Failure		500			{object}	apiError
+//	@Router			/api/v1/projects/{projectId}/{agentType}/budget [get]
+func (rt *routes) handleGetBudgetStatus(w http.ResponseWriter, r *http.Request) {
+	projectID := r.PathValue("projectId")
+	agentType, ok := extractAgentType(r)
+	if !ok {
+		writeError(w, ErrCodeInvalidBody, "invalid agent type", http.StatusBadRequest)
+		return
+	}
+
+	result, err := rt.svc.GetBudgetStatus(r.Context(), projectID, agentType)
+	if err != nil {
+		if writeServiceError(w, err) {
+			return
+		}
+		writeError(w, ErrCodeInternal, err.Error(), http.StatusInternalServerError)
+		slog.Error("get budget status", "projectId", projectID, "err", err)
+		return
+	}
+
+	writeJSON(w, result)
+}
+
 // handleAddProject registers a project directory in Warden.
 //
 //	@Summary		Add project
