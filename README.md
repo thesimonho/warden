@@ -203,7 +203,7 @@ projects, _ := w.Service.ListProjects(ctx)
 curl http://localhost:8090/api/v1/projects
 ```
 
-Both the web dashboard and TUI also act as reference implementations — they use the exact same public interfaces you would. You can reference their source code, or look at the documentation for the [Go client](https://thesimonho.github.io/warden/integration/go-client/) and [API reference](https://thesimonho.github.io/warden/reference/api/).
+Both the web dashboard and TUI also act as reference implementations — they use the exact same public interfaces you would. You can reference their source code, or look at the documentation for the [HTTP API](https://thesimonho.github.io/warden/integration/http-api/) and [Go client](https://thesimonho.github.io/warden/integration/go-client/).
 
 See the full [Integration Paths](https://thesimonho.github.io/warden/integration/paths/) page for all options: HTTP API, Go client, Go library.
 

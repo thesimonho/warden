@@ -54,6 +54,7 @@ Each topic has a self-contained reference file. Read only what you need for the 
 | Topic                 | Reference                            | What it covers                                    |
 | --------------------- | ------------------------------------ | ------------------------------------------------- |
 | Environment variables | `reference/environment-variables.md` | Server and container env vars                     |
+| HTTP API examples     | `reference/examples/api.md`          | Multi-language examples (curl, TypeScript, Python) |
 | Go Client examples    | `reference/examples/client.md`       | Typed Go client usage                             |
 | Go Library examples   | `reference/examples/library.md`      | Embedded engine usage                             |
 | API field reference   | `reference/api/` (auto-generated)    | Per-resource endpoint reference from OpenAPI spec |

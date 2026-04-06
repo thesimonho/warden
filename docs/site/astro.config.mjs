@@ -9,7 +9,6 @@ export default defineConfig({
 	redirects: {
 		"/warden/reference/environment-variables/":
 			"/warden/integration/environment-variables/",
-		"/warden/integration/http-api/": "/warden/integration/paths/",
 	},
 	integrations: [
 		starlight({
@@ -62,6 +61,7 @@ export default defineConfig({
 						{ slug: "integration/architecture" },
 						{ slug: "integration/paths" },
 						{ slug: "integration/environment-variables" },
+						{ slug: "integration/http-api" },
 						{ slug: "integration/go-client" },
 						{ slug: "integration/go-library" },
 					],
