@@ -60,10 +60,10 @@ export default defineConfig({
 						{ slug: "integration/agent-plugin" },
 						{ slug: "integration/architecture" },
 						{ slug: "integration/paths" },
-						{ slug: "integration/environment-variables" },
 						{ slug: "integration/http-api" },
 						{ slug: "integration/go-client" },
 						{ slug: "integration/go-library" },
+						{ slug: "integration/environment-variables" },
 					],
 				},
 				{
