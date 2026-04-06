@@ -281,7 +281,7 @@ func (p *Parser) parseToolResults(entry SessionEntry) []agent.ParsedEvent {
 }
 
 // parseSystem handles system-type JSONL entries. Each subtype maps to a
-// specific ParsedEventType — see docs/events_claude.md for the full catalog.
+// specific ParsedEventType — see docs/developer/events_claude.md for the full catalog.
 func (p *Parser) parseSystem(entry SessionEntry) []agent.ParsedEvent {
 	switch entry.Subtype {
 	case "turn_duration":

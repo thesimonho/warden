@@ -6,6 +6,10 @@ import starlightScrollToTop from "starlight-scroll-to-top";
 export default defineConfig({
 	site: "https://thesimonho.github.io",
 	base: "/warden",
+	redirects: {
+		"/warden/reference/environment-variables/":
+			"/warden/integration/environment-variables/",
+	},
 	integrations: [
 		starlight({
 			title: "Warden",
@@ -53,17 +57,18 @@ export default defineConfig({
 				{
 					label: "Integration",
 					items: [
+						{ slug: "integration/agent-plugin" },
 						{ slug: "integration/architecture" },
 						{ slug: "integration/paths" },
 						{ slug: "integration/http-api" },
 						{ slug: "integration/go-client" },
 						{ slug: "integration/go-library" },
+						{ slug: "integration/environment-variables" },
 					],
 				},
 				{
 					label: "Reference",
 					items: [
-						{ slug: "reference/environment-variables" },
 						...openAPISidebarGroups,
 						{
 							label: "Go Packages",

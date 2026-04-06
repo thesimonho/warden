@@ -48,14 +48,7 @@ jobs:
         uses: oras-project/setup-oras@v1
       - name: Log in to GHCR
         run: echo "${{ secrets.GITHUB_TOKEN }}" | oras login ghcr.io -u ${{ github.actor }} --password-stdin
-      - name: Stage feature files
-        run: |
-          mkdir -p _staging/session-tools
-          cp container/devcontainer-feature/* _staging/session-tools/
-          cp container/scripts/*.sh _staging/session-tools/
-          cp container/scripts/shared/*.sh _staging/session-tools/
-          cp container/scripts/claude/*.sh _staging/session-tools/
-          cp container/scripts/codex/*.sh _staging/session-tools/
+      - uses: ./.github/actions/stage-feature
       - name: Push feature as :latest
         run: |
           cd _staging/session-tools
@@ -83,14 +76,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-      - name: Stage feature for publishing
-        run: |
-          mkdir -p _staging/session-tools
-          cp container/devcontainer-feature/* _staging/session-tools/
-          cp container/scripts/*.sh _staging/session-tools/
-          cp container/scripts/shared/*.sh _staging/session-tools/
-          cp container/scripts/claude/*.sh _staging/session-tools/
-          cp container/scripts/codex/*.sh _staging/session-tools/
+      - uses: ./.github/actions/stage-feature
       - name: Log in to GHCR
         uses: docker/login-action@v4
         with:

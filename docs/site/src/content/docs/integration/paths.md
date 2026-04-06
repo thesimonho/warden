@@ -1,22 +1,24 @@
 ---
-title: Integration Paths
-description: Integrate Warden into your application using the HTTP API, Go client, or Go library.
+title: "Integration Paths"
+description: "Integrate Warden using HTTP API, Go client, or Go library."
+editUrl: false
 ---
+<!-- Generated from docs/plugin/skills/warden/reference/paths.md — do not edit directly -->
 
-Warden is designed to be integrated into your own applications. Start with the [Architecture](../architecture/) page to understand how the layers fit together, then choose an integration path below.
+Warden is designed to be integrated into your own applications. Start with the [Architecture](./concepts.md) page to understand how the layers fit together, then choose an integration path below.
 
 ## Binaries
 
 Warden ships as four binaries that provide different integration levels:
 
-| Binary           | What it is                                              | Code location         | CGo |
-| ---------------- | ------------------------------------------------------- | --------------------- | --- |
-| `warden`         | Headless engine + API server (for developers)           | `cmd/warden/`         | No  |
-| `warden-desktop` | Engine + web UI + browser launch (for users)            | `cmd/warden-desktop/` | No  |
-| `warden-tui`     | Engine + TUI (for terminal users)                       | `cmd/warden-tui/`     | No  |
-| `warden-tray`    | System tray companion for `warden-desktop` (HTTP only)  | `cmd/warden-tray/`    | Yes |
+| Binary           | What it is                                              |
+| ---------------- | ------------------------------------------------------- |
+| `warden`         | Headless engine + API server (for developers)           |
+| `warden-desktop` | Engine + web UI + browser launch (for users)            |
+| `warden-tui`     | Engine + TUI (for terminal users)                       |
+| `warden-tray`    | System tray companion for `warden-desktop` (HTTP only)  |
 
-The first three binaries share the same engine and are CGo-free. `warden-tray` is a separate Go module that talks to `warden-desktop` over HTTP, isolating its native tray dependency. The `cmd/` entry points are thin — they call `warden.New()`, set up their UI layer, and run.
+The first three binaries share the same engine. `warden-tray` is a separate companion that talks to `warden-desktop` over HTTP.
 
 ## Key packages
 
@@ -39,7 +41,7 @@ All packages are importable via `go get github.com/thesimonho/warden`:
 | `runtimes`         | Language runtime registry with auto-detection, network domains, and env var definitions |
 | `watcher`          | Generic file-tailing utilities (used by agent session watcher)                          |
 
-See the [Go Packages](../../reference/go/) reference for full API documentation.
+See the [Go Packages](/warden/reference/go/) reference for full API documentation.
 
 ## Integration paths
 
@@ -67,11 +69,13 @@ Run the `warden` binary as a headless server and make HTTP requests to `/api/v1/
 
 Ship the `warden` binary with your application and start it as a subprocess, or run it as a standalone service.
 
-See the [HTTP API guide](../http-api/) for setup, examples, and the full error code reference. See the [API Reference](../../reference/api/) for endpoint documentation.
+All the reference files in this skill document the HTTP API with curl examples. See the per-topic guides (projects, containers, worktrees, etc.) for patterns and examples. See the [API Reference](/warden/reference/api/) for full endpoint documentation.
 
 ## Go client (convenience wrapper)
 
-If you're building a Go application that talks to a running `warden` server, the [`client`](https://github.com/thesimonho/warden/tree/main/client) package provides a typed wrapper around the HTTP API. It's the same API — just easier to call from Go.
+If you're building a Go application that talks to a running `warden` server, the [`client`](https://github.com/thesimonho/warden/tree/main/client) package provides a typed wrapper around the HTTP API.
+
+The Go client is a 1:1 mirror of the HTTP API — every endpoint has a corresponding typed method. The concepts, behaviors, error codes, and patterns documented in the HTTP API reference files apply identically to the Go client. The only difference is the calling convention: HTTP requests become Go method calls, and JSON responses become typed structs.
 
 ```go
 import "github.com/thesimonho/warden/client"
@@ -80,7 +84,7 @@ c := client.New("http://localhost:8090")
 projects, err := c.ListProjects(ctx)
 ```
 
-See the [Go client guide](../go-client/) for details and error handling.
+See the [Go client guide](./examples/client.md) for details and error handling.
 
 ## Go library (direct import)
 
@@ -94,15 +98,15 @@ defer w.Close()
 projects, _ := w.Service.ListProjects(ctx)
 ```
 
-See the [Go library guide](../go-library/) for the full API.
+See the [Go library guide](./examples/library.md) for the full API.
 
 ## When to use which
 
-| Approach                     | When to use                                        | What you ship                  |
-| ---------------------------- | -------------------------------------------------- | ------------------------------ |
-| [HTTP API](../http-api/)     | Any language, simplest integration                 | `warden` binary + your app     |
-| [Go client](../go-client/)   | Go app, want typed API calls without managing HTTP | `warden` binary + your Go app  |
-| [Go library](../go-library/) | Go app, want single-process deployment, no binary  | Your Go app (imports `warden`) |
+| Approach                                | When to use                                        | What you ship                  |
+| --------------------------------------- | -------------------------------------------------- | ------------------------------ |
+| [HTTP API](./error-handling.md)           | Any language, simplest integration                 | `warden` binary + your app     |
+| [Go client](./examples/client.md)       | Go app, want typed API calls without managing HTTP | `warden` binary + your Go app  |
+| [Go library](./examples/library.md)     | Go app, want single-process deployment, no binary  | Your Go app (imports `warden`) |
 
 ## Reference implementations
 

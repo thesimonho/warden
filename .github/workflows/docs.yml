@@ -3,58 +3,45 @@ on:
   push:
     branches: [main]
     paths:
+      - "docs/site/**"
+      - "docs/plugin/**"
+      - "docs/openapi/**"
       - "CHANGELOG.md"
+      - "CONTRIBUTING.md"
   workflow_dispatch:
-
 permissions:
   contents: read
   pages: write
   id-token: write
-
 concurrency:
   group: pages
   cancel-in-progress: true
-
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-
       - uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
           cache: true
-
       - name: Install gomarkdoc
         run: go install github.com/princjef/gomarkdoc/cmd/gomarkdoc@latest
-
-      - name: Generate Go reference docs
-        run: ./docs/site/generate-go-docs.sh
-
-      - name: Generate changelog page
-        run: ./docs/site/generate-changelog.sh
-
-      - name: Generate contributing page
-        run: ./docs/site/generate-contributing.sh
-
       - uses: actions/setup-node@v6
         with:
           node-version: "24"
           cache: "npm"
           cache-dependency-path: docs/site/package-lock.json
-
       - name: Install dependencies
         run: npm --prefix docs/site install
-
+      - name: Generate docs
+        run: ./docs/site/generate-docs.sh
       - name: Build docs site
         run: npm --prefix docs/site run build
-
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
           path: docs/site/dist/
-
   deploy:
     needs: build
     runs-on: ubuntu-latest

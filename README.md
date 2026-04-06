@@ -82,7 +82,7 @@ graph BT
     Containers -- "Agent Activity
     Events
     Output" --> Engine
-    
+
     Engine -- "Lifecycle
     Sessions
     Isolation" --> Containers
@@ -126,6 +126,7 @@ Example web apps built up from core Warden features:
 - **Go library** — embed the engine directly with `warden.New()`. No HTTP overhead, no server process.
 - **HTTP API** — REST + SSE + WebSocket. Works from any language.
 - **Go HTTP client** — typed wrapper client for Go apps talking to a running Warden server.
+- **Agent plugin & skills** — install the [Warden plugin](https://thesimonho.github.io/warden/integration/agent-plugin/) into Claude Code or any agent that supports skills. Your coding agent gets integration reference docs, API guides, and a codebase surveyor — so it can help you integrate Warden without manual doc lookup.
 - **Reference implementations** — the web dashboard and TUI use the same public interfaces you would. Read their source as integration examples.
 - **Single binary** — Go backend with embedded frontend. No runtime dependencies beyond a container engine.
 
@@ -183,6 +184,9 @@ Download and install. No Docker knowledge, no terminal wrangling, no infrastruct
 You can find more details in the [documentation](https://thesimonho.github.io/warden/guide/getting-started/).
 
 ### As a developer — add agent isolation to your app
+
+> [!TIP]
+> **Fastest way to get started:** Install the [Warden agent skills](https://thesimonho.github.io/warden/integration/agent-plugin/) into Claude Code or your AI coding agent. It gives your agent full integration reference docs, API guides, and a codebase surveyor — so it can help you integrate Warden directly.
 
 Warden's engine is a Go library and HTTP API. You get container lifecycle, worktree orchestration, agent status detection, network access controls, and an event bus — all behind clean interfaces. Build your own UI, CLI, or orchestration layer on top.
 

@@ -1,7 +1,4 @@
----
-title: Environment Variables
-description: All environment variables recognized by Warden binaries.
----
+# Environment Variables
 
 Environment variables configure Warden's server binaries at startup. None are required — all have sensible defaults.
 

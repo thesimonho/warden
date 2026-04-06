@@ -150,14 +150,9 @@ jobs:
         uses: oras-project/setup-oras@v1
       - name: Log in to GHCR
         run: echo "${{ secrets.GITHUB_TOKEN }}" | oras login ghcr.io -u ${{ github.actor }} --password-stdin
-      - name: Stage and push feature
+      - uses: ./.github/actions/stage-feature
+      - name: Push feature
         run: |
-          mkdir -p _staging/session-tools
-          cp container/devcontainer-feature/* _staging/session-tools/
-          cp container/scripts/*.sh _staging/session-tools/
-          cp container/scripts/shared/*.sh _staging/session-tools/
-          cp container/scripts/claude/*.sh _staging/session-tools/
-          cp container/scripts/codex/*.sh _staging/session-tools/
           cd _staging/session-tools
           tar cf feature.tar *
           oras push \

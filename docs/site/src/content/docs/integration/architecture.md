@@ -1,7 +1,9 @@
 ---
-title: Architecture
-description: How Warden is structured — layered system, infrastructure layout, and binary variants.
+title: "Architecture"
+description: "How Warden is structured — layered system, infrastructure layout."
+editUrl: false
 ---
+<!-- Generated from docs/plugin/skills/warden/reference/concepts.md — do not edit directly -->
 
 ## Layered system
 
@@ -24,8 +26,6 @@ Warden is a three-layer system. Each layer is independently usable and testable:
 ```
 
 ### How to integrate
-
-The decision tree below shows where to start based on your use case:
 
 ```
 Are you writing Go?
@@ -96,7 +96,7 @@ Warden runs as a host process that manages project containers. Communication flo
 │  │  Docker containers                                       │    │
 │  │                                                          │    │
 │  │  ┌──────────────────┐  ┌──────────────────┐              │    │
-│  │  │  project-a       │  │  project-b       │              │    │
+│  │  │  Project A       │  │  Project B       │              │    │
 │  │  │  tmux            │  │  tmux            │              │    │
 │  │  │  hook scripts    │  │  hook scripts    │              │    │
 │  │  │  iptables rules  │  │  iptables rules  │              │    │
@@ -164,4 +164,4 @@ Budget enforcement events                       ─┘         ▼
 
 Standard mode writes only session lifecycle, terminal lifecycle, budget, and system events. Detailed mode adds agent events, tool use, prompts, config, and debug events.
 
-See the [Integration Paths](../paths/) page for the binary variants, key packages, and how to choose an integration approach.
+See `./paths.md` for the binary variants, key packages, and how to choose an integration approach.

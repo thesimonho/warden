@@ -1,9 +1,11 @@
 ---
-title: Go Client
-description: A typed Go wrapper around the Warden HTTP API for convenience.
+title: "Go Client"
+description: "Use the typed Go client to talk to a running Warden server."
+editUrl: false
 ---
+<!-- Generated from docs/plugin/skills/warden/reference/examples/client.md — do not edit directly -->
 
-The [`client`](https://github.com/thesimonho/warden/tree/main/client) package is a convenience wrapper around the [HTTP API](../http-api/). It provides typed Go functions for every endpoint so you don't have to manage HTTP requests, response parsing, or error handling yourself.
+The [`client`](https://github.com/thesimonho/warden/tree/main/client) package is a convenience wrapper around the [HTTP API](./api.md). It provides typed Go functions for every endpoint so you don't have to manage HTTP requests, response parsing, or error handling yourself.
 
 You still need to run the `warden` binary as a server — the client talks to it over HTTP.
 
@@ -114,7 +116,7 @@ if errors.As(err, &apiErr) {
 }
 ```
 
-See the [HTTP API error codes](../http-api/#error-codes) for the full list.
+See the [HTTP API error codes](./api.md#error-codes) for the full list.
 
 ## When to use the client vs. the library
 
@@ -123,7 +125,7 @@ See the [HTTP API error codes](../http-api/#error-codes) for the full list.
 | `client.New()` (HTTP wrapper)   | Run `warden` binary separately | Multi-process, remote server, or when the binary is already running |
 | `warden.New()` (Layer 1 import) | No binary needed               | Single-process deployment, embedded applications, full control      |
 
-If you don't want to run a separate server process, you can import the library directly — see the [Go Library](../go-library/) guide.
+If you don't want to run a separate server process, you can import the library directly — see the [Go Library](./library.md) guide.
 
 ## Reference implementation
 

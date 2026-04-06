@@ -1,0 +1,13 @@
+name: Stage Devcontainer Feature
+description: Copy devcontainer feature files into _staging/session-tools for publication.
+runs:
+  using: composite
+  steps:
+    - run: |
+        mkdir -p _staging/session-tools
+        cp container/devcontainer-feature/* _staging/session-tools/
+        cp container/scripts/*.sh _staging/session-tools/
+        cp container/scripts/shared/*.sh _staging/session-tools/
+        cp container/scripts/claude/*.sh _staging/session-tools/
+        cp container/scripts/codex/*.sh _staging/session-tools/
+      shell: bash

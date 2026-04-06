@@ -75,7 +75,7 @@ Parsers are **stateful** — they accumulate token counts across lines within a 
 - **Token source:** Cumulative `total_token_usage` in `token_count` events
 - **Cost:** Estimated from token counts via OpenAI model pricing table (`pricing.go`)
 - **Tool extraction:** From `response_item` entries — `function_call`, `local_shell_call`, `web_search_call`, `custom_tool_call`, `image_generation_call`, `tool_search_call`
-- **Persistence policy:** Codex filters which events land in JSONL. Limited mode (CLI default) persists core events; extended mode (app-server only) adds errors and tool end events. See `docs/events_codex.md` for details.
+- **Persistence policy:** Codex filters which events land in JSONL. Limited mode (CLI default) persists core events; extended mode (app-server only) adds errors and tool end events. See `docs/developer/events_codex.md` for details.
 
 ## Unparsed JSONL Events
 
