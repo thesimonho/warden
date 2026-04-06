@@ -1,6 +1,8 @@
 import { test, expect } from './helpers/fixtures'
 import {
+  collectSSEEvents,
   connectTerminal,
+  disconnectTerminal,
   fetchProject,
   fetchWorktree,
   fetchWorktreeDiff,
@@ -130,6 +132,41 @@ test.describe('Integrator API', () => {
       } catch (error) {
         // Expected: API returns non-200 for missing worktree/session.
         expect(error).toBeTruthy()
+      }
+    })
+  })
+
+  test.describe('SSE project filtering', () => {
+    test('should only receive events for the filtered project', async ({ testProject }) => {
+      // Start collecting SSE events filtered to our test project.
+      // The collector runs for 5 seconds in parallel with the actions below.
+      const eventsPromise = collectSSEEvents({
+        projectId: testProject.id,
+        agentType: testProject.agentType,
+        timeoutMs: 5000,
+      })
+
+      // Give the SSE connection time to establish.
+      await new Promise((r) => setTimeout(r, 500))
+
+      // Trigger a worktree state change that generates SSE events.
+      await connectTerminal(testProject.id, 'main', testProject.agentType)
+      await waitForWorktreeState(testProject.id, 'main', 'connected', 15_000, testProject.agentType)
+      await disconnectTerminal(testProject.id, 'main', testProject.agentType)
+
+      // Wait for the SSE collector to finish.
+      const events = await eventsPromise
+
+      // Should have received at least one project-scoped event (worktree_state
+      // or project_state). All non-global events should match our project.
+      const projectEvents = events.filter(
+        (e) => e.event !== 'heartbeat' && e.event !== 'server_shutdown'
+          && e.event !== 'runtime_status' && e.event !== 'agent_status',
+      )
+      expect(projectEvents.length).toBeGreaterThan(0)
+
+      for (const e of projectEvents) {
+        expect(e.data.projectId).toBe(testProject.id)
       }
     })
   })

@@ -214,9 +214,9 @@ type Client interface {
 
 	// SubscribeEvents returns a channel of real-time SSE events and an
 	// unsubscribe function. The channel is closed when the context is
-	// cancelled or the connection drops.
+	// cancelled or the connection drops. Options filter by project/agent.
 	// API: GET /api/v1/events (SSE)
-	SubscribeEvents(ctx context.Context) (<-chan eventbus.SSEEvent, func(), error)
+	SubscribeEvents(ctx context.Context, opts ...client.SubscribeEventsOptions) (<-chan eventbus.SSEEvent, func(), error)
 
 	// AttachTerminal returns a bidirectional connection to a worktree's
 	// tmux session. In embedded mode this uses docker exec; in HTTP
