@@ -38,9 +38,10 @@ type Client interface {
 	// API: GET /api/v1/projects/{projectId}/{agentType}/budget
 	GetBudgetStatus(ctx context.Context, projectID, agentType string) (*api.BudgetStatusResponse, error)
 
-	// AddProject registers a project directory in Warden.
+	// AddProject registers a project directory in Warden. Optionally creates
+	// a container when the request includes Container config.
 	// API: POST /api/v1/projects
-	AddProject(ctx context.Context, req api.AddProjectRequest) (*api.ProjectResult, error)
+	AddProject(ctx context.Context, req api.AddProjectRequest) (*api.AddProjectResponse, error)
 
 	// RemoveProject removes a project by its project ID.
 	// API: DELETE /api/v1/projects/{projectId}/{agentType}

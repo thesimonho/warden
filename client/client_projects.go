@@ -49,9 +49,10 @@ func (c *Client) GetBudgetStatus(ctx context.Context, projectID, agentType strin
 	return &resp, nil
 }
 
-// AddProject registers a project directory in Warden.
-func (c *Client) AddProject(ctx context.Context, req api.AddProjectRequest) (*api.ProjectResult, error) {
-	var resp api.ProjectResult
+// AddProject registers a project directory in Warden. When the request
+// includes Container config, the container is created atomically.
+func (c *Client) AddProject(ctx context.Context, req api.AddProjectRequest) (*api.AddProjectResponse, error) {
+	var resp api.AddProjectResponse
 	if err := c.post(ctx, "/api/v1/projects", req, &resp); err != nil {
 		return nil, err
 	}

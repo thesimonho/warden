@@ -178,7 +178,7 @@ Returns all configured projects enriched with live container state, Claude statu
 - **Path:** `/api/v1/projects`
 - **Tags:** projects
 
-Registers a host directory as a Warden project.
+Registers a host directory as a Warden project. Optionally creates a container in the same request by including a "container" field. If container creation fails, the project is cleaned up automatically.
 
 #### Request Body
 
@@ -189,6 +189,84 @@ Registers a host directory as a Warden project.
 - **`agentType`**
 
   `string` — AgentType selects the CLI agent to run (e.g. "claude-code", "codex"). Defaults to "claude-code" if omitted.
+
+- **`container`**
+
+  `object` — Container holds optional container configuration. When provided, a container is created as part of the same request.
+
+  - **`agentType`**
+
+    `string`, possible values: `"claude-code", "codex", "claude-code"` — AgentType identifies the CLI agent running in this project (e.g. "claude-code", "codex").
+
+  - **`allowedDomains`**
+
+    `array` — AllowedDomains lists domains accessible when NetworkMode is "restricted".
+
+    **Items:**
+
+    `string`
+
+  - **`costBudget`**
+
+    `number` — CostBudget is the per-project cost limit in USD (0 = use global default).
+
+  - **`enabledAccessItems`**
+
+    `array` — EnabledAccessItems lists active access item IDs (e.g. \["git","ssh"]).
+
+    **Items:**
+
+    `string`
+
+  - **`enabledRuntimes`**
+
+    `array` — EnabledRuntimes lists active runtime IDs (e.g. \["node","python","go"]).
+
+    **Items:**
+
+    `string`
+
+  - **`envVars`**
+
+    `object`
+
+  - **`image`**
+
+    `string`
+
+  - **`mounts`**
+
+    `array` — Mounts is a list of additional bind mounts from host into the container.
+
+    **Items:**
+
+    - **`containerPath`**
+
+      `string` — ContainerPath is the absolute path inside the container.
+
+    - **`hostPath`**
+
+      `string` — HostPath is the absolute path on the host.
+
+    - **`readOnly`**
+
+      `boolean` — ReadOnly mounts the path as read-only inside the container.
+
+  - **`name`**
+
+    `string`
+
+  - **`networkMode`**
+
+    `string`, possible values: `"full", "restricted", "none"` — NetworkMode controls the container's network isolation level.
+
+  - **`projectPath`**
+
+    `string`
+
+  - **`skipPermissions`**
+
+    `boolean` — SkipPermissions controls whether terminals skip permission prompts. Stored as a Docker label on the container.
 
 - **`name`**
 
@@ -210,34 +288,72 @@ Registers a host directory as a Warden project.
 
 ###### Content-Type: application/json
 
-- **`agentType`**
+- **`container`**
 
-  `string` — AgentType is the agent type for this project (e.g. "claude-code", "codex").
+  `object` — Container holds the container result when a container was created. Nil when the request did not include container configuration.
 
-- **`containerId`**
+  - **`agentType`**
 
-  `string` — ContainerID is the Docker container ID, when available.
+    `string` — AgentType is the agent type for this container.
 
-- **`name`**
+  - **`containerId`**
 
-  `string` — Name is the user-chosen project display name.
+    `string` — ContainerID is the Docker container ID.
 
-- **`projectId`**
+  - **`name`**
 
-  `string` — ProjectID is the deterministic project identifier.
+    `string` — Name is the container name.
+
+  - **`projectId`**
+
+    `string` — ProjectID is the deterministic project identifier.
+
+  - **`recreated`**
+
+    `boolean` — Recreated is true when the container was fully recreated (not just settings updated).
+
+- **`project`**
+
+  `object` — Project holds the registered project result.
+
+  - **`agentType`**
+
+    `string` — AgentType is the agent type for this project (e.g. "claude-code", "codex").
+
+  - **`containerId`**
+
+    `string` — ContainerID is the Docker container ID, when available.
+
+  - **`name`**
+
+    `string` — Name is the user-chosen project display name.
+
+  - **`projectId`**
+
+    `string` — ProjectID is the deterministic project identifier.
 
 **Example:**
 
 ```json
 {
-  "agentType": "",
-  "containerId": "",
-  "name": "",
-  "projectId": ""
+  "container": {
+    "agentType": "",
+    "containerId": "",
+    "name": "",
+    "projectId": "",
+    "recreated": true
+  },
+  "project": {
+    "agentType": "",
+    "containerId": "",
+    "name": "",
+    "projectId": ""
+  }
 }
 ```
 
 ##### Status: 400 Bad Request
+##### Status: 409 Container name already in use
 ##### Status: 500 Internal Server Error
 ---
 

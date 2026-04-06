@@ -75,9 +75,9 @@ func (a *ServiceAdapter) GetBudgetStatus(ctx context.Context, projectID, agentTy
 	return a.w.Service.GetBudgetStatus(ctx, projectID, agentType)
 }
 
-// AddProject delegates to Service.AddProject.
-func (a *ServiceAdapter) AddProject(_ context.Context, req api.AddProjectRequest) (*api.ProjectResult, error) {
-	return a.w.Service.AddProject(req.Name, req.ProjectPath, req.AgentType)
+// AddProject delegates to Service.AddProjectWithContainer.
+func (a *ServiceAdapter) AddProject(ctx context.Context, req api.AddProjectRequest) (*api.AddProjectResponse, error) {
+	return a.w.Service.AddProjectWithContainer(ctx, req)
 }
 
 // RemoveProject delegates to Service.RemoveProject.

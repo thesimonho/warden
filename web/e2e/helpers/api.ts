@@ -113,11 +113,17 @@ export async function fetchRuntimes(): Promise<ApiRuntime[]> {
   return response.json() as Promise<ApiRuntime[]>
 }
 
-/** Project result from add/remove operations. */
-interface ProjectResult {
-  projectId: string
-  name: string
-  containerId?: string
+/** Response from POST /api/v1/projects. */
+interface AddProjectResponse {
+  project: {
+    projectId: string
+    name: string
+    containerId?: string
+  }
+  container?: {
+    containerId: string
+    name: string
+  }
 }
 
 /** Container result from create/delete operations. */
@@ -150,12 +156,12 @@ export async function createTestProject(
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ name, projectPath }),
   })
-  const projectResult = (await addResponse.json()) as ProjectResult
+  const addResult = (await addResponse.json()) as AddProjectResponse
 
   /* Step 2: Create a container for the project. */
   const agentType = options?.agentType ?? 'claude-code'
   const createResponse = await apiFetch(
-    `/api/v1/projects/${projectResult.projectId}/${agentType}/container`,
+    `/api/v1/projects/${addResult.project.projectId}/${agentType}/container`,
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -172,7 +178,7 @@ export async function createTestProject(
   const containerResult = (await createResponse.json()) as ContainerResult
 
   return {
-    projectId: projectResult.projectId,
+    projectId: addResult.project.projectId,
     containerId: containerResult.containerId,
     name: containerResult.name,
   }

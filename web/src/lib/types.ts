@@ -265,6 +265,12 @@ export interface ProjectResult {
   containerId?: string
 }
 
+/** Result of POST /api/v1/projects (project + optional container). */
+export interface AddProjectResponse {
+  project: ProjectResult
+  container?: ContainerResult
+}
+
 /** Result of a container mutation (create, update, delete). */
 export interface ContainerResult {
   containerId: string

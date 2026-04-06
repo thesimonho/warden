@@ -109,8 +109,7 @@ export default function AddProjectDialog({
           toast.success('Container created')
         } else {
           const result = await addProject(data.name, data.projectPath, data.agentType)
-          const projectId = result.projectId
-          await createContainer(projectId, data.agentType, payload)
+          await createContainer(result.project.projectId, data.agentType, payload)
           toast.success('Project created')
         }
         onProjectAdded()
