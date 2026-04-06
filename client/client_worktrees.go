@@ -27,6 +27,12 @@ func (c *Client) GetWorktree(ctx context.Context, projectID, agentType, worktree
 	return &resp, nil
 }
 
+// SendWorktreeInput sends text to a worktree's tmux pane.
+func (c *Client) SendWorktreeInput(ctx context.Context, projectID, agentType, worktreeID string, req api.WorktreeInputRequest) error {
+	path := projectPath(projectID, agentType) + "/worktrees/" + worktreeID + "/input"
+	return c.post(ctx, path, req, nil)
+}
+
 // CreateWorktree creates a new git worktree and connects a terminal.
 func (c *Client) CreateWorktree(ctx context.Context, projectID, agentType string, req api.CreateWorktreeRequest) (*api.WorktreeResult, error) {
 	var resp api.WorktreeResult

@@ -138,6 +138,10 @@ func (m *mockEngineClient) GetWorktreeDiff(_ context.Context, _, _ string) (*api
 	return nil, nil
 }
 
+func (m *mockEngineClient) SendWorktreeInput(_ context.Context, _, _, _ string, _ bool) error {
+	return nil
+}
+
 func (m *mockEngineClient) CopyFileToContainer(_ context.Context, _, _, _ string, _ io.Reader, _ int64) error {
 	return nil
 }

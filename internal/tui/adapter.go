@@ -107,6 +107,11 @@ func (a *ServiceAdapter) GetWorktree(ctx context.Context, projectID, agentType, 
 	return a.w.Service.GetWorktree(ctx, projectID, agentType, worktreeID)
 }
 
+// SendWorktreeInput delegates to Service.SendWorktreeInput.
+func (a *ServiceAdapter) SendWorktreeInput(ctx context.Context, projectID, agentType, worktreeID string, req api.WorktreeInputRequest) error {
+	return a.w.Service.SendWorktreeInput(ctx, projectID, agentType, worktreeID, req)
+}
+
 // CreateWorktree delegates to Service.CreateWorktree.
 func (a *ServiceAdapter) CreateWorktree(ctx context.Context, projectID, agentType string, req api.CreateWorktreeRequest) (*api.WorktreeResult, error) {
 	return a.w.Service.CreateWorktree(ctx, projectID, agentType, req.Name)

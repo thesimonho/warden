@@ -59,6 +59,7 @@ func registerAPIRoutes(mux *http.ServeMux, svc *service.Service, broker *eventbu
 	mux.HandleFunc("GET /api/v1/projects/{projectId}/{agentType}/worktrees", rt.handleListWorktrees)
 	mux.HandleFunc("POST /api/v1/projects/{projectId}/{agentType}/worktrees", rt.handleCreateWorktree)
 	mux.HandleFunc("GET /api/v1/projects/{projectId}/{agentType}/worktrees/{wid}", rt.handleGetWorktree)
+	mux.HandleFunc("POST /api/v1/projects/{projectId}/{agentType}/worktrees/{wid}/input", rt.handleSendWorktreeInput)
 	mux.HandleFunc("POST /api/v1/projects/{projectId}/{agentType}/worktrees/{wid}/connect", rt.handleConnectTerminal)
 	mux.HandleFunc("POST /api/v1/projects/{projectId}/{agentType}/worktrees/{wid}/disconnect", rt.handleDisconnectTerminal)
 	mux.HandleFunc("POST /api/v1/projects/{projectId}/{agentType}/worktrees/{wid}/kill", rt.handleKillWorktreeProcess)
