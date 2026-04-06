@@ -418,6 +418,73 @@ export async function fetchWorktreeDiff(
   return response.json() as Promise<{ files: Array<{ path: string; status: string }> }>
 }
 
+/** SSE event from the event stream. */
+export interface SSEEvent {
+  event: string
+  data: Record<string, unknown>
+}
+
+/**
+ * Opens an SSE connection and collects events until the timeout.
+ * Returns the collected events. Used for testing SSE filtering behavior.
+ */
+export async function collectSSEEvents(
+  options: { projectId?: string; agentType?: string; timeoutMs?: number },
+): Promise<SSEEvent[]> {
+  const baseURL = await getBaseURL()
+  const params = new URLSearchParams()
+  if (options.projectId) params.set('projectId', options.projectId)
+  if (options.agentType) params.set('agentType', options.agentType)
+  const qs = params.toString()
+  const url = `${baseURL}/api/v1/events${qs ? `?${qs}` : ''}`
+  const timeoutMs = options.timeoutMs ?? 5000
+
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), timeoutMs)
+
+  const events: SSEEvent[] = []
+  try {
+    const response = await fetch(url, {
+      headers: { Accept: 'text/event-stream' },
+      signal: controller.signal,
+    })
+    const reader = response.body?.getReader()
+    if (!reader) return events
+
+    const decoder = new TextDecoder()
+    let buffer = ''
+
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+      buffer += decoder.decode(value, { stream: true })
+
+      // Parse SSE frames from the buffer.
+      const parts = buffer.split('\n\n')
+      buffer = parts.pop() ?? ''
+      for (const part of parts) {
+        let eventType = ''
+        let data = ''
+        for (const line of part.split('\n')) {
+          if (line.startsWith('event: ')) eventType = line.slice(7)
+          if (line.startsWith('data: ')) data = line.slice(6)
+        }
+        if (eventType && data) {
+          try {
+            events.push({ event: eventType, data: JSON.parse(data) as Record<string, unknown> })
+          } catch { /* skip non-JSON */ }
+        }
+      }
+    }
+  } catch {
+    // AbortError from timeout is expected.
+  } finally {
+    clearTimeout(timeout)
+  }
+
+  return events
+}
+
 /** Sends text to a worktree's terminal. */
 export async function sendWorktreeInput(
   projectId: string,

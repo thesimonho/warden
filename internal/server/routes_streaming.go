@@ -2,23 +2,30 @@ package server
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
 	"time"
+
+	"github.com/thesimonho/warden/eventbus"
 )
 
 // handleSSE streams Server-Sent Events to the client.
 //
 //	@Summary		Subscribe to events (SSE)
-//	@Description	Opens a Server-Sent Events stream for real-time updates. Event types:
-//	@Description	worktree_state (attention/terminal changes), project_state (cost + attention updates),
-//	@Description	worktree_list_changed (worktree added/removed), heartbeat (keepalive every 15s).
+//	@Description	Opens a Server-Sent Events stream for real-time updates. Optionally filter
+//	@Description	by projectId and agentType to receive events for a single project.
+//	@Description	Event types: worktree_state, project_state, worktree_list_changed,
+//	@Description	budget_exceeded, budget_container_stopped, heartbeat, server_shutdown,
+//	@Description	runtime_status, agent_status.
 //	@Tags			streaming
-//	@Success		200	{string}	string	"SSE event stream"
-//	@Failure		500	{object}	apiError
-//	@Failure		503	{object}	apiError	"Event streaming not configured"
+//	@Param			projectId	query		string	false	"Filter events to this project ID"
+//	@Param			agentType	query		string	false	"Filter events to this agent type"
+//	@Success		200			{string}	string	"SSE event stream"
+//	@Failure		500			{object}	apiError
+//	@Failure		503			{object}	apiError	"Event streaming not configured"
 //	@Router			/api/v1/events [get]
 func (rt *routes) handleSSE(w http.ResponseWriter, r *http.Request) {
 	if rt.broker == nil {
@@ -31,6 +38,9 @@ func (rt *routes) handleSSE(w http.ResponseWriter, r *http.Request) {
 		writeError(w, ErrCodeInternal, "streaming not supported", http.StatusInternalServerError)
 		return
 	}
+
+	filterProjectID := r.URL.Query().Get("projectId")
+	filterAgentType := r.URL.Query().Get("agentType")
 
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
@@ -50,10 +60,46 @@ func (rt *routes) handleSSE(w http.ResponseWriter, r *http.Request) {
 			if !ok {
 				return
 			}
+			if !sseEventMatchesFilter(event, filterProjectID, filterAgentType) {
+				continue
+			}
 			fmt.Fprintf(w, "event: %s\ndata: %s\n\n", event.Event, event.Data) //nolint:errcheck
 			flusher.Flush()
 		}
 	}
+}
+
+// sseEventMatchesFilter reports whether an SSE event matches the given project
+// filter. Returns true (pass through) when no filter is set, or when the event
+// type has no project context (heartbeat, server_shutdown, runtime/agent status).
+func sseEventMatchesFilter(event eventbus.SSEEvent, projectID, agentType string) bool {
+	if projectID == "" && agentType == "" {
+		return true
+	}
+
+	// Global events always pass through — they aren't project-scoped.
+	switch event.Event {
+	case eventbus.SSEHeartbeat, eventbus.SSEServerShutdown,
+		eventbus.SSERuntimeStatus, eventbus.SSEAgentStatus:
+		return true
+	}
+
+	// Extract projectId/agentType from the JSON data payload.
+	var ref struct {
+		ProjectID string `json:"projectId"`
+		AgentType string `json:"agentType"`
+	}
+	if err := json.Unmarshal(event.Data, &ref); err != nil {
+		return true // can't parse — pass through to avoid dropping events
+	}
+
+	if projectID != "" && ref.ProjectID != projectID {
+		return false
+	}
+	if agentType != "" && ref.AgentType != agentType {
+		return false
+	}
+	return true
 }
 
 // clipboardMaxSize is the maximum upload size for clipboard images (10 MB).

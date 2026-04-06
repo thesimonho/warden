@@ -9,7 +9,7 @@ All error responses return `{"error": "message", "code": "ERROR_CODE"}`.
 - **Path:** `/api/v1/events`
 - **Tags:** streaming
 
-Opens a Server-Sent Events stream for real-time updates. Event types: worktree\_state (attention/terminal changes), project\_state (cost + attention updates), worktree\_list\_changed (worktree added/removed), heartbeat (keepalive every 15s).
+Opens a Server-Sent Events stream for real-time updates. Optionally filter by projectId and agentType to receive events for a single project. Event types: worktree\_state, project\_state, worktree\_list\_changed, budget\_exceeded, budget\_container\_stopped, heartbeat, server\_shutdown, runtime\_status, agent\_status.
 
 #### Responses
 

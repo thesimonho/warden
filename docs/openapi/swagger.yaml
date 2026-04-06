@@ -1768,9 +1768,22 @@ paths:
   /api/v1/events:
     get:
       description: |-
-        Opens a Server-Sent Events stream for real-time updates. Event types:
-        worktree_state (attention/terminal changes), project_state (cost + attention updates),
-        worktree_list_changed (worktree added/removed), heartbeat (keepalive every 15s).
+        Opens a Server-Sent Events stream for real-time updates. Optionally filter
+        by projectId and agentType to receive events for a single project.
+        Event types: worktree_state, project_state, worktree_list_changed,
+        budget_exceeded, budget_container_stopped, heartbeat, server_shutdown,
+        runtime_status, agent_status.
+      parameters:
+      - description: Filter events to this project ID
+        in: query
+        name: projectId
+        schema:
+          type: string
+      - description: Filter events to this agent type
+        in: query
+        name: agentType
+        schema:
+          type: string
       responses:
         "200":
           content:

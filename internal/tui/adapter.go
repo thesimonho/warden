@@ -320,7 +320,8 @@ func (a *ServiceAdapter) Shutdown(_ context.Context) error {
 // --- Real-time Events ---
 
 // SubscribeEvents subscribes to the event broker directly (no SSE).
-func (a *ServiceAdapter) SubscribeEvents(_ context.Context) (<-chan eventbus.SSEEvent, func(), error) {
+// Filter options are ignored in embedded mode — the TUI receives all events.
+func (a *ServiceAdapter) SubscribeEvents(_ context.Context, _ ...client.SubscribeEventsOptions) (<-chan eventbus.SSEEvent, func(), error) {
 	ch, unsub := a.w.Broker.Subscribe()
 	return ch, unsub, nil
 }

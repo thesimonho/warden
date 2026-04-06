@@ -45,11 +45,33 @@ import (
 //	        // Cost updated — refresh project list
 //	    }
 //	}
-func (c *Client) SubscribeEvents(ctx context.Context) (<-chan eventbus.SSEEvent, func(), error) {
+// SubscribeEventsOptions controls SSE event filtering.
+type SubscribeEventsOptions struct {
+	// ProjectID filters events to a single project. Empty means all projects.
+	ProjectID string
+	// AgentType filters events to a single agent type. Empty means all agents.
+	AgentType string
+}
+
+func (c *Client) SubscribeEvents(ctx context.Context, opts ...SubscribeEventsOptions) (<-chan eventbus.SSEEvent, func(), error) {
 	ctx, cancel := context.WithCancel(ctx)
 	ch := make(chan eventbus.SSEEvent, 64)
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.baseURL+"/api/v1/events", nil)
+	path := "/api/v1/events"
+	if len(opts) > 0 {
+		var params []string
+		if opts[0].ProjectID != "" {
+			params = append(params, "projectId="+opts[0].ProjectID)
+		}
+		if opts[0].AgentType != "" {
+			params = append(params, "agentType="+opts[0].AgentType)
+		}
+		if len(params) > 0 {
+			path += "?" + strings.Join(params, "&")
+		}
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.baseURL+path, nil)
 	if err != nil {
 		cancel()
 		return nil, nil, err
