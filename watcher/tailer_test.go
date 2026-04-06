@@ -999,3 +999,81 @@ func TestFileTailer_PartialLineWaitsForNewline(t *testing.T) {
 		t.Errorf("expected 'partial complete', got %q", lines[0])
 	}
 }
+
+func TestFileTailer_MultiplePartialWritesBeforeNewline(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "test.jsonl")
+
+	// Write first partial chunk (no newline).
+	if err := os.WriteFile(path, []byte("aaa"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	store := newMemoryOffsetStore()
+	var mu sync.Mutex
+	var lines []string
+
+	tailer := watcher.NewFileTailer(watcher.TailerConfig{
+		Discover:     func() []string { return []string{path} },
+		OnLine:       func(_ string, line []byte) { mu.Lock(); lines = append(lines, string(line)); mu.Unlock() },
+		PollInterval: testPollInterval,
+		OffsetStore:  store,
+		ProjectID:    "proj",
+		AgentType:    "claude-code",
+	})
+
+	ctx := context.Background()
+	tailer.Start(ctx)
+	defer tailer.Stop()
+
+	// Wait for first poll to buffer partial "aaa".
+	time.Sleep(150 * time.Millisecond)
+
+	// Append second partial chunk (still no newline).
+	f, err := os.OpenFile(path, os.O_APPEND|os.O_WRONLY, 0o644)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.WriteString("bbb"); err != nil {
+		t.Fatal(err)
+	}
+	_ = f.Close()
+
+	// Wait for second poll to buffer "bbb" on top of "aaa".
+	time.Sleep(150 * time.Millisecond)
+
+	// No line should be delivered yet.
+	mu.Lock()
+	if len(lines) != 0 {
+		t.Fatalf("expected no lines from partial writes, got %v", lines)
+	}
+	mu.Unlock()
+
+	// Complete the line.
+	f, err = os.OpenFile(path, os.O_APPEND|os.O_WRONLY, 0o644)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.WriteString("ccc\n"); err != nil {
+		t.Fatal(err)
+	}
+	_ = f.Close()
+
+	waitFor(t, 2*time.Second, func() bool {
+		mu.Lock()
+		defer mu.Unlock()
+		return len(lines) == 1
+	})
+
+	mu.Lock()
+	defer mu.Unlock()
+	if lines[0] != "aaabbbccc" {
+		t.Errorf("expected 'aaabbbccc', got %q", lines[0])
+	}
+
+	// Offset should cover the entire line: len("aaabbbccc\n") = 10.
+	offset := store.getOffset("proj", "claude-code", path)
+	if offset != 10 {
+		t.Errorf("expected offset 10, got %d", offset)
+	}
+}

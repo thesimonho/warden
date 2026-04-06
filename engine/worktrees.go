@@ -218,7 +218,17 @@ func (ec *EngineClient) ListWorktrees(ctx context.Context, containerID string, s
 // listWorktreesWithHint is the internal implementation of ListWorktrees that accepts
 // a pre-computed isGitRepo flag to avoid a duplicate exec when the caller already knows.
 // When skipEnrich is true, the expensive batch exec for terminal state is skipped.
+//
+// Uses the combined docker exec path (discoverAndEnrichWorktrees) which merges
+// git discovery and terminal listing into a single exec call, falling back to
+// the legacy multi-exec path on failure.
 func (ec *EngineClient) listWorktreesWithHint(ctx context.Context, containerID string, isGitRepo, skipEnrich bool) ([]Worktree, error) {
+	return ec.listWorktreesCombined(ctx, containerID, isGitRepo, skipEnrich)
+}
+
+// listWorktreesWithHintLegacy is the original multi-exec implementation,
+// kept as a fallback if the combined exec path fails.
+func (ec *EngineClient) listWorktreesWithHintLegacy(ctx context.Context, containerID string, isGitRepo, skipEnrich bool) ([]Worktree, error) {
 	var worktrees []Worktree
 	if isGitRepo {
 		var err error

@@ -65,6 +65,12 @@ func (s *Service) PersistSessionCost(projectID, agentType, containerName, sessio
 		}
 	}
 	s.enforceBudget(dbKey, agentType)
+
+	// Clear the negative cache when we have a real session (even if cost
+	// is $0), so the next ListProjects call picks up cost data from the DB.
+	if sessionID != "" {
+		s.ClearCostFallbackNegCache(dbKey, agentType)
+	}
 }
 
 // enforceBudget checks whether a project has exceeded its cost budget

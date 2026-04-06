@@ -53,7 +53,7 @@ export function useProjects(pollIntervalMs = DEFAULT_POLL_INTERVAL_MS): UseProje
       const data = await fetchProjects()
       startTransition(() => {
         setProjects((prev) => {
-          const hasChanged = JSON.stringify(prev) !== JSON.stringify(data)
+          const hasChanged = projectsChanged(prev, data)
           return hasChanged ? data : prev
         })
         setError(null)
@@ -234,4 +234,29 @@ export function useProjects(pollIntervalMs = DEFAULT_POLL_INTERVAL_MS): UseProje
   })
 
   return { projects, isLoading, isRefreshing, error, refetch, installStatuses }
+}
+
+/**
+ * Compares two project lists by the fields that actually change between polls.
+ * Avoids the overhead of two full JSON.stringify serializations per poll cycle.
+ */
+function projectsChanged(prev: Project[], next: Project[]): boolean {
+  if (prev.length !== next.length) return true
+  for (let i = 0; i < prev.length; i++) {
+    const a = prev[i]
+    const b = next[i]
+    if (
+      a.projectId !== b.projectId ||
+      a.state !== b.state ||
+      a.totalCost !== b.totalCost ||
+      a.needsInput !== b.needsInput ||
+      a.notificationType !== b.notificationType ||
+      a.activeWorktreeCount !== b.activeWorktreeCount ||
+      a.hasContainer !== b.hasContainer ||
+      a.agentStatus !== b.agentStatus
+    ) {
+      return true
+    }
+  }
+  return false
 }

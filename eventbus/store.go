@@ -110,6 +110,15 @@ type StaleCallbackFunc func(containerName string)
 // Set via [Store.SetAliveCallback].
 type AliveCallbackFunc func(projectID, agentType, containerName string)
 
+// costBroadcastMinDelta is the minimum cost change (in USD) required to
+// broadcast a project_state SSE event. Suppresses high-frequency broadcasts
+// during active agent work when cost changes are negligible.
+const costBroadcastMinDelta = 0.01
+
+// costBroadcastMinInterval is the minimum time between cost-triggered
+// project_state broadcasts for the same container.
+const costBroadcastMinInterval = 5 * time.Second
+
 // Store holds in-memory state derived from container events.
 //
 // Thread-safe for concurrent reads from API handlers and writes
@@ -126,6 +135,11 @@ type Store struct {
 	onCostUpdate       CostUpdateCallbackFunc
 	onStale            StaleCallbackFunc
 	onAlive            AliveCallbackFunc
+
+	// Cost broadcast throttling — suppresses redundant SSE events when
+	// cost changes are negligible (< $0.01 within 5s).
+	lastBroadcastCost map[string]float64
+	lastBroadcastTime map[string]time.Time
 }
 
 // NewStore creates an empty event store. If broker is non-nil,
@@ -140,6 +154,8 @@ func NewStore(broker *Broker, auditWriter *db.AuditWriter) *Store {
 		lastEvents:         make(map[string]time.Time),
 		broker:             broker,
 		auditWriter:        auditWriter,
+		lastBroadcastCost:  make(map[string]float64),
+		lastBroadcastTime:  make(map[string]time.Time),
 	}
 }
 
@@ -381,6 +397,10 @@ func (s *Store) EvictWorktree(containerName, worktreeID string) {
 	}
 	if !hasRemaining {
 		delete(s.terminalContainers, containerName)
+		// Prune cost broadcast throttle state for this container since
+		// no terminals remain.
+		delete(s.lastBroadcastCost, containerName)
+		delete(s.lastBroadcastTime, containerName)
 	}
 
 	s.mu.Unlock()

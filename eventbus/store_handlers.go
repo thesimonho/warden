@@ -3,6 +3,7 @@ package eventbus
 import (
 	"encoding/json"
 	"log/slog"
+	"time"
 
 	"github.com/thesimonho/warden/engine"
 )
@@ -155,6 +156,11 @@ func (s *Store) handleTurnComplete(key worktreeKey, event ContainerEvent) []pend
 // handleCostUpdate processes a cost update event, updating in-memory cost
 // state if present. Returns the parsed CostData so HandleEvent can pass
 // it to the onCostUpdate callback without re-parsing the same JSON.
+//
+// Cost-triggered project_state broadcasts are throttled: the broadcast is
+// suppressed if the cost delta since the last broadcast is < $0.01 AND
+// less than 5s have elapsed. This reduces SSE noise during active agent
+// work without delaying meaningful cost changes.
 func (s *Store) handleCostUpdate(key worktreeKey, event ContainerEvent) ([]pendingBroadcast, CostData) {
 	var broadcasts []pendingBroadcast
 	var parsed CostData
@@ -170,7 +176,19 @@ func (s *Store) handleCostUpdate(key worktreeKey, event ContainerEvent) ([]pendi
 				UpdatedAt:    event.Timestamp,
 			}
 			s.costs[event.ContainerName] = cost
-			broadcasts = append(broadcasts, s.buildProjectBroadcast(event.Ref()))
+
+			// Throttle: only broadcast if cost changed meaningfully or enough time has passed.
+			lastCost := s.lastBroadcastCost[event.ContainerName]
+			lastTime := s.lastBroadcastTime[event.ContainerName]
+			delta := parsed.TotalCost - lastCost
+			if delta < 0 {
+				delta = -delta
+			}
+			if delta >= costBroadcastMinDelta || time.Since(lastTime) >= costBroadcastMinInterval {
+				broadcasts = append(broadcasts, s.buildProjectBroadcast(event.Ref()))
+				s.lastBroadcastCost[event.ContainerName] = parsed.TotalCost
+				s.lastBroadcastTime[event.ContainerName] = time.Now()
+			}
 		}
 	}
 

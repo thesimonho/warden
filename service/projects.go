@@ -273,23 +273,41 @@ func (s *Service) GetProject(projectID, agentType string) (*db.ProjectRow, error
 }
 
 // GetProjectDetails returns a single project enriched with Docker state,
-// cost, attention, and agent version data. Reuses the full listProjectsInternal
-// pipeline to ensure enrichment logic stays consistent with ListProjects.
+// cost, attention, and agent version data. Only queries Docker for the
+// requested project's container, avoiding the O(N) enrichment of all
+// containers that listProjectsInternal performs.
 func (s *Service) GetProjectDetails(ctx context.Context, projectID, agentType string) (*api.ProjectResponse, error) {
-	if _, err := s.resolveProject(projectID, agentType); err != nil {
-		return nil, err
-	}
-	projects, err := s.listProjectsInternal(ctx)
+	row, err := s.resolveProject(projectID, agentType)
 	if err != nil {
 		return nil, err
 	}
-	for _, p := range projects {
-		if p.ProjectID == projectID && string(p.AgentType) == agentType {
-			resp := projectResponseFromEngine(p)
-			return &resp, nil
-		}
+
+	containerName := effectiveContainerName(row)
+	defaultBudget := s.GetDefaultProjectBudget()
+
+	// Query Docker for just this one container.
+	projects, err := s.docker.ListProjects(ctx, []string{containerName})
+	if err != nil {
+		return nil, err
 	}
-	return nil, ErrNotFound
+
+	if len(projects) == 0 {
+		return nil, ErrNotFound
+	}
+
+	p := projects[0]
+	p.ProjectID = row.ProjectID
+	p.HostPath = row.HostPath
+	applyDBMetadata(&p, row, defaultBudget)
+
+	// Overlay cost, attention, and agent version for this single project.
+	single := []engine.Project{p}
+	s.overlayCost(ctx, single)
+	s.overlayAttention(single)
+	s.overlayAgentVersions(single)
+
+	resp := projectResponseFromEngine(single[0])
+	return &resp, nil
 }
 
 // GetProjectCosts returns session-level cost data for a project.
@@ -645,6 +663,12 @@ func (s *Service) overlayCost(ctx context.Context, projects []engine.Project) {
 		if projects[i].State != "running" {
 			continue
 		}
+
+		// Skip docker exec if we recently checked and found no cost data.
+		if s.isCostFallbackSuppressed(key) {
+			continue
+		}
+
 		result := s.readAndPersistAgentCost(
 			ctx,
 			projects[i].ProjectID,
@@ -655,6 +679,8 @@ func (s *Service) overlayCost(ctx context.Context, projects []engine.Project) {
 		if result != nil && result.TotalCost > 0 {
 			projects[i].TotalCost = result.TotalCost
 			projects[i].IsEstimatedCost = result.IsEstimated
+		} else {
+			s.setCostFallbackNegCache(key)
 		}
 	}
 }
