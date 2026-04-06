@@ -1,5 +1,23 @@
 # Changelog
 
+## [1.7.0](https://github.com/thesimonho/warden/compare/v1.6.6...v1.7.0) (2026-04-06)
+
+
+### Features
+
+* add POST /api/v1/shutdown endpoint ([#119](https://github.com/thesimonho/warden/issues/119)) ([8ad30be](https://github.com/thesimonho/warden/commit/8ad30bee93c2aabf201aa56abde1293d170a94a5))
+* add system tray companion and exit messages ([#120](https://github.com/thesimonho/warden/issues/120)) ([3a09e84](https://github.com/thesimonho/warden/commit/3a09e84ea4a6abf63bd0d8664848b8b9da3c7f72))
+* plugin system and docs restructuring ([#128](https://github.com/thesimonho/warden/issues/128)) ([362c54a](https://github.com/thesimonho/warden/commit/362c54a6c89145bcbcb37363eb7d45d4f91729fe))
+* stepped project config form with tab navigation ([#125](https://github.com/thesimonho/warden/issues/125)) ([f117709](https://github.com/thesimonho/warden/commit/f117709712f50ea14966fd19579cb2e149aae831))
+* use native file picker for .warden.json template import ([#124](https://github.com/thesimonho/warden/issues/124)) ([fc85e12](https://github.com/thesimonho/warden/commit/fc85e1277db721966113c3b3db0d94112d3810b1))
+
+
+### Bug Fixes
+
+* harden .warden.json template write-back system ([#123](https://github.com/thesimonho/warden/issues/123)) ([b78b3f9](https://github.com/thesimonho/warden/commit/b78b3f90e237ccfe9369ea942a56a164851606f0))
+* isolate shell env spawn to prevent SIGTTOU in TUI ([#117](https://github.com/thesimonho/warden/issues/117)) ([3564f33](https://github.com/thesimonho/warden/commit/3564f337600ddd468c366e246a37a0568392c293))
+* prevent process hang after TUI quit ([#122](https://github.com/thesimonho/warden/issues/122)) ([b0f1ce5](https://github.com/thesimonho/warden/commit/b0f1ce507627fc4cde631d802c5b1147e7b8e5f3))
+
 ## [1.6.6](https://github.com/thesimonho/warden/compare/v1.6.5...v1.6.6) (2026-04-05)
 
 
