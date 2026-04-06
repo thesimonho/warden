@@ -899,3 +899,87 @@ Gracefully stops the container for the given project.
 ##### Status: 400 Bad Request
 ##### Status: 404 Not Found
 ##### Status: 500 Internal Server Error
+---
+
+## Batch project operation
+
+- **Method:** `POST`
+- **Path:** `/api/v1/projects/batch`
+- **Tags:** projects
+
+Performs an action (stop, restart, delete) on multiple projects. Each project is processed independently — failures are per-item.
+
+#### Request Body
+
+##### Content-Type: application/json
+
+**One of:**
+
+- **`action`**
+
+  `string`, possible values: `"stop", "restart", "delete"` — Action is the operation to perform: "stop", "restart", or "delete".
+
+- **`projects`**
+
+  `array` — Projects lists the targets for the operation.
+
+  **Items:**
+
+  - **`agentType`**
+
+    `string`
+
+  - **`projectId`**
+
+    `string`
+
+**Example:**
+
+```json
+{}
+```
+
+#### Responses
+
+##### Status: 200 OK
+
+###### Content-Type: application/json
+
+- **`results`**
+
+  `array`
+
+  **Items:**
+
+  - **`agentType`**
+
+    `string`
+
+  - **`error`**
+
+    `string`
+
+  - **`projectId`**
+
+    `string`
+
+  - **`success`**
+
+    `boolean`
+
+**Example:**
+
+```json
+{
+  "results": [
+    {
+      "agentType": "",
+      "error": "",
+      "projectId": "",
+      "success": true
+    }
+  ]
+}
+```
+
+##### Status: 400 Bad Request

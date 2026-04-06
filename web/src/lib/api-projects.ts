@@ -3,7 +3,13 @@
  *
  * @module
  */
-import type { AddProjectResponse, AgentType, Project, ProjectResult } from '@/lib/types'
+import type {
+  AddProjectResponse,
+  AgentType,
+  BatchProjectResponse,
+  Project,
+  ProjectResult,
+} from '@/lib/types'
 import { apiFetch, projectUrl } from './api-core'
 
 /**
@@ -98,4 +104,22 @@ export async function purgeProjectAudit(
 ): Promise<{ deleted: number }> {
   const response = await apiFetch(`${projectUrl(projectId, agentType)}/audit`, { method: 'DELETE' })
   return response.json() as Promise<{ deleted: number }>
+}
+
+/**
+ * Performs a batch operation on multiple projects.
+ *
+ * @param action - The operation: "stop", "restart", or "delete".
+ * @param projects - The list of project targets.
+ */
+export async function batchProjectOperation(
+  action: 'stop' | 'restart' | 'delete',
+  projects: Array<{ projectId: string; agentType: string }>,
+): Promise<BatchProjectResponse> {
+  const response = await apiFetch('/api/v1/projects/batch', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action, projects }),
+  })
+  return response.json() as Promise<BatchProjectResponse>
 }

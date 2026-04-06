@@ -50,6 +50,7 @@ func registerAPIRoutes(mux *http.ServeMux, svc *service.Service, broker *eventbu
 	mux.HandleFunc("POST /api/v1/shutdown", makeHandleShutdown(shutdownCh, broker))
 	mux.HandleFunc("GET /api/v1/projects", rt.handleListProjects)
 	mux.HandleFunc("POST /api/v1/projects", rt.handleAddProject)
+	mux.HandleFunc("POST /api/v1/projects/batch", rt.handleBatchProjects)
 	mux.HandleFunc("GET /api/v1/projects/{projectId}/{agentType}", rt.handleGetProject)
 	mux.HandleFunc("DELETE /api/v1/projects/{projectId}/{agentType}", rt.handleRemoveProject)
 	mux.HandleFunc("POST /api/v1/projects/{projectId}/{agentType}/stop", rt.handleStopProject)

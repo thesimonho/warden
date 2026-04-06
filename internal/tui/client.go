@@ -38,6 +38,10 @@ type Client interface {
 	// API: GET /api/v1/projects/{projectId}/{agentType}/budget
 	GetBudgetStatus(ctx context.Context, projectID, agentType string) (*api.BudgetStatusResponse, error)
 
+	// BatchProjectOperation performs an action on multiple projects.
+	// API: POST /api/v1/projects/batch
+	BatchProjectOperation(ctx context.Context, req api.BatchProjectRequest) (*api.BatchProjectResponse, error)
+
 	// AddProject registers a project directory in Warden. Optionally creates
 	// a container when the request includes Container config.
 	// API: POST /api/v1/projects
