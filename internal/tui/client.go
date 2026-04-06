@@ -62,6 +62,10 @@ type Client interface {
 	// API: GET /api/v1/projects/{projectId}/{agentType}/worktrees/{wid}
 	GetWorktree(ctx context.Context, projectID, agentType, worktreeID string) (*engine.Worktree, error)
 
+	// SendWorktreeInput sends text to a worktree's tmux pane.
+	// API: POST /api/v1/projects/{projectId}/{agentType}/worktrees/{wid}/input
+	SendWorktreeInput(ctx context.Context, projectID, agentType, worktreeID string, req api.WorktreeInputRequest) error
+
 	// CreateWorktree creates a git worktree and connects a terminal.
 	// API: POST /api/v1/projects/{projectId}/{agentType}/worktrees
 	CreateWorktree(ctx context.Context, projectID, agentType string, req api.CreateWorktreeRequest) (*api.WorktreeResult, error)

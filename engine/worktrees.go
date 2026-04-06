@@ -154,6 +154,43 @@ func (ec *EngineClient) isGitWorktreeKnown(ctx context.Context, containerID, wor
 	return false
 }
 
+// SendWorktreeInput sends text to a worktree's tmux pane. Uses `tmux send-keys -l`
+// (literal mode) to prevent tmux key-name interpretation. If pressEnter is true,
+// sends a separate Enter keystroke after the text.
+func (ec *EngineClient) SendWorktreeInput(ctx context.Context, containerID, worktreeID, text string, pressEnter bool) error {
+	sessionName := TmuxSessionName(worktreeID)
+
+	// Check session exists first.
+	if !ec.isSessionAlive(ctx, containerID, worktreeID) {
+		return fmt.Errorf("no tmux session for worktree %q", worktreeID)
+	}
+
+	// Send literal text (no key-name interpretation).
+	_, err := ec.execAndCaptureStrict(ctx, containerID, container.ExecOptions{
+		Cmd:          []string{"tmux", "send-keys", "-t", sessionName, "-l", text},
+		User:         ContainerUser,
+		AttachStdout: true,
+		AttachStderr: true,
+	})
+	if err != nil {
+		return fmt.Errorf("sending text to tmux session: %w", err)
+	}
+
+	if pressEnter {
+		_, err = ec.execAndCaptureStrict(ctx, containerID, container.ExecOptions{
+			Cmd:          []string{"tmux", "send-keys", "-t", sessionName, "Enter"},
+			User:         ContainerUser,
+			AttachStdout: true,
+			AttachStderr: true,
+		})
+		if err != nil {
+			return fmt.Errorf("sending Enter to tmux session: %w", err)
+		}
+	}
+
+	return nil
+}
+
 // isSessionAlive checks if a tmux session for the worktree is running.
 // Uses `tmux has-session` which returns exit code 0 if the session exists.
 func (ec *EngineClient) isSessionAlive(ctx context.Context, containerID, worktreeID string) bool {

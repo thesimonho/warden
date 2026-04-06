@@ -87,6 +87,19 @@ type CreateWorktreeRequest struct {
 // ProjectResult is the outcome of a project mutation (create, remove, stop,
 // restart). ProjectID is always populated. ContainerID is populated when the
 // operation targets a specific container.
+// WorktreeInputRequest is the JSON body for sending text to a worktree's terminal.
+type WorktreeInputRequest struct {
+	// Text is the input to send. Required, max 64KB.
+	Text string `json:"text"`
+	// PressEnter appends Enter after the text. Defaults to true if omitted.
+	PressEnter *bool `json:"pressEnter,omitempty"`
+}
+
+// ShouldPressEnter returns whether Enter should be sent after the text.
+func (r WorktreeInputRequest) ShouldPressEnter() bool {
+	return r.PressEnter == nil || *r.PressEnter
+}
+
 type ProjectResult struct {
 	// ProjectID is the deterministic project identifier.
 	ProjectID string `json:"projectId"`

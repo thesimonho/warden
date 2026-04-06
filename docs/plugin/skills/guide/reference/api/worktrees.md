@@ -405,6 +405,43 @@ Closes the terminal viewer WebSocket. The tmux session (and Claude/bash) continu
 ##### Status: 500 Internal Server Error
 ---
 
+## Send worktree input
+
+- **Method:** `POST`
+- **Path:** `/api/v1/projects/{projectId}/{agentType}/worktrees/{wid}/input`
+- **Tags:** worktrees
+
+Sends text to a worktree's terminal via tmux send-keys. Uses literal mode to prevent key-name interpretation. If pressEnter is true (default), appends Enter after the text. Enables headless/CI integrations without a WebSocket.
+
+#### Request Body
+
+##### Content-Type: application/json
+
+**One of:**
+
+- **`pressEnter`**
+
+  `boolean` — PressEnter appends Enter after the text. Defaults to true if omitted.
+
+- **`text`**
+
+  `string` — Text is the input to send. Required, max 64KB.
+
+**Example:**
+
+```json
+{}
+```
+
+#### Responses
+
+##### Status: 204 No Content
+
+##### Status: 400 Bad Request
+##### Status: 404 Not Found
+##### Status: 500 Internal Server Error
+---
+
 ## Kill worktree process
 
 - **Method:** `POST`

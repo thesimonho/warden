@@ -37,6 +37,17 @@ func (s *Service) ListWorktrees(ctx context.Context, projectID, agentType string
 	return worktrees, nil
 }
 
+// SendWorktreeInput sends text to a worktree's tmux pane via docker exec.
+// Returns ErrNotFound if the project or tmux session doesn't exist.
+func (s *Service) SendWorktreeInput(ctx context.Context, projectID, agentType, worktreeID string, req api.WorktreeInputRequest) error {
+	project, err := s.resolveProject(projectID, agentType)
+	if err != nil {
+		return err
+	}
+
+	return s.docker.SendWorktreeInput(ctx, project.ContainerID, worktreeID, req.Text, req.ShouldPressEnter())
+}
+
 // GetWorktree returns a single worktree by ID with terminal state.
 // Internally fetches all worktrees and filters — acceptable for the
 // typical 1-5 worktrees per project. A targeted single-worktree

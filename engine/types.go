@@ -218,6 +218,10 @@ type Client interface {
 	// the process entirely. The git worktree directory on disk is preserved.
 	KillWorktreeProcess(ctx context.Context, containerID, worktreeID string) error
 
+	// SendWorktreeInput sends text to a worktree's tmux pane. Uses literal mode
+	// to prevent key-name interpretation. If pressEnter is true, sends Enter after the text.
+	SendWorktreeInput(ctx context.Context, containerID, worktreeID, text string, pressEnter bool) error
+
 	// ResetWorktree clears all history for a worktree without removing it.
 	// Kills the process, clears JSONL session files, and removes terminal
 	// tracking state.

@@ -83,6 +83,63 @@ func (rt *routes) handleGetWorktree(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, worktree)
 }
 
+// handleSendWorktreeInput sends text to a worktree's tmux pane.
+//
+//	@Summary		Send worktree input
+//	@Description	Sends text to a worktree's terminal via tmux send-keys. Uses literal mode
+//	@Description	to prevent key-name interpretation. If pressEnter is true (default), appends
+//	@Description	Enter after the text. Enables headless/CI integrations without a WebSocket.
+//	@Tags			worktrees
+//	@Accept			json
+//	@Param			projectId	path	string						true	"Project ID"
+//	@Param			agentType	path	string						true	"Agent type"
+//	@Param			wid			path	string						true	"Worktree ID"
+//	@Param			body		body	api.WorktreeInputRequest	true	"Input text"
+//	@Success		204
+//	@Failure		400	{object}	apiError
+//	@Failure		404	{object}	apiError
+//	@Failure		500	{object}	apiError
+//	@Router			/api/v1/projects/{projectId}/{agentType}/worktrees/{wid}/input [post]
+func (rt *routes) handleSendWorktreeInput(w http.ResponseWriter, r *http.Request) {
+	projectID := r.PathValue("projectId")
+
+	wid := r.PathValue("wid")
+	if !isValidWorktreeID(wid) {
+		writeError(w, ErrCodeInvalidWorktreeID, "invalid worktree ID", http.StatusBadRequest)
+		return
+	}
+
+	agentType, ok := extractAgentType(r)
+	if !ok {
+		writeError(w, ErrCodeInvalidBody, "invalid agent type", http.StatusBadRequest)
+		return
+	}
+
+	r.Body = http.MaxBytesReader(w, r.Body, 64<<10)
+
+	var req api.WorktreeInputRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, ErrCodeInvalidBody, "invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	if req.Text == "" {
+		writeError(w, ErrCodeRequiredField, "text is required", http.StatusBadRequest)
+		return
+	}
+
+	if err := rt.svc.SendWorktreeInput(r.Context(), projectID, agentType, wid, req); err != nil {
+		if writeServiceError(w, err) {
+			return
+		}
+		writeError(w, ErrCodeInternal, err.Error(), http.StatusInternalServerError)
+		slog.Error("send worktree input", "projectId", projectID, "wid", wid, "err", err)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
 // handleCreateWorktree creates a new git worktree and connects a terminal.
 //
 //	@Summary		Create worktree
