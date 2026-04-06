@@ -6,6 +6,14 @@ set dotenv-load := true
 default:
     @just --list
 
+
+# ── Setup ────────────────────────────────────────────────────────────────────
+# Install Go and Node dependencies
+install:
+    go mod download
+    npm --prefix web install
+    npm --prefix docs/site install
+
 # ── Development ──────────────────────────────────────────────────────────────
 # Clean up node_modules and dist directories
 clean:
@@ -221,10 +229,3 @@ docs-build: docs-generate
 docs-preview: docs-build
     npm --prefix docs/site run preview
 
-# ── Setup ────────────────────────────────────────────────────────────────────
-
-# Install Go and Node dependencies
-install:
-    go mod download
-    npm --prefix web install
-    npm --prefix docs/site install

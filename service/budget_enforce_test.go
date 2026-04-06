@@ -331,6 +331,27 @@ func TestPersistSessionCost_WorksWhenAuditOff(t *testing.T) {
 	}
 }
 
+func TestIsOverBudget_ExactlyAtLimit(t *testing.T) {
+	t.Parallel()
+	store := testDB(t)
+	svc := New(ServiceDeps{DockerAvailable: true, Engine: &mockEngine{}, DB: store})
+
+	_ = store.InsertProject(testProjectRow("proj", 10.00))
+	setBudgetAction(svc, settingBudgetActionPreventStart, "true")
+
+	// Exactly at the limit is NOT over budget (strict > comparison).
+	_ = store.UpsertSessionCost("proj", "claude-code", "session-1", 10.00, false)
+	if svc.IsOverBudget("proj", "claude-code") {
+		t.Error("expected IsOverBudget to return false when cost equals budget (strict >)")
+	}
+
+	// One cent over the limit IS over budget.
+	_ = store.UpsertSessionCost("proj", "claude-code", "session-1", 10.01, false)
+	if !svc.IsOverBudget("proj", "claude-code") {
+		t.Error("expected IsOverBudget to return true when cost exceeds budget by $0.01")
+	}
+}
+
 func TestRestartProject_AllowedWhenPreventStartOff(t *testing.T) {
 	t.Parallel()
 	store := testDB(t)
@@ -344,13 +365,18 @@ func TestRestartProject_AllowedWhenPreventStartOff(t *testing.T) {
 
 	_ = store.InsertProject(testProjectRow("proj", 10.00))
 	_ = store.UpsertSessionCost("proj", "claude-code", "session-1", 15.00, false)
-	// preventStart is off by default — restart should proceed.
+	// preventStart is off by default — restart should proceed past budget check.
 
 	row := &db.ProjectRow{ProjectID: "proj", ContainerID: "ctr123", ContainerName: "proj", Name: "proj"}
 	_, err := svc.RestartProject(context.Background(), row.ProjectID, "claude-code")
-	// Restart itself may fail (no real container), but it should NOT
-	// be ErrBudgetExceeded.
+
+	// The budget gate MUST NOT block. Any other error (e.g. no real container) is acceptable.
 	if errors.Is(err, ErrBudgetExceeded) {
 		t.Error("restart should not be blocked when preventStart is off")
+	}
+
+	// Verify IsOverBudget returns false when preventStart is off.
+	if svc.IsOverBudget("proj", "claude-code") {
+		t.Error("IsOverBudget should return false when preventStart is off")
 	}
 }

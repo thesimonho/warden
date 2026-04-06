@@ -297,6 +297,8 @@ describe('validateContainer', () => {
 
     expect(result.valid).toBe(false)
     expect(result.missing).toHaveLength(2)
+    expect(result.missing).toContain('/usr/local/bin/ttyd')
+    expect(result.missing).toContain('/usr/local/bin/create-terminal.sh')
   })
 
   it('throws on non-ok response', async () => {

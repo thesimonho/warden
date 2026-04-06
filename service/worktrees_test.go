@@ -54,6 +54,20 @@ func TestListWorktrees(t *testing.T) {
 	if len(worktrees) != 2 {
 		t.Fatalf("expected 2 worktrees, got %d", len(worktrees))
 	}
+
+	// Verify actual worktree content, not just count.
+	if worktrees[0].ID != "main" {
+		t.Errorf("expected first worktree ID 'main', got %q", worktrees[0].ID)
+	}
+	if worktrees[0].Branch != "main" {
+		t.Errorf("expected first worktree branch 'main', got %q", worktrees[0].Branch)
+	}
+	if worktrees[1].ID != "feature-x" {
+		t.Errorf("expected second worktree ID 'feature-x', got %q", worktrees[1].ID)
+	}
+	if worktrees[1].State != engine.WorktreeStateStopped {
+		t.Errorf("expected second worktree state 'stopped', got %q", worktrees[1].State)
+	}
 }
 
 func TestListWorktrees_Error(t *testing.T) {
@@ -137,6 +151,11 @@ func TestCreateWorktree(t *testing.T) {
 	if resp.WorktreeID != "feature-y" {
 		t.Errorf("expected worktree ID 'feature-y', got %q", resp.WorktreeID)
 	}
+
+	// Verify the engine received the correct worktree name.
+	if mock.lastWorktreeName != "feature-y" {
+		t.Errorf("expected engine to receive worktree name 'feature-y', got %q", mock.lastWorktreeName)
+	}
 }
 
 func TestCreateWorktree_Error(t *testing.T) {
@@ -203,26 +222,6 @@ func TestConnectTerminal(t *testing.T) {
 	mock := &mockEngine{
 		connectResp: "main",
 	}
-	database := testDB(t)
-	svc := New(ServiceDeps{DockerAvailable: true, Engine: mock, DB: database})
-
-	row := testProjectRowMinimal("abc123def456", "my-project")
-	insertTestProject(t, database, row)
-	resp, err := svc.ConnectTerminal(context.Background(), row.ProjectID, "claude-code", "main")
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if resp.WorktreeID != "main" {
-		t.Errorf("expected worktree ID 'main', got %q", resp.WorktreeID)
-	}
-}
-
-func TestConnectTerminal_PushesEvent(t *testing.T) {
-	t.Parallel()
-
-	mock := &mockEngine{
-		connectResp: "main",
-	}
 
 	broker := eventbus.NewBroker()
 	defer broker.Shutdown()
@@ -232,9 +231,12 @@ func TestConnectTerminal_PushesEvent(t *testing.T) {
 
 	row := testProjectRowMinimal("abc123def456", "my-project")
 	insertTestProject(t, database, row)
-	_, err := svc.ConnectTerminal(context.Background(), row.ProjectID, "claude-code", "main")
+	resp, err := svc.ConnectTerminal(context.Background(), row.ProjectID, "claude-code", "main")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
+	}
+	if resp.WorktreeID != "main" {
+		t.Errorf("expected worktree ID 'main', got %q", resp.WorktreeID)
 	}
 
 	// Verify the store has terminal data after connect.

@@ -274,6 +274,7 @@ func TestParseTerminalBatch_Empty(t *testing.T) {
 func TestParseTerminalBatch_NoExitCode(t *testing.T) {
 	t.Parallel()
 
+	// When EXIT_END has no exit code value, exitCode defaults to -1 (unset).
 	output := `---WT_START:orphan---
 ---EXIT_END---0
 ---SESSION_END---`
@@ -286,10 +287,10 @@ func TestParseTerminalBatch_NoExitCode(t *testing.T) {
 		return // unreachable — staticcheck SA5011
 	}
 	if orphan.exitCode != -1 {
-		t.Errorf("expected exit code -1, got %d", orphan.exitCode)
+		t.Errorf("expected exit code -1 (unset), got %d", orphan.exitCode)
 	}
 	if orphan.sessionAlive {
-		t.Error("expected sessionAlive=false")
+		t.Error("expected sessionAlive=false — dead session should not be alive")
 	}
 }
 
@@ -316,7 +317,7 @@ func TestParseTerminalBatch_SessionAlive(t *testing.T) {
 func TestParseTerminalBatch_SessionDead(t *testing.T) {
 	t.Parallel()
 
-	// Simulate: session dead
+	// Simulate: session dead (SESSION_END with 0 = session not alive).
 	output := `---WT_START:dead-task---
 ---EXIT_END---0
 ---SESSION_END---`
@@ -329,7 +330,11 @@ func TestParseTerminalBatch_SessionDead(t *testing.T) {
 		return // unreachable — staticcheck SA5011
 	}
 	if dead.sessionAlive {
-		t.Error("expected sessionAlive=false")
+		t.Error("expected sessionAlive=false for dead session")
+	}
+	// Verify exit code is parsed (0 from EXIT_END marker, but -1 means no file).
+	if dead.exitCode != -1 {
+		t.Errorf("expected exitCode -1, got %d", dead.exitCode)
 	}
 }
 

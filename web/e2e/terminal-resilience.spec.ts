@@ -92,6 +92,7 @@ test.describe('Terminal advanced', () => {
     await expect(page.locator(selectors.gridCell('e2e-indep'))).not.toBeVisible({ timeout: 15_000 })
 
     await expect(page.locator(selectors.gridCell('main'))).toBeVisible()
+    await waitForTerminalReady(page)
     await assertTerminalUsable(page)
   })
 

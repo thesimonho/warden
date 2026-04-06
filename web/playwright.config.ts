@@ -63,7 +63,7 @@ const runtimePrefix = ''
 
 /** Test-file patterns for the two project tiers. */
 const uiTestMatch = /home-page|navigation|project-page|project-lifecycle|panel-maximize|terminal-connection/
-const containerTestMatch = /container-integration|codex-container|devcontainer-feature|panel-layout|terminal-resilience|integrator-api/
+const containerTestMatch = /container-integration|codex-container|devcontainer-feature|panel-layout|terminal-resilience|api-endpoints|api-workflows/
 
 export default defineConfig({
   testDir: './e2e',

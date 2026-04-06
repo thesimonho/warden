@@ -1,34 +1,12 @@
-import { execSync } from 'child_process'
-import { existsSync, mkdirSync, writeFileSync, rmSync } from 'fs'
-import path from 'path'
+import { existsSync, rmSync } from 'fs'
 import { test as base, expect } from '@playwright/test'
-import { generateProjectName } from './helpers/fixtures'
-import { TEST_WORKSPACE } from './global-setup'
+import { generateProjectName, createUniqueWorkspace } from './helpers/fixtures'
 import {
   createTestProject,
   removeTestProject,
   waitForProjectState,
 } from './helpers/api'
 import { selectors } from './helpers/selectors'
-
-/**
- * Creates a unique workspace directory with a git repo inside TEST_WORKSPACE.
- * Returns the path. Each workspace produces a unique project ID.
- */
-function createUniqueWorkspace(name: string): string {
-  const workspace = path.join(TEST_WORKSPACE, name)
-  mkdirSync(workspace, { recursive: true })
-  if (!existsSync(path.join(workspace, '.git'))) {
-    execSync('git init', { cwd: workspace, stdio: 'pipe' })
-    writeFileSync(path.join(workspace, 'README.md'), '# E2E Test Workspace\n')
-    execSync('git add .', { cwd: workspace, stdio: 'pipe' })
-    execSync(
-      'git -c user.email="e2e@warden.test" -c user.name="Warden E2E" commit -m "initial commit"',
-      { cwd: workspace, stdio: 'pipe' },
-    )
-  }
-  return workspace
-}
 
 /**
  * Destructive project lifecycle tests get their own container.

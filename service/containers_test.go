@@ -365,6 +365,12 @@ func TestValidateContainer_Missing(t *testing.T) {
 		t.Error("expected valid=false")
 	}
 	if len(result.Missing) != 2 {
-		t.Errorf("expected 2 missing, got %d", len(result.Missing))
+		t.Fatalf("expected 2 missing, got %d", len(result.Missing))
+	}
+	if result.Missing[0] != "tmux" {
+		t.Errorf("expected first missing binary 'tmux', got %q", result.Missing[0])
+	}
+	if result.Missing[1] != "create-terminal.sh" {
+		t.Errorf("expected second missing binary 'create-terminal.sh', got %q", result.Missing[1])
 	}
 }
