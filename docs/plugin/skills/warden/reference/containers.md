@@ -130,7 +130,7 @@ The update endpoint accepts the same body shape as create. Warden classifies cha
 - **Lightweight changes** (`costBudget`, `skipPermissions`, `allowedDomains`) -- applied in-place without restarting
 - **Structural changes** (`image`, `mounts`, `envVars`, `networkMode`, `enabledRuntimes`, `enabledAccessItems`) -- trigger a full container recreation
 
-The response includes `recreated: true` or `recreated: false` so your integration knows what happened.
+The response includes `recreated: true` or `recreated: false` so your integration knows what happened. During recreation, existing worktrees are preserved but there is a brief gap in SSE events while the internal session watcher restarts on the new container. Poll `GET /api/v1/projects` after a recreation to re-sync state.
 
 ```bash
 # Update budget (lightweight, no recreation)

@@ -4,9 +4,18 @@ Warden broadcasts real-time state changes to connected clients via **Server-Sent
 
 ## SSE vs polling
 
-SSE is the primary (and only) mechanism for receiving real-time updates. Warden does not offer polling endpoints for state changes. The server sends a `heartbeat` event every 15 seconds as a keepalive so clients and proxies know the connection is alive.
+SSE is the primary mechanism for receiving real-time updates. The server sends a `heartbeat` event every 15 seconds as a keepalive so clients and proxies know the connection is alive.
 
-On reconnect, there is no event replay -- SSE connections start fresh. After reconnecting, poll `GET /api/v1/projects` once to get the current state of all projects, then let the SSE stream handle subsequent updates.
+However, SSE does not eliminate polling entirely. Some state is best obtained by periodic polling of `GET /api/v1/projects`:
+
+- **Container state changes** (stop, crash, external restart) may not always produce SSE events immediately
+- **Cost data captures** are asynchronous — cost totals on project objects may update between SSE events
+- **Codex attention state** is unavailable via SSE (Codex does not support hooks — see below)
+- **Container recreation** causes a brief gap in SSE events while the session watcher restarts
+
+A reasonable pattern: connect SSE for real-time attention/worktree updates, poll projects every 10-30 seconds for container state and cost totals.
+
+On reconnect, there is no event replay — SSE connections start fresh. After reconnecting, poll `GET /api/v1/projects` once to get the current state of all projects, then let the SSE stream handle subsequent updates.
 
 ## Connecting
 
