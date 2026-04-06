@@ -2,7 +2,9 @@
 
 The JSONL session parser is Warden's primary data source for agent events. Both Claude Code and Codex write session activity to JSONL files — Warden tails these files in real-time and converts them into agent-agnostic events for the SSE/audit pipeline.
 
-## Architecture
+Parses events listed in `./events.md`
+
+## Routing
 
 ```
 Container writes JSONL session line

@@ -25,17 +25,19 @@ Tests run against the live dev stack (`just dev`). Each test creates its own con
 | `e2e/terminal-resilience.spec.ts`   | Grid-mode multi-terminal, disconnect independence, worktree creation, navigate-away-and-back; canvas-mode panel resize |
 | `e2e/panel-maximize.spec.ts`        | Maximize/restore, maximize with terminal iframe                                                                        |
 | `e2e/panel-layout.spec.ts`          | Multi-panel shift+click selection, grid/horizontal/vertical layout (button + keyboard), Escape deselect, fit-all       |
-| `e2e/project-lifecycle.spec.ts`     | Full project create/edit/stop/restart/delete lifecycle via UI                                                          |
+| `e2e/project-lifecycle.spec.ts`     | Full project create/edit/stop/restart/delete lifecycle via UI (using shared `createUniqueWorkspace`)                   |
 | `e2e/container-integration.spec.ts` | Container infrastructure validation, worktree API operations, state transitions                                        |
 | `e2e/navigation.spec.ts`            | Page load, browser back/forward, add project button visibility                                                         |
+| `e2e/api-endpoints.spec.ts`         | API endpoint smoke tests: GET single project, GET single worktree, GET project costs, error handling                 |
+| `e2e/api-workflows.spec.ts`         | Complete multi-step API workflows: full lifecycle, multi-worktree isolation, SSE state machine, audit compliance, container config, budget guardrails, access items |
 
 ### E2E Infrastructure
 
-| File                       | Purpose                                                                         |
-| -------------------------- | ------------------------------------------------------------------------------- |
-| `playwright.config.ts`     | Chromium, headed by default, 120s timeout, artifact capture on failure          |
-| `e2e/global-setup.ts`      | Creates `/tmp/warden-e2e-workspace` git repo, health-checks dev server          |
-| `e2e/global-teardown.ts`   | Cleans workspace, warns about leaked `warden-e2e-*` containers                  |
-| `e2e/helpers/fixtures.ts`  | `test` extended with `testProject` (auto-creates/destroys container), `runtime` |
-| `e2e/helpers/api.ts`       | Direct API wrappers for setup/teardown (bypass UI)                              |
-| `e2e/helpers/selectors.ts` | Centralized `data-testid` selector constants                                    |
+| File                       | Purpose & Exports                                                                                                                                                                                                              |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `playwright.config.ts`     | Two projects: ui (lightweight, parallel) and container (heavy, serial). Matches `api-endpoints|api-workflows`. Auto-detects Vite dev server or Go backend; headless by default, 120s timeout, artifact capture on failure |
+| `e2e/global-setup.ts`      | Creates `/tmp/warden-e2e-workspace` git repo, health-checks dev server                                                                                                                                                        |
+| `e2e/global-teardown.ts`   | Cleans workspace, warns about leaked `warden-e2e-*` containers                                                                                                                                                                |
+| `e2e/helpers/fixtures.ts`  | `test` (worker-scoped fixture with `testProject`, `runtime`, `cleanupTerminals`); `isolatedTest` (per-test fresh container via `isolatedProject`); utilities: `createUniqueWorkspace()`, `generateProjectName()`, `TestProjectInfo`/`IsolatedProjectInfo` types, terminal readiness helpers |
+| `e2e/helpers/api.ts`       | **40+ exports**: `DEFAULT_AGENT_TYPE`, `sleep()`, utility functions, project CRUD, worktree management, terminal I/O, audit log, settings, container config, cost/budget, access items, SSE event collection, type definitions. Maps to Warden API.                       |
+| `e2e/helpers/selectors.ts` | Centralized `data-testid` selector constants                                                                                                                                                                                 |
