@@ -51,10 +51,6 @@ generate_page "${PLUGIN_REF}/paths.md" \
   "${SITE_CONTENT}/integration/paths.md" \
   "Integration Paths" "Integrate Warden using HTTP API, Go client, or Go library."
 
-generate_page "${PLUGIN_REF}/examples/api.md" \
-  "${SITE_CONTENT}/integration/http-api.md" \
-  "HTTP API" "Integrate Warden using the REST API, SSE events, and WebSocket terminals."
-
 generate_page "${PLUGIN_REF}/examples/client.md" \
   "${SITE_CONTENT}/integration/go-client.md" \
   "Go Client" "Use the typed Go client to talk to a running Warden server."

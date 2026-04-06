@@ -19,27 +19,41 @@ Warden offers three ways to integrate:
 
 All three paths expose the same features. Choose based on your language and deployment model.
 
-## Features
+## Reference Files
 
-Each feature has a dedicated reference file. Read only what you need for the integration task at hand.
+Each topic has a self-contained reference file. Read only what you need for the integration task at hand.
 
-| Feature               | Reference                                   | What it covers                                                     |
-| --------------------- | ------------------------------------------- | ------------------------------------------------------------------ |
-| Core concepts         | `reference/concepts.md`                     | Architecture, project identity, container lifecycle, terminology   |
-| Integration paths     | `reference/paths.md`                        | Binaries, integration approaches, which to choose                  |
-| Projects              | `reference/features/projects.md`            | Project CRUD, templates, configuration, agent types                |
-| Containers            | `reference/features/containers.md`          | Create, update, lifecycle, runtimes, image management              |
-| Worktrees & Terminals | `reference/features/worktrees-terminals.md` | Worktree states, terminal actions, WebSocket protocol, auto-resume |
-| Events                | `reference/features/events.md`              | SSE event types, real-time subscriptions, state transitions        |
-| Cost & Budget         | `reference/features/cost-budget.md`         | Cost tracking, budget enforcement, models per agent type           |
-| Audit                 | `reference/features/audit.md`               | Logging modes, categories, queries, export                         |
-| Access                | `reference/features/access.md`              | Credentials, mounts, source/injection types                        |
-| Network               | `reference/features/network.md`             | Network modes, domain allowlisting                                 |
-| Environment variables | `reference/environment-variables.md`        | Env vars for configuration                                         |
-| HTTP API examples     | `reference/examples/api.md`                 | HTTP API usage examples (curl, TypeScript, Python, Go)             |
-| Go Client examples    | `reference/examples/client.md`              | Go client examples                                                 |
-| Go Library examples   | `reference/examples/library.md`             | Go library (embedded engine) examples                              |
-| API Reference         | `reference/api/` (auto-generated)           | Per-resource endpoint reference from OpenAPI spec                  |
+**Start here:**
+
+| Topic                 | Reference                              | What it covers                                                   |
+| --------------------- | -------------------------------------- | ---------------------------------------------------------------- |
+| Architecture          | `reference/concepts.md`                | Layered system, project identity, infrastructure layout          |
+| Integration paths     | `reference/paths.md`                   | Binaries, key packages, decision tree for choosing an approach   |
+| Error handling        | `reference/error-handling.md`          | Error response format, error codes, handling patterns            |
+
+**Feature integration guides (HTTP API focused):**
+
+| Topic                 | Reference                              | What it covers                                                   |
+| --------------------- | -------------------------------------- | ---------------------------------------------------------------- |
+| Projects              | `reference/projects.md`                | Project lifecycle, identity, templates, stop/restart              |
+| Containers            | `reference/containers.md`              | Create, configure, update vs recreate, runtimes, mounts          |
+| Worktrees             | `reference/worktrees.md`               | Worktree states, create/remove/reset, cleanup, diff              |
+| Terminals             | `reference/terminals.md`               | Connect/disconnect, WebSocket protocol, clipboard, auto-resume   |
+| Events                | `reference/events.md`                  | SSE event types, payloads, reconnection strategy                 |
+| Network               | `reference/network.md`                 | Network modes, domain allowlists, hot-reload                     |
+| Access                | `reference/access.md`                  | Credential passthrough, built-in/custom items, detection         |
+| Audit                 | `reference/audit.md`                   | Logging modes, query/filter/export, custom events                |
+| Cost & Budget         | `reference/cost-budget.md`             | Cost tracking, budget enforcement, SSE events                    |
+| Settings              | `reference/settings.md`                | Global config, health check, shutdown                            |
+
+**Additional references:**
+
+| Topic                 | Reference                              | What it covers                                                   |
+| --------------------- | -------------------------------------- | ---------------------------------------------------------------- |
+| Environment variables | `reference/environment-variables.md`   | Server and container env vars                                    |
+| Go Client examples    | `reference/examples/client.md`         | Typed Go client usage                                            |
+| Go Library examples   | `reference/examples/library.md`        | Embedded engine usage                                            |
+| API field reference   | `reference/api/` (auto-generated)      | Per-resource endpoint reference from OpenAPI spec                |
 
 ## How to Use This Skill
 
