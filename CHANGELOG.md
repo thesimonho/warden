@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.7.1](https://github.com/thesimonho/warden/compare/v1.7.0...v1.7.1) (2026-04-06)
+
+
+### Bug Fixes
+
+* plugin manifest path and skill/agent renaming ([#129](https://github.com/thesimonho/warden/issues/129)) ([6b370a1](https://github.com/thesimonho/warden/commit/6b370a1646d07e6123944c8a328c8dcecda89f6f))
+
 ## [1.7.0](https://github.com/thesimonho/warden/compare/v1.6.6...v1.7.0) (2026-04-06)
 
 
