@@ -54,14 +54,14 @@ If you use an agent that doesn't support plugin systems, you can download the sk
 The Surveyor is a read-only agent that scans your codebase and produces an integration report:
 
 ```
-Run the warden:surveyor agent
+Run the warden surveyor agent
 ```
 
 Or target specific features:
 
 ```
 I want to integrate Warden's audit system.
-Call the warden:surveyor agent to explore my codebase.
+Call the warden surveyor agent to explore my codebase.
 ```
 
 It identifies:
@@ -74,7 +74,17 @@ The Surveyor doesn't modify code — it only explores and reports.
 
 ## Using the skill
 
-You can use the Warden skill directly to help integrate features into your application:
+The Warden skill provides you, and your agent, with a reference guide on how to build Warden into your project.
+
+Once installed, it can be triggered either by asking your agent to use the skill ("use the warden skill to..."), or by using these commands directly (depending on which agent you're using):
+
+```
+/warden <feature or question>
+
+/warden:guide <feature or question>
+```
+
+Examples of the types of things the skill can help you with:
 
 - _"Set up Warden project management using the HTTP API"_
 - _"Add worktree support using the Go client"_
