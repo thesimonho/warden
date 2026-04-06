@@ -107,6 +107,10 @@ Creates a new git worktree inside the container and automatically connects a ter
 
   `string` — ProjectID is the deterministic project identifier the worktree belongs to.
 
+- **`state`**
+
+  `string` — State is the worktree's terminal state after the mutation ("connected", "shell", "background", "stopped"). Best-effort — may be empty if the state could not be determined (e.g. container not running).
+
 - **`worktreeId`**
 
   `string` — WorktreeID is the worktree identifier.
@@ -116,6 +120,7 @@ Creates a new git worktree inside the container and automatically connects a ter
 ```json
 {
   "projectId": "",
+  "state": "",
   "worktreeId": ""
 }
 ```
@@ -143,6 +148,10 @@ Fully removes a worktree: kills any running processes, runs `git worktree remove
 
   `string` — ProjectID is the deterministic project identifier the worktree belongs to.
 
+- **`state`**
+
+  `string` — State is the worktree's terminal state after the mutation ("connected", "shell", "background", "stopped"). Best-effort — may be empty if the state could not be determined (e.g. container not running).
+
 - **`worktreeId`**
 
   `string` — WorktreeID is the worktree identifier.
@@ -152,6 +161,7 @@ Fully removes a worktree: kills any running processes, runs `git worktree remove
 ```json
 {
   "projectId": "",
+  "state": "",
   "worktreeId": ""
 }
 ```
@@ -179,6 +189,10 @@ Starts a tmux terminal session for the given worktree. If a background session a
 
   `string` — ProjectID is the deterministic project identifier the worktree belongs to.
 
+- **`state`**
+
+  `string` — State is the worktree's terminal state after the mutation ("connected", "shell", "background", "stopped"). Best-effort — may be empty if the state could not be determined (e.g. container not running).
+
 - **`worktreeId`**
 
   `string` — WorktreeID is the worktree identifier.
@@ -188,6 +202,7 @@ Starts a tmux terminal session for the given worktree. If a background session a
 ```json
 {
   "projectId": "",
+  "state": "",
   "worktreeId": ""
 }
 ```
@@ -301,6 +316,10 @@ Closes the terminal viewer WebSocket. The tmux session (and Claude/bash) continu
 
   `string` — ProjectID is the deterministic project identifier the worktree belongs to.
 
+- **`state`**
+
+  `string` — State is the worktree's terminal state after the mutation ("connected", "shell", "background", "stopped"). Best-effort — may be empty if the state could not be determined (e.g. container not running).
+
 - **`worktreeId`**
 
   `string` — WorktreeID is the worktree identifier.
@@ -310,6 +329,7 @@ Closes the terminal viewer WebSocket. The tmux session (and Claude/bash) continu
 ```json
 {
   "projectId": "",
+  "state": "",
   "worktreeId": ""
 }
 ```
@@ -337,6 +357,10 @@ Kills the tmux session and all child processes for the worktree. The git worktre
 
   `string` — ProjectID is the deterministic project identifier the worktree belongs to.
 
+- **`state`**
+
+  `string` — State is the worktree's terminal state after the mutation ("connected", "shell", "background", "stopped"). Best-effort — may be empty if the state could not be determined (e.g. container not running).
+
 - **`worktreeId`**
 
   `string` — WorktreeID is the worktree identifier.
@@ -346,6 +370,7 @@ Kills the tmux session and all child processes for the worktree. The git worktre
 ```json
 {
   "projectId": "",
+  "state": "",
   "worktreeId": ""
 }
 ```
@@ -373,6 +398,10 @@ Clears session state for a worktree: kills any running process, deletes agent se
 
   `string` — ProjectID is the deterministic project identifier the worktree belongs to.
 
+- **`state`**
+
+  `string` — State is the worktree's terminal state after the mutation ("connected", "shell", "background", "stopped"). Best-effort — may be empty if the state could not be determined (e.g. container not running).
+
 - **`worktreeId`**
 
   `string` — WorktreeID is the worktree identifier.
@@ -382,6 +411,7 @@ Clears session state for a worktree: kills any running process, deletes agent se
 ```json
 {
   "projectId": "",
+  "state": "",
   "worktreeId": ""
 }
 ```

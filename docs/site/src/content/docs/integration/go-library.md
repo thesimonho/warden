@@ -3,7 +3,7 @@ title: "Go Library"
 description: "Embed Warden directly in your Go application."
 editUrl: false
 ---
-<!-- Generated from docs/plugin/skills/warden/reference/examples/library.md — do not edit directly -->
+<!-- Generated from docs/plugin/skills/guide/reference/examples/library.md — do not edit directly -->
 
 Import Warden as a Go library for single-process deployment. No `warden` binary needed — your application initializes and controls the engine directly.
 

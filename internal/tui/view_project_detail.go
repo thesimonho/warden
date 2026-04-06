@@ -13,6 +13,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 
+	"github.com/thesimonho/warden/api"
 	"github.com/thesimonho/warden/client"
 	"github.com/thesimonho/warden/engine"
 	"github.com/thesimonho/warden/eventbus"
@@ -410,7 +411,7 @@ type execTerminalMsg struct {
 
 func createWorktree(client Client, projectID, agentType, name string) tea.Cmd {
 	return func() tea.Msg {
-		_, err := client.CreateWorktree(context.Background(), projectID, agentType, name)
+		_, err := client.CreateWorktree(context.Background(), projectID, agentType, api.CreateWorktreeRequest{Name: name})
 		return OperationResultMsg{Operation: "create", Err: err}
 	}
 }

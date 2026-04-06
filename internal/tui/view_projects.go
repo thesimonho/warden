@@ -12,7 +12,7 @@ import (
 	"charm.land/lipgloss/v2"
 
 	"github.com/thesimonho/warden/agent"
-	"github.com/thesimonho/warden/engine"
+	"github.com/thesimonho/warden/api"
 	"github.com/thesimonho/warden/eventbus"
 	"github.com/thesimonho/warden/internal/tui/components"
 )
@@ -20,7 +20,7 @@ import (
 // ProjectsView displays the project list with status, worktree counts, and cost.
 type ProjectsView struct {
 	client      Client
-	projects    []engine.Project
+	projects    []api.ProjectResponse
 	table       table.Model
 	tableStyles table.Styles
 	loading     bool
@@ -208,7 +208,7 @@ func (v *ProjectsView) handleKey(msg tea.KeyPressMsg) (View, tea.Cmd) {
 	return v, cmd
 }
 
-func (v *ProjectsView) selectedProject() *engine.Project {
+func (v *ProjectsView) selectedProject() *api.ProjectResponse {
 	cursor := v.table.Cursor()
 	if cursor >= 0 && cursor < len(v.projects) {
 		return &v.projects[cursor]
@@ -239,7 +239,7 @@ func projectColumns(width int) []table.Column {
 	}
 }
 
-func projectRows(projects []engine.Project) []table.Row {
+func projectRows(projects []api.ProjectResponse) []table.Row {
 	rows := make([]table.Row, len(projects))
 	for i, p := range projects {
 		state := p.State
@@ -306,7 +306,7 @@ func restartProject(client Client, id, agentType string) tea.Cmd {
 
 // --- Helpers ---
 
-func summarizeProjects(projects []engine.Project) (running, activeWorktrees int, totalCost float64) {
+func summarizeProjects(projects []api.ProjectResponse) (running, activeWorktrees int, totalCost float64) {
 	for _, p := range projects {
 		if p.State == components.ContainerStateRunning {
 			running++

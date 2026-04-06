@@ -3,7 +3,7 @@ title: "Integration Paths"
 description: "Integrate Warden using HTTP API, Go client, or Go library."
 editUrl: false
 ---
-<!-- Generated from docs/plugin/skills/warden/reference/paths.md — do not edit directly -->
+<!-- Generated from docs/plugin/skills/guide/reference/paths.md — do not edit directly -->
 
 Warden is designed to be integrated into your own applications. Start with the [Architecture](./concepts.md) page to understand how the layers fit together, then choose an integration path below.
 

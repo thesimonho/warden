@@ -35,7 +35,7 @@ var TabLabels = map[Tab]string{
 
 // ProjectsLoadedMsg carries the result of a ListProjects call.
 type ProjectsLoadedMsg struct {
-	Projects []engine.Project
+	Projects []api.ProjectResponse
 	Err      error
 }
 

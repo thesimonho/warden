@@ -250,6 +250,21 @@ components:
         method:
           $ref: '#/components/schemas/access.Method'
       type: object
+    api.AddProjectRequest:
+      properties:
+        agentType:
+          description: |-
+            AgentType selects the CLI agent to run (e.g. "claude-code", "codex").
+            Defaults to "claude-code" if omitted.
+          type: string
+        name:
+          description: Name is an optional container name override.
+          type: string
+        projectPath:
+          description: ProjectPath is the absolute host directory to register as a
+            project.
+          type: string
+      type: object
     api.AgentTemplateOverride:
       properties:
         allowedDomains:
@@ -488,6 +503,12 @@ components:
             Stored as a Docker label on the container.
           type: boolean
       type: object
+    api.CreateWorktreeRequest:
+      properties:
+        name:
+          description: Name is the worktree name (must be a valid git branch name).
+          type: string
+      type: object
     api.DefaultEnvVar:
       properties:
         key:
@@ -602,6 +623,99 @@ components:
         message:
           type: string
       type: object
+    api.ProjectResponse:
+      properties:
+        activeWorktreeCount:
+          description: ActiveWorktreeCount is the number of worktrees with connected
+            terminals.
+          type: integer
+        agentStatus:
+          description: AgentStatus is the agent activity state ("idle", "working",
+            "unknown").
+          type: string
+        agentType:
+          $ref: '#/components/schemas/constants.AgentType'
+        agentVersion:
+          description: AgentVersion is the pinned CLI version installed in this container.
+          type: string
+        allowedDomains:
+          description: AllowedDomains lists domains accessible when NetworkMode is
+            "restricted".
+          items:
+            type: string
+          type: array
+          uniqueItems: false
+        costBudget:
+          description: CostBudget is the per-project cost limit in USD (0 = use global
+            default).
+          type: number
+        createdAt:
+          type: integer
+        hasContainer:
+          description: HasContainer is true when a Docker container is associated
+            with this project.
+          type: boolean
+        hostPath:
+          description: HostPath is the absolute host directory mounted into the container.
+          type: string
+        id:
+          description: ID is the Docker container ID (empty when no container exists).
+          type: string
+        image:
+          type: string
+        isEstimatedCost:
+          description: IsEstimatedCost is true when the cost is an estimate (e.g.
+            subscription users).
+          type: boolean
+        isGitRepo:
+          description: IsGitRepo indicates whether the container's /project is a git
+            repository.
+          type: boolean
+        mountedDir:
+          description: MountedDir is the host directory mounted into the container.
+          type: string
+        name:
+          description: Name is the user-chosen display label / Docker container name.
+          type: string
+        needsInput:
+          description: NeedsInput is true when any worktree requires user attention.
+          type: boolean
+        networkMode:
+          $ref: '#/components/schemas/api.NetworkMode'
+        notificationType:
+          description: |-
+            NotificationType indicates why the agent needs attention
+            (e.g. "permission_prompt", "idle_prompt", "elicitation_dialog").
+          type: string
+        os:
+          type: string
+        projectId:
+          description: ProjectID is the deterministic project identifier (sha256 of
+            host path, 12 hex chars).
+          type: string
+        skipPermissions:
+          description: SkipPermissions indicates whether terminals should skip permission
+            prompts.
+          type: boolean
+        sshPort:
+          type: string
+        state:
+          description: State is the Docker container state ("running", "exited", "not-found",
+            etc).
+          type: string
+        status:
+          description: Status is the Docker container status string (e.g. "Up 2 hours").
+          type: string
+        totalCost:
+          description: TotalCost is the aggregate cost across all worktrees in USD.
+          type: number
+        type:
+          type: string
+        workspaceDir:
+          description: WorkspaceDir is the container-side workspace directory (mount
+            destination).
+          type: string
+      type: object
     api.ProjectTemplate:
       description: Template holds project template values loaded from .warden.json,
         if present.
@@ -711,16 +825,6 @@ components:
       - AgentClaudeCode
       - AgentCodex
       - DefaultAgentType
-    engine.AgentStatus:
-      enum:
-      - idle
-      - working
-      - unknown
-      type: string
-      x-enum-varnames:
-      - AgentStatusIdle
-      - AgentStatusWorking
-      - AgentStatusUnknown
     engine.NotificationType:
       description: NotificationType indicates why Claude needs attention.
       enum:
@@ -734,93 +838,6 @@ components:
       - NotificationIdlePrompt
       - NotificationAuthSuccess
       - NotificationElicitationDialog
-    engine.Project:
-      properties:
-        activeWorktreeCount:
-          description: ActiveWorktreeCount is the number of worktrees with connected
-            terminals.
-          type: integer
-        agentStatus:
-          $ref: '#/components/schemas/engine.AgentStatus'
-        agentType:
-          $ref: '#/components/schemas/constants.AgentType'
-        agentVersion:
-          description: AgentVersion is the pinned CLI version installed in this container.
-          type: string
-        allowedDomains:
-          description: AllowedDomains lists domains accessible when NetworkMode is
-            "restricted".
-          items:
-            type: string
-          type: array
-          uniqueItems: false
-        costBudget:
-          description: CostBudget is the per-project cost limit in USD (0 = use global
-            default).
-          type: number
-        createdAt:
-          type: integer
-        hasContainer:
-          description: HasContainer is true when a Docker container is associated
-            with this project.
-          type: boolean
-        hostPath:
-          description: HostPath is the absolute host directory mounted into the container.
-          type: string
-        id:
-          description: ID is the Docker container ID (empty when no container exists).
-          type: string
-        image:
-          type: string
-        isEstimatedCost:
-          description: |-
-            IsEstimatedCost is true when the cost is an estimate (e.g. subscription users).
-            When false, the cost reflects actual API spend.
-          type: boolean
-        isGitRepo:
-          description: IsGitRepo indicates whether the container's /project is a git
-            repository.
-          type: boolean
-        mountedDir:
-          description: MountedDir is the host directory mounted into the container.
-          type: string
-        name:
-          description: Name is the user-chosen display label / Docker container name.
-          type: string
-        needsInput:
-          description: NeedsInput is true when any worktree requires user attention.
-          type: boolean
-        networkMode:
-          $ref: '#/components/schemas/api.NetworkMode'
-        notificationType:
-          $ref: '#/components/schemas/engine.NotificationType'
-        os:
-          type: string
-        projectId:
-          description: ProjectID is the deterministic project identifier (sha256 of
-            host path, 12 hex chars).
-          type: string
-        skipPermissions:
-          description: SkipPermissions indicates whether terminals should skip permission
-            prompts.
-          type: boolean
-        sshPort:
-          type: string
-        state:
-          type: string
-        status:
-          type: string
-        totalCost:
-          description: TotalCost is the aggregate cost across all worktrees in USD
-            (from agent status provider).
-          type: number
-        type:
-          type: string
-        workspaceDir:
-          description: WorkspaceDir is the container-side workspace directory (mount
-            destination).
-          type: string
-      type: object
     engine.Worktree:
       properties:
         branch:
@@ -926,18 +943,6 @@ components:
       - ErrCodeStaleMounts
       - ErrCodeBudgetExceeded
       - ErrCodeInternal
-    server.addProjectRequest:
-      properties:
-        name:
-          description: Name is an optional container name override.
-          example: my-project
-          type: string
-        projectPath:
-          description: ProjectPath is the absolute host directory to register as a
-            project.
-          example: /home/user/my-project
-          type: string
-      type: object
     server.apiError:
       properties:
         code:
@@ -954,13 +959,6 @@ components:
             type: string
           type: array
           uniqueItems: false
-      type: object
-    server.createWorktreeRequest:
-      properties:
-        name:
-          description: Name is the worktree name (must be a valid git branch name).
-          example: feature-auth
-          type: string
       type: object
     server.healthResponse:
       properties:
@@ -1128,6 +1126,12 @@ components:
         projectId:
           description: ProjectID is the deterministic project identifier the worktree
             belongs to.
+          type: string
+        state:
+          description: |-
+            State is the worktree's terminal state after the mutation
+            ("connected", "shell", "background", "stopped"). Best-effort — may be
+            empty if the state could not be determined (e.g. container not running).
           type: string
         worktreeId:
           description: WorktreeID is the worktree identifier.
@@ -1806,7 +1810,7 @@ paths:
             application/json:
               schema:
                 items:
-                  $ref: '#/components/schemas/engine.Project'
+                  $ref: '#/components/schemas/api.ProjectResponse'
                 type: array
           description: OK
         "500":
@@ -1826,7 +1830,7 @@ paths:
             schema:
               oneOf:
               - type: object
-              - $ref: '#/components/schemas/server.addProjectRequest'
+              - $ref: '#/components/schemas/api.AddProjectRequest'
                 description: Project details
                 summary: body
         description: Project details
@@ -2390,7 +2394,7 @@ paths:
             schema:
               oneOf:
               - type: object
-              - $ref: '#/components/schemas/server.createWorktreeRequest'
+              - $ref: '#/components/schemas/api.CreateWorktreeRequest'
                 description: Worktree name (must be a valid git branch name)
                 summary: body
         description: Worktree name (must be a valid git branch name)

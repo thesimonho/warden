@@ -79,7 +79,7 @@ func (s *Service) CreateWorktree(ctx context.Context, projectID, agentType, name
 		})
 	}
 
-	return &WorktreeResult{WorktreeID: worktreeID, ProjectID: project.ProjectID}, nil
+	return worktreeResult(worktreeID, project.ProjectID, engine.WorktreeStateConnected), nil
 }
 
 // ConnectTerminal starts a terminal for a worktree in the given
@@ -119,7 +119,7 @@ func (s *Service) ConnectTerminal(ctx context.Context, projectID, agentType, wor
 		})
 	}
 
-	return &WorktreeResult{WorktreeID: resultID, ProjectID: project.ProjectID}, nil
+	return worktreeResult(resultID, project.ProjectID, engine.WorktreeStateConnected), nil
 }
 
 // DisconnectTerminal disconnects the terminal viewer for a worktree. The
@@ -159,7 +159,7 @@ func (s *Service) DisconnectTerminal(ctx context.Context, projectID, agentType, 
 		})
 	}
 
-	return &WorktreeResult{WorktreeID: worktreeID, ProjectID: project.ProjectID}, nil
+	return worktreeResult(worktreeID, project.ProjectID, engine.WorktreeStateBackground), nil
 }
 
 // KillWorktreeProcess kills the tmux session and all child processes for a
@@ -191,7 +191,7 @@ func (s *Service) KillWorktreeProcess(ctx context.Context, projectID, agentType,
 		})
 	}
 
-	return &WorktreeResult{WorktreeID: worktreeID, ProjectID: project.ProjectID}, nil
+	return worktreeResult(worktreeID, project.ProjectID, engine.WorktreeStateStopped), nil
 }
 
 // RemoveWorktree fully removes a worktree: kills processes, runs
@@ -240,7 +240,7 @@ func (s *Service) RemoveWorktree(ctx context.Context, projectID, agentType, work
 		})
 	}
 
-	return &WorktreeResult{WorktreeID: worktreeID, ProjectID: project.ProjectID}, nil
+	return worktreeResult(worktreeID, project.ProjectID, engine.WorktreeStateStopped), nil
 }
 
 // ResetWorktree clears all session state for a worktree without removing it.
@@ -312,7 +312,7 @@ func (s *Service) ResetWorktree(ctx context.Context, projectID, agentType, workt
 		})
 	}
 
-	return &WorktreeResult{WorktreeID: worktreeID, ProjectID: project.ProjectID}, nil
+	return worktreeResult(worktreeID, project.ProjectID, engine.WorktreeStateStopped), nil
 }
 
 // CleanupWorktrees removes orphaned worktree directories and stale

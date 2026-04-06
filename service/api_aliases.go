@@ -5,6 +5,9 @@ import "github.com/thesimonho/warden/api"
 // Type aliases for backward compatibility. Service methods return these
 // types; the canonical definitions live in the api package.
 type (
+	ProjectResponse         = api.ProjectResponse
+	AddProjectRequest       = api.AddProjectRequest
+	CreateWorktreeRequest   = api.CreateWorktreeRequest
 	ProjectResult           = api.ProjectResult
 	WorktreeResult          = api.WorktreeResult
 	ContainerResult         = api.ContainerResult

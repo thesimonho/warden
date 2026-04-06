@@ -3,7 +3,7 @@ title: "Architecture"
 description: "How Warden is structured — layered system, infrastructure layout."
 editUrl: false
 ---
-<!-- Generated from docs/plugin/skills/warden/reference/concepts.md — do not edit directly -->
+<!-- Generated from docs/plugin/skills/guide/reference/concepts.md — do not edit directly -->
 
 ## Layered system
 

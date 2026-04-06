@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"log/slog"
 	"net/http"
+
+	"github.com/thesimonho/warden/api"
 )
 
 // handleListWorktrees returns all worktrees for the given project with their terminal state.
@@ -45,8 +47,8 @@ func (rt *routes) handleListWorktrees(w http.ResponseWriter, r *http.Request) {
 //	@Description	Creates a new git worktree inside the container and automatically connects a terminal.
 //	@Tags			worktrees
 //	@Accept			json
-//	@Param			projectId	path		string					true	"Project ID"
-//	@Param			body		body		createWorktreeRequest	true	"Worktree name (must be a valid git branch name)"
+//	@Param			projectId	path		string						true	"Project ID"
+//	@Param			body		body		api.CreateWorktreeRequest	true	"Worktree name (must be a valid git branch name)"
 //	@Success		201			{object}	service.WorktreeResult
 //	@Failure		400			{object}	apiError
 //	@Failure		404			{object}	apiError
@@ -57,9 +59,7 @@ func (rt *routes) handleCreateWorktree(w http.ResponseWriter, r *http.Request) {
 
 	r.Body = http.MaxBytesReader(w, r.Body, 1<<10)
 
-	var req struct {
-		Name string `json:"name"`
-	}
+	var req api.CreateWorktreeRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeError(w, ErrCodeInvalidBody, "invalid request body", http.StatusBadRequest)
 		return

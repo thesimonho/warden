@@ -3,7 +3,7 @@ title: "Go Client"
 description: "Use the typed Go client to talk to a running Warden server."
 editUrl: false
 ---
-<!-- Generated from docs/plugin/skills/warden/reference/examples/client.md — do not edit directly -->
+<!-- Generated from docs/plugin/skills/guide/reference/examples/client.md — do not edit directly -->
 
 The [`client`](https://github.com/thesimonho/warden/tree/main/client) package is a convenience wrapper around the [HTTP API](./api.md). It provides typed Go functions for every endpoint so you don't have to manage HTTP requests, response parsing, or error handling yourself.
 

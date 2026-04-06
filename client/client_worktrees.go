@@ -18,10 +18,10 @@ func (c *Client) ListWorktrees(ctx context.Context, projectID, agentType string)
 }
 
 // CreateWorktree creates a new git worktree and connects a terminal.
-func (c *Client) CreateWorktree(ctx context.Context, projectID, agentType, name string) (*api.WorktreeResult, error) {
+func (c *Client) CreateWorktree(ctx context.Context, projectID, agentType string, req api.CreateWorktreeRequest) (*api.WorktreeResult, error) {
 	var resp api.WorktreeResult
 	path := projectPath(projectID, agentType) + "/worktrees"
-	if err := c.post(ctx, path, map[string]string{"name": name}, &resp); err != nil {
+	if err := c.post(ctx, path, req, &resp); err != nil {
 		return nil, err
 	}
 	return &resp, nil

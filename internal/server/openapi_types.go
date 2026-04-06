@@ -5,20 +5,6 @@ package server
 // themselves continue to use inline structs/maps. The linter correctly flags
 // them as unused in Go code; they are only consumed by the swag parser.
 
-// addProjectRequest is the JSON body for adding a project.
-type addProjectRequest struct { //nolint:unused
-	// ProjectPath is the absolute host directory to register as a project.
-	ProjectPath string `json:"projectPath" example:"/home/user/my-project"`
-	// Name is an optional container name override.
-	Name string `json:"name,omitempty" example:"my-project"`
-}
-
-// createWorktreeRequest is the JSON body for creating a new worktree.
-type createWorktreeRequest struct { //nolint:unused
-	// Name is the worktree name (must be a valid git branch name).
-	Name string `json:"name" example:"feature-auth"`
-}
-
 // revealRequest is the JSON body for revealing a directory in the file manager.
 type revealRequest struct { //nolint:unused
 	// Path is the absolute host directory path to open.
