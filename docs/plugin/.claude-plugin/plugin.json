@@ -1,6 +1,6 @@
 {
   "name": "warden",
-  "version": "1.7.1",
+  "version": "1.7.2",
   "description": "Integrate with Warden — the container engine for AI agents.",
   "author": {
     "name": "Simon Ho",
@@ -17,6 +17,8 @@
     "docker",
     "security"
   ],
-  "agents": ["./agents/surveyor.md"],
+  "agents": [
+    "./agents/surveyor.md"
+  ],
   "skills": "./skills/"
 }
