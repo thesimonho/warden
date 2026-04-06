@@ -185,6 +185,9 @@ You can find more details in the [documentation](https://thesimonho.github.io/wa
 
 ### As a developer — add agent isolation to your app
 
+> [!TIP]
+> **Fastest way to get started:** Install the [Warden agent plugin](https://thesimonho.github.io/warden/integration/agent-plugin/) into Claude Code or your AI coding agent. It gives your agent full integration reference docs, API guides, and a codebase surveyor — so it can help you integrate Warden directly.
+
 Warden's engine is a Go library and HTTP API. You get container lifecycle, worktree orchestration, agent status detection, network access controls, and an event bus — all behind clean interfaces. Build your own UI, CLI, or orchestration layer on top.
 
 ```go
@@ -200,7 +203,7 @@ projects, _ := w.Service.ListProjects(ctx)
 curl http://localhost:8090/api/v1/projects
 ```
 
-Both the web dashboard and TUI also act as reference implementations — they use the exact same public interfaces you would. You can reference their source code, or look at the documentation for the [HTTP API](https://thesimonho.github.io/warden/integration/http-api/) and [Go client](https://thesimonho.github.io/warden/integration/go-client/).
+Both the web dashboard and TUI also act as reference implementations — they use the exact same public interfaces you would. You can reference their source code, or look at the documentation for the [Go client](https://thesimonho.github.io/warden/integration/go-client/) and [API reference](https://thesimonho.github.io/warden/reference/api/).
 
 See the full [Integration Paths](https://thesimonho.github.io/warden/integration/paths/) page for all options: HTTP API, Go client, Go library.
 
