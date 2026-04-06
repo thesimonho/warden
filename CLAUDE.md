@@ -60,12 +60,6 @@ npm --prefix web run test:e2e
 
 If the Vite dev server (`:5173`) or Go backend (`:8090`) is already running, E2E tests reuse it. Otherwise Playwright builds the frontend and starts `warden-desktop` automatically. No manual server setup required.
 
-Run a single E2E test:
-
-```bash
-npm --prefix web run test:e2e -- --grep "should connect terminal"
-```
-
 ### Build
 
 ```bash

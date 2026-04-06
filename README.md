@@ -147,8 +147,8 @@ Example web apps built up from core Warden features:
 
 ### Prerequisites
 
-- [Git](https://git-scm.com/downloads) — required for worktree support
 - [Docker](https://docs.docker.com/get-docker/)
+- [Git](https://git-scm.com/downloads) — required for worktree support
 - An AI coding agent: [Claude Code](https://docs.anthropic.com/en/docs/agents-and-tools/claude-code/overview) or [OpenAI Codex](https://github.com/openai/codex)
 
 ### Download
