@@ -49,6 +49,15 @@ func (c *Client) GetBudgetStatus(ctx context.Context, projectID, agentType strin
 	return &resp, nil
 }
 
+// BatchProjectOperation performs an action on multiple projects.
+func (c *Client) BatchProjectOperation(ctx context.Context, req api.BatchProjectRequest) (*api.BatchProjectResponse, error) {
+	var resp api.BatchProjectResponse
+	if err := c.post(ctx, "/api/v1/projects/batch", req, &resp); err != nil {
+		return nil, err
+	}
+	return &resp, nil
+}
+
 // AddProject registers a project directory in Warden. When the request
 // includes Container config, the container is created atomically.
 func (c *Client) AddProject(ctx context.Context, req api.AddProjectRequest) (*api.AddProjectResponse, error) {

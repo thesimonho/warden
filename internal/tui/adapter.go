@@ -75,6 +75,11 @@ func (a *ServiceAdapter) GetBudgetStatus(ctx context.Context, projectID, agentTy
 	return a.w.Service.GetBudgetStatus(ctx, projectID, agentType)
 }
 
+// BatchProjectOperation delegates to Service.BatchProjectOperation.
+func (a *ServiceAdapter) BatchProjectOperation(ctx context.Context, req api.BatchProjectRequest) (*api.BatchProjectResponse, error) {
+	return a.w.Service.BatchProjectOperation(ctx, req), nil
+}
+
 // AddProject delegates to Service.AddProjectWithContainer.
 func (a *ServiceAdapter) AddProject(ctx context.Context, req api.AddProjectRequest) (*api.AddProjectResponse, error) {
 	return a.w.Service.AddProjectWithContainer(ctx, req)

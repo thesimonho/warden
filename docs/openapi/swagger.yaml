@@ -397,6 +397,54 @@ components:
           description: UniqueWorktrees is the number of distinct worktrees with events.
           type: integer
       type: object
+    api.BatchProjectAction:
+      description: 'Action is the operation to perform: "stop", "restart", or "delete".'
+      enum:
+      - stop
+      - restart
+      - delete
+      type: string
+      x-enum-varnames:
+      - BatchActionStop
+      - BatchActionRestart
+      - BatchActionDelete
+    api.BatchProjectRef:
+      properties:
+        agentType:
+          type: string
+        projectId:
+          type: string
+      type: object
+    api.BatchProjectRequest:
+      properties:
+        action:
+          $ref: '#/components/schemas/api.BatchProjectAction'
+        projects:
+          description: Projects lists the targets for the operation.
+          items:
+            $ref: '#/components/schemas/api.BatchProjectRef'
+          type: array
+          uniqueItems: false
+      type: object
+    api.BatchProjectResponse:
+      properties:
+        results:
+          items:
+            $ref: '#/components/schemas/api.BatchProjectResult'
+          type: array
+          uniqueItems: false
+      type: object
+    api.BatchProjectResult:
+      properties:
+        agentType:
+          type: string
+        error:
+          type: string
+        projectId:
+          type: string
+        success:
+          type: boolean
+      type: object
     api.BudgetStatusResponse:
       properties:
         agentType:
@@ -3198,6 +3246,38 @@ paths:
       summary: Terminal WebSocket
       tags:
       - streaming
+  /api/v1/projects/batch:
+    post:
+      description: |-
+        Performs an action (stop, restart, delete) on multiple projects.
+        Each project is processed independently — failures are per-item.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              oneOf:
+              - type: object
+              - $ref: '#/components/schemas/api.BatchProjectRequest'
+                description: Batch operation
+                summary: body
+        description: Batch operation
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/api.BatchProjectResponse'
+          description: OK
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/server.apiError'
+          description: Bad Request
+      summary: Batch project operation
+      tags:
+      - projects
   /api/v1/runtimes:
     get:
       description: |-

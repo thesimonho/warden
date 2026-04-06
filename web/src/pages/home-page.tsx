@@ -17,6 +17,7 @@ import { useNotifications } from '@/hooks/use-notifications'
 import { useProjects } from '@/hooks/use-projects'
 import {
   ApiError,
+  batchProjectOperation,
   stopProject,
   restartProject,
   fetchProjects,
@@ -187,27 +188,25 @@ export default function HomePage() {
 
   const handleBulkAction = useCallback(
     async (
-      action: (id: string, agentType: AgentType) => Promise<unknown>,
+      action: 'stop' | 'restart' | 'delete',
       setPending: React.Dispatch<React.SetStateAction<Set<string>>>,
-      label: string,
     ) => {
       const keys = [...selectedIds]
       setPending((prev) => new Set([...prev, ...keys]))
       try {
-        const results = await Promise.allSettled(
-          keys.map((key) => {
-            const [id, agentType] = parseKey(key)
-            return action(id, agentType)
-          }),
-        )
-        const failed = results.filter((r) => r.status === 'rejected')
+        const projects = keys.map((key) => {
+          const [projectId, agentType] = parseKey(key)
+          return { projectId, agentType }
+        })
+        const resp = await batchProjectOperation(action, projects)
+        const failed = resp.results.filter((r) => !r.success)
         if (failed.length > 0) {
           toast.error(
-            `Failed to ${label} ${failed.length} project${failed.length !== 1 ? 's' : ''}`,
+            `Failed to ${action} ${failed.length} project${failed.length !== 1 ? 's' : ''}`,
           )
         } else {
           toast.success(
-            `${keys.length} project${keys.length !== 1 ? 's' : ''} ${label}${label.endsWith('e') ? 'd' : 'ed'}`,
+            `${keys.length} project${keys.length !== 1 ? 's' : ''} ${action}${action.endsWith('e') ? 'd' : 'ed'}`,
           )
         }
         refetch()
@@ -223,12 +222,12 @@ export default function HomePage() {
   )
 
   const handleStopSelected = useCallback(
-    () => handleBulkAction(stopProject, setPendingStopIds, 'stop'),
+    () => handleBulkAction('stop', setPendingStopIds),
     [handleBulkAction],
   )
 
   const handleRestartSelected = useCallback(
-    () => handleBulkAction(restartProject, setPendingRestartIds, 'restart'),
+    () => handleBulkAction('restart', setPendingRestartIds),
     [handleBulkAction],
   )
 

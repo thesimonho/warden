@@ -130,6 +130,48 @@ func (rt *routes) handleGetBudgetStatus(w http.ResponseWriter, r *http.Request) 
 	writeJSON(w, result)
 }
 
+// handleBatchProjects performs an action on multiple projects.
+//
+//	@Summary		Batch project operation
+//	@Description	Performs an action (stop, restart, delete) on multiple projects.
+//	@Description	Each project is processed independently — failures are per-item.
+//	@Tags			projects
+//	@Accept			json
+//	@Param			body	body		api.BatchProjectRequest	true	"Batch operation"
+//	@Success		200		{object}	api.BatchProjectResponse
+//	@Failure		400		{object}	apiError
+//	@Router			/api/v1/projects/batch [post]
+func (rt *routes) handleBatchProjects(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, 1<<16)
+
+	var req api.BatchProjectRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, ErrCodeInvalidBody, "invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	switch req.Action {
+	case api.BatchActionStop, api.BatchActionRestart, api.BatchActionDelete:
+		// valid
+	default:
+		writeError(w, ErrCodeInvalidBody, "action must be stop, restart, or delete", http.StatusBadRequest)
+		return
+	}
+
+	if len(req.Projects) == 0 {
+		writeError(w, ErrCodeRequiredField, "projects list is required", http.StatusBadRequest)
+		return
+	}
+
+	if len(req.Projects) > 50 {
+		writeError(w, ErrCodeInvalidBody, "batch size limit is 50 projects", http.StatusBadRequest)
+		return
+	}
+
+	result := rt.svc.BatchProjectOperation(r.Context(), req)
+	writeJSON(w, result)
+}
+
 // handleAddProject registers a project directory in Warden. When the request
 // includes a "container" field, the container is created atomically.
 //

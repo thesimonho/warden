@@ -93,6 +93,42 @@ type AddProjectResponse struct {
 	Container *ContainerResult `json:"container,omitempty"`
 }
 
+// BatchProjectAction identifies the operation for a batch project request.
+type BatchProjectAction string
+
+const (
+	BatchActionStop    BatchProjectAction = "stop"
+	BatchActionRestart BatchProjectAction = "restart"
+	BatchActionDelete  BatchProjectAction = "delete"
+)
+
+// BatchProjectRequest is the JSON body for batch project operations.
+type BatchProjectRequest struct {
+	// Action is the operation to perform: "stop", "restart", or "delete".
+	Action BatchProjectAction `json:"action"`
+	// Projects lists the targets for the operation.
+	Projects []BatchProjectRef `json:"projects"`
+}
+
+// BatchProjectRef identifies a single project in a batch request.
+type BatchProjectRef struct {
+	ProjectID string `json:"projectId"`
+	AgentType string `json:"agentType"`
+}
+
+// BatchProjectResponse holds the results of a batch operation.
+type BatchProjectResponse struct {
+	Results []BatchProjectResult `json:"results"`
+}
+
+// BatchProjectResult holds the outcome for one project in a batch.
+type BatchProjectResult struct {
+	ProjectID string `json:"projectId"`
+	AgentType string `json:"agentType"`
+	Success   bool   `json:"success"`
+	Error     string `json:"error,omitempty"`
+}
+
 // CreateWorktreeRequest is the JSON body for creating a new git worktree.
 type CreateWorktreeRequest struct {
 	// Name is the worktree name (must be a valid git branch name).

@@ -156,6 +156,35 @@ func (s *Service) AddProjectWithContainer(ctx context.Context, req api.AddProjec
 	return resp, nil
 }
 
+// BatchProjectOperation performs an action on multiple projects. Each project
+// is processed independently — failures don't stop the remaining operations.
+func (s *Service) BatchProjectOperation(ctx context.Context, req api.BatchProjectRequest) *api.BatchProjectResponse {
+	results := make([]api.BatchProjectResult, len(req.Projects))
+	for i, ref := range req.Projects {
+		results[i] = api.BatchProjectResult{
+			ProjectID: ref.ProjectID,
+			AgentType: ref.AgentType,
+		}
+
+		var err error
+		switch req.Action {
+		case api.BatchActionStop:
+			_, err = s.StopProject(ctx, ref.ProjectID, ref.AgentType)
+		case api.BatchActionRestart:
+			_, err = s.RestartProject(ctx, ref.ProjectID, ref.AgentType)
+		case api.BatchActionDelete:
+			_, err = s.RemoveProject(ref.ProjectID, ref.AgentType)
+		}
+
+		if err != nil {
+			results[i].Error = err.Error()
+		} else {
+			results[i].Success = true
+		}
+	}
+	return &api.BatchProjectResponse{Results: results}
+}
+
 // RemoveProject removes a project from the database by compound key.
 // When audit logging is enabled, cost data and events are preserved so the
 // audit log remains accurate. When audit logging is off, all associated

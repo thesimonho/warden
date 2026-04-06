@@ -271,6 +271,16 @@ export interface AddProjectResponse {
   container?: ContainerResult
 }
 
+/** Result of a batch project operation. */
+export interface BatchProjectResponse {
+  results: Array<{
+    projectId: string
+    agentType: string
+    success: boolean
+    error?: string
+  }>
+}
+
 /** Result of a container mutation (create, update, delete). */
 export interface ContainerResult {
   containerId: string
