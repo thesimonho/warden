@@ -6,6 +6,10 @@ import starlightScrollToTop from "starlight-scroll-to-top";
 export default defineConfig({
 	site: "https://thesimonho.github.io",
 	base: "/warden",
+	redirects: {
+		"/warden/reference/environment-variables/":
+			"/warden/integration/environment-variables/",
+	},
 	integrations: [
 		starlight({
 			title: "Warden",
