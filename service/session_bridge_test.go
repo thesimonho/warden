@@ -34,19 +34,16 @@ func TestEventTypeMapping(t *testing.T) {
 	}
 }
 
-func TestSessionEventToContainerEvent_NilForUnmappedTypes(t *testing.T) {
+func TestSessionEventToContainerEvent_NilForUnknownType(t *testing.T) {
 	t.Parallel()
 
 	ctx := SessionContext{ProjectID: "test", ContainerName: "test", WorktreeID: "main"}
-	// All ParsedEventTypes are now bridged — no unmapped types remain.
-	unmappedTypes := []agent.ParsedEventType{}
 
-	for _, typ := range unmappedTypes {
-		event := agent.ParsedEvent{Type: typ, SessionID: "s1", Timestamp: "2026-01-01T00:00:00Z"}
-		result := SessionEventToContainerEvent(event, ctx)
-		if result != nil {
-			t.Errorf("expected nil for %s, got %+v", typ, result)
-		}
+	// A synthetic type that doesn't map to any container event should return nil.
+	event := agent.ParsedEvent{Type: "unknown_future_event", SessionID: "s1", Timestamp: "2026-01-01T00:00:00Z"}
+	result := SessionEventToContainerEvent(event, ctx)
+	if result != nil {
+		t.Errorf("expected nil for unknown event type, got %+v", result)
 	}
 }
 

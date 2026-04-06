@@ -39,8 +39,9 @@ type mockEngine struct {
 	validateMissing    []string
 	validateErr        error
 	// Call tracking for assertions.
-	killedWorktrees []string
-	stopCalled      bool
+	killedWorktrees  []string
+	stopCalled       bool
+	lastWorktreeName string
 }
 
 func (m *mockEngine) ListProjects(_ context.Context, _ []string) ([]engine.Project, error) {
@@ -86,7 +87,8 @@ func (m *mockEngine) ListWorktrees(_ context.Context, _ string, _ bool) ([]engin
 	return m.worktrees, m.worktreesErr
 }
 
-func (m *mockEngine) CreateWorktree(_ context.Context, _, _ string, _ bool) (string, error) {
+func (m *mockEngine) CreateWorktree(_ context.Context, _, name string, _ bool) (string, error) {
+	m.lastWorktreeName = name
 	return m.createWorktreeResp, m.createWorktreeErr
 }
 

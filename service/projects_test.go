@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
@@ -44,9 +45,15 @@ func TestListProjects_Error(t *testing.T) {
 	database := testDB(t)
 	svc := New(ServiceDeps{DockerAvailable: true, Engine: mock, DB: database})
 
-	_, err := svc.ListProjects(context.Background())
+	projects, err := svc.ListProjects(context.Background())
 	if err == nil {
 		t.Fatal("expected error")
+	}
+	if len(projects) != 0 {
+		t.Errorf("expected empty project list on error, got %d", len(projects))
+	}
+	if !strings.Contains(err.Error(), "docker down") {
+		t.Errorf("expected error to contain 'docker down', got %q", err.Error())
 	}
 }
 

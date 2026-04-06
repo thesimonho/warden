@@ -156,11 +156,21 @@ func TestParseFixture_ModelPopulated(t *testing.T) {
 	events := parseFixtureEvents(t)
 
 	for _, e := range events {
-		if e.Type == agent.EventTokenUpdate && e.Model == "" {
-			t.Error("TokenUpdate event has empty model")
+		if e.Type == agent.EventTokenUpdate {
+			if e.Model == "" {
+				t.Error("TokenUpdate event has empty model")
+			}
+			if e.Model != "claude-sonnet-4-6" {
+				t.Errorf("TokenUpdate model = %q, want %q", e.Model, "claude-sonnet-4-6")
+			}
 		}
-		if e.Type == agent.EventToolUse && e.Model == "" {
-			t.Error("ToolUse event has empty model")
+		if e.Type == agent.EventToolUse {
+			if e.Model == "" {
+				t.Error("ToolUse event has empty model")
+			}
+			if e.Model != "claude-sonnet-4-6" {
+				t.Errorf("ToolUse model = %q, want %q", e.Model, "claude-sonnet-4-6")
+			}
 		}
 	}
 }
@@ -169,18 +179,32 @@ func TestParseFixture_UserPromptContent(t *testing.T) {
 	t.Parallel()
 	events := parseFixtureEvents(t)
 
+	var prompts []agent.ParsedEvent
 	for _, e := range events {
 		if e.Type == agent.EventUserPrompt {
 			if e.Prompt == "" {
 				t.Error("UserPrompt event has empty prompt")
 			}
-			if e.GitBranch != "main" {
-				t.Errorf("UserPrompt git branch = %q, want %q", e.GitBranch, "main")
-			}
-			return
+			prompts = append(prompts, e)
 		}
 	}
-	t.Error("no UserPrompt event found")
+	if len(prompts) != 2 {
+		t.Fatalf("expected 2 UserPrompt events, got %d", len(prompts))
+	}
+
+	// First prompt: direct user message with git branch.
+	wantFirst := "Read the file README.md, then create a file called /tmp/warden-test.txt with hello, then delete it"
+	if prompts[0].Prompt != wantFirst {
+		t.Errorf("first prompt = %q, want %q", prompts[0].Prompt, wantFirst)
+	}
+	if prompts[0].GitBranch != "main" {
+		t.Errorf("first prompt git branch = %q, want %q", prompts[0].GitBranch, "main")
+	}
+
+	// Second prompt: enqueued via queue-operation (no git branch).
+	if prompts[1].Prompt != "also check the tests" {
+		t.Errorf("second prompt = %q, want %q", prompts[1].Prompt, "also check the tests")
+	}
 }
 
 func TestParseFixture_TurnDuration(t *testing.T) {
