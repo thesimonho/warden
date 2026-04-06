@@ -1,5 +1,5 @@
 ---
-name: warden-surveyor
+name: surveyor
 description: Explores a codebase to identify integration points where Warden features can support or replace existing implementations. Read-only — produces a report, does not modify code.
 model: sonnet
 permissionMode: plan
