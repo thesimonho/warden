@@ -5,7 +5,9 @@ dist/
 # Dependencies
 node_modules/
 
-# Generated content (built at deploy time)
+# Generated content (built at deploy time from plugin references and other sources)
+src/content/docs/integration/*.md
+!src/content/docs/integration/agent-plugin.md
 src/content/docs/reference/go/*.md
 !src/content/docs/reference/go/index.md
 src/content/docs/changelog.md

@@ -1,11 +1,28 @@
 # Project
 TODO.md
 
+# warden
+.warden/
+.warden.json
+
+# AI
+.claude/settings.local.json
+.claude/worktrees/
+.claude/agents
+.claude/commands
+.claude/skills
+.agents
+.mcp.json
+skills-lock.json
+
 # Go
 bin/
 tmp/
 *.exe
 *.syso
+./warden
+./warden-tui
+./warden-desktop
 
 # Frontend
 node_modules
@@ -22,9 +39,9 @@ internal/server/ui/*
 !internal/server/ui/.gitkeep
 
 # Plans
-docs/plans/
-docs/events_claude.md
-docs/events_codex.md
+docs/developer/plans/
+docs/developer/events_claude.md
+docs/developer/events_codex.md
 
 # Environment
 .env
@@ -34,22 +51,7 @@ docs/events_codex.md
 .idea/
 .vscode/
 *.swp
-.claude/settings.local.json
-.claude/worktrees/
-.claude/agents
-.claude/commands
-.claude/skills
-.agents
-.mcp.json
-skills-lock.json
 
 # OS
 .DS_Store
 Thumbs.db
-
-# warden
-warden
-warden-tui
-warden-desktop
-.warden/
-.warden.json

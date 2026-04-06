@@ -15,48 +15,30 @@ paths:
 
 # Docs Site
 
-The docs site is a Starlight site deployed at `https://thesimonho.github.io/warden/`. All pages live in `docs/site/src/content/docs/`. The site base path is `/warden/`. Go package reference pages are auto-generated at build time by `gomarkdoc` and are gitignored. OpenAPI reference pages are auto-generated from `docs/openapi/swagger.yaml` by the `starlight-openapi` plugin.
+The docs site is a Starlight site at `https://thesimonho.github.io/warden/` (base path `/warden/`).
 
 ```bash
-just docs-dev              # Starlight dev server (generates Go docs first)
-just docs-build            # Full production build (gomarkdoc + Starlight)
-just docs-preview          # Build and preview locally
+just docs-dev              # Generate all docs + start Starlight dev server
+just docs-build            # Generate all docs + full production build
 ```
 
-## Pages that MUST stay in sync with code changes
+## Key rule: never edit gitignored site content
 
-When you change features, APIs, packages, or behavior, update the relevant docs site pages:
+Some pages in `docs/site/src/content/docs/` are **gitignored and generated at build time**. Never edit gitignored files — find and edit the source instead.
 
-| Page              | Path                                 | Update when...                                                             |
-| ----------------- | ------------------------------------ | -------------------------------------------------------------------------- |
-| Architecture      | `integration/architecture.md`        | Layered system, infrastructure layout changes                              |
-| Integration Paths | `integration/paths.md`               | New binary, package added/removed/renamed, new integration approach        |
-| HTTP API          | `integration/http-api.mdx`           | Endpoints added/removed, error codes change, SSE events change             |
-| Go Client         | `integration/go-client.md`           | Client API changes                                                         |
-| Go Library        | `integration/go-library.md`          | `warden.New()` options, `App` methods, service methods, event types change |
-| FAQ               | `faq.md`                             | New common questions arise, behavior changes affect existing answers       |
-| Comparison        | `comparison.md`                      | New features that affect competitive positioning                           |
-| Contributing      | `contributing.md`                    | Dev setup, testing commands, architecture rules, PR process changes        |
-| Go Packages index | `reference/go/index.md`              | Public Go packages added or removed                                        |
-| Env Variables     | `reference/environment-variables.md` | New env vars added, defaults change, vars removed                          |
-| Go docs generator | `generate-go-docs.sh`                | Public Go packages added or removed (update `PACKAGES` array)              |
+## Site Sections
+
+- **`Guide`** → End user getting started guides. Keep files directly up to date.
+- **`Features`** → End user feature explanations. Keep files directly up to date.
+- **`Integration`** → Embedded at build time. Keep their _sources_ up to date at `docs/plugin/skills/warden/reference/`.
+- **`Reference`** → Go package docs are regenerated at build time (gitignored). `reference/go/index.md` is the only hand-authored file.
+
+## Agent-format API docs
+
+Files in `docs/plugin/skills/warden/reference/api/` are auto-generated from `docs/openapi/swagger.yaml` but **committed** (not gitignored) because the plugin distribution needs them. They regenerate automatically as part of `just docs-build`. CI checks freshness. DO NOT edit them directly.
 
 ## Link rules
 
-1. **Non-index pages use `../` for siblings.** Files like `paths.md`, `architecture.md`, `go-client.md` render at `/warden/integration/<name>/`, so a link to a sibling page needs `../`. Only `index.md` files can use bare relative links like `http-api/`.
-
-2. **Use absolute paths (`/warden/...`) for cross-section links** (e.g., FAQ linking to integration pages). Use relative paths for within-section links.
-
-3. **After renaming or moving a page**, grep the entire `docs/site/` directory, `README.md`, `CONTRIBUTING.md`, `docs/`, and `.claude/rules/` for links to the old path.
-
-4. **OpenAPI external docs URL** in `internal/server/doc.go` must match the docs site. Regenerate the spec after changing it.
-
-## Other documentation
-
-| File                    | Update when...                                                  |
-| ----------------------- | --------------------------------------------------------------- |
-| `README.md`             | Features, installation, comparison, or integration paths change |
-| `CONTRIBUTING.md`       | Dev setup, testing, or PR process changes                       |
-| `docs/codemaps/**/*.md` | Package structure, key functions, or constants change           |
-| `docs/terminology.md`   | New terms, states, or actions are introduced                    |
-| `CLAUDE.md`             | Commands, stack, or architectural rules change                  |
+1. Non-index pages render at `/warden/<section>/<name>/` — sibling links need `../`.
+2. Use absolute paths (`/warden/...`) for cross-section links, relative for within-section.
+3. After renaming/moving a page, grep `docs/`, `README.md`, `CONTRIBUTING.md`, and `.claude/rules/` for old paths.

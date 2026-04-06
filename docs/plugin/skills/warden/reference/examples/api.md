@@ -1,9 +1,4 @@
----
-title: HTTP API
-description: Integrate Warden into any application using the REST API, SSE events, and WebSocket terminals.
----
-
-import { Tabs, TabItem } from "@astrojs/starlight/components";
+# HTTP API
 
 Run the `warden` binary as a headless server and make HTTP requests to it. This works from any language.
 
@@ -17,112 +12,110 @@ Run the `warden` binary as a headless server and make HTTP requests to it. This 
 ADDR=0.0.0.0:9000 ./warden
 ```
 
-The server exposes all endpoints under `/api/v1/`. See the [API Reference](../../reference/api/) for the full endpoint list.
+The server exposes all endpoints under `/api/v1/`. See the [API Reference](https://thesimonho.github.io/warden/reference/api/) for the full endpoint list.
 
 ## Example: List projects
 
-<Tabs>
-  <TabItem label="curl">
-    ```bash
-    curl http://localhost:8090/api/v1/projects
-    ```
-  </TabItem>
-  <TabItem label="TypeScript">
-    ```typescript
-    const response = await fetch("http://localhost:8090/api/v1/projects");
-    const projects = await response.json();
-    ```
-  </TabItem>
-  <TabItem label="Python">
-    ```python
-    import requests
+### curl
 
-    response = requests.get("http://localhost:8090/api/v1/projects")
-    projects = response.json()
-    ```
+```bash
+curl http://localhost:8090/api/v1/projects
+```
 
-  </TabItem>
-  <TabItem label="Go">
-    ```go
-    resp, err := http.Get("http://localhost:8090/api/v1/projects")
-    if err != nil {
-        return err
-    }
-    defer resp.Body.Close()
+### TypeScript
 
-    var projects []Project
-    json.NewDecoder(resp.Body).Decode(&projects)
-    ```
+```typescript
+const response = await fetch("http://localhost:8090/api/v1/projects");
+const projects = await response.json();
+```
 
-  </TabItem>
-</Tabs>
+### Python
+
+```python
+import requests
+
+response = requests.get("http://localhost:8090/api/v1/projects")
+projects = response.json()
+```
+
+### Go
+
+```go
+resp, err := http.Get("http://localhost:8090/api/v1/projects")
+if err != nil {
+    return err
+}
+defer resp.Body.Close()
+
+var projects []Project
+json.NewDecoder(resp.Body).Decode(&projects)
+```
 
 ## Example: Create a project
 
 The request body accepts an optional `agentType` field (`"claude-code"` or `"codex"`). Defaults to `"claude-code"` if omitted. The agent type is locked at creation time and cannot be changed later.
 
-<Tabs>
-  <TabItem label="curl">
-    ```bash
-    curl -X POST http://localhost:8090/api/v1/projects \
-      -H "Content-Type: application/json" \
-      -d '{"name": "my-project", "projectPath": "/home/user/project", "agentType": "codex"}'
-    ```
-  </TabItem>
-  <TabItem label="TypeScript">
-    ```typescript
-    const response = await fetch("http://localhost:8090/api/v1/projects", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        name: "my-project",
-        projectPath: "/home/user/project",
-        agentType: "codex",
-      }),
-    });
-    const result = await response.json();
-    ```
-  </TabItem>
-  <TabItem label="Python">
-    ```python
-    import requests
+### curl
 
-    response = requests.post(
-        "http://localhost:8090/api/v1/projects",
-        json={
-            "name": "my-project",
-            "projectPath": "/home/user/project",
-            "agentType": "codex",
-        },
-    )
-    result = response.json()
-    ```
+```bash
+curl -X POST http://localhost:8090/api/v1/projects \
+  -H "Content-Type: application/json" \
+  -d '{"name": "my-project", "projectPath": "/home/user/project", "agentType": "codex"}'
+```
 
-  </TabItem>
-  <TabItem label="Go">
-    ```go
-    body, _ := json.Marshal(map[string]string{
-        "name":        "my-project",
+### TypeScript
+
+```typescript
+const response = await fetch("http://localhost:8090/api/v1/projects", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({
+    name: "my-project",
+    projectPath: "/home/user/project",
+    agentType: "codex",
+  }),
+});
+const result = await response.json();
+```
+
+### Python
+
+```python
+import requests
+
+response = requests.post(
+    "http://localhost:8090/api/v1/projects",
+    json={
+        "name": "my-project",
         "projectPath": "/home/user/project",
-        "agentType":   "codex",
-    })
+        "agentType": "codex",
+    },
+)
+result = response.json()
+```
 
-    resp, err := http.Post(
-        "http://localhost:8090/api/v1/projects",
-        "application/json",
-        bytes.NewReader(body),
-    )
-    if err != nil {
-        return err
-    }
-    defer resp.Body.Close()
+### Go
 
-    var result ProjectResult
-    json.NewDecoder(resp.Body).Decode(&result)
-    ```
+```go
+body, _ := json.Marshal(map[string]string{
+    "name":        "my-project",
+    "projectPath": "/home/user/project",
+    "agentType":   "codex",
+})
 
-  </TabItem>
-</Tabs>
+resp, err := http.Post(
+    "http://localhost:8090/api/v1/projects",
+    "application/json",
+    bytes.NewReader(body),
+)
+if err != nil {
+    return err
+}
+defer resp.Body.Close()
+
+var result ProjectResult
+json.NewDecoder(resp.Body).Decode(&result)
+```
 
 ## Project templates
 
@@ -211,63 +204,61 @@ Requests a graceful server shutdown. Broadcasts a `server_shutdown` SSE event to
 
 Subscribe to `GET /api/v1/events` for real-time updates:
 
-<Tabs>
-  <TabItem label="curl">
-    ```bash
-    curl -N http://localhost:8090/api/v1/events
-    ```
-  </TabItem>
-  <TabItem label="TypeScript">
-    ```typescript
-    const eventSource = new EventSource("http://localhost:8090/api/v1/events");
+### curl
 
-    eventSource.addEventListener("worktree_state", (event) => {
-      const data = JSON.parse(event.data);
-      console.log(`Worktree ${data.worktreeId}: ${data.state}`);
-    });
+```bash
+curl -N http://localhost:8090/api/v1/events
+```
 
-    eventSource.addEventListener("project_state", (event) => {
-      const data = JSON.parse(event.data);
-      // Fields: projectId, containerName, totalCost, messageCount, needsInput, notificationType
-      console.log(`Project ${data.projectId}: cost=${data.totalCost}, needsInput=${data.needsInput}`);
-    });
-    ```
+### TypeScript
 
-  </TabItem>
-  <TabItem label="Python">
-    ```python
-    import sseclient
-    import requests
+```typescript
+const eventSource = new EventSource("http://localhost:8090/api/v1/events");
 
-    response = requests.get(
-        "http://localhost:8090/api/v1/events",
-        stream=True,
-    )
-    client = sseclient.SSEClient(response)
+eventSource.addEventListener("worktree_state", (event) => {
+  const data = JSON.parse(event.data);
+  console.log(`Worktree ${data.worktreeId}: ${data.state}`);
+});
 
-    for event in client.events():
-        print(f"{event.event}: {event.data}")
-    ```
+eventSource.addEventListener("project_state", (event) => {
+  const data = JSON.parse(event.data);
+  // Fields: projectId, containerName, totalCost, messageCount, needsInput, notificationType
+  console.log(`Project ${data.projectId}: cost=${data.totalCost}, needsInput=${data.needsInput}`);
+});
+```
 
-  </TabItem>
-  <TabItem label="Go">
-    ```go
-    resp, err := http.Get("http://localhost:8090/api/v1/events")
-    if err != nil {
-        return err
-    }
-    defer resp.Body.Close()
+### Python
 
-    scanner := bufio.NewScanner(resp.Body)
-    for scanner.Scan() {
-        line := scanner.Text()
-        // Parse SSE format: "event: ...\ndata: ...\n\n"
-        fmt.Println(line)
-    }
-    ```
+```python
+import sseclient
+import requests
 
-  </TabItem>
-</Tabs>
+response = requests.get(
+    "http://localhost:8090/api/v1/events",
+    stream=True,
+)
+client = sseclient.SSEClient(response)
+
+for event in client.events():
+    print(f"{event.event}: {event.data}")
+```
+
+### Go
+
+```go
+resp, err := http.Get("http://localhost:8090/api/v1/events")
+if err != nil {
+    return err
+}
+defer resp.Body.Close()
+
+scanner := bufio.NewScanner(resp.Body)
+for scanner.Scan() {
+    line := scanner.Text()
+    // Parse SSE format: "event: ...\ndata: ...\n\n"
+    fmt.Println(line)
+}
+```
 
 Events include `worktree_state` (attention/terminal state changes per worktree), `project_state` (aggregated cost + attention state per project), `worktree_list_changed`, `budget_exceeded` (when a project exceeds its cost budget), `budget_container_stopped` (after budget enforcement stops a container — includes `containerId` for matching against project views), `runtime_status` (language runtime install progress), and `agent_status` (agent CLI install/update progress with version info).
 
@@ -344,59 +335,58 @@ The terminal WebSocket at `/api/v1/projects/{projectId}/{agentType}/ws/{wid}` us
 
 All error responses include a machine-readable `code` field you can match on instead of parsing the human-readable message:
 
-<Tabs>
-  <TabItem label="curl">
-    ```json
-    {
-      "error": "Project name already in use",
-      "code": "NAME_TAKEN"
+### curl
+
+```json
+{
+  "error": "Project name already in use",
+  "code": "NAME_TAKEN"
+}
+```
+
+### TypeScript
+
+```typescript
+const response = await fetch("http://localhost:8090/api/v1/projects", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ name: "my-project", projectPath: "/path" }),
+});
+
+if (!response.ok) {
+  const error = await response.json();
+  console.error(`${error.code}: ${error.error}`);
+  // error.code is a machine-readable string like "NAME_TAKEN"
+}
+```
+
+### Python
+
+```python
+response = requests.post(
+    "http://localhost:8090/api/v1/projects",
+    json={"name": "my-project", "projectPath": "/path"},
+)
+
+if not response.ok:
+    error = response.json()
+    print(f"{error['code']}: {error['error']}")
+    # error["code"] is a machine-readable string like "NAME_TAKEN"
+```
+
+### Go
+
+```go
+if resp.StatusCode != http.StatusOK {
+    var apiErr struct {
+        Error string `json:"error"`
+        Code  string `json:"code"`
     }
-    ```
-  </TabItem>
-  <TabItem label="TypeScript">
-    ```typescript
-    const response = await fetch("http://localhost:8090/api/v1/projects", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: "my-project", projectPath: "/path" }),
-    });
-
-    if (!response.ok) {
-      const error = await response.json();
-      console.error(`${error.code}: ${error.error}`);
-      // error.code is a machine-readable string like "NAME_TAKEN"
-    }
-    ```
-
-  </TabItem>
-  <TabItem label="Python">
-    ```python
-    response = requests.post(
-        "http://localhost:8090/api/v1/projects",
-        json={"name": "my-project", "projectPath": "/path"},
-    )
-
-    if not response.ok:
-        error = response.json()
-        print(f"{error['code']}: {error['error']}")
-        # error["code"] is a machine-readable string like "NAME_TAKEN"
-    ```
-
-  </TabItem>
-  <TabItem label="Go">
-    ```go
-    if resp.StatusCode != http.StatusOK {
-        var apiErr struct {
-            Error string `json:"error"`
-            Code  string `json:"code"`
-        }
-        json.NewDecoder(resp.Body).Decode(&apiErr)
-        fmt.Printf("%s: %s\n", apiErr.Code, apiErr.Error)
-        // apiErr.Code is a machine-readable string like "NAME_TAKEN"
-    }
-    ```
-  </TabItem>
-</Tabs>
+    json.NewDecoder(resp.Body).Decode(&apiErr)
+    fmt.Printf("%s: %s\n", apiErr.Code, apiErr.Error)
+    // apiErr.Code is a machine-readable string like "NAME_TAKEN"
+}
+```
 
 ### Error codes
 

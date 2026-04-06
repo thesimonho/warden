@@ -35,7 +35,7 @@ func WorktreeStateStyle(state engine.WorktreeState) lipgloss.Style {
 }
 
 // WorktreeStateDot returns a styled dot character for the given worktree state.
-// States follow docs/terminology.md:
+// States follow docs/developer/terminology.md:
 //   - connected → green ●
 //   - shell     → amber ●
 //   - background → purple ●

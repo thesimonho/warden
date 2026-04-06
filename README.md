@@ -81,6 +81,7 @@ Example web apps built up from core Warden features:
 - **Go library** — embed the engine directly with `warden.New()`. No HTTP overhead, no server process.
 - **HTTP API** — REST + SSE + WebSocket. Works from any language.
 - **Go HTTP client** — typed wrapper client for Go apps talking to a running Warden server.
+- **Agent plugin & skills** — install the [Warden plugin](https://thesimonho.github.io/warden/integration/agent-plugin/) into Claude Code or any agent that supports skills. Your coding agent gets integration reference docs, API guides, and a codebase surveyor — so it can help you integrate Warden without manual doc lookup.
 - **Reference implementations** — the web dashboard and TUI use the same public interfaces you would. Read their source as integration examples.
 - **Single binary** — Go backend with embedded frontend. No runtime dependencies beyond a container engine.
 

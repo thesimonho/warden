@@ -6,7 +6,7 @@ A container engine and control plane for running AI coding agents (Claude Code a
 
 ## Terminology (MUST follow)
 
-Read @docs/terminology.md before writing any code. It defines the required terms (Project, Worktree, Terminal), banned terms (Session, Conversation), worktree states, terminal actions, Claude activity sub-states, and the ownership boundary between Warden and Claude Code.
+Read @docs/developer/terminology.md before writing any code. It defines the required terms (Project, Worktree, Terminal), banned terms (Session, Conversation), worktree states, terminal actions, Claude activity sub-states, and the ownership boundary between Warden and Claude Code.
 
 ## Commands
 

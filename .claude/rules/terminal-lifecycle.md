@@ -9,13 +9,13 @@ paths:
   - "web/src/**/ws*"
   - "web/src/**/websocket*"
   - "web/src/**/worktree*"
-  - "docs/terminology.md"
-  - "docs/ux-flows.md"
+  - "docs/developer/terminology.md"
+  - "docs/developer/ux-flows.md"
 ---
 
 # Terminal Lifecycle
 
-See `docs/terminology.md` for the full state machine (worktree states, terminal actions, Claude activity sub-states) and `docs/ux-flows.md` for the UX flows that use them.
+See `docs/developer/terminology.md` for the full state machine (worktree states, terminal actions, Claude activity sub-states) and `docs/developer/ux-flows.md` for the UX flows that use them.
 
 The critical invariant: **WebSocket connections are disposable, the tmux session is not**. Disconnecting closes the WebSocket but leaves the tmux session alive so the agent keeps working in the background. Only an explicit "kill" destroys the tmux session.
 

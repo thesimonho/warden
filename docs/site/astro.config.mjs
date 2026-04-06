@@ -53,8 +53,10 @@ export default defineConfig({
 				{
 					label: "Integration",
 					items: [
+						{ slug: "integration/agent-plugin" },
 						{ slug: "integration/architecture" },
 						{ slug: "integration/paths" },
+						{ slug: "integration/environment-variables" },
 						{ slug: "integration/http-api" },
 						{ slug: "integration/go-client" },
 						{ slug: "integration/go-library" },
@@ -63,7 +65,6 @@ export default defineConfig({
 				{
 					label: "Reference",
 					items: [
-						{ slug: "reference/environment-variables" },
 						...openAPISidebarGroups,
 						{
 							label: "Go Packages",

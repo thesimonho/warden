@@ -1,9 +1,4 @@
----
-title: "Go Library"
-description: "Embed Warden directly in your Go application."
-editUrl: false
----
-<!-- Generated from docs/plugin/skills/warden/reference/examples/library.md — do not edit directly -->
+# Go Library
 
 Import Warden as a Go library for single-process deployment. No `warden` binary needed — your application initializes and controls the engine directly.
 
@@ -343,4 +338,4 @@ func main() {
 - **Primary interface**: `w.Service` — all operations (containers, worktrees, settings, audit, access items)
 - **Event bus**: `w.Broker` — subscribe to real-time events
 - **Advanced access**: `w.Engine` — container runtime client, `w.DB` — SQLite store, `w.Watcher` — file-based event watcher
-- **Go Packages**: See the [Go Packages reference](/warden/reference/go/) for API documentation
+- **Go Packages**: See the [Go Packages reference](https://thesimonho.github.io/warden/reference/go/) for API documentation

@@ -201,16 +201,19 @@ generate-icons:
 # ── Documentation ─────────────────────────────────────────────────────────────
 
 [private]
-docs-generate:
-    ./docs/site/generate-go-docs.sh
-    ./docs/site/generate-changelog.sh
-    ./docs/site/generate-contributing.sh
+docs-generate: generate-api-docs
+    ./docs/site/generate-docs.sh
 
-# Start docs dev server (generates Go reference docs first)
+# Regenerate agent-format API reference from OpenAPI spec
+[private]
+generate-api-docs:
+    node docs/site/generate-api-docs.mjs
+
+# Start docs dev server (generates all docs first)
 docs-dev: docs-generate
     npm --prefix docs/site run dev
 
-# Build docs site (generates Go docs + builds Starlight)
+# Build docs site (generates all docs + builds Starlight)
 docs-build: docs-generate
     npm --prefix docs/site run build
 

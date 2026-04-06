@@ -46,7 +46,7 @@ func isLikelyError(output string) bool {
 // captured via response_item entries (always persisted). Error details from
 // end events (exec_command_end, etc.) require extended persistence mode,
 // only available via `codex app-server` (ThreadStartParams.persist_extended_history).
-// See docs/events_codex.md for the full persistence policy.
+// See docs/developer/events_codex.md for the full persistence policy.
 type Parser struct {
 	// lastModel tracks the most recently seen model from turn_context entries.
 	lastModel string

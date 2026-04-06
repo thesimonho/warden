@@ -1,9 +1,4 @@
----
-title: "Integration Paths"
-description: "Integrate Warden using HTTP API, Go client, or Go library."
-editUrl: false
----
-<!-- Generated from docs/plugin/skills/warden/reference/paths.md — do not edit directly -->
+# Integration Paths
 
 Warden is designed to be integrated into your own applications. Start with the [Architecture](./concepts.md) page to understand how the layers fit together, then choose an integration path below.
 
@@ -41,7 +36,7 @@ All packages are importable via `go get github.com/thesimonho/warden`:
 | `runtimes`         | Language runtime registry with auto-detection, network domains, and env var definitions |
 | `watcher`          | Generic file-tailing utilities (used by agent session watcher)                          |
 
-See the [Go Packages](/warden/reference/go/) reference for full API documentation.
+See the [Go Packages](https://thesimonho.github.io/warden/reference/go/) reference for full API documentation.
 
 ## Integration paths
 
@@ -69,7 +64,7 @@ Run the `warden` binary as a headless server and make HTTP requests to `/api/v1/
 
 Ship the `warden` binary with your application and start it as a subprocess, or run it as a standalone service.
 
-See the [HTTP API guide](./examples/api.md) for setup, examples, and the full error code reference. See the [API Reference](/warden/reference/api/) for endpoint documentation.
+See the [HTTP API guide](./examples/api.md) for setup, examples, and the full error code reference. See the [API Reference](https://thesimonho.github.io/warden/reference/api/) for endpoint documentation.
 
 ## Go client (convenience wrapper)
 

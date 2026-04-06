@@ -11,6 +11,6 @@
   "homepage": "https://thesimonho.github.io/warden/",
   "repository": "https://github.com/thesimonho/warden",
   "keywords": ["warden", "containers", "agents", "docker", "security"],
-  "skills": "./plugin/skills/",
-  "commands": []
+  "agents": "./docs/plugin/agents/",
+  "skills": "./docs/plugin/skills/"
 }
