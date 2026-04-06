@@ -10,13 +10,7 @@
   "license": "Apache-2.0",
   "homepage": "https://thesimonho.github.io/warden/",
   "repository": "https://github.com/thesimonho/warden",
-  "keywords": [
-    "warden",
-    "containers",
-    "agents",
-    "docker",
-    "security"
-  ],
-  "agents": "./docs/plugin/agents/",
-  "skills": "./docs/plugin/skills/"
+  "keywords": ["warden", "containers", "agents", "docker", "security"],
+  "agents": "./agents/",
+  "skills": "./skills/"
 }
