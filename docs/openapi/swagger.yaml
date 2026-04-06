@@ -351,12 +351,14 @@ components:
       - backend
       - frontend
       - container
+      - external
       type: string
       x-enum-varnames:
       - AuditSourceAgent
       - AuditSourceBackend
       - AuditSourceFrontend
       - AuditSourceContainer
+      - AuditSourceExternal
     api.AuditSummary:
       properties:
         timeRange:
@@ -613,14 +615,41 @@ components:
       - NetworkModeNone
     api.PostAuditEventRequest:
       properties:
+        agentType:
+          description: AgentType scopes the event to an agent type (e.g. "claude-code",
+            "codex"). Optional.
+          type: string
         attrs:
           additionalProperties: {}
+          description: Attrs carries key-value metadata.
           type: object
+        data:
+          description: Data carries a raw JSON payload for structured event data.
+          items:
+            type: integer
+          type: array
+          uniqueItems: false
         event:
+          description: Event is a snake_case identifier for the event type (e.g. "deployment_started").
+            Required.
           type: string
         level:
+          description: Level is the severity ("info", "warn", "error"). Defaults to
+            "info" if omitted.
           type: string
         message:
+          description: Message is a human-readable description.
+          type: string
+        projectId:
+          description: ProjectID associates the event with a project. Optional.
+          type: string
+        source:
+          description: |-
+            Source identifies the origin of the event. Must be a valid AuditSource value.
+            Defaults to "external" if omitted.
+          type: string
+        worktree:
+          description: Worktree associates the event with a worktree. Optional.
           type: string
       type: object
     api.ProjectResponse:
@@ -1517,7 +1546,9 @@ paths:
       tags:
       - audit
     post:
-      description: Writes a custom audit event from the frontend or an external consumer.
+      description: |-
+        Writes a custom audit event. Integrators can set source, project scope,
+        and structured data. Source defaults to "external" if omitted.
       requestBody:
         content:
           application/json:

@@ -190,12 +190,27 @@ type UpdateSettingsResult struct {
 	RestartRequired bool
 }
 
-// PostAuditEventRequest holds the fields for writing a frontend-posted audit event.
+// PostAuditEventRequest holds the fields for writing a custom audit event.
 type PostAuditEventRequest struct {
-	Event   string         `json:"event"`
-	Level   string         `json:"level"`
-	Message string         `json:"message"`
-	Attrs   map[string]any `json:"attrs,omitempty"`
+	// Event is a snake_case identifier for the event type (e.g. "deployment_started"). Required.
+	Event string `json:"event"`
+	// Source identifies the origin of the event. Must be a valid AuditSource value.
+	// Defaults to "external" if omitted.
+	Source string `json:"source,omitempty"`
+	// Level is the severity ("info", "warn", "error"). Defaults to "info" if omitted.
+	Level string `json:"level,omitempty"`
+	// Message is a human-readable description.
+	Message string `json:"message,omitempty"`
+	// ProjectID associates the event with a project. Optional.
+	ProjectID string `json:"projectId,omitempty"`
+	// AgentType scopes the event to an agent type (e.g. "claude-code", "codex"). Optional.
+	AgentType string `json:"agentType,omitempty"`
+	// Worktree associates the event with a worktree. Optional.
+	Worktree string `json:"worktree,omitempty"`
+	// Data carries a raw JSON payload for structured event data.
+	Data json.RawMessage `json:"data,omitempty"`
+	// Attrs carries key-value metadata.
+	Attrs map[string]any `json:"attrs,omitempty"`
 }
 
 // DefaultMount represents a resolved default bind mount for the
@@ -325,7 +340,19 @@ const (
 	AuditSourceFrontend AuditSource = "frontend"
 	// AuditSourceContainer is for container lifecycle events (create, stop, restart, etc.).
 	AuditSourceContainer AuditSource = "container"
+	// AuditSourceExternal is for events posted by external integrators via the API.
+	AuditSourceExternal AuditSource = "external"
 )
+
+// IsValidAuditSource reports whether the given string is a recognized audit source.
+func IsValidAuditSource(s string) bool {
+	switch AuditSource(s) {
+	case AuditSourceAgent, AuditSourceBackend, AuditSourceFrontend, AuditSourceContainer, AuditSourceExternal:
+		return true
+	default:
+		return false
+	}
+}
 
 // AuditLevel indicates the severity of a log entry.
 type AuditLevel string

@@ -175,10 +175,11 @@ func (rt *routes) handleGetAuditProjects(w http.ResponseWriter, _ *http.Request)
 	writeJSON(w, projects)
 }
 
-// handlePostAuditEvent accepts a frontend event and writes it to the audit log.
+// handlePostAuditEvent writes a custom audit event to the log.
 //
 //	@Summary		Post audit event
-//	@Description	Writes a custom audit event from the frontend or an external consumer.
+//	@Description	Writes a custom audit event. Integrators can set source, project scope,
+//	@Description	and structured data. Source defaults to "external" if omitted.
 //	@Tags			audit
 //	@Accept			json
 //	@Param			body	body	api.PostAuditEventRequest	true	"Audit event to record"
@@ -187,7 +188,7 @@ func (rt *routes) handleGetAuditProjects(w http.ResponseWriter, _ *http.Request)
 //	@Failure		500	{object}	apiError
 //	@Router			/api/v1/audit [post]
 func (rt *routes) handlePostAuditEvent(w http.ResponseWriter, r *http.Request) {
-	r.Body = http.MaxBytesReader(w, r.Body, 4<<10)
+	r.Body = http.MaxBytesReader(w, r.Body, 64<<10)
 
 	var req service.PostAuditEventRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -197,6 +198,11 @@ func (rt *routes) handlePostAuditEvent(w http.ResponseWriter, r *http.Request) {
 
 	if req.Event == "" {
 		writeError(w, ErrCodeRequiredField, "event is required", http.StatusBadRequest)
+		return
+	}
+
+	if req.Source != "" && !api.IsValidAuditSource(req.Source) {
+		writeError(w, ErrCodeInvalidBody, "invalid source: must be agent, backend, frontend, container, or external", http.StatusBadRequest)
 		return
 	}
 

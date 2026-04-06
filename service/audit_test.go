@@ -10,12 +10,18 @@ import (
 
 func newTestService(t *testing.T) (*Service, *db.Store) {
 	t.Helper()
+	store := newTestStore(t)
+	return New(ServiceDeps{DockerAvailable: true, DB: store}), store
+}
+
+func newTestStore(t *testing.T) *db.Store {
+	t.Helper()
 	store, err := db.New(t.TempDir())
 	if err != nil {
 		t.Fatalf("db.New() error: %v", err)
 	}
 	t.Cleanup(func() { store.Close() }) //nolint:errcheck
-	return New(ServiceDeps{DockerAvailable: true, DB: store}), store
+	return store
 }
 
 func writeTestEvents(t *testing.T, store *db.Store) {
@@ -377,6 +383,133 @@ func TestGetAuditLog_BudgetCategoryFilter(t *testing.T) {
 	}
 	if entries[0].Category != "budget" {
 		t.Errorf("expected category budget, got %q", entries[0].Category)
+	}
+}
+
+func TestPostAuditEvent_DefaultsToExternal(t *testing.T) {
+	t.Parallel()
+	store := newTestStore(t)
+	audit := db.NewAuditWriter(store, db.AuditDetailed, StandardAuditEvents())
+	svc := New(ServiceDeps{DockerAvailable: true, DB: store, Audit: audit})
+
+	err := svc.PostAuditEvent(api.PostAuditEventRequest{
+		Event:   "deployment_started",
+		Message: "deploying v1.2.3",
+	})
+	if err != nil {
+		t.Fatalf("PostAuditEvent() error: %v", err)
+	}
+
+	entries, err := svc.GetAuditLog(api.AuditFilters{})
+	if err != nil {
+		t.Fatalf("GetAuditLog() error: %v", err)
+	}
+	if len(entries) != 1 {
+		t.Fatalf("expected 1 entry, got %d", len(entries))
+	}
+	if entries[0].Source != db.SourceExternal {
+		t.Errorf("expected source external, got %q", entries[0].Source)
+	}
+	if entries[0].Event != "deployment_started" {
+		t.Errorf("expected event deployment_started, got %q", entries[0].Event)
+	}
+}
+
+func TestPostAuditEvent_CustomSourceAndProject(t *testing.T) {
+	t.Parallel()
+	store := newTestStore(t)
+	audit := db.NewAuditWriter(store, db.AuditDetailed, StandardAuditEvents())
+	svc := New(ServiceDeps{DockerAvailable: true, DB: store, Audit: audit})
+
+	err := svc.PostAuditEvent(api.PostAuditEventRequest{
+		Event:     "custom_event",
+		Source:    "frontend",
+		Level:     "warn",
+		ProjectID: "aabbccddee01",
+		AgentType: "claude-code",
+		Worktree:  "main",
+		Data:      []byte(`{"key":"value"}`),
+		Attrs:     map[string]any{"version": "1.0"},
+	})
+	if err != nil {
+		t.Fatalf("PostAuditEvent() error: %v", err)
+	}
+
+	entries, err := svc.GetAuditLog(api.AuditFilters{ProjectID: "aabbccddee01"})
+	if err != nil {
+		t.Fatalf("GetAuditLog() error: %v", err)
+	}
+	if len(entries) != 1 {
+		t.Fatalf("expected 1 entry, got %d", len(entries))
+	}
+	e := entries[0]
+	if e.Source != db.SourceFrontend {
+		t.Errorf("source = %q, want frontend", e.Source)
+	}
+	if e.Level != db.LevelWarn {
+		t.Errorf("level = %q, want warn", e.Level)
+	}
+	if e.ProjectID != "aabbccddee01" {
+		t.Errorf("projectID = %q, want aabbccddee01", e.ProjectID)
+	}
+	if e.AgentType != "claude-code" {
+		t.Errorf("agentType = %q, want claude-code", e.AgentType)
+	}
+	if e.Worktree != "main" {
+		t.Errorf("worktree = %q, want main", e.Worktree)
+	}
+	if string(e.Data) != `{"key":"value"}` {
+		t.Errorf("data = %q, want {\"key\":\"value\"}", string(e.Data))
+	}
+}
+
+func TestPostAuditEvent_InvalidSourceFallsBackToExternal(t *testing.T) {
+	t.Parallel()
+	store := newTestStore(t)
+	audit := db.NewAuditWriter(store, db.AuditDetailed, StandardAuditEvents())
+	svc := New(ServiceDeps{DockerAvailable: true, DB: store, Audit: audit})
+
+	err := svc.PostAuditEvent(api.PostAuditEventRequest{
+		Event:  "test_event",
+		Source: "bogus",
+	})
+	if err != nil {
+		t.Fatalf("PostAuditEvent() error: %v", err)
+	}
+
+	entries, err := svc.GetAuditLog(api.AuditFilters{})
+	if err != nil {
+		t.Fatalf("GetAuditLog() error: %v", err)
+	}
+	if len(entries) != 1 {
+		t.Fatalf("expected 1 entry, got %d", len(entries))
+	}
+	if entries[0].Source != db.SourceExternal {
+		t.Errorf("expected fallback to external, got %q", entries[0].Source)
+	}
+}
+
+func TestPostAuditEvent_StandardModePassesExternalEvents(t *testing.T) {
+	t.Parallel()
+	store := newTestStore(t)
+	audit := db.NewAuditWriter(store, db.AuditStandard, StandardAuditEvents())
+	svc := New(ServiceDeps{DockerAvailable: true, DB: store, Audit: audit})
+
+	// Custom event from external source — should pass even in standard mode.
+	err := svc.PostAuditEvent(api.PostAuditEventRequest{
+		Event:   "custom_integrator_event",
+		Message: "should not be filtered",
+	})
+	if err != nil {
+		t.Fatalf("PostAuditEvent() error: %v", err)
+	}
+
+	entries, err := svc.GetAuditLog(api.AuditFilters{})
+	if err != nil {
+		t.Fatalf("GetAuditLog() error: %v", err)
+	}
+	if len(entries) != 1 {
+		t.Fatalf("expected 1 entry in standard mode, got %d", len(entries))
 	}
 }
 

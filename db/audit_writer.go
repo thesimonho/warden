@@ -53,7 +53,7 @@ func (w *AuditWriter) Write(entry Entry) {
 	if mode == AuditOff {
 		return
 	}
-	if mode == AuditStandard && !w.standardEvents[entry.Event] {
+	if mode == AuditStandard && !w.isStandardEvent(entry) {
 		return
 	}
 
@@ -68,6 +68,16 @@ func (w *AuditWriter) SetMode(mode AuditMode) {
 	if w != nil {
 		w.mode.Store(mode)
 	}
+}
+
+// isStandardEvent reports whether an entry should be logged in standard mode.
+// Events from external or frontend sources always pass (custom integrator
+// events), as do events whose name is in the standard allowlist.
+func (w *AuditWriter) isStandardEvent(entry Entry) bool {
+	if entry.Source == SourceExternal || entry.Source == SourceFrontend {
+		return true
+	}
+	return w.standardEvents[entry.Event]
 }
 
 // Mode returns the current audit mode.
