@@ -41,12 +41,57 @@ Or you could just use **Warden**.
 Warden is a modular, self-contained infrastructure layer that makes autonomous agents safe by default. It handles all of the above for you. You can easily use it from Day 1 as its own agent orchestrator, running as a webapp or terminal UI.
 
 But it's real power comes from being a self-contained security boundary, that developers can integrate into their existing applications, gaining containerized agent infrastructure for free.
-The idea is simple. Your app talks to Warden, it controls the agent environment, and gives you back the data you need (and more).
 
-### Example Use Cases
+## 🧠 How It Works
 
-- **You have a big new idea**. You've got a cool idea for orchestrating agents — the interface, the flows, the way agents hand off work to each other. You want to build the UI and the experience, not become an infrastructure engineer. Point Warden at your stack and let it take care of worktrees, container security, and notifications for you. Build the part you actually care about.
-- **You already have something working**. Your tool runs, people use it, but you're realising you have no isolation, no audit trail, and no good answer for when something goes wrong. Warden slots in without a rewrite — embed the Go library or run it as a sidecar. Your existing code stays where it is, and you just talk to Warden instead of directly to your current agent CLI.
+The idea is simple. Normally, you'd have your application code interacting directly with an agent CLI like Claude Code or Codex. Those are the blue bits.
+
+Warden adds the orange bits - it wraps up the agents in containers and handles their lifecycle and environment for you. Now, your app can just interact with Warden and it'll give you back the data you need. Warden takes care of the security and orchestration pieces in the middle.
+
+```mermaid
+---
+config:
+  theme: 'neutral'
+  look: handDrawn
+---
+graph BT
+    Engine -- "Terminals
+    Notifications
+    Audit" --> App
+
+    App["<b>Your App</b>"] -- "API
+    Requests" --> Engine
+
+    subgraph Engine["<b>Warden</b>"]
+        S1["Filesystem"]
+        S2["Network Policies"]
+        S3["Access Credentials"]
+    end
+
+    subgraph Containers["Containers"]
+        subgraph P1["Project"]
+            A1["Agent CLI"]
+            W1["Worktrees"]
+        end
+        subgraph P2["Project"]
+            A3["Agent CLI"]
+            W2["Worktrees"]
+        end
+    end
+
+    Containers -- "Agent Activity
+    Events
+    Output" --> Engine
+    
+    Engine -- "Lifecycle
+    Sessions
+    Isolation" --> Containers
+
+    classDef before fill:#a8c8e8,stroke:#4a86b8
+    classDef after fill:#f5d5a0,stroke:#c8a050
+    class App,A1,A3 before
+    class Engine,Containers after
+```
 
 ## ✅ What you get
 
