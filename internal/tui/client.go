@@ -24,11 +24,11 @@ import (
 type Client interface {
 	// ListProjects returns all configured projects with container state.
 	// API: GET /api/v1/projects
-	ListProjects(ctx context.Context) ([]engine.Project, error)
+	ListProjects(ctx context.Context) ([]api.ProjectResponse, error)
 
 	// AddProject registers a project directory in Warden.
 	// API: POST /api/v1/projects
-	AddProject(ctx context.Context, name, hostPath, agentType string) (*api.ProjectResult, error)
+	AddProject(ctx context.Context, req api.AddProjectRequest) (*api.ProjectResult, error)
 
 	// RemoveProject removes a project by its project ID.
 	// API: DELETE /api/v1/projects/{projectId}/{agentType}
@@ -48,7 +48,7 @@ type Client interface {
 
 	// CreateWorktree creates a git worktree and connects a terminal.
 	// API: POST /api/v1/projects/{projectId}/{agentType}/worktrees
-	CreateWorktree(ctx context.Context, projectID, agentType, name string) (*api.WorktreeResult, error)
+	CreateWorktree(ctx context.Context, projectID, agentType string, req api.CreateWorktreeRequest) (*api.WorktreeResult, error)
 
 	// ConnectTerminal starts or reconnects a terminal for a worktree.
 	// API: POST /api/v1/projects/{projectId}/{agentType}/worktrees/{wid}/connect

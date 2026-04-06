@@ -11,6 +11,79 @@ import (
 	"github.com/thesimonho/warden/constants"
 )
 
+// ProjectResponse is a project returned by the HTTP API. It mirrors the
+// fields of engine.Project with explicit field declarations so the JSON
+// contract is decoupled from the internal domain type.
+type ProjectResponse struct {
+	// ProjectID is the deterministic project identifier (sha256 of host path, 12 hex chars).
+	ProjectID string `json:"projectId"`
+	// ID is the Docker container ID (empty when no container exists).
+	ID string `json:"id"`
+	// Name is the user-chosen display label / Docker container name.
+	Name string `json:"name"`
+	// HostPath is the absolute host directory mounted into the container.
+	HostPath string `json:"hostPath,omitempty"`
+	// HasContainer is true when a Docker container is associated with this project.
+	HasContainer bool   `json:"hasContainer"`
+	Type         string `json:"type"`
+	Image        string `json:"image"`
+	OS           string `json:"os"`
+	CreatedAt    int64  `json:"createdAt"`
+	SSHPort      string `json:"sshPort"`
+	// State is the Docker container state ("running", "exited", "not-found", etc).
+	State string `json:"state"`
+	// Status is the Docker container status string (e.g. "Up 2 hours").
+	Status string `json:"status"`
+	// AgentStatus is the agent activity state ("idle", "working", "unknown").
+	AgentStatus string `json:"agentStatus"`
+	// NeedsInput is true when any worktree requires user attention.
+	NeedsInput bool `json:"needsInput,omitempty"`
+	// NotificationType indicates why the agent needs attention
+	// (e.g. "permission_prompt", "idle_prompt", "elicitation_dialog").
+	NotificationType string `json:"notificationType,omitempty"`
+	// ActiveWorktreeCount is the number of worktrees with connected terminals.
+	ActiveWorktreeCount int `json:"activeWorktreeCount"`
+	// TotalCost is the aggregate cost across all worktrees in USD.
+	TotalCost float64 `json:"totalCost"`
+	// IsEstimatedCost is true when the cost is an estimate (e.g. subscription users).
+	IsEstimatedCost bool `json:"isEstimatedCost,omitempty"`
+	// CostBudget is the per-project cost limit in USD (0 = use global default).
+	CostBudget float64 `json:"costBudget"`
+	// IsGitRepo indicates whether the container's /project is a git repository.
+	IsGitRepo bool `json:"isGitRepo"`
+	// AgentType identifies the CLI agent running in this project (e.g. "claude-code", "codex").
+	AgentType constants.AgentType `json:"agentType"`
+	// SkipPermissions indicates whether terminals should skip permission prompts.
+	SkipPermissions bool `json:"skipPermissions"`
+	// MountedDir is the host directory mounted into the container.
+	MountedDir string `json:"mountedDir,omitempty"`
+	// WorkspaceDir is the container-side workspace directory (mount destination).
+	WorkspaceDir string `json:"workspaceDir,omitempty"`
+	// NetworkMode controls the container's network isolation level.
+	NetworkMode NetworkMode `json:"networkMode"`
+	// AllowedDomains lists domains accessible when NetworkMode is "restricted".
+	AllowedDomains []string `json:"allowedDomains,omitempty"`
+	// AgentVersion is the pinned CLI version installed in this container.
+	AgentVersion string `json:"agentVersion,omitempty"`
+}
+
+// AddProjectRequest is the JSON body for registering a project directory.
+type AddProjectRequest struct {
+	// Name is an optional container name override.
+	Name string `json:"name,omitempty"`
+	// ProjectPath is the absolute host directory to register as a project.
+	ProjectPath string `json:"projectPath"`
+	// AgentType selects the CLI agent to run (e.g. "claude-code", "codex").
+	// Defaults to "claude-code" if omitted.
+	AgentType string `json:"agentType,omitempty"`
+}
+
+// CreateWorktreeRequest is the JSON body for creating a new git worktree.
+type CreateWorktreeRequest struct {
+	// Name is the worktree name (must be a valid git branch name).
+	Name string `json:"name"`
+}
+
 // ProjectResult is the outcome of a project mutation (create, remove, stop,
 // restart). ProjectID is always populated. ContainerID is populated when the
 // operation targets a specific container.
@@ -32,6 +105,10 @@ type WorktreeResult struct {
 	WorktreeID string `json:"worktreeId"`
 	// ProjectID is the deterministic project identifier the worktree belongs to.
 	ProjectID string `json:"projectId"`
+	// State is the worktree's terminal state after the mutation
+	// ("connected", "shell", "background", "stopped"). Best-effort — may be
+	// empty if the state could not be determined (e.g. container not running).
+	State string `json:"state,omitempty"`
 }
 
 // ContainerResult holds the output of a container create, update, or delete

@@ -37,7 +37,7 @@ func newTestServer(t *testing.T, method, path string, status int, body any) *Cli
 func TestListProjects(t *testing.T) {
 	t.Parallel()
 
-	projects := []engine.Project{
+	projects := []api.ProjectResponse{
 		{ID: "abc123def456", Name: "test-project", State: "running"},
 	}
 	c := newTestServer(t, "GET", "/api/v1/projects", http.StatusOK, projects)
@@ -87,7 +87,7 @@ func TestCreateWorktree(t *testing.T) {
 
 	c := newTestServer(t, "POST", "/api/v1/projects/abc123def456/claude-code/worktrees", http.StatusCreated, service.WorktreeResult{WorktreeID: "feature-x", ProjectID: "abc123def456"})
 
-	resp, err := c.CreateWorktree(context.Background(), "abc123def456", "claude-code", "feature-x")
+	resp, err := c.CreateWorktree(context.Background(), "abc123def456", "claude-code", api.CreateWorktreeRequest{Name: "feature-x"})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

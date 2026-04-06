@@ -25,7 +25,7 @@ Returns all configured projects enriched with live container state, Claude statu
 
 - **`agentStatus`**
 
-  `string`, possible values: `"idle", "working", "unknown"`
+  `string` — AgentStatus is the agent activity state ("idle", "working", "unknown").
 
 - **`agentType`**
 
@@ -69,7 +69,7 @@ Returns all configured projects enriched with live container state, Claude statu
 
 - **`isEstimatedCost`**
 
-  `boolean` — IsEstimatedCost is true when the cost is an estimate (e.g. subscription users). When false, the cost reflects actual API spend.
+  `boolean` — IsEstimatedCost is true when the cost is an estimate (e.g. subscription users).
 
 - **`isGitRepo`**
 
@@ -93,7 +93,7 @@ Returns all configured projects enriched with live container state, Claude statu
 
 - **`notificationType`**
 
-  `string`, possible values: `"permission_prompt", "idle_prompt", "auth_success", "elicitation_dialog"` — NotificationType indicates why Claude needs attention.
+  `string` — NotificationType indicates why the agent needs attention (e.g. "permission\_prompt", "idle\_prompt", "elicitation\_dialog").
 
 - **`os`**
 
@@ -113,15 +113,15 @@ Returns all configured projects enriched with live container state, Claude statu
 
 - **`state`**
 
-  `string`
+  `string` — State is the Docker container state ("running", "exited", "not-found", etc).
 
 - **`status`**
 
-  `string`
+  `string` — Status is the Docker container status string (e.g. "Up 2 hours").
 
 - **`totalCost`**
 
-  `number` — TotalCost is the aggregate cost across all worktrees in USD (from agent status provider).
+  `number` — TotalCost is the aggregate cost across all worktrees in USD.
 
 - **`type`**
 
@@ -137,7 +137,7 @@ Returns all configured projects enriched with live container state, Claude statu
 [
   {
     "activeWorktreeCount": 1,
-    "agentStatus": "idle",
+    "agentStatus": "",
     "agentType": "claude-code",
     "agentVersion": "",
     "allowedDomains": [
@@ -155,7 +155,7 @@ Returns all configured projects enriched with live container state, Claude statu
     "name": "",
     "needsInput": true,
     "networkMode": "full",
-    "notificationType": "permission_prompt",
+    "notificationType": "",
     "os": "",
     "projectId": "",
     "skipPermissions": true,
@@ -185,6 +185,10 @@ Registers a host directory as a Warden project.
 ##### Content-Type: application/json
 
 **One of:**
+
+- **`agentType`**
+
+  `string` — AgentType selects the CLI agent to run (e.g. "claude-code", "codex"). Defaults to "claude-code" if omitted.
 
 - **`name`**
 

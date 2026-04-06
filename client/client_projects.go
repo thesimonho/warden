@@ -4,16 +4,15 @@ import (
 	"context"
 
 	"github.com/thesimonho/warden/api"
-	"github.com/thesimonho/warden/engine"
 )
 
 // ListProjects returns all configured projects with container state, cost,
-// and attention data. Each [engine.Project] includes State ("running",
+// and attention data. Each [api.ProjectResponse] includes State ("running",
 // "exited", "not-found"), NeedsInput (true when Claude needs attention),
 // NotificationType ("permission_prompt", "idle_prompt", "elicitation_dialog"),
 // ActiveWorktreeCount, TotalCost (USD), and NetworkMode.
-func (c *Client) ListProjects(ctx context.Context) ([]engine.Project, error) {
-	var projects []engine.Project
+func (c *Client) ListProjects(ctx context.Context) ([]api.ProjectResponse, error) {
+	var projects []api.ProjectResponse
 	if err := c.get(ctx, "/api/v1/projects", &projects); err != nil {
 		return nil, err
 	}
@@ -21,10 +20,9 @@ func (c *Client) ListProjects(ctx context.Context) ([]engine.Project, error) {
 }
 
 // AddProject registers a project directory in Warden.
-func (c *Client) AddProject(ctx context.Context, name, hostPath, agentType string) (*api.ProjectResult, error) {
+func (c *Client) AddProject(ctx context.Context, req api.AddProjectRequest) (*api.ProjectResult, error) {
 	var resp api.ProjectResult
-	body := map[string]string{"name": name, "projectPath": hostPath, "agentType": agentType}
-	if err := c.post(ctx, "/api/v1/projects", body, &resp); err != nil {
+	if err := c.post(ctx, "/api/v1/projects", req, &resp); err != nil {
 		return nil, err
 	}
 	return &resp, nil

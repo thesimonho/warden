@@ -18,7 +18,18 @@ import (
 
 // ListProjects returns all projects from the database, enriched with
 // container state, DB metadata, and cost data from the event store.
-func (s *Service) ListProjects(ctx context.Context) ([]engine.Project, error) {
+func (s *Service) ListProjects(ctx context.Context) ([]api.ProjectResponse, error) {
+	projects, err := s.listProjectsInternal(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return projectResponsesFromEngine(projects), nil
+}
+
+// listProjectsInternal returns all projects as engine.Project (domain type).
+// Kept separate from ListProjects so future service methods can access the
+// domain type directly without converting through api.ProjectResponse.
+func (s *Service) listProjectsInternal(ctx context.Context) ([]engine.Project, error) {
 	allRows, err := s.db.ListAllProjects()
 	if err != nil {
 		return nil, err

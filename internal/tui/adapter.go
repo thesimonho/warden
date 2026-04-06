@@ -56,13 +56,13 @@ func NewServiceAdapter(w *warden.Warden) *ServiceAdapter {
 // --- Projects ---
 
 // ListProjects delegates to Service.ListProjects.
-func (a *ServiceAdapter) ListProjects(ctx context.Context) ([]engine.Project, error) {
+func (a *ServiceAdapter) ListProjects(ctx context.Context) ([]api.ProjectResponse, error) {
 	return a.w.Service.ListProjects(ctx)
 }
 
 // AddProject delegates to Service.AddProject.
-func (a *ServiceAdapter) AddProject(_ context.Context, name, hostPath, agentType string) (*api.ProjectResult, error) {
-	return a.w.Service.AddProject(name, hostPath, agentType)
+func (a *ServiceAdapter) AddProject(_ context.Context, req api.AddProjectRequest) (*api.ProjectResult, error) {
+	return a.w.Service.AddProject(req.Name, req.ProjectPath, req.AgentType)
 }
 
 // RemoveProject delegates to Service.RemoveProject.
@@ -88,8 +88,8 @@ func (a *ServiceAdapter) ListWorktrees(ctx context.Context, projectID, agentType
 }
 
 // CreateWorktree delegates to Service.CreateWorktree.
-func (a *ServiceAdapter) CreateWorktree(ctx context.Context, projectID, agentType, name string) (*api.WorktreeResult, error) {
-	return a.w.Service.CreateWorktree(ctx, projectID, agentType, name)
+func (a *ServiceAdapter) CreateWorktree(ctx context.Context, projectID, agentType string, req api.CreateWorktreeRequest) (*api.WorktreeResult, error) {
+	return a.w.Service.CreateWorktree(ctx, projectID, agentType, req.Name)
 }
 
 // ConnectTerminal delegates to Service.ConnectTerminal.

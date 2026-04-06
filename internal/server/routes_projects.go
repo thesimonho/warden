@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"net/http"
 
+	"github.com/thesimonho/warden/api"
 	"github.com/thesimonho/warden/constants"
 )
 
@@ -14,7 +15,7 @@ import (
 //	@Description	Returns all configured projects enriched with live container state,
 //	@Description	Claude status, worktree counts, and cost data.
 //	@Tags			projects
-//	@Success		200	{array}		engine.Project
+//	@Success		200	{array}		api.ProjectResponse
 //	@Failure		500	{object}	apiError
 //	@Router			/api/v1/projects [get]
 func (rt *routes) handleListProjects(w http.ResponseWriter, r *http.Request) {
@@ -33,7 +34,7 @@ func (rt *routes) handleListProjects(w http.ResponseWriter, r *http.Request) {
 //	@Description	Registers a host directory as a Warden project.
 //	@Tags			projects
 //	@Accept			json
-//	@Param			body	body		addProjectRequest	true	"Project details"
+//	@Param			body	body		api.AddProjectRequest	true	"Project details"
 //	@Success		201		{object}	service.ProjectResult
 //	@Failure		400		{object}	apiError
 //	@Failure		500		{object}	apiError
@@ -41,11 +42,7 @@ func (rt *routes) handleListProjects(w http.ResponseWriter, r *http.Request) {
 func (rt *routes) handleAddProject(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, 1<<10)
 
-	var req struct {
-		Name        string `json:"name"`
-		ProjectPath string `json:"projectPath"`
-		AgentType   string `json:"agentType"`
-	}
+	var req api.AddProjectRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeError(w, ErrCodeInvalidBody, "invalid request body", http.StatusBadRequest)
 		return
