@@ -24,10 +24,12 @@ describe('hasActiveTerminal', () => {
     expect(hasActiveTerminal({ state: 'background' })).toBe(true)
   })
 
-  it('returns false for all non-active states', () => {
-    const inactiveStates: WorktreeState[] = ['stopped']
-    for (const state of inactiveStates) {
-      expect(hasActiveTerminal({ state })).toBe(false)
+  it('only stopped is inactive (all other states have active terminals)', () => {
+    // stopped is the only state without an active terminal
+    const allStates: WorktreeState[] = ['connected', 'shell', 'background', 'stopped']
+    for (const state of allStates) {
+      const expected = state !== 'stopped'
+      expect(hasActiveTerminal({ state })).toBe(expected)
     }
   })
 })

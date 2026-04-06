@@ -1,9 +1,11 @@
 package engine
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/thesimonho/warden/api"
@@ -267,19 +269,40 @@ func TestDetectStaleMounts_DoubleSymlinkChain(t *testing.T) {
 // --- StaleMountsError ---
 
 func TestStaleMountsError_ImplementsError(t *testing.T) {
-	err := &StaleMountsError{StalePaths: []string{"/home/warden/.claude/settings.json"}}
-	if err.Error() == "" {
-		t.Error("expected non-empty error message")
+	stalePath := "/home/warden/.claude/settings.json"
+	err := &StaleMountsError{StalePaths: []string{stalePath}}
+	msg := err.Error()
+	if msg == "" {
+		t.Fatal("expected non-empty error message")
+	}
+	// The error message should mention the stale path so users can diagnose the issue.
+	if !strings.Contains(msg, stalePath) {
+		t.Errorf("expected error to contain stale path %q, got %q", stalePath, msg)
 	}
 }
 
 func TestIsStaleMountsError(t *testing.T) {
-	err := &StaleMountsError{StalePaths: []string{"/path"}}
+	stalePaths := []string{"/path/a", "/path/b"}
+	err := &StaleMountsError{StalePaths: stalePaths}
 	if !IsStaleMountsError(err) {
 		t.Error("expected IsStaleMountsError to return true")
 	}
 	if IsStaleMountsError(fmt.Errorf("other error")) {
 		t.Error("expected IsStaleMountsError to return false for other errors")
+	}
+	// Verify nil error doesn't panic.
+	if IsStaleMountsError(nil) {
+		t.Error("expected IsStaleMountsError to return false for nil")
+	}
+
+	// Verify the stale paths are preserved and accessible.
+	var staleErr *StaleMountsError
+	if errors.As(err, &staleErr) {
+		if len(staleErr.StalePaths) != 2 {
+			t.Errorf("expected 2 stale paths, got %d", len(staleErr.StalePaths))
+		}
+	} else {
+		t.Error("expected errors.As to extract StaleMountsError")
 	}
 }
 

@@ -1,6 +1,7 @@
 package service
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/thesimonho/warden/access"
@@ -89,7 +90,10 @@ func TestCreateAccessItem_ValidationErrors(t *testing.T) {
 		Label: "",
 	})
 	if err == nil {
-		t.Error("expected error for empty label")
+		t.Fatal("expected error for empty label")
+	}
+	if !strings.Contains(strings.ToLower(err.Error()), "label") {
+		t.Errorf("expected error to mention 'label', got %q", err.Error())
 	}
 
 	_, err = svc.CreateAccessItem(api.CreateAccessItemRequest{
@@ -97,7 +101,21 @@ func TestCreateAccessItem_ValidationErrors(t *testing.T) {
 		Credentials: nil,
 	})
 	if err == nil {
-		t.Error("expected error for empty credentials")
+		t.Fatal("expected error for empty credentials")
+	}
+	if !strings.Contains(strings.ToLower(err.Error()), "credential") {
+		t.Errorf("expected error to mention 'credential', got %q", err.Error())
+	}
+
+	// Verify no items were persisted from invalid requests.
+	items, err := svc.ListAccessItems()
+	if err != nil {
+		t.Fatalf("list error: %v", err)
+	}
+	for _, item := range items {
+		if !item.BuiltIn {
+			t.Errorf("unexpected user item %q persisted from invalid request", item.Label)
+		}
 	}
 }
 
@@ -236,9 +254,13 @@ func TestDeleteAccessItem_UserItem(t *testing.T) {
 		t.Fatalf("delete error: %v", err)
 	}
 
+	// GetAccessItem should return an error for a deleted item.
 	resp, err := svc.GetAccessItem(item.ID)
-	if err == nil && resp != nil {
-		t.Error("expected item to be gone after delete")
+	if err == nil {
+		t.Error("expected error when getting deleted item")
+	}
+	if resp != nil {
+		t.Errorf("expected nil response for deleted item, got %+v", resp)
 	}
 }
 

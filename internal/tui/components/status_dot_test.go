@@ -24,12 +24,46 @@ func TestWorktreeStateDot(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			got := WorktreeStateDot(tt.state)
-			// The result contains ANSI escape codes for color.
-			// Verify it contains the expected dot character.
+			if got == "" {
+				t.Errorf("WorktreeStateDot(%q) returned empty string", tt.state)
+			}
 			if !containsRune(got, []rune(tt.want)[0]) {
 				t.Errorf("WorktreeStateDot(%q) = %q, want to contain %q", tt.state, got, tt.want)
 			}
+			// Verify active states use filled dot, stopped/unknown use hollow.
+			if tt.state == engine.WorktreeStateStopped || tt.state == engine.WorktreeState("unknown") {
+				if containsRune(got, '●') {
+					t.Errorf("WorktreeStateDot(%q) should use hollow ○, not filled ●", tt.state)
+				}
+			} else {
+				if containsRune(got, '○') {
+					t.Errorf("WorktreeStateDot(%q) should use filled ●, not hollow ○", tt.state)
+				}
+			}
 		})
+	}
+}
+
+func TestWorktreeStateDot_UniqueStylesPerState(t *testing.T) {
+	t.Parallel()
+
+	// Each active state should produce a visually distinct output.
+	connected := WorktreeStateDot(engine.WorktreeStateConnected)
+	shell := WorktreeStateDot(engine.WorktreeStateShell)
+	background := WorktreeStateDot(engine.WorktreeStateBackground)
+	stopped := WorktreeStateDot(engine.WorktreeStateStopped)
+
+	if connected == shell {
+		t.Error("connected and shell should have different styling")
+	}
+	if connected == background {
+		t.Error("connected and background should have different styling")
+	}
+	if shell == background {
+		t.Error("shell and background should have different styling")
+	}
+	if connected == stopped {
+		t.Error("connected and stopped should have different styling")
 	}
 }
 
@@ -40,13 +74,12 @@ func TestAttentionDot(t *testing.T) {
 		name             string
 		notificationType engine.NotificationType
 		wantEmpty        bool
-		wantDot          string
 	}{
-		{"permission", engine.NotificationPermissionPrompt, false, "◉"},
-		{"answer", engine.NotificationElicitationDialog, false, "◉"},
-		{"input", engine.NotificationIdlePrompt, false, "◉"},
-		{"empty", engine.NotificationType(""), true, ""},
-		{"unknown", engine.NotificationType("unknown"), true, ""},
+		{"permission", engine.NotificationPermissionPrompt, false},
+		{"answer", engine.NotificationElicitationDialog, false},
+		{"input", engine.NotificationIdlePrompt, false},
+		{"empty", engine.NotificationType(""), true},
+		{"unknown", engine.NotificationType("unknown"), true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -55,10 +88,33 @@ func TestAttentionDot(t *testing.T) {
 			if tt.wantEmpty && got != "" {
 				t.Errorf("AttentionDot(%q) = %q, want empty", tt.notificationType, got)
 			}
-			if !tt.wantEmpty && !containsRune(got, []rune(tt.wantDot)[0]) {
-				t.Errorf("AttentionDot(%q) = %q, want to contain %q", tt.notificationType, got, tt.wantDot)
+			if !tt.wantEmpty {
+				if got == "" {
+					t.Errorf("AttentionDot(%q) returned empty, want non-empty", tt.notificationType)
+				}
+				if !containsRune(got, '◉') {
+					t.Errorf("AttentionDot(%q) = %q, want to contain ◉", tt.notificationType, got)
+				}
 			}
 		})
+	}
+}
+
+func TestAttentionDot_UniqueStylesPerType(t *testing.T) {
+	t.Parallel()
+
+	permission := AttentionDot(engine.NotificationPermissionPrompt)
+	elicitation := AttentionDot(engine.NotificationElicitationDialog)
+	idle := AttentionDot(engine.NotificationIdlePrompt)
+
+	if permission == elicitation {
+		t.Error("permission and elicitation should have different styling")
+	}
+	if permission == idle {
+		t.Error("permission and idle should have different styling")
+	}
+	if elicitation == idle {
+		t.Error("elicitation and idle should have different styling")
 	}
 }
 
@@ -80,10 +136,28 @@ func TestContainerStateDot(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			got := ContainerStateDot(tt.state)
+			if got == "" {
+				t.Errorf("ContainerStateDot(%q) returned empty string", tt.state)
+			}
 			if !containsRune(got, []rune(tt.want)[0]) {
 				t.Errorf("ContainerStateDot(%q) = %q, want to contain %q", tt.state, got, tt.want)
 			}
 		})
+	}
+}
+
+func TestContainerStateDot_RunningDistinctFromExited(t *testing.T) {
+	t.Parallel()
+
+	running := ContainerStateDot("running")
+	exited := ContainerStateDot("exited")
+	notFound := ContainerStateDot("not-found")
+
+	if running == exited {
+		t.Error("running and exited should have different styling")
+	}
+	if running == notFound {
+		t.Error("running and not-found should have different styling")
 	}
 }
 
