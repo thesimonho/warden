@@ -39,6 +39,7 @@ export {
   restartProject,
   resetProjectCosts,
   purgeProjectAudit,
+  batchProjectOperation,
 } from './api-projects'
 export {
   fetchWorktrees,

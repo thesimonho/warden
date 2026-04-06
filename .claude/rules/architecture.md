@@ -62,7 +62,7 @@ Key properties:
 
 9. **All audit writes go through `db.AuditWriter`.** Never call `db.Store.Write()` directly for audit events. The writer handles mode filtering via a `standardEvents` allowlist before persisting to the audit DB.
 
-10. **Types that cross the HTTP boundary MUST live in `api/`; domain types live in `engine/`.** The test: "Does this type appear in a JSON request or response body of an HTTP handler?" If yes, it belongs in `api/`. Examples: `CreateContainerRequest`, `ContainerConfig`, `Mount`, `NetworkMode` are in `api/` because they are HTTP contract types. `Project`, `Worktree`, `AgentStatus`, `WorktreeState` are in `engine/` because they are domain types (wrapped by `api.ProjectResult` etc. when crossing the HTTP boundary).
+10. **Types that cross the HTTP boundary MUST live in `api/`; domain types live in `engine/`.** The test: "Does this type appear in a JSON request or response body of an HTTP handler?" If yes, it belongs in `api/`. Examples: `CreateContainerRequest`, `ContainerConfig`, `Mount`, `NetworkMode` are in `api/` because they are HTTP contract types. `Project`, `Worktree`, `AgentStatus`, `WorktreeState` are in `engine/` because they are domain types. `ListProjects` returns `[]api.ProjectResponse` (not `engine.Project`) to decouple the HTTP contract from the domain model. The conversion happens in the service layer via `service/convert.go`.
 
 11. **Generic file-watching primitives live in `watcher/`; agent-specific parsers live in `agent/<name>/`.** `watcher/` must have zero internal module dependencies (only stdlib + external libs like fsnotify). The `watcher.FileTailer` is the shared primitive for tailing append-only files; `agent.SessionWatcher` is a thin wrapper that wires parser callbacks to it.
 
