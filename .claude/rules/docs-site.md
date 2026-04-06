@@ -30,12 +30,12 @@ Some pages in `docs/site/src/content/docs/` are **gitignored and generated at bu
 
 - **`Guide`** → End user getting started guides. Keep files directly up to date.
 - **`Features`** → End user feature explanations. Keep files directly up to date.
-- **`Integration`** → Embedded at build time. Keep their _sources_ up to date at `docs/plugin/skills/warden/reference/`.
+- **`Integration`** → Embedded at build time. Keep their _sources_ up to date at `docs/plugin/skills/guide/reference/`.
 - **`Reference`** → Go package docs are regenerated at build time (gitignored). `reference/go/index.md` is the only hand-authored file.
 
 ## Agent-format API docs
 
-Files in `docs/plugin/skills/warden/reference/api/` are auto-generated from `docs/openapi/swagger.yaml` but **committed** (not gitignored) because the plugin distribution needs them. They regenerate automatically as part of `just docs-build`. CI checks freshness. DO NOT edit them directly.
+Files in `docs/plugin/skills/guide/reference/api/` are auto-generated from `docs/openapi/swagger.yaml` but **committed** (not gitignored) because the plugin distribution needs them. They regenerate automatically as part of `just docs-build`. CI checks freshness. DO NOT edit them directly.
 
 ## Link rules
 

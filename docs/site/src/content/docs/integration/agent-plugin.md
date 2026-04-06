@@ -54,14 +54,14 @@ If you use an agent that doesn't support plugin systems, you can download the sk
 The Surveyor is a read-only agent that scans your codebase and produces an integration report:
 
 ```
-Run the warden-surveyor agent
+Run the warden:surveyor agent
 ```
 
 Or target specific features:
 
 ```
 I want to integrate Warden's audit system.
-Call the warden-surveyor agent to explore my codebase.
+Call the warden:surveyor agent to explore my codebase.
 ```
 
 It identifies:

@@ -63,7 +63,7 @@ Each topic has a self-contained reference file. Read only what you need for the 
 
 1. **New to Warden?** Start with `reference/concepts.md` to understand the architecture and identity model.
 2. **Know what feature you need?** Jump directly to that feature's reference file.
-3. **Not sure where to start?** Run the `warden-surveyor` agent to scan your codebase and identify integration points.
+3. **Not sure where to start?** Run the `surveyor` agent to scan your codebase and identify integration points.
 
 ## Documentation
 
