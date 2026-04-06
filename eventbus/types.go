@@ -83,6 +83,9 @@ const (
 	EventAgentInstalled ContainerEventType = "agent_installed"
 	// EventNetworkBlocked is emitted when an outbound connection is rejected by network isolation.
 	EventNetworkBlocked ContainerEventType = "network_blocked"
+	// EventContainerError is emitted when a fatal container-level error occurs
+	// (e.g. network isolation setup failure). The container exits after emitting this.
+	EventContainerError ContainerEventType = "container_error"
 )
 
 // ContainerEvent is the JSON payload written by container hook scripts
@@ -250,6 +253,11 @@ type RuntimeStatusPayload struct {
 type NetworkBlockedData struct {
 	IP     string `json:"ip"`
 	Domain string `json:"domain,omitempty"`
+}
+
+// ContainerErrorData carries details about a fatal container-level error.
+type ContainerErrorData struct {
+	Message string `json:"message"`
 }
 
 // AgentStatusData carries details about agent CLI installation progress.

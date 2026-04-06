@@ -52,7 +52,7 @@ GITCONFIG_HOST="/home/warden/.gitconfig.host"
 if [ -f "$GITCONFIG_HOST" ]; then
   git config --global include.path "${GITCONFIG_HOST}"
 fi
-git config --global --add safe.directory '*'
+git config --global --add safe.directory "$WORKSPACE_DIR"
 
 # -------------------------------------------------------------------
 # SSH: copy staged host config, stripping IdentitiesOnly so the

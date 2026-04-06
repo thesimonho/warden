@@ -26,6 +26,7 @@ var auditEventsByCategory = map[api.AuditCategory][]string{
 		// Terminal lifecycle.
 		string(eventbus.EventTerminalConnected), string(eventbus.EventTerminalDisconnected),
 		"container_heartbeat_stale", "container_startup_failed",
+		string(eventbus.EventContainerError),
 		// Worktree lifecycle.
 		"worktree_created", "worktree_removed", "worktree_reset", "worktree_cleaned_up",
 		"worktree_create_failed", "terminal_connect_failed", "terminal_disconnect_failed",

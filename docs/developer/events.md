@@ -73,6 +73,7 @@ These events are not in Claude's JSONL format yet. Codex either has them in JSON
 | `process_killed`               | Container shell scripts | Not agent-specific              |
 | `session_exit`                 | Container shell scripts | Not agent-specific              |
 | `heartbeat`                    | Container shell scripts | Not agent-specific, not audited |
+| `container_error`              | Container shell scripts | Fatal container-level error     |
 | `container_heartbeat_stale`    | Go backend              | Liveness checker                |
 | `container_startup_failed`     | Go backend              | Startup health check            |
 | `budget_exceeded`              | Go backend              | Cost enforcement                |

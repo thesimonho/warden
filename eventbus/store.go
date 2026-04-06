@@ -240,6 +240,8 @@ func (s *Store) HandleEvent(event ContainerEvent) {
 		broadcasts = s.handleAgentStatus(event)
 	case EventNetworkBlocked:
 		// No state change — blocked connections are logged for audit.
+	case EventContainerError:
+		// No state change — fatal container errors are logged for audit.
 	case EventTerminalConnected:
 		broadcasts = s.handleTerminalConnected(key, event)
 	case EventTerminalDisconnected:
