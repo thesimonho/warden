@@ -116,6 +116,46 @@ func (s *Service) AddProject(name, hostPath, agentType string) (*ProjectResult, 
 	return &ProjectResult{ProjectID: projectID, Name: name, AgentType: agentType}, nil
 }
 
+// AddProjectWithContainer registers a project and creates a container atomically.
+// If container creation fails, the project is removed and the error is returned.
+func (s *Service) AddProjectWithContainer(ctx context.Context, req api.AddProjectRequest) (*api.AddProjectResponse, error) {
+	projectResult, err := s.AddProject(req.Name, req.ProjectPath, req.AgentType)
+	if err != nil {
+		return nil, err
+	}
+
+	resp := &api.AddProjectResponse{Project: *projectResult}
+
+	if req.Container == nil {
+		return resp, nil
+	}
+
+	// Fill in fields the container request inherits from the project.
+	containerReq := *req.Container
+	if containerReq.ProjectPath == "" {
+		containerReq.ProjectPath = req.ProjectPath
+	}
+	if containerReq.Name == "" {
+		containerReq.Name = req.Name
+	}
+	if containerReq.AgentType == "" {
+		containerReq.AgentType = constants.AgentType(req.AgentType)
+	}
+
+	containerResult, containerErr := s.CreateContainer(ctx, containerReq)
+	if containerErr != nil {
+		// Clean up the project to keep the operation atomic.
+		if _, removeErr := s.RemoveProject(projectResult.ProjectID, projectResult.AgentType); removeErr != nil {
+			slog.Error("failed to clean up project after container creation failure",
+				"projectId", projectResult.ProjectID, "err", removeErr)
+		}
+		return nil, containerErr
+	}
+
+	resp.Container = containerResult
+	return resp, nil
+}
+
 // RemoveProject removes a project from the database by compound key.
 // When audit logging is enabled, cost data and events are preserved so the
 // audit log remains accurate. When audit logging is off, all associated

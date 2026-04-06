@@ -257,6 +257,8 @@ components:
             AgentType selects the CLI agent to run (e.g. "claude-code", "codex").
             Defaults to "claude-code" if omitted.
           type: string
+        container:
+          $ref: '#/components/schemas/api.CreateContainerRequest'
         name:
           description: Name is an optional container name override.
           type: string
@@ -264,6 +266,13 @@ components:
           description: ProjectPath is the absolute host directory to register as a
             project.
           type: string
+      type: object
+    api.AddProjectResponse:
+      properties:
+        container:
+          $ref: '#/components/schemas/api.ContainerResult'
+        project:
+          $ref: '#/components/schemas/api.ProjectResult'
       type: object
     api.AgentTemplateOverride:
       properties:
@@ -460,6 +469,28 @@ components:
         skipPermissions:
           type: boolean
       type: object
+    api.ContainerResult:
+      description: |-
+        Container holds the container result when a container was created.
+        Nil when the request did not include container configuration.
+      properties:
+        agentType:
+          description: AgentType is the agent type for this container.
+          type: string
+        containerId:
+          description: ContainerID is the Docker container ID.
+          type: string
+        name:
+          description: Name is the container name.
+          type: string
+        projectId:
+          description: ProjectID is the deterministic project identifier.
+          type: string
+        recreated:
+          description: Recreated is true when the container was fully recreated (not
+            just settings updated).
+          type: boolean
+      type: object
     api.CreateAccessItemRequest:
       properties:
         credentials:
@@ -473,6 +504,9 @@ components:
           type: string
       type: object
     api.CreateContainerRequest:
+      description: |-
+        Container holds optional container configuration. When provided, a
+        container is created as part of the same request.
       properties:
         agentType:
           $ref: '#/components/schemas/constants.AgentType'
@@ -778,6 +812,23 @@ components:
         workspaceDir:
           description: WorkspaceDir is the container-side workspace directory (mount
             destination).
+          type: string
+      type: object
+    api.ProjectResult:
+      description: Project holds the registered project result.
+      properties:
+        agentType:
+          description: AgentType is the agent type for this project (e.g. "claude-code",
+            "codex").
+          type: string
+        containerId:
+          description: ContainerID is the Docker container ID, when available.
+          type: string
+        name:
+          description: Name is the user-chosen project display name.
+          type: string
+        projectId:
+          description: ProjectID is the deterministic project identifier.
           type: string
       type: object
     api.ProjectTemplate:
@@ -1092,6 +1143,9 @@ components:
           type: boolean
       type: object
     service.ContainerResult:
+      description: |-
+        Container holds the container result when a container was created.
+        Nil when the request did not include container configuration.
       properties:
         agentType:
           description: AgentType is the agent type for this container.
@@ -1142,6 +1196,7 @@ components:
           $ref: '#/components/schemas/api.ProjectTemplate'
       type: object
     service.ProjectResult:
+      description: Project holds the registered project result.
       properties:
         agentType:
           description: AgentType is the agent type for this project (e.g. "claude-code",
@@ -1925,7 +1980,10 @@ paths:
       tags:
       - projects
     post:
-      description: Registers a host directory as a Warden project.
+      description: |-
+        Registers a host directory as a Warden project. Optionally creates a
+        container in the same request by including a "container" field. If
+        container creation fails, the project is cleaned up automatically.
       requestBody:
         content:
           application/json:
@@ -1933,16 +1991,16 @@ paths:
               oneOf:
               - type: object
               - $ref: '#/components/schemas/api.AddProjectRequest'
-                description: Project details
+                description: Project details (with optional container config)
                 summary: body
-        description: Project details
+        description: Project details (with optional container config)
         required: true
       responses:
         "201":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/service.ProjectResult'
+                $ref: '#/components/schemas/api.AddProjectResponse'
           description: Created
         "400":
           content:
@@ -1950,6 +2008,12 @@ paths:
               schema:
                 $ref: '#/components/schemas/server.apiError'
           description: Bad Request
+        "409":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/server.apiError'
+          description: Container name already in use
         "500":
           content:
             application/json:

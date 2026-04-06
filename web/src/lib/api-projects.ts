@@ -3,7 +3,7 @@
  *
  * @module
  */
-import type { AgentType, Project, ProjectResult } from '@/lib/types'
+import type { AddProjectResponse, AgentType, Project, ProjectResult } from '@/lib/types'
 import { apiFetch, projectUrl } from './api-core'
 
 /**
@@ -28,13 +28,13 @@ export async function addProject(
   name: string,
   projectPath: string,
   agentType: AgentType,
-): Promise<ProjectResult> {
+): Promise<AddProjectResponse> {
   const response = await apiFetch('/api/v1/projects', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ name, projectPath, agentType }),
   })
-  return response.json() as Promise<ProjectResult>
+  return response.json() as Promise<AddProjectResponse>
 }
 
 /**

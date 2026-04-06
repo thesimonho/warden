@@ -251,7 +251,7 @@ export default function HomePage() {
           .map((r) => r.id)
 
         const result = await addProject('warden', serverSettings.workingDirectory, agentType)
-        await createContainer(result.projectId, agentType, {
+        await createContainer(result.project.projectId, agentType, {
           name: `warden-${agentType}`,
           image: '',
           projectPath: serverSettings.workingDirectory,
@@ -265,7 +265,7 @@ export default function HomePage() {
         })
         toast.success(`${agentType} project created`)
         refetch()
-        navigate(`/projects/${result.projectId}/${agentType}`)
+        navigate(`/projects/${result.project.projectId}/${agentType}`)
       } catch (err) {
         toast.error(err instanceof Error ? err.message : 'Failed to quick-add project')
       }

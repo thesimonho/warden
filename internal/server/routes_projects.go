@@ -2,11 +2,13 @@ package server
 
 import (
 	"encoding/json"
+	"errors"
 	"log/slog"
 	"net/http"
 
 	"github.com/thesimonho/warden/api"
 	"github.com/thesimonho/warden/constants"
+	"github.com/thesimonho/warden/engine"
 )
 
 // handleListProjects returns all projects from the config, enriched with Docker state.
@@ -128,19 +130,23 @@ func (rt *routes) handleGetBudgetStatus(w http.ResponseWriter, r *http.Request) 
 	writeJSON(w, result)
 }
 
-// handleAddProject registers a project directory in Warden.
+// handleAddProject registers a project directory in Warden. When the request
+// includes a "container" field, the container is created atomically.
 //
 //	@Summary		Add project
-//	@Description	Registers a host directory as a Warden project.
+//	@Description	Registers a host directory as a Warden project. Optionally creates a
+//	@Description	container in the same request by including a "container" field. If
+//	@Description	container creation fails, the project is cleaned up automatically.
 //	@Tags			projects
 //	@Accept			json
-//	@Param			body	body		api.AddProjectRequest	true	"Project details"
-//	@Success		201		{object}	service.ProjectResult
+//	@Param			body	body		api.AddProjectRequest	true	"Project details (with optional container config)"
+//	@Success		201		{object}	api.AddProjectResponse
 //	@Failure		400		{object}	apiError
+//	@Failure		409		{object}	apiError	"Container name already in use"
 //	@Failure		500		{object}	apiError
 //	@Router			/api/v1/projects [post]
 func (rt *routes) handleAddProject(w http.ResponseWriter, r *http.Request) {
-	r.Body = http.MaxBytesReader(w, r.Body, 1<<10)
+	r.Body = http.MaxBytesReader(w, r.Body, 1<<16)
 
 	var req api.AddProjectRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -162,8 +168,22 @@ func (rt *routes) handleAddProject(w http.ResponseWriter, r *http.Request) {
 		req.AgentType = string(constants.DefaultAgentType)
 	}
 
-	result, err := rt.svc.AddProject(req.Name, req.ProjectPath, req.AgentType)
+	if req.Container != nil {
+		if msg := validateNetworkConfig(*req.Container); msg != "" {
+			writeError(w, ErrCodeInvalidNetworkConfig, msg, http.StatusBadRequest)
+			return
+		}
+	}
+
+	result, err := rt.svc.AddProjectWithContainer(r.Context(), req)
 	if err != nil {
+		if writeServiceError(w, err) {
+			return
+		}
+		if errors.Is(err, engine.ErrNameTaken) {
+			writeError(w, ErrCodeNameTaken, err.Error(), http.StatusConflict)
+			return
+		}
 		writeError(w, ErrCodeInternal, err.Error(), http.StatusInternalServerError)
 		slog.Error("add project", "name", req.Name, "err", err)
 		return

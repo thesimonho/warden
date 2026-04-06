@@ -7,6 +7,7 @@ import "github.com/thesimonho/warden/api"
 type (
 	ProjectResponse         = api.ProjectResponse
 	AddProjectRequest       = api.AddProjectRequest
+	AddProjectResponse      = api.AddProjectResponse
 	CreateWorktreeRequest   = api.CreateWorktreeRequest
 	ProjectCostsResponse    = api.ProjectCostsResponse
 	SessionCostEntry        = api.SessionCostEntry

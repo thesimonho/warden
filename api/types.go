@@ -68,6 +68,9 @@ type ProjectResponse struct {
 }
 
 // AddProjectRequest is the JSON body for registering a project directory.
+// When Container is non-nil, a container is created atomically after the
+// project is registered. If container creation fails, the project is
+// cleaned up and the error is returned.
 type AddProjectRequest struct {
 	// Name is an optional container name override.
 	Name string `json:"name,omitempty"`
@@ -76,6 +79,18 @@ type AddProjectRequest struct {
 	// AgentType selects the CLI agent to run (e.g. "claude-code", "codex").
 	// Defaults to "claude-code" if omitted.
 	AgentType string `json:"agentType,omitempty"`
+	// Container holds optional container configuration. When provided, a
+	// container is created as part of the same request.
+	Container *CreateContainerRequest `json:"container,omitempty"`
+}
+
+// AddProjectResponse is the result of POST /api/v1/projects.
+type AddProjectResponse struct {
+	// Project holds the registered project result.
+	Project ProjectResult `json:"project"`
+	// Container holds the container result when a container was created.
+	// Nil when the request did not include container configuration.
+	Container *ContainerResult `json:"container,omitempty"`
 }
 
 // CreateWorktreeRequest is the JSON body for creating a new git worktree.
@@ -84,9 +99,6 @@ type CreateWorktreeRequest struct {
 	Name string `json:"name"`
 }
 
-// ProjectResult is the outcome of a project mutation (create, remove, stop,
-// restart). ProjectID is always populated. ContainerID is populated when the
-// operation targets a specific container.
 // WorktreeInputRequest is the JSON body for sending text to a worktree's terminal.
 type WorktreeInputRequest struct {
 	// Text is the input to send. Required, max 64KB.
@@ -100,6 +112,7 @@ func (r WorktreeInputRequest) ShouldPressEnter() bool {
 	return r.PressEnter == nil || *r.PressEnter
 }
 
+// ProjectResult is the outcome of a project mutation (create, remove, stop, restart).
 type ProjectResult struct {
 	// ProjectID is the deterministic project identifier.
 	ProjectID string `json:"projectId"`
