@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.8.0](https://github.com/thesimonho/warden/compare/v1.7.2...v1.8.0) (2026-04-06)
+
+
+### Features
+
+* add batch project operations endpoint ([#143](https://github.com/thesimonho/warden/issues/143)) ([3af38db](https://github.com/thesimonho/warden/commit/3af38db7c4655644bdc07012635ff10c63129f02))
+* add GET endpoints for single project, costs, budget, and worktree ([#139](https://github.com/thesimonho/warden/issues/139)) ([9105e47](https://github.com/thesimonho/warden/commit/9105e472082e7c6a3302d222d909a765335ef131))
+* add POST worktree input endpoint for headless/CI use ([#140](https://github.com/thesimonho/warden/issues/140)) ([700fc8a](https://github.com/thesimonho/warden/commit/700fc8a29077115a79f3cedacc89ecee55336170))
+* add SSE project filtering for integrators ([#141](https://github.com/thesimonho/warden/issues/141)) ([b684afe](https://github.com/thesimonho/warden/commit/b684afed06ea484e83d3d1c5635f29491673459a))
+* combined create project + container in single request ([#142](https://github.com/thesimonho/warden/issues/142)) ([5d62d68](https://github.com/thesimonho/warden/commit/5d62d680d453dca5457b02ecdfd6b629a3b10d1b))
+* expand POST /api/v1/audit for integrators ([#137](https://github.com/thesimonho/warden/issues/137)) ([e5fd8be](https://github.com/thesimonho/warden/commit/e5fd8be57f5dfc8b036fdbc85ac02ef65b01e908))
+
 ## [1.7.2](https://github.com/thesimonho/warden/compare/v1.7.1...v1.7.2) (2026-04-06)
 
 
