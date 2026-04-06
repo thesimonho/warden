@@ -203,6 +203,95 @@ func (s *Service) GetProject(projectID, agentType string) (*db.ProjectRow, error
 	return s.db.GetProject(projectID, agentType)
 }
 
+// GetProjectDetails returns a single project enriched with Docker state,
+// cost, attention, and agent version data. Reuses the full listProjectsInternal
+// pipeline to ensure enrichment logic stays consistent with ListProjects.
+func (s *Service) GetProjectDetails(ctx context.Context, projectID, agentType string) (*api.ProjectResponse, error) {
+	if _, err := s.resolveProject(projectID, agentType); err != nil {
+		return nil, err
+	}
+	projects, err := s.listProjectsInternal(ctx)
+	if err != nil {
+		return nil, err
+	}
+	for _, p := range projects {
+		if p.ProjectID == projectID && string(p.AgentType) == agentType {
+			resp := projectResponseFromEngine(p)
+			return &resp, nil
+		}
+	}
+	return nil, ErrNotFound
+}
+
+// GetProjectCosts returns session-level cost data for a project.
+func (s *Service) GetProjectCosts(_ context.Context, projectID, agentType string) (*api.ProjectCostsResponse, error) {
+	if _, err := s.resolveProject(projectID, agentType); err != nil {
+		return nil, err
+	}
+
+	sessions, err := s.db.ListSessionCosts(projectID, agentType)
+	if err != nil {
+		return nil, err
+	}
+
+	totalCost, err := s.db.GetProjectTotalCost(projectID, agentType)
+	if err != nil {
+		return nil, err
+	}
+
+	entries := make([]api.SessionCostEntry, len(sessions))
+	for i, sc := range sessions {
+		entries[i] = api.SessionCostEntry{
+			SessionID:   sc.SessionID,
+			Cost:        sc.Cost,
+			IsEstimated: sc.IsEstimated,
+			CreatedAt:   sc.CreatedAt,
+			UpdatedAt:   sc.UpdatedAt,
+		}
+	}
+
+	return &api.ProjectCostsResponse{
+		ProjectID:   projectID,
+		AgentType:   agentType,
+		TotalCost:   totalCost.TotalCost,
+		IsEstimated: totalCost.IsEstimated,
+		Sessions:    entries,
+	}, nil
+}
+
+// GetBudgetStatus returns the budget state for a project.
+func (s *Service) GetBudgetStatus(_ context.Context, projectID, agentType string) (*api.BudgetStatusResponse, error) {
+	row, err := s.resolveProject(projectID, agentType)
+	if err != nil {
+		return nil, err
+	}
+
+	effectiveBudget := s.effectiveBudgetFromRow(row)
+	costRow, err := s.db.GetProjectTotalCost(projectID, agentType)
+	if err != nil {
+		return nil, err
+	}
+
+	budgetSource := api.BudgetSourceNone
+	if row.CostBudget > 0 {
+		budgetSource = api.BudgetSourceProject
+	} else if s.GetDefaultProjectBudget() > 0 {
+		budgetSource = api.BudgetSourceGlobal
+	}
+
+	isOverBudget := effectiveBudget > 0 && costRow.TotalCost > effectiveBudget && s.getBudgetActions().preventStart
+
+	return &api.BudgetStatusResponse{
+		ProjectID:       projectID,
+		AgentType:       agentType,
+		EffectiveBudget: effectiveBudget,
+		TotalCost:       costRow.TotalCost,
+		IsOverBudget:    isOverBudget,
+		IsEstimatedCost: costRow.IsEstimated,
+		BudgetSource:    string(budgetSource),
+	}, nil
+}
+
 // StopProject stops the container for the given project. Before stopping,
 // it captures cost from the agent's config file via docker exec and
 // persists it to the DB so cost data survives the container stop.

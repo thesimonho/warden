@@ -26,6 +26,18 @@ type Client interface {
 	// API: GET /api/v1/projects
 	ListProjects(ctx context.Context) ([]api.ProjectResponse, error)
 
+	// GetProject returns a single project with full state.
+	// API: GET /api/v1/projects/{projectId}/{agentType}
+	GetProject(ctx context.Context, projectID, agentType string) (*api.ProjectResponse, error)
+
+	// GetProjectCosts returns session-level cost data for a project.
+	// API: GET /api/v1/projects/{projectId}/{agentType}/costs
+	GetProjectCosts(ctx context.Context, projectID, agentType string) (*api.ProjectCostsResponse, error)
+
+	// GetBudgetStatus returns the budget state for a project.
+	// API: GET /api/v1/projects/{projectId}/{agentType}/budget
+	GetBudgetStatus(ctx context.Context, projectID, agentType string) (*api.BudgetStatusResponse, error)
+
 	// AddProject registers a project directory in Warden.
 	// API: POST /api/v1/projects
 	AddProject(ctx context.Context, req api.AddProjectRequest) (*api.ProjectResult, error)
@@ -45,6 +57,10 @@ type Client interface {
 	// ListWorktrees returns all worktrees for a project with terminal state.
 	// API: GET /api/v1/projects/{projectId}/{agentType}/worktrees
 	ListWorktrees(ctx context.Context, projectID, agentType string) ([]engine.Worktree, error)
+
+	// GetWorktree returns a single worktree by ID with terminal state.
+	// API: GET /api/v1/projects/{projectId}/{agentType}/worktrees/{wid}
+	GetWorktree(ctx context.Context, projectID, agentType, worktreeID string) (*engine.Worktree, error)
 
 	// CreateWorktree creates a git worktree and connects a terminal.
 	// API: POST /api/v1/projects/{projectId}/{agentType}/worktrees

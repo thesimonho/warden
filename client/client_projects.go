@@ -19,6 +19,36 @@ func (c *Client) ListProjects(ctx context.Context) ([]api.ProjectResponse, error
 	return projects, nil
 }
 
+// GetProject returns a single project enriched with container state, cost, and attention data.
+func (c *Client) GetProject(ctx context.Context, projectID, agentType string) (*api.ProjectResponse, error) {
+	var resp api.ProjectResponse
+	path := projectPath(projectID, agentType)
+	if err := c.get(ctx, path, &resp); err != nil {
+		return nil, err
+	}
+	return &resp, nil
+}
+
+// GetProjectCosts returns session-level cost data for a project.
+func (c *Client) GetProjectCosts(ctx context.Context, projectID, agentType string) (*api.ProjectCostsResponse, error) {
+	var resp api.ProjectCostsResponse
+	path := projectPath(projectID, agentType) + "/costs"
+	if err := c.get(ctx, path, &resp); err != nil {
+		return nil, err
+	}
+	return &resp, nil
+}
+
+// GetBudgetStatus returns the budget state for a project.
+func (c *Client) GetBudgetStatus(ctx context.Context, projectID, agentType string) (*api.BudgetStatusResponse, error) {
+	var resp api.BudgetStatusResponse
+	path := projectPath(projectID, agentType) + "/budget"
+	if err := c.get(ctx, path, &resp); err != nil {
+		return nil, err
+	}
+	return &resp, nil
+}
+
 // AddProject registers a project directory in Warden.
 func (c *Client) AddProject(ctx context.Context, req api.AddProjectRequest) (*api.ProjectResult, error) {
 	var resp api.ProjectResult

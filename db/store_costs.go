@@ -91,6 +91,47 @@ func (l *Store) GetAllProjectTotalCosts() (map[ProjectAgentKey]ProjectCostRow, e
 	return costs, rows.Err()
 }
 
+// SessionCostRow holds cost data for a single session.
+type SessionCostRow struct {
+	SessionID   string
+	Cost        float64
+	IsEstimated bool
+	CreatedAt   string
+	UpdatedAt   string
+}
+
+// ListSessionCosts returns per-session cost data for a project+agent pair.
+func (l *Store) ListSessionCosts(projectID, agentType string) ([]SessionCostRow, error) {
+	if l == nil {
+		return nil, nil
+	}
+
+	l.mu.RLock()
+	defer l.mu.RUnlock()
+
+	rows, err := l.db.Query(
+		`SELECT session_id, cost, is_estimated, created_at, updated_at
+		 FROM session_costs
+		 WHERE project_id = ? AND agent_type = ?
+		 ORDER BY updated_at DESC`,
+		projectID, agentType,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("listing session costs: %w", err)
+	}
+	defer rows.Close() //nolint:errcheck
+
+	var result []SessionCostRow
+	for rows.Next() {
+		var r SessionCostRow
+		if err := rows.Scan(&r.SessionID, &r.Cost, &r.IsEstimated, &r.CreatedAt, &r.UpdatedAt); err != nil {
+			return nil, fmt.Errorf("scanning session cost: %w", err)
+		}
+		result = append(result, r)
+	}
+	return result, rows.Err()
+}
+
 // GetCostInTimeRange returns the total cost for sessions that overlap
 // with the given time range. A session overlaps if it was created before
 // the range ends and last updated after the range starts.

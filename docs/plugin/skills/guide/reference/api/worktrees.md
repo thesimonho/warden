@@ -171,6 +171,72 @@ Fully removes a worktree: kills any running processes, runs `git worktree remove
 ##### Status: 500 Internal Server Error
 ---
 
+## Get worktree
+
+- **Method:** `GET`
+- **Path:** `/api/v1/projects/{projectId}/{agentType}/worktrees/{wid}`
+- **Tags:** worktrees
+
+Returns a single worktree with terminal connection state, Claude attention status, and git branch information.
+
+#### Responses
+
+##### Status: 200 OK
+
+###### Content-Type: application/json
+
+- **`branch`**
+
+  `string` — Branch is the git branch checked out in this worktree.
+
+- **`exitCode`**
+
+  `integer` — ExitCode is the agent's exit code when in shell state. Nil means the agent is still running (or no exit code captured).
+
+- **`id`**
+
+  `string` — ID is the worktree identifier — directory name for git worktrees, "main" for project root.
+
+- **`needsInput`**
+
+  `boolean` — NeedsInput is true when Claude is blocked waiting for user attention.
+
+- **`notificationType`**
+
+  `string`, possible values: `"permission_prompt", "idle_prompt", "auth_success", "elicitation_dialog"` — NotificationType indicates why Claude needs attention.
+
+- **`path`**
+
+  `string` — Path is the filesystem path inside the container.
+
+- **`projectId`**
+
+  `string` — ProjectID is the container ID this worktree belongs to.
+
+- **`state`**
+
+  `string`, possible values: `"connected", "shell", "background", "stopped"` — State is the terminal connection state (connected, shell, background, stopped).
+
+**Example:**
+
+```json
+{
+  "branch": "",
+  "exitCode": 1,
+  "id": "",
+  "needsInput": true,
+  "notificationType": "permission_prompt",
+  "path": "",
+  "projectId": "",
+  "state": "connected"
+}
+```
+
+##### Status: 400 Bad Request
+##### Status: 404 Not Found
+##### Status: 500 Internal Server Error
+---
+
 ## Connect terminal
 
 - **Method:** `POST`

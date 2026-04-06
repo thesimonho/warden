@@ -133,6 +133,48 @@ type ValidateContainerResult struct {
 	Missing []string
 }
 
+// ProjectCostsResponse holds session-level cost data for a project.
+type ProjectCostsResponse struct {
+	ProjectID   string             `json:"projectId"`
+	AgentType   string             `json:"agentType"`
+	TotalCost   float64            `json:"totalCost"`
+	IsEstimated bool               `json:"isEstimated"`
+	Sessions    []SessionCostEntry `json:"sessions"`
+}
+
+// SessionCostEntry holds cost data for a single agent session.
+type SessionCostEntry struct {
+	SessionID   string  `json:"sessionId"`
+	Cost        float64 `json:"cost"`
+	IsEstimated bool    `json:"isEstimated"`
+	CreatedAt   string  `json:"createdAt"`
+	UpdatedAt   string  `json:"updatedAt"`
+}
+
+// BudgetStatusResponse holds the budget state for a project.
+type BudgetStatusResponse struct {
+	ProjectID       string  `json:"projectId"`
+	AgentType       string  `json:"agentType"`
+	EffectiveBudget float64 `json:"effectiveBudget"`
+	TotalCost       float64 `json:"totalCost"`
+	IsOverBudget    bool    `json:"isOverBudget"`
+	IsEstimatedCost bool    `json:"isEstimatedCost"`
+	// BudgetSource is "project" (per-project), "global" (default), or "none" (no budget set).
+	BudgetSource string `json:"budgetSource"`
+}
+
+// BudgetSource identifies where a project's effective budget comes from.
+type BudgetSource string
+
+const (
+	// BudgetSourceProject means the project has a per-project budget set.
+	BudgetSourceProject BudgetSource = "project"
+	// BudgetSourceGlobal means the project uses the global default budget.
+	BudgetSourceGlobal BudgetSource = "global"
+	// BudgetSourceNone means no budget is configured.
+	BudgetSourceNone BudgetSource = "none"
+)
+
 // AuditLogMode controls which events are written to the database.
 type AuditLogMode string
 

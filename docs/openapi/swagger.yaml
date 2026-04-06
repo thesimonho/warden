@@ -388,6 +388,25 @@ components:
           description: UniqueWorktrees is the number of distinct worktrees with events.
           type: integer
       type: object
+    api.BudgetStatusResponse:
+      properties:
+        agentType:
+          type: string
+        budgetSource:
+          description: BudgetSource is "project" (per-project), "global" (default),
+            or "none" (no budget set).
+          type: string
+        effectiveBudget:
+          type: number
+        isEstimatedCost:
+          type: boolean
+        isOverBudget:
+          type: boolean
+        projectId:
+          type: string
+        totalCost:
+          type: number
+      type: object
     api.ClipboardUploadResponse:
       properties:
         path:
@@ -652,6 +671,22 @@ components:
           description: Worktree associates the event with a worktree. Optional.
           type: string
       type: object
+    api.ProjectCostsResponse:
+      properties:
+        agentType:
+          type: string
+        isEstimated:
+          type: boolean
+        projectId:
+          type: string
+        sessions:
+          items:
+            $ref: '#/components/schemas/api.SessionCostEntry'
+          type: array
+          uniqueItems: false
+        totalCost:
+          type: number
+      type: object
     api.ProjectResponse:
       properties:
         activeWorktreeCount:
@@ -813,6 +848,19 @@ components:
           type: string
         label:
           description: Label is the human-readable name (e.g. "Node.js", "Python").
+          type: string
+      type: object
+    api.SessionCostEntry:
+      properties:
+        cost:
+          type: number
+        createdAt:
+          type: string
+        isEstimated:
+          type: boolean
+        sessionId:
+          type: string
+        updatedAt:
           type: string
       type: object
     api.TimeRange:
@@ -1926,6 +1974,51 @@ paths:
       summary: Remove project
       tags:
       - projects
+    get:
+      description: |-
+        Returns a single project enriched with live container state,
+        Claude status, worktree counts, and cost data.
+      parameters:
+      - description: Project ID
+        in: path
+        name: projectId
+        required: true
+        schema:
+          type: string
+      - description: Agent type
+        in: path
+        name: agentType
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/api.ProjectResponse'
+          description: OK
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/server.apiError'
+          description: Bad Request
+        "404":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/server.apiError'
+          description: Not Found
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/server.apiError'
+          description: Internal Server Error
+      summary: Get project
+      tags:
+      - projects
   /api/v1/projects/{projectId}/{agentType}/audit:
     delete:
       description: Removes all audit events for the given project.
@@ -1964,6 +2057,51 @@ paths:
                 $ref: '#/components/schemas/server.apiError'
           description: Internal Server Error
       summary: Purge project audit
+      tags:
+      - projects
+  /api/v1/projects/{projectId}/{agentType}/budget:
+    get:
+      description: Returns the effective budget, current cost, and over-budget state
+        for a project.
+      parameters:
+      - description: Project ID
+        in: path
+        name: projectId
+        required: true
+        schema:
+          type: string
+      - description: Agent type
+        in: path
+        name: agentType
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/api.BudgetStatusResponse'
+          description: OK
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/server.apiError'
+          description: Bad Request
+        "404":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/server.apiError'
+          description: Not Found
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/server.apiError'
+          description: Internal Server Error
+      summary: Get budget status
       tags:
       - projects
   /api/v1/projects/{projectId}/{agentType}/clipboard:
@@ -2284,6 +2422,49 @@ paths:
       summary: Reset project costs
       tags:
       - projects
+    get:
+      description: Returns session-level cost breakdown for the given project.
+      parameters:
+      - description: Project ID
+        in: path
+        name: projectId
+        required: true
+        schema:
+          type: string
+      - description: Agent type
+        in: path
+        name: agentType
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/api.ProjectCostsResponse'
+          description: OK
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/server.apiError'
+          description: Bad Request
+        "404":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/server.apiError'
+          description: Not Found
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/server.apiError'
+          description: Internal Server Error
+      summary: Get project costs
+      tags:
+      - projects
   /api/v1/projects/{projectId}/{agentType}/restart:
     post:
       description: Restarts the container for the given project. Fails with STALE_MOUNTS
@@ -2502,6 +2683,57 @@ paths:
                 $ref: '#/components/schemas/server.apiError'
           description: Internal Server Error
       summary: Remove worktree
+      tags:
+      - worktrees
+    get:
+      description: |-
+        Returns a single worktree with terminal connection state,
+        Claude attention status, and git branch information.
+      parameters:
+      - description: Project ID
+        in: path
+        name: projectId
+        required: true
+        schema:
+          type: string
+      - description: Agent type
+        in: path
+        name: agentType
+        required: true
+        schema:
+          type: string
+      - description: Worktree ID
+        in: path
+        name: wid
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/engine.Worktree'
+          description: OK
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/server.apiError'
+          description: Bad Request
+        "404":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/server.apiError'
+          description: Not Found
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/server.apiError'
+          description: Internal Server Error
+      summary: Get worktree
       tags:
       - worktrees
   /api/v1/projects/{projectId}/{agentType}/worktrees/{wid}/connect:

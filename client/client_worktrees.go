@@ -17,6 +17,16 @@ func (c *Client) ListWorktrees(ctx context.Context, projectID, agentType string)
 	return worktrees, nil
 }
 
+// GetWorktree returns a single worktree by ID with terminal state.
+func (c *Client) GetWorktree(ctx context.Context, projectID, agentType, worktreeID string) (*engine.Worktree, error) {
+	var resp engine.Worktree
+	path := projectPath(projectID, agentType) + "/worktrees/" + worktreeID
+	if err := c.get(ctx, path, &resp); err != nil {
+		return nil, err
+	}
+	return &resp, nil
+}
+
 // CreateWorktree creates a new git worktree and connects a terminal.
 func (c *Client) CreateWorktree(ctx context.Context, projectID, agentType string, req api.CreateWorktreeRequest) (*api.WorktreeResult, error) {
 	var resp api.WorktreeResult
