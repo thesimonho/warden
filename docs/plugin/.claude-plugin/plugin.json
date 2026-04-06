@@ -17,6 +17,6 @@
     "docker",
     "security"
   ],
-  "agents": "./agents/",
+  "agents": ["./agents/surveyor.md"],
   "skills": "./skills/"
 }
