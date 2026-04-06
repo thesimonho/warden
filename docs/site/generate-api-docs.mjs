@@ -35,7 +35,7 @@ const inputPath = resolve(
 const outputDir = resolve(
 	getArg(
 		"--output",
-		resolve(projectRoot, "docs/plugin/skills/warden/reference/api"),
+		resolve(projectRoot, "docs/plugin/skills/guide/reference/api"),
 	),
 );
 

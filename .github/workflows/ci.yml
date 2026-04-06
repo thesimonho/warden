@@ -66,10 +66,10 @@ jobs:
         run: node docs/site/generate-api-docs.mjs
       - name: Check for uncommitted changes
         run: |
-          if ! git diff --quiet docs/plugin/skills/warden/reference/api/; then
+          if ! git diff --quiet docs/plugin/skills/guide/reference/api/; then
             echo "ERROR: Agent-format API docs are out of date."
             echo "Run 'just generate-api-docs' and commit the result."
-            git diff docs/plugin/skills/warden/reference/api/
+            git diff docs/plugin/skills/guide/reference/api/
             exit 1
           fi
   ci:

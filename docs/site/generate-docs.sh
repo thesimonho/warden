@@ -10,7 +10,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 SITE_CONTENT="${SCRIPT_DIR}/src/content/docs"
-PLUGIN_REF="${PROJECT_ROOT}/docs/plugin/skills/warden/reference"
+PLUGIN_REF="${PROJECT_ROOT}/docs/plugin/skills/guide/reference"
 MODULE_PATH="github.com/thesimonho/warden"
 
 # --- Helper: generate a site page from a source markdown file ---
