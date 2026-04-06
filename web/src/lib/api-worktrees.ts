@@ -6,6 +6,24 @@
 import type { Worktree, WorktreeResult, DiffResponse } from '@/lib/types'
 import { apiFetch, projectUrl } from './api-core'
 
+/** TTL for the fetch deduplication cache (milliseconds). */
+const FETCH_CACHE_TTL_MS = 5_000
+
+/** Cached fetch entry: stores the in-flight or recently resolved promise. */
+interface CacheEntry {
+  promise: Promise<Worktree[]>
+  timestamp: number
+}
+
+/**
+ * Module-level deduplication cache for worktree fetches.
+ *
+ * When multiple hooks (useWorktrees, useCanvasWorktreeState) poll the same
+ * project within the TTL window, they share a single in-flight request
+ * instead of issuing duplicate HTTP calls.
+ */
+const fetchCache = new Map<string, CacheEntry>()
+
 /**
  * Fetches all worktrees for a given project with their terminal state.
  *
@@ -14,6 +32,30 @@ import { apiFetch, projectUrl } from './api-core'
  * @returns An array of worktrees belonging to the project.
  */
 export async function fetchWorktrees(projectId: string, agentType: string): Promise<Worktree[]> {
+  const key = `${projectId}/${agentType}`
+  const now = Date.now()
+
+  const cached = fetchCache.get(key)
+  if (cached && now - cached.timestamp < FETCH_CACHE_TTL_MS) {
+    return cached.promise
+  }
+
+  const promise = fetchWorktreesUncached(projectId, agentType)
+  fetchCache.set(key, { promise, timestamp: now })
+
+  // Clean up cache entry after TTL to bound memory. On error, delete
+  // immediately so the next caller retries. On success, delete after
+  // the TTL so concurrent callers within the window still share the result.
+  promise.then(
+    () => setTimeout(() => fetchCache.delete(key), FETCH_CACHE_TTL_MS),
+    () => fetchCache.delete(key),
+  )
+
+  return promise
+}
+
+/** Performs the actual HTTP fetch without caching. */
+async function fetchWorktreesUncached(projectId: string, agentType: string): Promise<Worktree[]> {
   const response = await apiFetch(`${projectUrl(projectId, agentType)}/worktrees`)
   return response.json() as Promise<Worktree[]>
 }

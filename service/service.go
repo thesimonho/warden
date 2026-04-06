@@ -79,6 +79,13 @@ type Service struct {
 	sessionWatchers         map[db.ProjectAgentKey]*agent.SessionWatcher
 	sessionWatchersMu       sync.Mutex
 	sessionWatcherCooldowns map[db.ProjectAgentKey]time.Time
+
+	// costFallbackNegCache tracks projects where the docker exec cost fallback
+	// returned no data. Entries are TTL'd at 60s to avoid repeated exec calls
+	// for freshly started containers that haven't written cost data yet.
+	// Cleared when a JSONL cost event arrives for the project.
+	costFallbackNegCache   map[db.ProjectAgentKey]time.Time
+	costFallbackNegCacheMu sync.RWMutex
 }
 
 // New creates a Service with the given dependencies. The lifecycle
@@ -106,6 +113,7 @@ func New(deps ServiceDeps) *Service {
 		dockerAvailable:         deps.DockerAvailable,
 		sessionWatchers:         make(map[db.ProjectAgentKey]*agent.SessionWatcher),
 		sessionWatcherCooldowns: make(map[db.ProjectAgentKey]time.Time),
+		costFallbackNegCache:    make(map[db.ProjectAgentKey]time.Time),
 	}
 }
 

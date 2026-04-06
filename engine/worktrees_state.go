@@ -152,17 +152,8 @@ func (ec *EngineClient) listDirEntries(ctx context.Context, containerID, dir str
 		AttachStdout: true,
 		AttachStderr: true,
 	})
-	if err != nil || strings.TrimSpace(output) == "" {
+	if err != nil {
 		return nil
 	}
-
-	var entries []string
-	for _, name := range strings.Split(strings.TrimSpace(output), "\n") {
-		name = strings.TrimSpace(name)
-		if name == "" || strings.HasPrefix(name, ".") {
-			continue
-		}
-		entries = append(entries, name)
-	}
-	return entries
+	return parseDirEntries(output)
 }

@@ -46,10 +46,23 @@ type TailerConfig struct {
 	AgentType string
 }
 
+// tailedFile holds the per-file state for a file being tailed.
+type tailedFile struct {
+	path     string
+	file     *os.File
+	reader   *bufio.Reader
+	offset   int64  // bytes consumed so far (complete lines only)
+	partial  []byte // incomplete trailing line buffered across polls
+	openFail bool   // true if the file could not be opened
+}
+
 // FileTailer monitors files for new lines appended over time.
 // Files are discovered via a pluggable Discover function and tailed
 // from the last stored offset (or the start if no offset exists).
-// Periodic polling picks up new content and new files.
+//
+// All file I/O runs in a single goroutine to minimize wake-ups and
+// goroutine count. With N files, the tailer uses 1 goroutine instead
+// of N+1.
 //
 // Lifecycle: single-use. Call Start once to begin watching, Stop once
 // to shut down. Do not call Start again after Stop.
@@ -58,8 +71,8 @@ type FileTailer struct {
 	cancel context.CancelFunc
 	wg     sync.WaitGroup
 
-	mu          sync.Mutex
-	tailedFiles map[string]struct{} // tracks which paths are being tailed
+	mu    sync.Mutex
+	files map[string]*tailedFile // keyed by path
 }
 
 // NewFileTailer creates a tailer with the given configuration.
@@ -72,8 +85,8 @@ func NewFileTailer(cfg TailerConfig) *FileTailer {
 		cfg.Logger = slog.Default()
 	}
 	return &FileTailer{
-		cfg:         cfg,
-		tailedFiles: make(map[string]struct{}),
+		cfg:   cfg,
+		files: make(map[string]*tailedFile),
 	}
 }
 
@@ -83,10 +96,11 @@ func NewFileTailer(cfg TailerConfig) *FileTailer {
 func (t *FileTailer) Start(ctx context.Context) {
 	ctx, t.cancel = context.WithCancel(ctx)
 
-	// Discover and tail any existing files.
-	t.discoverAndTail(ctx)
+	// Discover and open existing files, read their initial content.
+	t.discoverFiles()
+	t.readAllFiles()
 
-	// Periodically re-discover new files.
+	// Single goroutine for periodic discovery + reading.
 	t.wg.Add(1)
 	go t.pollLoop(ctx)
 }
@@ -97,57 +111,20 @@ func (t *FileTailer) Stop() {
 		t.cancel()
 	}
 	t.wg.Wait()
+
 	t.mu.Lock()
-	clear(t.tailedFiles)
+	for _, tf := range t.files {
+		if tf.file != nil {
+			_ = tf.file.Close()
+		}
+	}
+	clear(t.files)
 	t.mu.Unlock()
 }
 
-// discoverAndTail calls Discover and starts tailing any files not
-// already being tailed. Prunes stored offsets for files that have
-// disappeared from the discovery list.
-func (t *FileTailer) discoverAndTail(ctx context.Context) {
-	files := t.cfg.Discover()
-	discovered := make(map[string]struct{}, len(files))
-	for _, f := range files {
-		discovered[f] = struct{}{}
-	}
-
-	t.mu.Lock()
-	defer t.mu.Unlock()
-
-	// Prune offsets for files no longer discovered.
-	if t.cfg.OffsetStore != nil {
-		for path := range t.tailedFiles {
-			if _, still := discovered[path]; !still {
-				if err := t.cfg.OffsetStore.DeleteOffset(t.cfg.ProjectID, t.cfg.AgentType, path); err != nil {
-					t.cfg.Logger.Warn("failed to delete stale offset", "path", path, "err", err)
-				}
-				delete(t.tailedFiles, path)
-			}
-		}
-	}
-
-	for _, path := range files {
-		if _, exists := t.tailedFiles[path]; exists {
-			continue
-		}
-		t.cfg.Logger.Info("tailing file", "path", path)
-		t.tailedFiles[path] = struct{}{}
-		t.wg.Add(1)
-		go func(p string) {
-			defer t.wg.Done()
-			if !t.tailFile(ctx, p) {
-				// Open failed — remove from tracked set so the next
-				// discovery cycle can retry.
-				t.mu.Lock()
-				delete(t.tailedFiles, p)
-				t.mu.Unlock()
-			}
-		}(path)
-	}
-}
-
-// pollLoop periodically re-discovers files and checks for new lines.
+// pollLoop periodically re-discovers files and reads new lines from all
+// tracked files. This is the single goroutine that replaces N per-file
+// goroutines, reducing wake-ups from N*0.5/s to 0.5/s total.
 func (t *FileTailer) pollLoop(ctx context.Context) {
 	defer t.wg.Done()
 
@@ -159,31 +136,86 @@ func (t *FileTailer) pollLoop(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			t.discoverAndTail(ctx)
+			t.discoverFiles()
+			t.readAllFiles()
 		}
 	}
 }
 
-// tailFile opens a file and tails it from the stored offset (or byte 0
-// if no offset exists or the file is smaller than the stored offset).
-// Returns false if the file could not be opened.
-func (t *FileTailer) tailFile(ctx context.Context, path string) bool {
+// discoverFiles calls Discover and opens any files not already being tailed.
+// Prunes stored offsets for files that have disappeared from the discovery list.
+func (t *FileTailer) discoverFiles() {
+	discovered := t.cfg.Discover()
+	discoveredSet := make(map[string]struct{}, len(discovered))
+	for _, f := range discovered {
+		discoveredSet[f] = struct{}{}
+	}
+
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
+	// Prune files no longer in discovery list.
+	for path, tf := range t.files {
+		if _, still := discoveredSet[path]; !still {
+			if tf.file != nil {
+				_ = tf.file.Close()
+			}
+			if t.cfg.OffsetStore != nil {
+				if err := t.cfg.OffsetStore.DeleteOffset(t.cfg.ProjectID, t.cfg.AgentType, path); err != nil {
+					t.cfg.Logger.Warn("failed to delete stale offset", "path", path, "err", err)
+				}
+			}
+			delete(t.files, path)
+		}
+	}
+
+	// Open newly discovered files.
+	for _, path := range discovered {
+		if _, exists := t.files[path]; exists {
+			continue
+		}
+
+		tf := t.openFile(path)
+		if tf == nil {
+			// Track as failed so discoverFiles retries on next cycle.
+			t.files[path] = &tailedFile{path: path, openFail: true}
+			continue
+		}
+		t.cfg.Logger.Info("tailing file", "path", path)
+		t.files[path] = tf
+	}
+
+	// Retry files that previously failed to open.
+	for path, tf := range t.files {
+		if !tf.openFail {
+			continue
+		}
+		if _, still := discoveredSet[path]; !still {
+			continue
+		}
+		reopened := t.openFile(path)
+		if reopened != nil {
+			t.cfg.Logger.Info("tailing file (retry)", "path", path)
+			t.files[path] = reopened
+		}
+	}
+}
+
+// openFile opens a file and seeks to the stored offset. Returns nil if
+// the file cannot be opened.
+func (t *FileTailer) openFile(path string) *tailedFile {
 	f, err := os.Open(path)
 	if err != nil {
 		t.cfg.Logger.Warn("failed to open file for tailing", "path", path, "err", err)
-		return false
+		return nil
 	}
-	defer func() { _ = f.Close() }()
 
-	// Resume from stored offset when available.
 	var startOffset int64
 	if t.cfg.OffsetStore != nil {
 		stored, loadErr := t.cfg.OffsetStore.LoadOffset(t.cfg.ProjectID, t.cfg.AgentType, path)
 		if loadErr != nil {
 			t.cfg.Logger.Warn("failed to load offset, reading from start", "path", path, "err", loadErr)
 		} else if stored > 0 {
-			// Safety: if file is smaller than stored offset, the file was
-			// truncated or replaced — reset to 0.
 			info, statErr := f.Stat()
 			if statErr == nil && info.Size() < stored {
 				t.cfg.Logger.Info("file smaller than stored offset, resetting", "path", path, "stored", stored, "size", info.Size())
@@ -199,30 +231,67 @@ func (t *FileTailer) tailFile(ctx context.Context, path string) bool {
 		}
 	}
 
-	reader := bufio.NewReader(f)
-	consumed := startOffset
-	var partial []byte
+	return &tailedFile{
+		path:   path,
+		file:   f,
+		reader: bufio.NewReader(f),
+		offset: startOffset,
+	}
+}
 
-	// Process all existing lines from the current position.
-	var newBytes int
-	partial, newBytes = t.readNewLines(reader, path, partial)
-	consumed += int64(newBytes)
-	t.persistOffset(path, consumed)
+// readAllFiles reads new lines from every tracked file. Called from the
+// single poll goroutine — no per-file goroutines needed.
+func (t *FileTailer) readAllFiles() {
+	t.mu.Lock()
+	defer t.mu.Unlock()
 
-	ticker := time.NewTicker(t.cfg.PollInterval)
-	defer ticker.Stop()
+	for _, tf := range t.files {
+		if tf.file == nil || tf.openFail {
+			continue
+		}
+		newBytes := t.readNewLines(tf)
+		if newBytes > 0 {
+			tf.offset += int64(newBytes)
+			t.persistOffset(tf.path, tf.offset)
+		}
+	}
+}
+
+// readNewLines reads all available complete lines from a tailed file and
+// dispatches them via OnLine. Returns the total number of bytes consumed
+// (complete lines including newlines).
+func (t *FileTailer) readNewLines(tf *tailedFile) int {
+	bytesConsumed := 0
 
 	for {
-		select {
-		case <-ctx.Done():
-			return true
-		case <-ticker.C:
-			partial, newBytes = t.readNewLines(reader, path, partial)
-			if newBytes > 0 {
-				consumed += int64(newBytes)
-				t.persistOffset(path, consumed)
-			}
+		chunk, err := tf.reader.ReadBytes('\n')
+		bytesConsumed += len(chunk)
+
+		if err != nil {
+			// Incomplete line — buffer it for next poll. Subtract only the
+			// bytes just read (chunk), not the entire accumulated partial
+			// buffer, to avoid a negative return when partial data spans
+			// multiple poll cycles.
+			tf.partial = append(tf.partial, chunk...)
+			bytesConsumed -= len(chunk)
+			return bytesConsumed
 		}
+
+		// Prepend any buffered partial data.
+		if len(tf.partial) > 0 {
+			// The partial bytes were excluded from consumed in a previous
+			// call, so count them now that the line is complete.
+			bytesConsumed += len(tf.partial)
+			chunk = append(tf.partial, chunk...)
+			tf.partial = nil
+		}
+
+		line := bytes.TrimRight(chunk, "\r\n ")
+		if len(line) == 0 {
+			continue
+		}
+
+		t.cfg.OnLine(tf.path, line)
 	}
 }
 
@@ -233,42 +302,5 @@ func (t *FileTailer) persistOffset(path string, offset int64) {
 	}
 	if err := t.cfg.OffsetStore.SaveOffset(t.cfg.ProjectID, t.cfg.AgentType, path, offset); err != nil {
 		t.cfg.Logger.Warn("failed to save offset", "path", path, "err", err)
-	}
-}
-
-// readNewLines reads all available complete lines from the reader and
-// dispatches them via OnLine. Returns any incomplete trailing data as
-// partial and the total number of bytes consumed (including newlines).
-func (t *FileTailer) readNewLines(reader *bufio.Reader, path string, partial []byte) ([]byte, int) {
-	bytesConsumed := 0
-
-	for {
-		chunk, err := reader.ReadBytes('\n')
-		bytesConsumed += len(chunk)
-
-		if err != nil {
-			// Incomplete line — buffer it for next poll.
-			partial = append(partial, chunk...)
-			// Don't count partial bytes as consumed — they haven't been
-			// delivered yet and we need to re-read them if we restart.
-			bytesConsumed -= len(partial)
-			return partial, bytesConsumed
-		}
-
-		// Prepend any buffered partial data.
-		if len(partial) > 0 {
-			// The partial bytes were excluded from consumed in a previous
-			// call, so count them now that the line is complete.
-			bytesConsumed += len(partial)
-			chunk = append(partial, chunk...)
-			partial = nil
-		}
-
-		line := bytes.TrimRight(chunk, "\r\n ")
-		if len(line) == 0 {
-			continue
-		}
-
-		t.cfg.OnLine(path, line)
 	}
 }
