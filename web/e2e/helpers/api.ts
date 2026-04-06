@@ -304,3 +304,137 @@ export async function waitForWorktreeState(
     `Worktree "${worktreeId}" did not reach state "${validStates.join(' or ')}" within ${timeoutMs}ms`,
   )
 }
+
+// --- New integrator endpoints ---
+
+/** Fetches a single project by ID. */
+export async function fetchProject(
+  projectId: string,
+  agentType = 'claude-code',
+): Promise<ApiProject> {
+  const response = await apiFetch(`/api/v1/projects/${projectId}/${agentType}`)
+  return response.json() as Promise<ApiProject>
+}
+
+/** Fetches a single worktree by ID. */
+export async function fetchWorktree(
+  projectId: string,
+  worktreeId: string,
+  agentType = 'claude-code',
+): Promise<ApiWorktree> {
+  const response = await apiFetch(
+    `/api/v1/projects/${projectId}/${agentType}/worktrees/${worktreeId}`,
+  )
+  return response.json() as Promise<ApiWorktree>
+}
+
+/** Project costs response. */
+export interface ApiProjectCosts {
+  projectId: string
+  agentType: string
+  totalCost: number
+  isEstimated: boolean
+  sessions: Array<{
+    sessionId: string
+    cost: number
+    isEstimated: boolean
+    createdAt: string
+    updatedAt: string
+  }>
+}
+
+/** Fetches project costs. */
+export async function fetchProjectCosts(
+  projectId: string,
+  agentType = 'claude-code',
+): Promise<ApiProjectCosts> {
+  const response = await apiFetch(`/api/v1/projects/${projectId}/${agentType}/costs`)
+  return response.json() as Promise<ApiProjectCosts>
+}
+
+/** Budget status response. */
+export interface ApiBudgetStatus {
+  projectId: string
+  agentType: string
+  effectiveBudget: number
+  totalCost: number
+  isOverBudget: boolean
+  isEstimatedCost: boolean
+  budgetSource: string
+}
+
+/** Fetches budget status for a project. */
+export async function fetchBudgetStatus(
+  projectId: string,
+  agentType = 'claude-code',
+): Promise<ApiBudgetStatus> {
+  const response = await apiFetch(`/api/v1/projects/${projectId}/${agentType}/budget`)
+  return response.json() as Promise<ApiBudgetStatus>
+}
+
+/** Posts a custom audit event. */
+export async function postAuditEvent(event: {
+  event: string
+  source?: string
+  level?: string
+  message?: string
+  projectId?: string
+  agentType?: string
+  worktree?: string
+  data?: unknown
+  attrs?: Record<string, unknown>
+}): Promise<void> {
+  await apiFetch('/api/v1/audit', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(event),
+  })
+}
+
+/** Fetches audit log entries. */
+export async function fetchAuditLog(params?: {
+  projectId?: string
+  source?: string
+  category?: string
+}): Promise<Array<{ event: string; source: string; projectId?: string; msg?: string }>> {
+  const query = new URLSearchParams()
+  if (params?.projectId) query.set('projectId', params.projectId)
+  if (params?.source) query.set('source', params.source)
+  if (params?.category) query.set('category', params.category)
+  const qs = query.toString()
+  const response = await apiFetch(`/api/v1/audit${qs ? `?${qs}` : ''}`)
+  return response.json() as Promise<Array<{ event: string; source: string; projectId?: string; msg?: string }>>
+}
+
+/** Fetches the worktree diff (uncommitted changes). */
+export async function fetchWorktreeDiff(
+  projectId: string,
+  worktreeId: string,
+  agentType = 'claude-code',
+): Promise<{ files: Array<{ path: string; status: string }> }> {
+  const response = await apiFetch(
+    `/api/v1/projects/${projectId}/${agentType}/worktrees/${worktreeId}/diff`,
+  )
+  return response.json() as Promise<{ files: Array<{ path: string; status: string }> }>
+}
+
+/** Sends text to a worktree's terminal. */
+export async function sendWorktreeInput(
+  projectId: string,
+  worktreeId: string,
+  text: string,
+  options?: { pressEnter?: boolean; agentType?: string },
+): Promise<void> {
+  const agentType = options?.agentType ?? 'claude-code'
+  await apiFetch(
+    `/api/v1/projects/${projectId}/${agentType}/worktrees/${worktreeId}/input`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        text,
+        pressEnter: options?.pressEnter,
+      }),
+    },
+  )
+}
