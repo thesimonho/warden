@@ -76,7 +76,19 @@ fi
 # -------------------------------------------------------------------
 if [ -n "${WARDEN_NETWORK_MODE:-}" ] && [ "$WARDEN_NETWORK_MODE" != "full" ]; then
   if [ -x /usr/local/bin/setup-network-isolation.sh ]; then
-    /usr/local/bin/setup-network-isolation.sh || echo "[warden] warning: network isolation setup failed"
+    if ! /usr/local/bin/setup-network-isolation.sh; then
+      echo "[warden] FATAL: network isolation setup failed for mode=$WARDEN_NETWORK_MODE" >&2
+      # Push error event so the frontend can display the failure.
+      # shellcheck source=warden-write-event.sh
+      source /usr/local/bin/warden-write-event.sh
+      if warden_check_event_env; then
+        WORKTREE_ID="main"
+        EVENT_JSON=$(warden_build_event_json "container_error" \
+          "{\"message\":\"Network isolation setup failed for mode=$WARDEN_NETWORK_MODE\"}")
+        warden_write_event "$EVENT_JSON"
+      fi
+      exit 1
+    fi
   fi
 fi
 
