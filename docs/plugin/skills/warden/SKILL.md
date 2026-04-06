@@ -1,6 +1,7 @@
 ---
 name: warden
 description: Integration guide for Warden — the container engine for AI agents. Provides feature-level reference material and helps integrate Warden into your project via HTTP API, Go client, or Go library.
+argument-hint: "[feature or question]"
 ---
 
 # Warden Integration

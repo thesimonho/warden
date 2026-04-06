@@ -5,6 +5,10 @@ model: sonnet
 effort: high
 maxTurns: 30
 disallowedTools: Write, Edit, NotebookEdit
+skills:
+  - warden
+memory: project
+color: orange
 ---
 
 # Warden Integration Surveyor
