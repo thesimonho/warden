@@ -38,7 +38,17 @@
         "fspick",
         "move_mount",
         "open_tree",
-        "mount_setattr"
+        "mount_setattr",
+        "ptrace",
+        "process_vm_readv",
+        "process_vm_writev",
+        "personality",
+        "io_uring_setup",
+        "io_uring_enter",
+        "io_uring_register",
+        "mbind",
+        "migrate_pages",
+        "move_pages"
       ],
       "action": "SCMP_ACT_ERRNO",
       "errnoRet": 1

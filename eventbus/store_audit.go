@@ -29,6 +29,14 @@ func (s *Store) writeToAuditLog(writer *db.AuditWriter, event ContainerEvent) {
 	switch event.Type {
 	case EventTerminalConnected, EventTerminalDisconnected, EventProcessKilled, EventSessionExit:
 		source = db.SourceContainer
+	case EventContainerError:
+		source = db.SourceContainer
+		if event.Data != nil {
+			var data ContainerErrorData
+			if err := json.Unmarshal(event.Data, &data); err == nil {
+				message = data.Message
+			}
+		}
 	case EventNetworkBlocked:
 		source = db.SourceContainer
 		if event.Data != nil {
@@ -119,7 +127,7 @@ func (s *Store) writeToAuditLog(writer *db.AuditWriter, event ContainerEvent) {
 
 	level := db.LevelInfo
 	switch event.Type {
-	case EventToolUseFailure, EventStopFailure, EventNetworkBlocked:
+	case EventToolUseFailure, EventStopFailure, EventNetworkBlocked, EventContainerError:
 		level = db.LevelError
 	}
 
