@@ -5,7 +5,7 @@
       "include-component-in-tag": false,
       "extra-files": [
         "container/devcontainer-feature/devcontainer-feature.json",
-        ".claude-plugin/plugin.json"
+        "docs/plugin/.claude-plugin/plugin.json"
       ]
     }
   }
