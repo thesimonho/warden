@@ -16,7 +16,7 @@ tmux (holds the PTY alive across disconnects)
 
 The tmux session is the critical component. Killing it kills the agent and bash underneath. The WebSocket connection is disposable -- it is just a viewer into the tmux session. Multiple disconnects and reconnects are normal and expected.
 
-tmux is configured with: `status off` (no status bar), `mouse off` (events pass through to xterm.js), `history-limit 50000` (scrollback buffer), `window-size latest` (resizes to the most recently attached client). Agents run with the `TMUX` env var unset so they do not detect the tmux wrapper.
+tmux is configured with: `status off` (no status bar), `mouse off` (events pass through to xterm.js), `history-limit 50000` (scrollback buffer), `window-size latest` (resizes to the most recently attached client), `set-clipboard on` (forwards OSC 52 clipboard sequences from agents to the browser). Agents run with the `TMUX` env var unset so they do not detect the tmux wrapper.
 
 ## Terminal lifecycle
 
