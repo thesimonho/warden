@@ -32,6 +32,7 @@ apt-get install -y --no-install-recommends \
   iptables \
   ipset \
   dnsmasq-base \
+  aggregate \
   bubblewrap \
   tmux
 
