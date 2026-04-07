@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.9.0](https://github.com/thesimonho/warden/compare/v1.8.1...v1.9.0) (2026-04-07)
+
+
+### Features
+
+* add port forwarding UI and subdomain-based proxy ([#156](https://github.com/thesimonho/warden/issues/156)) ([b181396](https://github.com/thesimonho/warden/commit/b18139684eedb5c92b266a5f8ac22dad2e01f354))
+* add port forwarding via reverse proxy ([#155](https://github.com/thesimonho/warden/issues/155)) ([dda7d43](https://github.com/thesimonho/warden/commit/dda7d4344c61cdd6edc82bccddfbfa0ef43c5dd9))
+
+
+### Bug Fixes
+
+* add missing packaging metadata across all platforms ([#153](https://github.com/thesimonho/warden/issues/153)) ([35756d3](https://github.com/thesimonho/warden/commit/35756d3d5f7c2743295cefee3e3f3a7199c051f1))
+
 ## [1.8.1](https://github.com/thesimonho/warden/compare/v1.8.0...v1.8.1) (2026-04-06)
 
 
