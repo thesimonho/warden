@@ -583,6 +583,57 @@ func reconstructRequestFromRow(project *db.ProjectRow, update api.CreateContaine
 	return req
 }
 
+// HandleContainerStart is called when a Warden container emits a Docker
+// start event (including auto-restarts by the Docker daemon). Re-applies
+// network isolation if the project uses restricted or none mode.
+//
+// Runs asynchronously from the Docker events watcher goroutine.
+func (s *Service) HandleContainerStart(containerID, containerName string) {
+	project, err := s.db.GetProjectByContainerName(containerName)
+	if err != nil || project == nil {
+		return
+	}
+
+	mode := api.NetworkMode(project.NetworkMode)
+	if mode == "" || mode == api.NetworkModeFull {
+		return
+	}
+
+	domains := splitCSV(project.AllowedDomains)
+
+	// Merge runtime domains so the re-applied isolation matches what
+	// was originally configured during container creation.
+	if mode == api.NetworkModeRestricted && project.EnabledRuntimes != "" {
+		runtimeDomains := runtimes.DomainsForRuntimes(splitCSV(project.EnabledRuntimes))
+		existing := make(map[string]bool, len(domains))
+		for _, d := range domains {
+			existing[d] = true
+		}
+		for _, d := range runtimeDomains {
+			if !existing[d] {
+				domains = append(domains, d)
+			}
+		}
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+
+	if err := s.docker.ApplyNetworkIsolation(ctx, containerID, string(mode), domains); err != nil {
+		slog.Warn("failed to re-apply network isolation after container start",
+			"container", containerName,
+			"mode", mode,
+			"err", err,
+		)
+		return
+	}
+
+	slog.Info("re-applied network isolation after container start",
+		"container", containerName,
+		"mode", mode,
+	)
+}
+
 // mergeRuntimeDomains adds runtime-contributed network domains to the
 // request's allowed domain list when network mode is restricted. The DB
 // stores user-entered domains only (via projectRowFromRequest which runs

@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/api/types/events"
 	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/client"
 	"github.com/docker/docker/pkg/stdcopy"
@@ -737,4 +738,66 @@ func (ec *EngineClient) ContainerStartupHealth(ctx context.Context, containerNam
 	health.LogTail = buf.String()
 
 	return health, nil
+}
+
+// WatchContainerEvents subscribes to Docker container start events and
+// calls onStart for each Warden-managed container that starts. This
+// catches auto-restarts by the Docker daemon (restart policy:
+// unless-stopped) so the Go server can re-apply network isolation.
+//
+// The watcher reconnects automatically on errors with exponential
+// backoff. It runs until the context is cancelled.
+func (ec *EngineClient) WatchContainerEvents(ctx context.Context, onStart func(containerID, containerName string)) {
+	backoff := time.Second
+
+	for {
+		if ctx.Err() != nil {
+			return
+		}
+
+		eventsCh, errCh := ec.api.Events(ctx, events.ListOptions{
+			Filters: filters.NewArgs(
+				filters.Arg("type", string(events.ContainerEventType)),
+				filters.Arg("event", string(events.ActionStart)),
+				filters.Arg("label", "dev.warden.managed=true"),
+			),
+		})
+
+		backoff = time.Second // reset on successful subscription
+
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case msg, ok := <-eventsCh:
+				if !ok {
+					goto reconnect
+				}
+				name := msg.Actor.Attributes["name"]
+				if name == "" {
+					continue
+				}
+				onStart(msg.Actor.ID, name)
+			case err, ok := <-errCh:
+				if !ok {
+					goto reconnect
+				}
+				if ctx.Err() != nil {
+					return
+				}
+				slog.Warn("docker events stream error, reconnecting", "err", err, "backoff", backoff)
+				goto reconnect
+			}
+		}
+
+	reconnect:
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(backoff):
+		}
+		if backoff < 30*time.Second {
+			backoff *= 2
+		}
+	}
 }

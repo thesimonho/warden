@@ -206,6 +206,11 @@ func New(opts Options) (*Warden, error) {
 				slog.Warn("CLI cache pre-warm failed (first container create will download)", "err", err)
 			}
 		}()
+
+		// Watch Docker container start events to re-apply network isolation
+		// after auto-restarts (restart policy: unless-stopped). The watcher
+		// reconnects automatically on errors.
+		go engineClient.WatchContainerEvents(livenessCtx, svc.HandleContainerStart)
 	}
 
 	return w, nil
