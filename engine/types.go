@@ -12,6 +12,9 @@ import (
 	"github.com/thesimonho/warden/event"
 )
 
+// NotificationType is re-exported from event/ for backward compatibility.
+type NotificationType = event.NotificationType
+
 // AgentStatus represents whether the agent CLI is actively running inside a container.
 type AgentStatus string
 
@@ -23,22 +26,6 @@ const (
 	// AgentStatusUnknown means the status could not be determined.
 	AgentStatusUnknown AgentStatus = "unknown"
 )
-
-// NotificationType is an alias for [event.NotificationType].
-// Kept for backward compatibility — new code should use event.NotificationType.
-type NotificationType = event.NotificationType
-
-// Re-export notification type constants from event/ for backward compatibility.
-const (
-	NotificationPermissionPrompt  = event.NotificationPermissionPrompt
-	NotificationIdlePrompt        = event.NotificationIdlePrompt
-	NotificationAuthSuccess       = event.NotificationAuthSuccess
-	NotificationElicitationDialog = event.NotificationElicitationDialog
-)
-
-// NotificationPriority returns a numeric priority for notification types.
-// Delegates to [event.NotificationPriority].
-var NotificationPriority = event.NotificationPriority
 
 // WorktreeState represents the terminal connection state of a worktree.
 type WorktreeState string
