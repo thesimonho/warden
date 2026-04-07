@@ -1501,6 +1501,7 @@ func TestStore_WriteToAuditLog_SourceLineProducesSourceID(t *testing.T) {
 		WorktreeID:    "main",
 		Data:          mustMarshal(t, ToolUseData{ToolName: "bash"}),
 		Timestamp:     time.Now(),
+		Source:        SourceJSONL,
 		SourceLine:    []byte(`{"type":"tool_use","tool":"bash"}`),
 		SourceIndex:   0,
 	})
@@ -1522,6 +1523,7 @@ func TestStore_WriteToAuditLog_SourceLineProducesSourceID(t *testing.T) {
 		WorktreeID:    "main",
 		Data:          mustMarshal(t, ToolUseData{ToolName: "bash"}),
 		Timestamp:     time.Now(),
+		Source:        SourceJSONL,
 		SourceLine:    []byte(`{"type":"tool_use","tool":"bash"}`),
 		SourceIndex:   0,
 	})

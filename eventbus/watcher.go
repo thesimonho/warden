@@ -368,6 +368,7 @@ func (w *Watcher) processFile(path string) {
 		"worktree", event.WorktreeID,
 	)
 
+	event.Source = SourceEventDir
 	w.handler(event)
 
 	if err := os.Remove(path); err != nil {
