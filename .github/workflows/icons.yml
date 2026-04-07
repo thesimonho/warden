@@ -5,11 +5,6 @@ on:
     paths:
       - "icon.svg"
       - "logo.svg"
-  pull_request:
-    branches: [main]
-    paths:
-      - "icon.svg"
-      - "logo.svg"
 permissions:
   contents: write
 jobs:
