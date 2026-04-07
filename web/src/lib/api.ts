@@ -63,7 +63,7 @@ export {
   listDirectories,
 } from './api-containers'
 export {
-  fetchRuntimes,
+  fetchDockerStatus,
   fetchSettings,
   updateSettings,
   fetchDefaults,

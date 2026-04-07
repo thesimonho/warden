@@ -11,7 +11,6 @@ import (
 	"github.com/thesimonho/warden/engine"
 	"github.com/thesimonho/warden/eventbus"
 	"github.com/thesimonho/warden/internal/tui/components"
-	"github.com/thesimonho/warden/runtime"
 	"github.com/thesimonho/warden/version"
 )
 
@@ -80,13 +79,8 @@ func NewApp(client Client) App {
 
 	// Check Docker availability.
 	dockerAvailable := false
-	if runtimes, err := client.ListRuntimes(context.Background()); err == nil {
-		for _, rt := range runtimes {
-			if rt.Name == runtime.RuntimeDocker && rt.Available {
-				dockerAvailable = true
-				break
-			}
-		}
+	if info, err := client.ListRuntimes(context.Background()); err == nil {
+		dockerAvailable = info.Available
 	}
 
 	app := App{

@@ -115,10 +115,10 @@ export async function fetchWorktrees(projectId: string, agentType = DEFAULT_AGEN
   return response.json() as Promise<ApiWorktree[]>
 }
 
-/** Fetches available container runtimes. */
-export async function fetchRuntimes(): Promise<ApiRuntime[]> {
+/** Fetches Docker runtime status. */
+export async function fetchDockerStatus(): Promise<ApiRuntime> {
   const response = await apiFetch('/api/v1/runtimes')
-  return response.json() as Promise<ApiRuntime[]>
+  return response.json() as Promise<ApiRuntime>
 }
 
 /** Response from POST /api/v1/projects. */

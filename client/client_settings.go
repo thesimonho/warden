@@ -6,7 +6,7 @@ import (
 	"net/url"
 
 	"github.com/thesimonho/warden/api"
-	"github.com/thesimonho/warden/runtime"
+	"github.com/thesimonho/warden/docker"
 )
 
 // --- Settings ---
@@ -90,10 +90,10 @@ func (c *Client) ListDirectories(ctx context.Context, path string, includeFiles 
 }
 
 // ListRuntimes returns available container runtimes.
-func (c *Client) ListRuntimes(ctx context.Context) ([]runtime.RuntimeInfo, error) {
-	var runtimes []runtime.RuntimeInfo
-	if err := c.get(ctx, "/api/v1/runtimes", &runtimes); err != nil {
+func (c *Client) ListRuntimes(ctx context.Context) (*docker.Info, error) {
+	var info docker.Info
+	if err := c.get(ctx, "/api/v1/runtimes", &info); err != nil {
 		return nil, err
 	}
-	return runtimes, nil
+	return &info, nil
 }

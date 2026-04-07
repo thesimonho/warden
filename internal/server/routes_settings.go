@@ -134,7 +134,7 @@ func (rt *routes) handleValidateTemplate(w http.ResponseWriter, r *http.Request)
 //	@Description	Detects and returns available container runtimes with
 //	@Description	their socket paths and API versions.
 //	@Tags			host
-//	@Success		200	{array}	runtime.RuntimeInfo
+//	@Success		200	{object}	docker.Info
 //	@Router			/api/v1/runtimes [get]
 func (rt *routes) handleListRuntimes(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, rt.svc.ListRuntimes(r.Context()))

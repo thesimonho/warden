@@ -1,7 +1,7 @@
 ---
 paths:
   - "engine/**/*"
-  - "runtime/**/*"
+  - "docker/**/*"
   - "container/**/*"
   - "cmd/**/*"
   - "packaging/**/*"
@@ -15,13 +15,13 @@ Warden uses Docker as its container runtime. The engine client talks to the Dock
 
 How it's structured:
 
-- **`runtime/`** — detects the Docker runtime by probing socket paths. Platform-specific socket candidates are in build-tagged files (`sockets_linux.go`, `sockets_darwin.go`, `sockets_windows.go`).
+- **`docker/`** — detects the Docker daemon by probing socket paths. Platform-specific socket candidates are in build-tagged files (`sockets_linux.go`, `sockets_darwin.go`, `sockets_windows.go`).
 - **`engine/`** — the container engine client. Handles Docker and Windows named pipes. All containers get a bind mount for the event directory at `/var/warden/events` so container scripts can write events to the shared mount.
 - **Container scripts** (`container/scripts/`) — the entrypoint uses the gosu pattern (root for privileged setup, then `exec gosu warden` to drop privileges permanently). Use `WARDEN_EVENT_DIR` env var (set by Warden) to write events to the bind-mounted directory.
 
 ## Platform support
 
-Warden supports Linux, macOS, and Windows. Build-tagged signal handlers (`syscall.SIGTERM` on Unix, `os.Interrupt` on Windows) enable graceful shutdown on each platform. Platform-specific container socket detection uses build-tagged files in `runtime/sockets_*.go`.
+Warden supports Linux, macOS, and Windows. Build-tagged signal handlers (`syscall.SIGTERM` on Unix, `os.Interrupt` on Windows) enable graceful shutdown on each platform. Platform-specific container socket detection uses build-tagged files in `docker/sockets_*.go`.
 
 ## Desktop distribution
 

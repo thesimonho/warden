@@ -14,7 +14,7 @@ import (
 	"github.com/thesimonho/warden/client"
 	"github.com/thesimonho/warden/engine"
 	"github.com/thesimonho/warden/eventbus"
-	"github.com/thesimonho/warden/runtime"
+	"github.com/thesimonho/warden/docker"
 )
 
 // Compile-time check: ServiceAdapter must satisfy Client.
@@ -234,8 +234,9 @@ func (a *ServiceAdapter) ListDirectories(_ context.Context, path string, include
 }
 
 // ListRuntimes delegates to Service.ListRuntimes.
-func (a *ServiceAdapter) ListRuntimes(ctx context.Context) ([]runtime.RuntimeInfo, error) {
-	return a.w.Service.ListRuntimes(ctx), nil
+func (a *ServiceAdapter) ListRuntimes(ctx context.Context) (*docker.Info, error) {
+	info := a.w.Service.ListRuntimes(ctx)
+	return &info, nil
 }
 
 // --- Audit Log ---
