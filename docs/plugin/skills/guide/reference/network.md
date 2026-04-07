@@ -55,17 +55,19 @@ Allowed domains can be updated on a running container without restarting it. Whe
 
 ## Mode changes require recreation
 
-Changing the network mode itself (e.g. `full` to `restricted`, or `restricted` to `none`) requires recreating the container. This is because different modes use fundamentally different iptables rule sets and container capabilities that are set at container start time.
+Changing the network mode itself (e.g. `full` to `restricted`, or `restricted` to `none`) requires recreating the container. This is because different modes use fundamentally different iptables rule sets.
 
 Updating the domain allowlist within `restricted` mode does **not** require recreation -- that uses the hot-reload path described above.
 
 ## How it works internally
 
-The container entrypoint starts as root to perform privileged network setup:
+Network isolation is enforced **from outside the container** via `docker exec --privileged`. The container's capability bounding set does not include `NET_ADMIN`, making iptables rules tamper-proof -- even `sudo iptables -F` fails with `EPERM`.
 
-1. iptables rules are installed based on the network mode.
-2. For `restricted` mode: dnsmasq is configured as a local DNS resolver, ipset is populated with resolved IPs for allowed domains, and iptables rules restrict outbound traffic to those IPs plus DNS.
-3. The entrypoint permanently drops to the `warden` user via `exec gosu`. No root process remains after startup.
+1. The container starts without `NET_ADMIN` capability.
+2. After startup, the Go server runs `setup-network-isolation.sh` via privileged docker exec (Docker grants all capabilities to privileged exec processes).
+3. For `restricted` mode: dnsmasq is configured as a local DNS resolver, ipset is populated with resolved IPs for allowed domains, and iptables rules restrict outbound traffic to those IPs plus DNS.
+4. The user-entrypoint waits for a readiness marker before allowing the agent to start.
+5. On container restart (explicit or auto-restart), the Go server re-applies isolation via the same mechanism.
 
 ## Runtime domains
 
@@ -190,3 +192,4 @@ Dev servers inside containers must bind to `0.0.0.0` (all interfaces), not the d
 - **DNS caching:** Domain IPs are resolved dynamically, but if a domain's IP changes and DNS caching has not refreshed, there may be a brief interruption. Updating the allowed domains list triggers a full re-resolution. Otherwise, restart the container.
 - **Wildcard scope:** There is no way to allow a subdomain without also allowing its parent. Each entry in the allowlist grants access to the exact domain plus all subdomains.
 - **Partial updates:** The `PUT` endpoint for updating a container accepts a full configuration. To update only domains, include the existing `networkMode` value and the new `allowedDomains` list. Changing `networkMode` in the same request triggers a container recreation.
+- **Tamper-proof:** The container does not have `NET_ADMIN` capability. Users cannot modify iptables rules even with `sudo`. Package installation via `sudo apt-get install` works normally -- sudo has standard capabilities but not network administration.

@@ -2,7 +2,7 @@
 
 ## Process Architecture
 
-The container entrypoint starts as root for privileged setup (UID remapping, iptables), then permanently drops to the `warden` user via `exec gosu`. PID 1 runs as `warden` — no root process remains after startup.
+The container entrypoint starts as root for privileged setup (UID remapping, agent CLI install, runtime installation), then permanently drops to the `warden` user via `exec gosu`. PID 1 runs as `warden` — no root process remains after startup. Network isolation (iptables) is applied separately by the Go server via `docker exec --privileged` after container start.
 
 Each worktree has one process layer in the container:
 
