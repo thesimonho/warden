@@ -42,7 +42,7 @@
      inkscape:groupmode="layer"
      id="layer1">
     <rect
-       style="fill:#262626;fill-opacity:1;stroke:none;stroke-width:1.40919;stroke-opacity:0.547135"
+       style="fill:#262626;fill-opacity:1;stroke:none"
        id="rect1"
        width="121.18428"
        height="10.583333"
@@ -50,13 +50,13 @@
        y="39.422905" />
     <text
        xml:space="preserve"
-       style="font-style:normal;font-variant:normal;font-weight:500;font-stretch:normal;font-size:94.2716px;line-height:0.9;font-family:'IBM Plex Sans';-inkscape-font-specification:'IBM Plex Sans Medium';letter-spacing:-0.480977px;writing-mode:lr-tb;direction:ltr;fill:#262626;stroke-width:4.80977;stroke-opacity:0.547135"
+       style="font-style:normal;font-variant:normal;font-weight:500;font-stretch:normal;font-size:94.2716px;line-height:0.9;font-family:'IBM Plex Sans';-inkscape-font-specification:'IBM Plex Sans Medium';letter-spacing:-0.480977px;writing-mode:lr-tb;direction:ltr;fill:#262626;stroke:none"
        x="48.792667"
        y="108.32568"
        id="text1"><tspan
          sodipodi:role="line"
          id="tspan1"
-         style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-size:94.2716px;font-family:'IBM Plex Sans';-inkscape-font-specification:'IBM Plex Sans Bold';stroke-width:4.80977"
+         style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-size:94.2716px;font-family:'IBM Plex Sans';-inkscape-font-specification:'IBM Plex Sans Bold';stroke:none"
          x="48.792667"
          y="108.32568">w</tspan></text>
   </g>

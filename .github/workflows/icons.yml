@@ -1,0 +1,40 @@
+name: Generate Icons
+on:
+  push:
+    branches: [main]
+    paths:
+      - "icon.svg"
+      - "logo.svg"
+permissions:
+  contents: write
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/create-github-app-token@v3
+        id: app-token
+        with:
+          app-id: ${{ vars.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.head_ref || github.ref }}
+          token: ${{ steps.app-token.outputs.token }}
+
+      - name: Install ImageMagick
+        run: sudo apt-get update && sudo apt-get install -y imagemagick
+
+      - name: Generate icons
+        run: bash packaging/generate-icons.sh
+
+      - name: Commit generated icons
+        run: |
+          if git diff --quiet packaging/ web/public/ cmd/warden-tray/icon.png docs/site/public/favicon.ico docs/site/src/assets/logo-light.svg docs/site/src/assets/logo-dark.svg; then
+            echo "Icons are up to date"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add packaging/ web/public/ cmd/warden-tray/icon.png docs/site/public/favicon.ico docs/site/src/assets/logo-light.svg docs/site/src/assets/logo-dark.svg
+          git commit -m "chore: regenerate icons from source SVGs"
+          git push
