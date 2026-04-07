@@ -53,11 +53,8 @@ const (
 // Project source options.
 var projectSources = []string{"local", "remote"}
 
-// projectSourceLabels maps source IDs to display labels.
-var projectSourceLabels = map[string]string{
-	"local":  "Local — mount a host directory",
-	"remote": "Remote — clone a git repository",
-}
+// sourceRemote is the index into projectSources for remote projects.
+const sourceRemote = 1
 
 // Environment step field indices.
 const (
@@ -425,7 +422,7 @@ func (v *ContainerFormView) Update(msg tea.Msg) (View, tea.Cmd) {
 		v.inputs[inputImage].SetValue(msg.Config.Image)
 		if msg.Config.CloneURL != "" {
 			v.inputs[inputCloneURL].SetValue(msg.Config.CloneURL)
-			v.source = 1 // remote
+			v.source = sourceRemote
 			v.temporary = msg.Config.Temporary
 		}
 		for i, at := range agentTypes {

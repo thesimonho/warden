@@ -116,11 +116,14 @@ func (s *Service) DeleteContainer(ctx context.Context, projectID, agentType stri
 	s.docker.CleanupEventDir(containerName)
 
 	// Clean up the workspace volume for remote non-temporary projects.
+	// Fire-and-forget — volume removal can be slow and failure is non-fatal.
 	if project.CloneURL != "" && !project.Temporary {
-		volumeName := fmt.Sprintf("warden-workspace-%s", containerName)
-		if err := s.docker.RemoveVolume(ctx, volumeName); err != nil {
-			slog.Warn("failed to remove workspace volume", "volume", volumeName, "err", err)
-		}
+		volumeName := engine.WorkspaceVolumeName(containerName)
+		go func() {
+			if err := s.docker.RemoveVolume(context.Background(), volumeName); err != nil {
+				slog.Warn("failed to remove workspace volume", "volume", volumeName, "err", err)
+			}
+		}()
 	}
 
 	// Stop lifecycle watchers for the deleted container.
@@ -527,13 +530,7 @@ func (s *Service) ValidateContainer(ctx context.Context, projectID, agentType st
 // for database persistence. Computes the deterministic ProjectID from the
 // host path (local) or clone URL (remote).
 func projectRowFromRequest(req api.CreateContainerRequest) (db.ProjectRow, error) {
-	var projectID string
-	var err error
-	if req.CloneURL != "" {
-		projectID, err = engine.ProjectIDFromURL(req.CloneURL)
-	} else {
-		projectID, err = engine.ProjectID(req.ProjectPath)
-	}
+	projectID, err := engine.ResolveProjectID(req.ProjectPath, req.CloneURL)
 	if err != nil {
 		return db.ProjectRow{}, fmt.Errorf("computing project ID: %w", err)
 	}

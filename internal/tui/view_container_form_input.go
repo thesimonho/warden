@@ -218,7 +218,7 @@ func (v *ContainerFormView) cycleSelection() (View, tea.Cmd) {
 // isFieldVisible returns whether a field should be shown in the current step.
 func (v *ContainerFormView) isFieldVisible(field int) bool {
 	if v.step == stepGeneral {
-		isRemote := projectSources[v.source] == "remote"
+		isRemote := v.source == sourceRemote
 		switch field {
 		case genPath:
 			return !isRemote

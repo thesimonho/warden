@@ -3,7 +3,7 @@ title: Projects
 description: Manage workspaces, containers, and per-project configuration.
 ---
 
-A **Project** is a host directory paired with a container that runs an AI coding agent against it. Each project gets its own isolated container with configurable image, environment, mounts, network policy, and cost budget. Projects are the top-level unit of organization in Warden.
+A **Project** is a workspace backed by either a local host directory or a remote git repository, paired with a container that runs an AI coding agent against it. Each project gets its own isolated container with configurable image, environment, mounts, network policy, and cost budget. Projects are the top-level unit of organization in Warden.
 
 ## Creating a Project
 
@@ -11,9 +11,11 @@ Add a project by providing:
 
 - **Agent Type** — the CLI agent to run: **Claude Code** (Anthropic) or **Codex** (OpenAI). This is selected first and cannot be changed after creation.
 - **Name** — a display name (also determines the workspace path inside the container: `/home/warden/<name>`)
-- **Host Path** — the absolute path to the directory on your machine
+- **Source** — either **Local** or **Remote**:
+  - **Local** — provide the absolute **Host Path** to the directory on your machine. Warden bind-mounts it into the container.
+  - **Remote** — provide a **Clone URL** (HTTPS or SSH). The repository is cloned inside the container on first boot. By default, the cloned workspace is persisted in a Docker volume that survives container recreation. Check **Temporary** to use the container's writable layer instead (workspace is lost on recreate).
 
-If you add the same path again, Warden returns the existing project instead of creating a duplicate.
+If you add the same path or URL again, Warden returns the existing project instead of creating a duplicate.
 
 ## Container Configuration
 

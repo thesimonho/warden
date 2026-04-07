@@ -196,12 +196,8 @@ func (rt *routes) handleAddProject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if req.ProjectPath == "" && req.CloneURL == "" {
-		writeError(w, ErrCodeRequiredField, "projectPath or cloneURL is required", http.StatusBadRequest)
-		return
-	}
-	if req.ProjectPath != "" && req.CloneURL != "" {
-		writeError(w, ErrCodeInvalidBody, "provide only one of projectPath or cloneURL", http.StatusBadRequest)
+	if msg := validateProjectSource(req.ProjectPath, req.CloneURL); msg != "" {
+		writeError(w, ErrCodeInvalidBody, msg, http.StatusBadRequest)
 		return
 	}
 

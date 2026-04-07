@@ -176,6 +176,18 @@ func validateNetworkConfig(req api.CreateContainerRequest) string {
 	return ""
 }
 
+// validateProjectSource checks that exactly one of projectPath or cloneURL is
+// provided. Returns a non-empty error message on failure.
+func validateProjectSource(projectPath, cloneURL string) string {
+	if projectPath == "" && cloneURL == "" {
+		return "projectPath or cloneURL is required"
+	}
+	if projectPath != "" && cloneURL != "" {
+		return "provide only one of projectPath or cloneURL"
+	}
+	return ""
+}
+
 // validateAllowedDomains checks that all domain strings in the list are valid.
 func validateAllowedDomains(domains []string) bool {
 	for _, d := range domains {

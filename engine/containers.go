@@ -26,6 +26,24 @@ const defaultPidsLimit = int64(512)
 // defaultImage is the container image used when none is specified.
 const defaultImage = "ghcr.io/thesimonho/warden:latest"
 
+// defaultWardenUID and defaultWardenGID are the UID/GID of the warden user
+// inside the container (created by install-user.sh). Used as fallback when
+// there is no host path to stat (remote projects).
+const (
+	defaultWardenUID uint32 = 1000
+	defaultWardenGID uint32 = 1000
+)
+
+// workspaceVolumePrefix is the naming prefix for Docker volumes that persist
+// remote project workspaces across container recreation.
+const workspaceVolumePrefix = "warden-workspace-"
+
+// WorkspaceVolumeName returns the Docker volume name for a remote project's
+// persistent workspace.
+func WorkspaceVolumeName(containerName string) string {
+	return workspaceVolumePrefix + containerName
+}
+
 // containerEventDir is the in-container path where event files are written.
 const containerEventDir = "/var/warden/events"
 
@@ -83,7 +101,7 @@ func (ec *EngineClient) CreateContainer(ctx context.Context, req api.CreateConta
 	var hostUID, hostGID uint32
 	if req.CloneURL != "" {
 		// Remote project — no host path to stat.
-		hostUID, hostGID = 1000, 1000
+		hostUID, hostGID = defaultWardenUID, defaultWardenGID
 	} else {
 		if req.ProjectPath == "" {
 			return "", fmt.Errorf("project path is required when no clone URL is provided")
@@ -139,15 +157,11 @@ func (ec *EngineClient) CreateContainer(ctx context.Context, req api.CreateConta
 	// Pass container name and project ID so hook scripts can identify
 	// this container and its stable project identity in event payloads.
 	envList = append(envList, fmt.Sprintf("WARDEN_CONTAINER_NAME=%s", req.Name))
+	if projectID, err := ResolveProjectID(req.ProjectPath, req.CloneURL); err == nil {
+		envList = append(envList, fmt.Sprintf("WARDEN_PROJECT_ID=%s", projectID))
+	}
 	if req.CloneURL != "" {
-		if projectID, err := ProjectIDFromURL(req.CloneURL); err == nil {
-			envList = append(envList, fmt.Sprintf("WARDEN_PROJECT_ID=%s", projectID))
-		}
 		envList = append(envList, fmt.Sprintf("WARDEN_CLONE_URL=%s", req.CloneURL))
-	} else {
-		if projectID, err := ProjectID(req.ProjectPath); err == nil {
-			envList = append(envList, fmt.Sprintf("WARDEN_PROJECT_ID=%s", projectID))
-		}
 	}
 
 	// Pass the host UID/GID so the entrypoint can match file ownership
@@ -261,7 +275,7 @@ func (ec *EngineClient) CreateContainer(ctx context.Context, req api.CreateConta
 	// For remote (non-temporary) projects, persist the cloned workspace
 	// in a named Docker volume so it survives container recreation.
 	if req.CloneURL != "" && !req.Temporary {
-		volumeName := fmt.Sprintf("warden-workspace-%s", req.Name)
+		volumeName := WorkspaceVolumeName(req.Name)
 		hostConfig.Mounts = append(hostConfig.Mounts, mount.Mount{
 			Type:   mount.TypeVolume,
 			Source: volumeName,

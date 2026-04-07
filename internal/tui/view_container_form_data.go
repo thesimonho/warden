@@ -19,7 +19,7 @@ func (v *ContainerFormView) submit() tea.Cmd {
 		return nil
 	}
 
-	isRemote := projectSources[v.source] == "remote"
+	isRemote := v.source == sourceRemote
 	path := v.inputs[inputPath].Value()
 	cloneURL := v.inputs[inputCloneURL].Value()
 	if isRemote {

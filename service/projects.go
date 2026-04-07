@@ -97,13 +97,7 @@ func (s *Service) listProjectsInternal(ctx context.Context) ([]engine.Project, e
 // project for this path/URL and agent type already exists, returns the
 // existing project without error.
 func (s *Service) AddProject(name, hostPath, agentType, cloneURL string, temporary bool) (*ProjectResult, error) {
-	var projectID string
-	var err error
-	if cloneURL != "" {
-		projectID, err = engine.ProjectIDFromURL(cloneURL)
-	} else {
-		projectID, err = engine.ProjectID(hostPath)
-	}
+	projectID, err := engine.ResolveProjectID(hostPath, cloneURL)
 	if err != nil {
 		return nil, fmt.Errorf("computing project ID: %w", err)
 	}

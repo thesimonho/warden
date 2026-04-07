@@ -57,6 +57,15 @@ func ProjectIDFromURL(cloneURL string) (string, error) {
 	return id, nil
 }
 
+// ResolveProjectID computes the deterministic project ID from either a
+// clone URL (remote project) or an absolute host path (local project).
+func ResolveProjectID(hostPath, cloneURL string) (string, error) {
+	if cloneURL != "" {
+		return ProjectIDFromURL(cloneURL)
+	}
+	return ProjectID(hostPath)
+}
+
 // normalizeCloneURL produces a canonical form of a git clone URL for
 // deterministic hashing. Handles both HTTPS and SSH (git@host:org/repo) URLs.
 func normalizeCloneURL(raw string) string {
