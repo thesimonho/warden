@@ -46,11 +46,11 @@ Agent CLIs are installed at container startup (not at build time) by `install-ag
 
 Accepts `<worktree-id> [--skip-permissions]`. Branches on `WARDEN_AGENT_TYPE` env var:
 
-- **Auto-resume detection**: before building the agent command, checks if `exit_code` exists (from a prior session) and JSONL session files are present. If so, appends `--continue` (claude-code) or uses `codex resume --last` (codex) to resume the previous conversation.
+- **Auto-resume detection**: before building the agent command, checks if `exit_code` exists (from a prior session) and JSONL session files are present. If so, appends `--continue` (claude-code) or uses `codex resume --last` (codex) to resume the previous conversation. Also builds a fresh command (without resume flag) for fallback.
 - **claude-code** (default): launches `claude --worktree <id>` in `.claude/worktrees/<id>/` (Claude manages worktrees natively). Adds `--dangerously-skip-permissions` if requested.
 - **codex**: creates the git worktree manually (`git worktree add`) in `.warden/worktrees/<id>/` if it doesn't exist, with fallback to use existing branch if worktree creation fails, then launches `codex --no-alt-screen` in the worktree directory (the `--no-alt-screen` flag disables alternate screen mode so terminal scrollback is preserved). Adds `--dangerously-bypass-approvals-and-sandbox` if skip-permissions is requested.
 
-Unsets `TMUX` env var in the inner script so agents don't detect they're inside tmux. When the agent exits: records exit code, pushes `session_exit` event, drops to `exec bash`.
+Unsets `TMUX` env var in the inner script so agents don't detect they're inside tmux. If the agent exits with a non-zero code and auto-resume was attempted, falls back to a fresh session (prevents being dumped into bare bash when there's no conversation to resume). When the agent exits: records exit code, pushes `session_exit` event, drops to `exec bash`.
 
 ### disconnect-terminal.sh
 
