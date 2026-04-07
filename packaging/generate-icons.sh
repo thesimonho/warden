@@ -44,8 +44,9 @@ cp "packaging/linux/icons/512x512/warden.png" packaging/linux/warden.png
 
 # Tray icon — black on transparent for macOS menu bar template image.
 # Generated directly from SVG (no white background) so systray.SetTemplateIcon
-# can let macOS handle light/dark mode. 64px RGBA; the library scales as needed.
-magick -density 384 -background none "${ICON}" -resize 64x64 \
+# can let macOS handle light/dark mode. 256px RGBA; ensures crisp rendering
+# on HiDPI Linux/Windows trays.
+magick -density 384 -background none "${ICON}" -resize 256x256 \
     -depth 8 -define png:color-type=6 cmd/warden-tray/icon.png
 
 # Windows — multi-size .ico
