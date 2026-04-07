@@ -81,4 +81,7 @@ magick "${HI}" -resize 512x512 ${RGBA} web/public/favicon-512.png
 cp "${ICON}" web/public/icon.svg
 cp "${LOGO}" web/public/logo.svg
 
-echo "Generated icons for Linux, Windows, macOS, and web"
+# Docs site — shares the same favicon as the web app
+cp web/public/favicon.ico docs/site/public/favicon.ico
+
+echo "Generated icons for Linux, Windows, macOS, docs, and web"

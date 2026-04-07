@@ -34,12 +34,12 @@ jobs:
 
       - name: Commit generated icons
         run: |
-          if git diff --quiet packaging/ web/public/ cmd/warden-tray/icon.png; then
+          if git diff --quiet packaging/ web/public/ cmd/warden-tray/icon.png docs/site/public/favicon.ico; then
             echo "Icons are up to date"
             exit 0
           fi
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add packaging/ web/public/ cmd/warden-tray/icon.png
+          git add packaging/ web/public/ cmd/warden-tray/icon.png docs/site/public/favicon.ico
           git commit -m "chore: regenerate icons from source SVGs"
           git push
