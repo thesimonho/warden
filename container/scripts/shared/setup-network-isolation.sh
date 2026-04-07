@@ -8,6 +8,8 @@ set -euo pipefail
 # configure outbound firewall rules. Runs as root in the entrypoint
 # before any user code executes, and can be re-run via docker exec
 # to hot-reload allowed domains without recreating the container.
+# After first-run setup, a smoke test verifies that blocked IPs are
+# unreachable (TCP probe) and allowed domains resolve via dnsmasq.
 #
 # Modes:
 #   "none"       — block all outbound traffic (air-gapped)
@@ -56,6 +58,56 @@ reject_and_track() {
   iptables -A OUTPUT -m recent --name warden_blocked --rdest --set \
     -j REJECT --reject-with icmp-port-unreachable 2>/dev/null \
     || iptables -A OUTPUT -j REJECT --reject-with icmp-port-unreachable
+}
+
+# Verify the firewall is working by checking that a known-blocked
+# domain is unreachable and at least one allowed domain resolves.
+# Warns on failure but does not abort — a false negative from a
+# transient DNS issue is worse than a missing verification.
+verify_firewall() {
+  local blocked_ok=false allowed_ok=false
+
+  # Check that a known-blocked IP is unreachable at the transport layer.
+  # 93.184.216.34 is example.com's well-known stable IPv4 address.
+  # Uses /dev/tcp for a direct TCP probe — tests iptables, not DNS.
+  # REJECT gives instant ECONNREFUSED; timeout catches DROP rules.
+  if ! timeout 2 bash -c 'echo > /dev/tcp/93.184.216.34/80' 2>/dev/null; then
+    blocked_ok=true
+  fi
+
+  # Skip allowed-domain check if no domains configured.
+  if [ -z "${ALLOWED_DOMAINS:-}" ]; then
+    if [ "$blocked_ok" = true ]; then
+      echo "[warden] firewall verification passed (no allowed domains)"
+    else
+      echo "[warden] warning: firewall verification failed — blocked IP (93.184.216.34) was reachable" >&2
+    fi
+    return
+  fi
+
+  # Check that at least one allowed domain resolves via dnsmasq.
+  # Retries handle dnsmasq warmup delay after resolv.conf rewrite.
+  IFS=',' read -ra _vdomains <<< "$ALLOWED_DOMAINS"
+  for d in "${_vdomains[@]}"; do
+    d=$(echo "$d" | xargs)
+    d="${d#\*.}"
+    [ -z "$d" ] && continue
+    for _attempt in 1 2 3; do
+      if getent ahosts "$d" >/dev/null 2>&1; then
+        allowed_ok=true
+        break 2
+      fi
+      sleep 0.5
+    done
+  done
+
+  if [ "$blocked_ok" = true ] && [ "$allowed_ok" = true ]; then
+    echo "[warden] firewall verification passed"
+  elif [ "$blocked_ok" = false ]; then
+    echo "[warden] warning: firewall verification failed — blocked IP (93.184.216.34) was reachable" >&2
+  elif [ "$allowed_ok" = false ]; then
+    echo "[warden] warning: firewall verification failed — no allowed domain could be resolved" >&2
+  fi
 }
 
 # Detect hot-reload: if dnsmasq is already running, this is a re-run
@@ -216,6 +268,8 @@ if [ "$MODE" = "restricted" ]; then
   fi
 
   echo "[warden] network isolation: restricted/dynamic via dnsmasq ($(echo "$ALLOWED_DOMAINS" | tr ',' ' '))"
+  # Smoke test runs only on first run — the IS_RELOAD branch exits above.
+  verify_firewall
   exit 0
 fi
 
