@@ -14,7 +14,7 @@ import (
 
 	"github.com/thesimonho/warden/api"
 	"github.com/thesimonho/warden/constants"
-	"github.com/thesimonho/warden/runtime"
+	"github.com/thesimonho/warden/docker"
 	"github.com/thesimonho/warden/runtimes"
 )
 
@@ -214,6 +214,6 @@ func (s *Service) RevealInFileManager(path string) error {
 }
 
 // ListRuntimes returns available container runtimes.
-func (s *Service) ListRuntimes(ctx context.Context) []runtime.RuntimeInfo {
-	return runtime.DetectAvailable(ctx)
+func (s *Service) ListRuntimes(ctx context.Context) docker.Info {
+	return docker.Detect(ctx)
 }

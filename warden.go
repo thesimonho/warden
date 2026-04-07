@@ -28,7 +28,7 @@ import (
 	"github.com/thesimonho/warden/engine"
 	"github.com/thesimonho/warden/engine/seccomp"
 	"github.com/thesimonho/warden/eventbus"
-	"github.com/thesimonho/warden/runtime"
+	"github.com/thesimonho/warden/docker"
 	"github.com/thesimonho/warden/service"
 )
 
@@ -96,7 +96,7 @@ func New(opts Options) (*Warden, error) {
 	agentRegistry.Register(agent.ClaudeCode, claudecode.NewProvider())
 	agentRegistry.Register(agent.Codex, codex.NewProvider())
 
-	socketPath := runtime.SocketForRuntime(context.Background())
+	socketPath := docker.SocketPath(context.Background())
 	engineClient, err := engine.NewClient(socketPath, agentRegistry)
 	if err != nil {
 		_ = database.Close()

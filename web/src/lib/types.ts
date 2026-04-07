@@ -501,10 +501,7 @@ export interface ResolvedItem {
   credentials: ResolvedCredential[]
 }
 
-/** Information about a detected container runtime. */
-/** Runtime name constant matching the backend's runtime.RuntimeDocker. */
-export const RUNTIME_DOCKER = 'docker' as const
-
+/** Information about the detected Docker runtime. */
 export interface RuntimeInfo {
   /** Runtime identifier. */
   name: string

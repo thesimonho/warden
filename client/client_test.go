@@ -13,7 +13,7 @@ import (
 	"github.com/thesimonho/warden/api"
 	"github.com/thesimonho/warden/engine"
 	"github.com/thesimonho/warden/eventbus"
-	"github.com/thesimonho/warden/runtime"
+	"github.com/thesimonho/warden/docker"
 	"github.com/thesimonho/warden/service"
 )
 
@@ -188,19 +188,14 @@ func TestListDirectories(t *testing.T) {
 func TestListRuntimes(t *testing.T) {
 	t.Parallel()
 
-	runtimes := []runtime.RuntimeInfo{
-		{Name: "docker", Available: true},
-	}
-	c := newTestServer(t, "GET", "/api/v1/runtimes", http.StatusOK, runtimes)
+	info := docker.Info{Name: docker.Name, Available: true}
+	c := newTestServer(t, "GET", "/api/v1/runtimes", http.StatusOK, info)
 
 	result, err := c.ListRuntimes(context.Background())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if len(result) != 1 {
-		t.Fatalf("expected 1 runtime, got %d", len(result))
-	}
-	if !result[0].Available {
+	if !result.Available {
 		t.Error("expected docker to be available")
 	}
 }

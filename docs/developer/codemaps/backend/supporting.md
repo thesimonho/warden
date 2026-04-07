@@ -83,17 +83,17 @@ Language runtime registry — defines available runtimes (Node, Python, Go, Rust
 | ------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `runtimes.go` | `Runtime` type (ID, Label, Description, AlwaysEnabled, Domains, EnvVars, MarkerFiles), `Registry()` (ordered list of all runtimes), `Detect(projectPath)` (scans for marker files), `ByID(id)` (lookup by identifier), `AllIDs()` / `AlwaysEnabledIDs()` (ID lists), `DomainsForRuntimes(ids)` / `EnvVarsForRuntimes(ids)` (aggregate domains/env vars for enabled runtimes), `IsValidID(id)` (validation), `DomainsByRuntime(ids)` / `FilterUserDomains(domains, ids)` (domain attribution helpers) |
 
-## runtime/
+## docker/
 
-Container runtime detection (Docker).
+Docker daemon detection and socket resolution.
 
-| File                 | Purpose                                                                                                                                                                          |
-| -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `detect.go`          | `Runtime` type, `DetectAvailable` (probe all runtimes), `SocketForRuntime` (first reachable socket), `probeSocket` (ping API supporting `unix://`, `tcp://`, `npipe://` schemes) |
-| `sockets_linux.go`   | Linux socket candidates: `/var/run/docker.sock` (build-tagged `linux`)                                                                                                           |
-| `sockets_darwin.go`  | macOS socket candidates: `~/.docker/run/docker.sock`, `~/.colima/default/docker.sock`, `~/.orbstack/run/docker.sock` (build-tagged `darwin`)                                     |
-| `sockets_windows.go` | Windows named pipe candidates: `//./pipe/docker_engine` (build-tagged `windows`)                                                                                                 |
-| `detect_test.go`     | Runtime detection tests                                                                                                                                                          |
+| File                 | Purpose                                                                                                                                     |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| `detect.go`          | `Detect` (check Docker availability), `SocketPath` (first reachable socket), `SocketHost` (convert path to `unix://`/`npipe://`/`tcp://` URI) |
+| `sockets_linux.go`   | Linux socket candidates: `/var/run/docker.sock` (build-tagged `linux`)                                                                      |
+| `sockets_darwin.go`  | macOS socket candidates: `~/.docker/run/docker.sock`, `~/.colima/default/docker.sock`, `~/.orbstack/run/docker.sock` (build-tagged `darwin`)  |
+| `sockets_windows.go` | Windows named pipe candidates: `//./pipe/docker_engine` (build-tagged `windows`)                                                             |
+| `detect_test.go`     | Docker detection tests                                                                                                                       |
 
 ## internal/terminal/
 

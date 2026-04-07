@@ -9,7 +9,7 @@ import {
   createWorktree,
   removeTestProject,
   waitForProjectState,
-  fetchRuntimes,
+  fetchDockerStatus,
   fetchWorktrees,
   killWorktreeProcess,
   waitForWorktreeState,
@@ -60,12 +60,11 @@ export function createUniqueWorkspace(name: string): string {
 
 /** Detects the active runtime from the Warden API. */
 async function detectRuntime(): Promise<ApiRuntime> {
-  const runtimes = await fetchRuntimes()
-  const active = runtimes.find((r) => r.available)
-  if (!active) {
+  const info = await fetchDockerStatus()
+  if (!info.available) {
     throw new Error('No container runtime available. Install Docker.')
   }
-  return active
+  return info
 }
 
 /**
