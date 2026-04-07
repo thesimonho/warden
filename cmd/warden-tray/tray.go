@@ -38,7 +38,7 @@ func quitTray() {
 
 // onReady is called by systray once the tray is initialized.
 func (t *trayState) onReady() {
-	systray.SetIcon(iconData)
+	systray.SetTemplateIcon(iconData, iconData)
 	systray.SetTooltip("Warden")
 
 	systray.SetOnClick(func(_ systray.IMenu) { t.openDashboard() })
