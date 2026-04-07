@@ -68,17 +68,21 @@ const (
 )
 
 // Project represents a project tracked by Warden, optionally backed by a Docker container.
-// ProjectID is the stable identity (deterministic hash of host path).
+// ProjectID is the stable identity (deterministic hash of host path or clone URL).
 // ID is the Docker container ID (empty when HasContainer is false).
 type Project struct {
-	// ProjectID is the deterministic project identifier (sha256 of host path, 12 hex chars).
+	// ProjectID is the deterministic project identifier (sha256 of host path or clone URL, 12 hex chars).
 	ProjectID string `json:"projectId"`
 	// ID is the Docker container ID (empty when no container exists).
 	ID string `json:"id"`
 	// Name is the user-chosen display label / Docker container name.
 	Name string `json:"name"`
-	// HostPath is the absolute host directory mounted into the container.
+	// HostPath is the absolute host directory mounted into the container (local projects only).
 	HostPath string `json:"hostPath,omitempty"`
+	// CloneURL is the git repository URL to clone (remote projects only).
+	CloneURL string `json:"cloneURL,omitempty"`
+	// Temporary is true when a remote project's workspace is ephemeral.
+	Temporary bool `json:"temporary,omitempty"`
 	// HasContainer is true when a Docker container is associated with this project.
 	HasContainer bool        `json:"hasContainer"`
 	Type         string      `json:"type"`
@@ -280,4 +284,9 @@ type Client interface {
 	// Uses exec+stdin (sh -c 'cat > file') instead of the Docker tar archive API.
 	// Used by the clipboard upload feature to stage images for the xclip shim.
 	CopyFileToContainer(ctx context.Context, containerID, destDir, filename string, content io.Reader, size int64) error
+
+	// RemoveVolume removes a Docker named volume. Used to clean up workspace
+	// volumes for remote projects when their container is deleted. Errors are
+	// logged but not fatal — the volume may not exist (temporary projects).
+	RemoveVolume(ctx context.Context, name string) error
 }

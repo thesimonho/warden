@@ -25,20 +25,33 @@ export async function fetchProjects(): Promise<Project[]> {
 /**
  * Adds a project to the dashboard.
  *
+ * For local projects, provide projectPath. For remote projects, provide cloneURL.
+ *
  * @param name - The project name.
- * @param projectPath - Absolute host path for the project directory.
+ * @param projectPath - Absolute host path for the project directory (local projects).
  * @param agentType - The CLI agent type for this project.
- * @returns The project name.
+ * @param cloneURL - Git repository URL to clone (remote projects).
+ * @param temporary - Whether the remote workspace is ephemeral.
+ * @returns The project result.
  */
 export async function addProject(
   name: string,
   projectPath: string,
   agentType: AgentType,
+  cloneURL?: string,
+  temporary?: boolean,
 ): Promise<AddProjectResponse> {
+  const body: Record<string, unknown> = { name, agentType }
+  if (cloneURL) {
+    body.cloneURL = cloneURL
+    if (temporary) body.temporary = true
+  } else {
+    body.projectPath = projectPath
+  }
   const response = await apiFetch('/api/v1/projects', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name, projectPath, agentType }),
+    body: JSON.stringify(body),
   })
   return response.json() as Promise<AddProjectResponse>
 }

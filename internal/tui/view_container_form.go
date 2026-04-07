@@ -40,12 +40,24 @@ var stepLabels = [stepCount]string{"General", "Environment", "Network", "Advance
 const (
 	genAgentType = iota
 	genName
-	genPath
+	genSource
+	genPath     // visible when source == "local"
+	genCloneURL // visible when source == "remote"
+	genTemporary // visible when source == "remote"
 	genSkipPerms
 	genBudget
 	genSubmit
 	genFieldCount
 )
+
+// Project source options.
+var projectSources = []string{"local", "remote"}
+
+// projectSourceLabels maps source IDs to display labels.
+var projectSourceLabels = map[string]string{
+	"local":  "Local — mount a host directory",
+	"remote": "Remote — clone a git repository",
+}
 
 // Environment step field indices.
 const (
@@ -85,11 +97,12 @@ var networkModes = []string{"full", "restricted", "none"}
 // defaultContainerImage is the default warden container image.
 const defaultContainerImage = "ghcr.io/thesimonho/warden:latest"
 
-// Named indices into the inputs[3] array for readability.
+// Named indices into the inputs[4] array for readability.
 const (
-	inputName  = 0
-	inputPath  = 1
-	inputImage = 2
+	inputName     = 0
+	inputPath     = 1
+	inputImage    = 2
+	inputCloneURL = 3
 )
 
 // networkDescriptions provides help text for each network mode.
@@ -116,14 +129,16 @@ type ContainerFormView struct {
 	browsing    bool     // true when the directory browser is open
 
 	// Text input fields.
-	inputs      [3]textinput.Model // name, path, image
+	inputs      [4]textinput.Model // name, path, image, cloneURL
 	budgetInput textinput.Model
 	domains     textarea.Model
 
 	// Selection fields.
 	agentType int // index into agentTypes
+	source    int // index into projectSources (0=local, 1=remote)
 	network   int // index into networkModes
 	skipPerm  bool
+	temporary bool // ephemeral workspace for remote projects
 
 	// Runtimes (Node, Python, Go, etc.).
 	runtimeDefaults []api.RuntimeDefault
@@ -241,6 +256,7 @@ func (v *ContainerFormView) initFields(name, path, image, network, domains strin
 	v.inputs[inputPath].SetValue(path)
 	v.inputs[inputImage].Placeholder = defaultContainerImage
 	v.inputs[inputImage].SetValue(image)
+	v.inputs[inputCloneURL].Placeholder = "https://github.com/org/repo.git"
 
 	v.budgetInput = textinput.New()
 	v.budgetInput.Prompt = ""
@@ -407,6 +423,11 @@ func (v *ContainerFormView) Update(msg tea.Msg) (View, tea.Cmd) {
 		v.inputs[inputName].SetValue(msg.Config.Name)
 		v.inputs[inputPath].SetValue(msg.Config.ProjectPath)
 		v.inputs[inputImage].SetValue(msg.Config.Image)
+		if msg.Config.CloneURL != "" {
+			v.inputs[inputCloneURL].SetValue(msg.Config.CloneURL)
+			v.source = 1 // remote
+			v.temporary = msg.Config.Temporary
+		}
 		for i, at := range agentTypes {
 			if at == msg.Config.AgentType {
 				v.agentType = i

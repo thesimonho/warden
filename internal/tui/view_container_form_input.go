@@ -217,6 +217,15 @@ func (v *ContainerFormView) cycleSelection() (View, tea.Cmd) {
 
 // isFieldVisible returns whether a field should be shown in the current step.
 func (v *ContainerFormView) isFieldVisible(field int) bool {
+	if v.step == stepGeneral {
+		isRemote := projectSources[v.source] == "remote"
+		switch field {
+		case genPath:
+			return !isRemote
+		case genCloneURL, genTemporary:
+			return isRemote
+		}
+	}
 	if v.step == stepNetwork && field == netDomains {
 		return networkModes[v.network] == "restricted"
 	}
@@ -387,8 +396,17 @@ func (v *ContainerFormView) activateGeneralField() (View, tea.Cmd) {
 	case genName:
 		v.editing = true
 		return v, v.inputs[inputName].Focus()
+	case genSource:
+		if v.editID == "" {
+			v.source = (v.source + 1) % len(projectSources)
+		}
 	case genPath:
 		return v.openDirectoryBrowser()
+	case genCloneURL:
+		v.editing = true
+		return v, v.inputs[inputCloneURL].Focus()
+	case genTemporary:
+		v.temporary = !v.temporary
 	case genSkipPerms:
 		v.skipPerm = !v.skipPerm
 	case genBudget:
@@ -609,6 +627,8 @@ func (v *ContainerFormView) updateActiveField(msg tea.Msg) (View, tea.Cmd) {
 		v.portInput, cmd = v.portInput.Update(msg)
 	case v.step == stepGeneral && v.fieldCursor == genName:
 		v.inputs[inputName], cmd = v.inputs[inputName].Update(msg)
+	case v.step == stepGeneral && v.fieldCursor == genCloneURL:
+		v.inputs[inputCloneURL], cmd = v.inputs[inputCloneURL].Update(msg)
 	case v.step == stepGeneral && v.fieldCursor == genBudget:
 		v.budgetInput, cmd = v.budgetInput.Update(msg)
 	case v.step == stepNetwork && v.fieldCursor == netDomains:

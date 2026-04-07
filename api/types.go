@@ -11,18 +11,35 @@ import (
 	"github.com/thesimonho/warden/constants"
 )
 
+// ProjectSource indicates whether a project uses a local host directory
+// or a remote git clone URL.
+type ProjectSource string
+
+const (
+	// ProjectSourceLocal means the project uses a bind-mounted host directory.
+	ProjectSourceLocal ProjectSource = "local"
+	// ProjectSourceRemote means the project clones from a git URL.
+	ProjectSourceRemote ProjectSource = "remote"
+)
+
 // ProjectResponse is a project returned by the HTTP API. It mirrors the
 // fields of engine.Project with explicit field declarations so the JSON
 // contract is decoupled from the internal domain type.
 type ProjectResponse struct {
-	// ProjectID is the deterministic project identifier (sha256 of host path, 12 hex chars).
+	// ProjectID is the deterministic project identifier (sha256 of host path or clone URL, 12 hex chars).
 	ProjectID string `json:"projectId"`
 	// ID is the Docker container ID (empty when no container exists).
 	ID string `json:"id"`
 	// Name is the user-chosen display label / Docker container name.
 	Name string `json:"name"`
-	// HostPath is the absolute host directory mounted into the container.
+	// HostPath is the absolute host directory mounted into the container (local projects only).
 	HostPath string `json:"hostPath,omitempty"`
+	// CloneURL is the git repository URL to clone (remote projects only).
+	CloneURL string `json:"cloneURL,omitempty"`
+	// Source indicates whether the project is local (host mount) or remote (git clone).
+	Source ProjectSource `json:"source"`
+	// Temporary is true when a remote project's workspace is ephemeral (lost on container recreate).
+	Temporary bool `json:"temporary,omitempty"`
 	// HasContainer is true when a Docker container is associated with this project.
 	HasContainer bool   `json:"hasContainer"`
 	Type         string `json:"type"`
@@ -73,11 +90,23 @@ type ProjectResponse struct {
 // When Container is non-nil, a container is created atomically after the
 // project is registered. If container creation fails, the project is
 // cleaned up and the error is returned.
+//
+// Exactly one of ProjectPath or CloneURL must be provided. ProjectPath
+// registers a local host directory; CloneURL registers a remote git
+// repository that the container clones on first boot.
 type AddProjectRequest struct {
 	// Name is an optional container name override.
 	Name string `json:"name,omitempty"`
 	// ProjectPath is the absolute host directory to register as a project.
-	ProjectPath string `json:"projectPath"`
+	// Required for local projects; must be empty when CloneURL is set.
+	ProjectPath string `json:"projectPath,omitempty"`
+	// CloneURL is the git repository URL to clone inside the container.
+	// Required for remote projects; must be empty when ProjectPath is set.
+	CloneURL string `json:"cloneURL,omitempty"`
+	// Temporary is true when a remote project's workspace should be
+	// ephemeral (container layer only, lost on recreate). Ignored for
+	// local projects.
+	Temporary bool `json:"temporary,omitempty"`
 	// AgentType selects the CLI agent to run (e.g. "claude-code", "codex").
 	// Defaults to "claude-code" if omitted.
 	AgentType string `json:"agentType,omitempty"`
@@ -652,10 +681,15 @@ type Mount struct {
 }
 
 // CreateContainerRequest is the JSON body for creating a new project container.
+// Exactly one of ProjectPath or CloneURL must be provided.
 type CreateContainerRequest struct {
 	Name        string `json:"name"`
 	Image       string `json:"image"`
-	ProjectPath string `json:"projectPath"`
+	ProjectPath string `json:"projectPath,omitempty"`
+	// CloneURL is the git repository URL to clone inside the container (remote projects).
+	CloneURL string `json:"cloneURL,omitempty"`
+	// Temporary is true when a remote project's workspace is ephemeral.
+	Temporary bool `json:"temporary,omitempty"`
 	// AgentType selects the CLI agent to run (e.g. "claude-code", "codex"). Defaults to "claude-code".
 	AgentType constants.AgentType `json:"agentType,omitempty"`
 	EnvVars   map[string]string   `json:"envVars,omitempty"`
@@ -684,7 +718,11 @@ type CreateContainerRequest struct {
 type ContainerConfig struct {
 	Name        string `json:"name"`
 	Image       string `json:"image"`
-	ProjectPath string `json:"projectPath"`
+	ProjectPath string `json:"projectPath,omitempty"`
+	// CloneURL is the git repository URL (remote projects only).
+	CloneURL string `json:"cloneURL,omitempty"`
+	// Temporary is true when a remote project's workspace is ephemeral.
+	Temporary bool `json:"temporary,omitempty"`
 	// AgentType identifies the CLI agent running in this project.
 	AgentType       constants.AgentType `json:"agentType"`
 	EnvVars         map[string]string   `json:"envVars,omitempty"`

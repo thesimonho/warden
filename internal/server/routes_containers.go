@@ -41,8 +41,12 @@ func (rt *routes) handleCreateContainer(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	if req.ProjectPath == "" {
-		writeError(w, ErrCodeRequiredField, "project path is required", http.StatusBadRequest)
+	if req.ProjectPath == "" && req.CloneURL == "" {
+		writeError(w, ErrCodeRequiredField, "projectPath or cloneURL is required", http.StatusBadRequest)
+		return
+	}
+	if req.ProjectPath != "" && req.CloneURL != "" {
+		writeError(w, ErrCodeInvalidBody, "provide only one of projectPath or cloneURL", http.StatusBadRequest)
 		return
 	}
 
@@ -196,8 +200,12 @@ func (rt *routes) handleUpdateContainer(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	if req.ProjectPath == "" {
-		writeError(w, ErrCodeRequiredField, "project path is required", http.StatusBadRequest)
+	if req.ProjectPath == "" && req.CloneURL == "" {
+		writeError(w, ErrCodeRequiredField, "projectPath or cloneURL is required", http.StatusBadRequest)
+		return
+	}
+	if req.ProjectPath != "" && req.CloneURL != "" {
+		writeError(w, ErrCodeInvalidBody, "provide only one of projectPath or cloneURL", http.StatusBadRequest)
 		return
 	}
 

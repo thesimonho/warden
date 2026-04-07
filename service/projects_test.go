@@ -141,7 +141,7 @@ func TestAddProject(t *testing.T) {
 	database := testDB(t)
 	svc := New(ServiceDeps{DockerAvailable: true, Engine: &mockEngine{}, DB: database})
 
-	result, err := svc.AddProject("my-project", "/home/user/my-project", "claude-code")
+	result, err := svc.AddProject("my-project", "/home/user/my-project", "claude-code", "", false)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

@@ -3,6 +3,7 @@ import {
   Square,
   Loader2,
   FolderOpen,
+  GitBranch,
   Terminal,
   FolderCog,
   Pencil,
@@ -95,12 +96,17 @@ export default function ProjectCard({
           <StatusBadge state="no container" />
         </CardHeader>
         <CardContent className="space-y-1.5">
-          {project.hostPath && (
+          {project.cloneURL ? (
+            <span className="text-muted-foreground flex items-center gap-1 text-sm">
+              <GitBranch className="h-3 w-3 shrink-0" />
+              <span className="truncate">{project.cloneURL}</span>
+            </span>
+          ) : project.hostPath ? (
             <span className="text-muted-foreground flex items-center gap-1 text-sm">
               <FolderOpen className="h-3 w-3 shrink-0" />
               {abbreviateHomePath(project.hostPath)}
             </span>
-          )}
+          ) : null}
           {project.totalCost > 0.001 && <CostBadge project={project} />}
         </CardContent>
         <CardFooter className="gap-2">
@@ -216,12 +222,17 @@ export default function ProjectCard({
           {(project.totalCost > 0.001 || project.costBudget > 0) && <CostBadge project={project} />}
         </div>
         <div className="flex flex-wrap justify-between gap-x-3 gap-y-1 pt-1">
-          {project.mountedDir && (
+          {project.cloneURL ? (
+            <span className="text-muted-foreground flex items-center gap-1 text-sm">
+              <GitBranch className="h-3 w-3 shrink-0" />
+              <span className="max-w-48 truncate">{project.cloneURL}</span>
+            </span>
+          ) : project.mountedDir ? (
             <span className="text-muted-foreground flex items-center gap-1 text-sm">
               <FolderOpen className="h-3 w-3 shrink-0" />
               {abbreviateHomePath(project.mountedDir)}
             </span>
-          )}
+          ) : null}
           {project.sshPort && (
             <span className="text-muted-foreground flex items-center gap-1 text-sm">
               <Terminal className="h-3 w-3 shrink-0" />:{project.sshPort}

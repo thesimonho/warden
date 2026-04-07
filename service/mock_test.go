@@ -156,3 +156,7 @@ func (m *mockEngine) CopyFileToContainer(_ context.Context, _, _, _ string, _ io
 func (m *mockEngine) ContainerStartupHealth(_ context.Context, _ string) (*engine.ContainerHealth, error) {
 	return &engine.ContainerHealth{}, nil
 }
+
+func (m *mockEngine) RemoveVolume(_ context.Context, _ string) error {
+	return nil
+}

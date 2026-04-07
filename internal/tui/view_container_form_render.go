@@ -288,7 +288,16 @@ func (v *ContainerFormView) buildGeneralFields() ([]string, int) {
 
 	v.appendField(&lines, &cursorLine, genAgentType, "Agent", v.fieldViewGeneral(genAgentType), "")
 	v.appendField(&lines, &cursorLine, genName, "Name", v.fieldViewGeneral(genName), "")
-	v.appendField(&lines, &cursorLine, genPath, "Project Path", v.fieldViewGeneral(genPath), "Host directory to mount")
+	v.appendField(&lines, &cursorLine, genSource, "Source", v.fieldViewGeneral(genSource), "Local mounts a directory, Remote clones a repo")
+	if v.isFieldVisible(genPath) {
+		v.appendField(&lines, &cursorLine, genPath, "Project Path", v.fieldViewGeneral(genPath), "Host directory to mount")
+	}
+	if v.isFieldVisible(genCloneURL) {
+		v.appendField(&lines, &cursorLine, genCloneURL, "Clone URL", v.fieldViewGeneral(genCloneURL), "Git repository URL to clone")
+	}
+	if v.isFieldVisible(genTemporary) {
+		v.appendField(&lines, &cursorLine, genTemporary, "Temporary", v.fieldViewGeneral(genTemporary), "Workspace lost on container recreate")
+	}
 
 	var skipPermsDesc string
 	if agentTypes[v.agentType] == agent.Codex {
@@ -558,8 +567,24 @@ func (v *ContainerFormView) fieldViewGeneral(field int) string {
 
 	case genName:
 		return textInputView(v.inputs[inputName], v.editing && v.fieldCursor == genName)
+	case genSource:
+		selected := projectSources[v.source]
+		var parts []string
+		for _, s := range projectSources {
+			label := s
+			if s == selected {
+				parts = append(parts, formCursor.Render("["+label+"]"))
+			} else {
+				parts = append(parts, Styles.Muted.Render(" "+label+" "))
+			}
+		}
+		return strings.Join(parts, " ")
 	case genPath:
 		return textInputView(v.inputs[inputPath], false)
+	case genCloneURL:
+		return textInputView(v.inputs[inputCloneURL], v.editing && v.fieldCursor == genCloneURL)
+	case genTemporary:
+		return boolSelector(v.temporary)
 	case genSkipPerms:
 		return boolSelector(v.skipPerm)
 	case genBudget:

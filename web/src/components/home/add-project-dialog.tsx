@@ -90,6 +90,8 @@ export default function AddProjectDialog({
           name: data.name,
           image: data.image,
           projectPath: data.projectPath,
+          cloneURL: data.cloneURL,
+          temporary: data.temporary,
           agentType: data.agentType,
           envVars: data.envVars,
           mounts: data.mounts,
@@ -109,7 +111,13 @@ export default function AddProjectDialog({
           await createContainer(createForProject.projectId, data.agentType, payload)
           toast.success('Container created')
         } else {
-          const result = await addProject(data.name, data.projectPath, data.agentType)
+          const result = await addProject(
+            data.name,
+            data.projectPath,
+            data.agentType,
+            data.cloneURL,
+            data.temporary,
+          )
           await createContainer(result.project.projectId, data.agentType, payload)
           toast.success('Project created')
         }

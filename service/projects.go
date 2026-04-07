@@ -59,6 +59,8 @@ func (s *Service) listProjectsInternal(ctx context.Context) ([]engine.Project, e
 		if row, ok := rowsByName[projects[i].Name]; ok {
 			projects[i].ProjectID = row.ProjectID
 			projects[i].HostPath = row.HostPath
+			projects[i].CloneURL = row.CloneURL
+			projects[i].Temporary = row.Temporary
 			applyDBMetadata(&projects[i], row, defaultBudget)
 		}
 	}
@@ -75,6 +77,8 @@ func (s *Service) listProjectsInternal(ctx context.Context) ([]engine.Project, e
 				ProjectID:    row.ProjectID,
 				Name:         name,
 				HostPath:     row.HostPath,
+				CloneURL:     row.CloneURL,
+				Temporary:    row.Temporary,
 				HasContainer: false,
 			}
 			applyDBMetadata(&p, row, defaultBudget)
@@ -89,10 +93,17 @@ func (s *Service) listProjectsInternal(ctx context.Context) ([]engine.Project, e
 }
 
 // AddProject registers a project in the database. The project ID is computed
-// deterministically from the host path. If a project for this path and agent
-// type already exists, returns the existing project without error.
-func (s *Service) AddProject(name, hostPath, agentType string) (*ProjectResult, error) {
-	projectID, err := engine.ProjectID(hostPath)
+// deterministically from the host path (local) or clone URL (remote). If a
+// project for this path/URL and agent type already exists, returns the
+// existing project without error.
+func (s *Service) AddProject(name, hostPath, agentType, cloneURL string, temporary bool) (*ProjectResult, error) {
+	var projectID string
+	var err error
+	if cloneURL != "" {
+		projectID, err = engine.ProjectIDFromURL(cloneURL)
+	} else {
+		projectID, err = engine.ProjectID(hostPath)
+	}
 	if err != nil {
 		return nil, fmt.Errorf("computing project ID: %w", err)
 	}
@@ -110,6 +121,8 @@ func (s *Service) AddProject(name, hostPath, agentType string) (*ProjectResult, 
 		ProjectID: projectID,
 		Name:      name,
 		HostPath:  hostPath,
+		CloneURL:  cloneURL,
+		Temporary: temporary,
 		AgentType: agentType,
 	}); err != nil {
 		return nil, err
@@ -120,7 +133,7 @@ func (s *Service) AddProject(name, hostPath, agentType string) (*ProjectResult, 
 // AddProjectWithContainer registers a project and creates a container atomically.
 // If container creation fails, the project is removed and the error is returned.
 func (s *Service) AddProjectWithContainer(ctx context.Context, req api.AddProjectRequest) (*api.AddProjectResponse, error) {
-	projectResult, err := s.AddProject(req.Name, req.ProjectPath, req.AgentType)
+	projectResult, err := s.AddProject(req.Name, req.ProjectPath, req.AgentType, req.CloneURL, req.Temporary)
 	if err != nil {
 		return nil, err
 	}
@@ -136,6 +149,10 @@ func (s *Service) AddProjectWithContainer(ctx context.Context, req api.AddProjec
 	if containerReq.ProjectPath == "" {
 		containerReq.ProjectPath = req.ProjectPath
 	}
+	if containerReq.CloneURL == "" {
+		containerReq.CloneURL = req.CloneURL
+	}
+	containerReq.Temporary = req.Temporary
 	if containerReq.Name == "" {
 		containerReq.Name = req.Name
 	}

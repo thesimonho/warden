@@ -8,7 +8,7 @@ import (
 )
 
 // projectColumns is the SELECT column list shared by project queries.
-const projectColumns = `project_id, name, host_path, added_at, image, env_vars, mounts, original_mounts,
+const projectColumns = `project_id, name, host_path, clone_url, temporary, added_at, image, env_vars, mounts, original_mounts,
 	skip_permissions, network_mode, allowed_domains, cost_budget, enabled_access_items, enabled_runtimes, forwarded_ports, agent_type, container_id, container_name`
 
 // InsertProject adds a project to the database. If a project with the same
@@ -43,13 +43,15 @@ func (l *Store) InsertProject(p ProjectRow) error {
 
 	_, err := l.db.Exec(
 		`INSERT OR REPLACE INTO projects
-		 (project_id, name, host_path, added_at, image, env_vars, mounts, original_mounts,
+		 (project_id, name, host_path, clone_url, temporary, added_at, image, env_vars, mounts, original_mounts,
 		  skip_permissions, network_mode, allowed_domains, cost_budget, enabled_access_items,
 		  enabled_runtimes, forwarded_ports, agent_type, container_id, container_name)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		p.ProjectID,
 		p.Name,
 		p.HostPath,
+		p.CloneURL,
+		p.Temporary,
 		p.AddedAt.Format(time.RFC3339Nano),
 		p.Image,
 		envVars,
@@ -225,9 +227,10 @@ func scanProjectRow(s scanner) (*ProjectRow, error) {
 		mounts     sql.NullString
 		origMounts sql.NullString
 		skipPerms  int
+		temporary  int
 	)
 	err := s.Scan(
-		&p.ProjectID, &p.Name, &p.HostPath, &addedAtStr, &p.Image,
+		&p.ProjectID, &p.Name, &p.HostPath, &p.CloneURL, &temporary, &addedAtStr, &p.Image,
 		&envVars, &mounts, &origMounts,
 		&skipPerms, &p.NetworkMode, &p.AllowedDomains, &p.CostBudget,
 		&p.EnabledAccessItems, &p.EnabledRuntimes, &p.ForwardedPorts, &p.AgentType,
@@ -250,6 +253,7 @@ func scanProjectRow(s scanner) (*ProjectRow, error) {
 		p.OriginalMounts = json.RawMessage(origMounts.String)
 	}
 	p.SkipPermissions = skipPerms != 0
+	p.Temporary = temporary != 0
 
 	return &p, nil
 }

@@ -6,6 +6,7 @@ import type {
   AgentType,
   Mount,
   NetworkMode,
+  ProjectSource,
   ProjectTemplate,
   RuntimeDefault,
 } from '@/lib/types'
@@ -81,6 +82,9 @@ export default function ProjectConfigForm({
   )
   const [name, setName] = useState(initialValues?.name ?? '')
   const [projectPath, setProjectPath] = useState(initialValues?.projectPath ?? '')
+  const [source, setSource] = useState<ProjectSource>(initialValues?.cloneURL ? 'remote' : 'local')
+  const [cloneURL, setCloneURL] = useState(initialValues?.cloneURL ?? '')
+  const [temporary, setTemporary] = useState(initialValues?.temporary ?? false)
   const [image, setImage] = useState(initialValues?.image || DEFAULT_IMAGE)
   const [mounts, setMounts] = useState<Mount[]>(initialValues?.mounts ?? [])
   const [skipPermissions, setSkipPermissions] = useState(initialValues?.skipPermissions ?? false)
@@ -407,7 +411,8 @@ export default function ProjectConfigForm({
   /** Validates form fields and returns an error message or null. */
   const validate = (): string | null => {
     if (!name.trim()) return 'Container name is required'
-    if (!projectPath.trim()) return 'Project directory is required'
+    if (source === 'local' && !projectPath.trim()) return 'Project directory is required'
+    if (source === 'remote' && !cloneURL.trim()) return 'Clone URL is required'
     if (!image.trim()) return 'Image is required'
     if (networkMode === 'restricted') {
       const hasDomains = allowedDomains.split('\n').some((d) => d.trim())
@@ -453,7 +458,10 @@ export default function ProjectConfigForm({
     onSubmit({
       name: name.trim(),
       image: image.trim(),
-      projectPath: projectPath.trim(),
+      projectPath: source === 'local' ? projectPath.trim() : '',
+      cloneURL: source === 'remote' ? cloneURL.trim() : undefined,
+      source,
+      temporary: source === 'remote' ? temporary : undefined,
       agentType,
       envVars: Object.keys(envMap).length > 0 ? envMap : undefined,
       mounts: validMounts.length > 0 ? validMounts : undefined,
@@ -641,20 +649,67 @@ export default function ProjectConfigForm({
             </FormField>
 
             <FormField
-              label="Project Directory"
-              description="Host directory to bind-mount into the container."
-              required
+              label="Project Source"
+              description="Local mounts a host directory. Remote clones a git repository."
             >
-              <DirectoryBrowser
-                value={projectPath}
-                onChange={(newPath) => {
-                  if (newPath === projectPath) return
-                  setProjectPath(newPath)
-                }}
+              <Select
+                value={source}
+                onValueChange={(v) => setSource(v as ProjectSource)}
                 disabled={isSubmitting || isEditMode}
-                defaultPath={homeDir}
-              />
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="local">Local</SelectItem>
+                  <SelectItem value="remote">Remote</SelectItem>
+                </SelectContent>
+              </Select>
             </FormField>
+
+            {source === 'local' ? (
+              <FormField
+                label="Project Directory"
+                description="Host directory to bind-mount into the container."
+                required
+              >
+                <DirectoryBrowser
+                  value={projectPath}
+                  onChange={(newPath) => {
+                    if (newPath === projectPath) return
+                    setProjectPath(newPath)
+                  }}
+                  disabled={isSubmitting || isEditMode}
+                  defaultPath={homeDir}
+                />
+              </FormField>
+            ) : (
+              <>
+                <FormField
+                  label="Clone URL"
+                  description="Git repository URL to clone inside the container."
+                  required
+                >
+                  <Input
+                    placeholder="https://github.com/org/repo.git"
+                    value={cloneURL}
+                    onChange={(e) => setCloneURL(e.target.value)}
+                    disabled={isSubmitting || isEditMode}
+                  />
+                </FormField>
+                <div className="flex items-center gap-2">
+                  <Checkbox
+                    id="temporary"
+                    checked={temporary}
+                    onCheckedChange={(v) => setTemporary(v === true)}
+                    disabled={isSubmitting || isEditMode}
+                  />
+                  <label htmlFor="temporary" className="text-sm">
+                    Temporary — workspace is lost when the container is recreated
+                  </label>
+                </div>
+              </>
+            )}
 
             <FormField
               label="Project Budget"

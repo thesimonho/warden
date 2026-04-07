@@ -14,7 +14,9 @@ const schema = `
 CREATE TABLE IF NOT EXISTS projects (
     project_id        TEXT NOT NULL,
     name              TEXT NOT NULL,
-    host_path         TEXT NOT NULL,
+    host_path         TEXT NOT NULL DEFAULT '',
+    clone_url         TEXT NOT NULL DEFAULT '',
+    temporary         INTEGER NOT NULL DEFAULT 0,
     added_at          TEXT NOT NULL,
     image             TEXT NOT NULL DEFAULT '',
     env_vars          TEXT,
@@ -137,6 +139,8 @@ func openDB(path string) (*sql.DB, error) {
 	// when the column already exists (the error is harmlessly ignored).
 	db.Exec("ALTER TABLE projects ADD COLUMN enabled_runtimes TEXT NOT NULL DEFAULT 'node'")  //nolint:errcheck
 	db.Exec("ALTER TABLE projects ADD COLUMN forwarded_ports TEXT NOT NULL DEFAULT ''") //nolint:errcheck
+	db.Exec("ALTER TABLE projects ADD COLUMN clone_url TEXT NOT NULL DEFAULT ''")             //nolint:errcheck
+	db.Exec("ALTER TABLE projects ADD COLUMN temporary INTEGER NOT NULL DEFAULT 0")           //nolint:errcheck
 
 	return db, nil
 }
