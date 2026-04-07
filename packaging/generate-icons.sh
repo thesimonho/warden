@@ -19,14 +19,13 @@ done
 
 # Rasterize square icon SVG to a high-res intermediate PNG for crisp downscaling.
 # Uses a solid white background so the icon is readable on all platforms.
-# Forces RGBA sRGB output — without this ImageMagick optimizes to 8-bit
-# grayscale (since the SVG is black-on-white), which causes macOS to
-# render the dock icon with a grey border instead of edge-to-edge white.
+# Forces RGBA output via png:color-type=6 (PNG encoder directive) so macOS
+# renders the dock icon correctly. Do NOT use -type TrueColorAlpha — it
+# corrupts pixel data on ImageMagick 6.x.
 HI="$(mktemp /tmp/warden-icon-1024.XXXXXX.png)"
 trap 'rm -f "${HI}"' EXIT
 magick -density 384 -background white "${ICON}" -flatten -resize 1024x1024 \
-    -colorspace sRGB -type TrueColorAlpha -depth 8 -define png:color-type=6 \
-    "${HI}"
+    -depth 8 -define png:color-type=6 "${HI}"
 
 # All downstream resizes must also force RGBA, otherwise ImageMagick
 # re-optimizes to grayscale on output.
@@ -47,7 +46,7 @@ cp "packaging/linux/icons/512x512/warden.png" packaging/linux/warden.png
 # Generated directly from SVG (no white background) so systray.SetTemplateIcon
 # can let macOS handle light/dark mode. 64px RGBA; the library scales as needed.
 magick -density 384 -background none "${ICON}" -resize 64x64 \
-    -colorspace sRGB -type TrueColorAlpha -depth 8 ${RGBA} cmd/warden-tray/icon.png
+    -depth 8 -define png:color-type=6 cmd/warden-tray/icon.png
 
 # Windows — multi-size .ico
 magick "${HI}" \
