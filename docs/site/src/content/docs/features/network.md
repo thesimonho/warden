@@ -76,29 +76,51 @@ Add the ports you want to forward in your project's container settings. Ports ca
 }
 ```
 
-Each declared port is accessible at:
+Each declared port is accessible via a subdomain URL:
 
 ```
-http://localhost:8090/api/v1/projects/{projectId}/{agentType}/proxy/{port}/
+http://{projectId}-{agentType}-{port}.localhost:8090/
 ```
 
 For example, if your project ID is `a1b2c3d4e5f6` and you're running Claude Code with Vite on port 5173:
 
 ```
-http://localhost:8090/api/v1/projects/a1b2c3d4e5f6/claude-code/proxy/5173/
+http://a1b2c3d4e5f6-claude-code-5173.localhost:8090/
 ```
+
+Warden's web UI shows clickable port chips on each project card that open the proxy URL in a new tab.
 
 **How it works:**
 
-Warden's Go backend reverse-proxies HTTP and WebSocket traffic to the container's internal IP. This means:
+Warden's Go backend routes requests based on the `Host` header — when a request arrives at `{projectId}-{agentType}-{port}.localhost`, it reverse-proxies it to the container's internal IP. Browsers resolve `*.localhost` to `127.0.0.1` automatically (RFC 6761), so no DNS or hosts file configuration is needed.
 
 - HMR (hot module replacement) works — WebSocket upgrade is supported
+- Root-relative asset paths work correctly (no path prefix to break them)
 - Multiple containers can each use the same port internally without conflicts
 - No Docker port bindings are needed, so no container recreation is required
 
 **Live updates:**
 
-Forwarded ports can be added or removed on a running container without restarting it. The proxy validates each request against the current declared port list — undeclared ports return a 404.
+Forwarded ports can be added or removed on a running container without restarting it. The proxy validates each request against the current declared port list — undeclared ports are rejected.
+
+:::caution[Dev servers must bind to 0.0.0.0]
+Most dev servers (Vite, Next.js, webpack) default to listening on `127.0.0.1` (localhost only). Inside a container, this means the server only accepts connections from within the container itself — Warden's reverse proxy connects via the container's bridge network IP and will get "connection refused."
+
+To fix this, tell the dev server to bind to all interfaces:
+
+```bash
+# Vite
+npm run dev -- --host 0.0.0.0
+
+# Next.js
+npm run dev -- -H 0.0.0.0
+
+# Generic
+HOST=0.0.0.0 npm run dev
+```
+
+This is safe inside a Warden container — `0.0.0.0` means "all interfaces inside the container," but the container's network is isolated from the host and other containers. The only path in is through Warden's reverse proxy, which only forwards declared ports.
+:::
 
 :::note
 Port forwarding only handles HTTP and WebSocket traffic. For non-HTTP protocols (gRPC, raw TCP), the container's services are not accessible from the host.

@@ -36,6 +36,8 @@ export interface ProjectTemplate {
   networkMode?: NetworkMode
   costBudget?: number
   runtimes?: string[]
+  /** Container ports to forward via reverse proxy. */
+  forwardedPorts?: number[]
   agents?: Record<string, AgentTemplateOverride>
 }
 
@@ -151,6 +153,8 @@ export interface Project {
   allowedDomains?: string[]
   /** Pinned CLI version installed in this container. */
   agentVersion?: string
+  /** Container ports exposed via the Warden reverse proxy. */
+  forwardedPorts?: number[]
 }
 
 /** Host↔container path mapping for a project's workspace bind mount. */
@@ -321,6 +325,8 @@ export interface CreateContainerRequest {
   enabledAccessItems?: string[]
   /** Active runtime IDs (e.g. ["node", "python", "go"]). */
   enabledRuntimes?: string[]
+  /** Container ports to expose via the reverse proxy (1-65535). */
+  forwardedPorts?: number[]
 }
 
 /** Editable configuration of an existing container. */
@@ -343,6 +349,8 @@ export interface ContainerConfig {
   enabledAccessItems?: string[]
   /** Active runtime IDs (e.g. ["node", "python", "go"]). */
   enabledRuntimes?: string[]
+  /** Container ports exposed via the reverse proxy. */
+  forwardedPorts?: number[]
 }
 
 // --- Runtimes ---

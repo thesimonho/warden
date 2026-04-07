@@ -28,15 +28,16 @@ func corsMiddleware(next http.Handler) http.Handler {
 }
 
 // isAllowedOrigin checks whether the origin is a localhost address.
+// Allows both direct localhost and *.localhost subdomains (used by
+// the port forwarding proxy).
 func isAllowedOrigin(origin string) bool {
-	allowedPrefixes := []string{
-		"http://localhost:",
-		"http://127.0.0.1:",
+	if strings.HasPrefix(origin, "http://localhost:") ||
+		strings.HasPrefix(origin, "http://127.0.0.1:") {
+		return true
 	}
-	for _, prefix := range allowedPrefixes {
-		if strings.HasPrefix(origin, prefix) {
-			return true
-		}
+	// Allow *.localhost subdomains for port forwarding proxy.
+	if strings.HasPrefix(origin, "http://") && strings.Contains(origin, ".localhost:") {
+		return true
 	}
 	return false
 }

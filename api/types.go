@@ -675,7 +675,7 @@ type CreateContainerRequest struct {
 	// EnabledRuntimes lists active runtime IDs (e.g. ["node","python","go"]).
 	EnabledRuntimes []string `json:"enabledRuntimes,omitempty"`
 	// ForwardedPorts lists container ports to expose via the reverse proxy.
-	// Each port (1-65535) is accessible at /api/v1/projects/{id}/{agentType}/proxy/{port}/...
+	// Each port (1-65535) is accessible at http://{projectId}-{agentType}-{port}.localhost:{serverPort}/
 	ForwardedPorts []int `json:"forwardedPorts,omitempty"`
 }
 

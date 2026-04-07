@@ -632,11 +632,6 @@ func splitCSV(s string) []string {
 	return strings.Split(s, ",")
 }
 
-// isValidPort reports whether p is a valid TCP/UDP port number.
-func isValidPort(p int) bool {
-	return p >= 1 && p <= 65535
-}
-
 // parsePortList converts a comma-separated port string to a slice of ints.
 // Invalid entries are silently skipped.
 func parsePortList(s string) []int {
@@ -647,7 +642,7 @@ func parsePortList(s string) []int {
 	ports := make([]int, 0, len(parts))
 	for _, p := range parts {
 		n, err := strconv.Atoi(strings.TrimSpace(p))
-		if err == nil && isValidPort(n) {
+		if err == nil && api.IsValidPort(n) {
 			ports = append(ports, n)
 		}
 	}

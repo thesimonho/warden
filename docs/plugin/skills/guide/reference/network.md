@@ -159,13 +159,19 @@ Forwarded ports can also be set in `.warden.json`:
 
 ### Accessing forwarded ports
 
-Each declared port is accessible via the proxy endpoint:
+Each declared port is accessible via a subdomain URL:
 
 ```
-GET /api/v1/projects/{projectId}/{agentType}/proxy/{port}/{path...}
+http://{projectId}-{agentType}-{port}.localhost:{serverPort}/
 ```
 
-The proxy handles all HTTP methods and WebSocket upgrade (needed for Vite HMR). Undeclared ports return 404. If the container is not running, the proxy returns 502.
+For example, if the server runs on port 8090:
+
+```
+http://a1b2c3d4e5f6-claude-code-5173.localhost:8090/
+```
+
+Browsers resolve `*.localhost` to `127.0.0.1` automatically (RFC 6761). The Go server matches the `Host` header and reverse-proxies the request to the container. All HTTP methods, WebSocket upgrade, and root-relative asset paths work correctly. Undeclared ports are rejected.
 
 ### Hot-reload
 
@@ -174,6 +180,10 @@ Forwarded ports can be added or removed on a running container without recreatio
 ### WebSocket support
 
 The proxy supports WebSocket upgrade transparently. When the container service responds with `101 Switching Protocols`, the proxy establishes a bidirectional tunnel. This is required for dev server features like hot module replacement (HMR).
+
+### Bind address
+
+Dev servers inside containers must bind to `0.0.0.0` (all interfaces), not the default `127.0.0.1`. The reverse proxy connects via the container's bridge network IP -- a localhost-only listener will refuse the connection and return 502. This is safe because the container's network is isolated; `0.0.0.0` inside a container does not expose the service to the host network.
 
 ## Edge cases
 

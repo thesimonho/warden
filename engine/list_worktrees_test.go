@@ -19,8 +19,7 @@ func TestListWorktrees_GitRepo_DiscoversWorktreesWithBranches(t *testing.T) {
 	t.Parallel()
 
 	mock := newExecMockAPI()
-	mock.onCmd("git", "worktree /project\nHEAD abc123\nbranch refs/heads/main\n\nworktree /project/.claude/worktrees/feature-x\nHEAD def456\nbranch refs/heads/feature-x\n---GIT_END---\n---LS_END---\n")
-	mock.onCmd("echo", "")
+	mock.onCmd("---GIT_END---", "worktree /project\nHEAD abc123\nbranch refs/heads/main\n\nworktree /project/.claude/worktrees/feature-x\nHEAD def456\nbranch refs/heads/feature-x\n---GIT_END---\n---LS_END---\n")
 
 	ec := newTestClient(mock)
 
@@ -68,8 +67,7 @@ func TestListWorktrees_GitRepo_SkipsPrunableWorktrees(t *testing.T) {
 
 	mock := newExecMockAPI()
 	// Git reports main + a prunable worktree that should be filtered out.
-	mock.onCmd("git", "worktree /project\nHEAD abc123\nbranch refs/heads/main\n\nworktree /project/.claude/worktrees/stale-branch\nHEAD 000000\nbranch refs/heads/stale-branch\nprunable gitdir file points to non-existent location\n---GIT_END---\n---LS_END---\n")
-	mock.onCmd("echo", "")
+	mock.onCmd("---GIT_END---", "worktree /project\nHEAD abc123\nbranch refs/heads/main\n\nworktree /project/.claude/worktrees/stale-branch\nHEAD 000000\nbranch refs/heads/stale-branch\nprunable gitdir file points to non-existent location\n---GIT_END---\n---LS_END---\n")
 
 	ec := newTestClient(mock)
 
@@ -115,10 +113,10 @@ func TestListWorktrees_MergesTerminalWorktrees(t *testing.T) {
 	t.Parallel()
 
 	mock := newExecMockAPI()
-	// Git reports only main. Terminal dir reports an additional worktree
-	// that Claude Code is still creating (not yet in git).
-	mock.onCmd("git", "worktree /project\nHEAD abc123\nbranch refs/heads/main\n---GIT_END---\npending-feature\n---LS_END---\n")
-	mock.onCmd("echo", "")
+	// The combined script runs git + ls in a single sh -c command.
+	// Register a response matching the unique GIT_END delimiter so
+	// it doesn't collide with other registered commands.
+	mock.onCmd("---GIT_END---", "worktree /project\nHEAD abc123\nbranch refs/heads/main\n---GIT_END---\npending-feature\n---LS_END---\n")
 
 	ec := newTestClient(mock)
 
@@ -145,8 +143,7 @@ func TestListWorktrees_MergeSkipsDuplicates(t *testing.T) {
 
 	mock := newExecMockAPI()
 	// Git and terminal dir both report the same worktree — should not duplicate.
-	mock.onCmd("git", "worktree /project\nHEAD abc123\nbranch refs/heads/main\n\nworktree /project/.claude/worktrees/feature-x\nHEAD def456\nbranch refs/heads/feature-x\n---GIT_END---\nfeature-x\n---LS_END---\n")
-	mock.onCmd("echo", "")
+	mock.onCmd("---GIT_END---", "worktree /project\nHEAD abc123\nbranch refs/heads/main\n\nworktree /project/.claude/worktrees/feature-x\nHEAD def456\nbranch refs/heads/feature-x\n---GIT_END---\nfeature-x\n---LS_END---\n")
 
 	ec := newTestClient(mock)
 

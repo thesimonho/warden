@@ -1,5 +1,5 @@
 import type React from 'react'
-import { Fragment } from 'react'
+import { Fragment, useState } from 'react'
 import { ArrowRight, Info, Plus, Trash2 } from 'lucide-react'
 import type { Mount } from '@/lib/types'
 import { Button } from '@/components/ui/button'
@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import DirectoryBrowser from '@/components/ui/directory-browser'
 import type { EnvVarEntry } from './project-config-form-types'
+import { RemovablePortChip } from './port-chip'
 
 /** Props for FormField. */
 interface FormFieldProps {
@@ -278,6 +279,100 @@ export function EnvVarsField({
           </div>
         )
       })}
+    </div>
+  )
+}
+
+/** Props for the ForwardedPortsField component. */
+interface ForwardedPortsFieldProps {
+  /** Current list of forwarded port numbers. */
+  ports: number[]
+  /** Whether the form is currently submitting. */
+  isSubmitting: boolean
+  /** Adds a validated port to the list. */
+  onAdd: (port: number) => void
+  /** Removes a port by index. */
+  onRemove: (index: number) => void
+}
+
+/**
+ * Editable list of forwarded ports for the project config form.
+ *
+ * Always-visible input field with inline validation. Type a port number
+ * and press Enter to add it as a chip. Each port is exposed via Warden's
+ * reverse proxy with HTTP and WebSocket support (for dev server HMR).
+ */
+export function ForwardedPortsField({
+  ports,
+  isSubmitting,
+  onAdd,
+  onRemove,
+}: ForwardedPortsFieldProps) {
+  const [inputValue, setInputValue] = useState('')
+  const [error, setError] = useState('')
+
+  const validate = (value: string): number | null => {
+    const trimmed = value.trim()
+    if (!trimmed) return null
+    const parsed = parseInt(trimmed, 10)
+    if (isNaN(parsed) || parsed < 1 || parsed > 65535) {
+      setError('Port must be 1-65535')
+      return null
+    }
+    if (ports.includes(parsed)) {
+      setError('Port already added')
+      return null
+    }
+    setError('')
+    return parsed
+  }
+
+  const handleSubmit = () => {
+    const port = validate(inputValue)
+    if (port !== null) {
+      onAdd(port)
+      setInputValue('')
+    }
+  }
+
+  return (
+    <div>
+      <div className="flex items-center gap-2">
+        <Input
+          type="number"
+          min={1}
+          max={65535}
+          placeholder="port number"
+          value={inputValue}
+          onChange={(e) => {
+            setInputValue(e.target.value)
+            if (error) setError('')
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault()
+              handleSubmit()
+            }
+          }}
+          className="w-48 font-mono text-sm"
+          disabled={isSubmitting}
+        />
+      </div>
+
+      {error && <p className="text-error mt-1.5 text-xs">{error}</p>}
+
+      {ports.length > 0 && (
+        <div className="mt-3 flex flex-wrap gap-1.5">
+          {ports.map((port, index) => (
+            <RemovablePortChip
+              key={port}
+              port={port}
+              disabled={isSubmitting}
+              onRemove={() => onRemove(index)}
+            />
+          ))}
+        </div>
+      )}
     </div>
   )
 }

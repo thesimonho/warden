@@ -102,6 +102,8 @@ type NavigateMsg struct {
 	AgentType string
 	// ProjectName is the display name for the project.
 	ProjectName string
+	// ForwardedPorts carries declared ports from the project list.
+	ForwardedPorts []int
 }
 
 // NavigateBackMsg requests returning to the previous view.

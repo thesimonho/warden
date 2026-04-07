@@ -253,7 +253,9 @@ function projectsChanged(prev: Project[], next: Project[]): boolean {
       a.notificationType !== b.notificationType ||
       a.activeWorktreeCount !== b.activeWorktreeCount ||
       a.hasContainer !== b.hasContainer ||
-      a.agentStatus !== b.agentStatus
+      a.agentStatus !== b.agentStatus ||
+      a.forwardedPorts?.length !== b.forwardedPorts?.length ||
+      a.forwardedPorts?.some((p, j) => p !== b.forwardedPorts?.[j])
     ) {
       return true
     }

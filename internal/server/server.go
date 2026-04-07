@@ -40,7 +40,10 @@ func New(addr string, svc *service.Service, broker *eventbus.Broker, termProxy *
 	}
 	mux.Handle("/", spaHandler(http.FileServerFS(uiFS), uiFS))
 
-	handler := loggingMiddleware(corsMiddleware(mux))
+	// Wrap the mux with the subdomain-based proxy router so that
+	// requests to {projectId}-{agentType}-{port}.localhost are
+	// forwarded to the container before hitting the normal API mux.
+	handler := loggingMiddleware(corsMiddleware(newProxyRouter(svc, mux)))
 
 	return &Server{
 		addr:       addr,

@@ -213,6 +213,10 @@ type Client interface {
 	// API: POST /api/v1/projects/{projectId}/{agentType}/clipboard
 	UploadClipboard(ctx context.Context, projectID, agentType string, content []byte, mimeType string) (*api.ClipboardUploadResponse, error)
 
+	// BaseURL returns the HTTP base URL of the Warden server (e.g. "http://localhost:8090").
+	// Used to construct full proxy URLs for display and clipboard copy.
+	BaseURL() string
+
 	// Shutdown requests a graceful server shutdown.
 	// API: POST /api/v1/shutdown
 	Shutdown(ctx context.Context) error

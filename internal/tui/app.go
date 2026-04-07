@@ -17,6 +17,12 @@ import (
 
 // View is the interface that all TUI views implement.
 // Each view is a tea.Model that can also report its help bindings.
+// inputCapture is an optional interface for views that capture text input.
+// When active, the app skips tab-switching keys so they reach the input.
+type inputCapture interface {
+	IsCapturingInput() bool
+}
+
 type View interface {
 	// Init returns the initial command for the view.
 	Init() tea.Cmd
@@ -131,7 +137,14 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		// In detail view, intercept global keys before delegating.
+		// Skip tab switching when the view is capturing text input
+		// (e.g. form fields, search filters) so number keys reach the input.
 		if a.detailView != nil {
+			inputActive := false
+			if ic, ok := a.detailView.(inputCapture); ok {
+				inputActive = ic.IsCapturingInput()
+			}
+
 			switch {
 			case key.Matches(msg, a.keys.Quit):
 				if a.unsubscribe != nil {
@@ -141,16 +154,16 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case key.Matches(msg, a.keys.Help):
 				a.help.ShowAll = !a.help.ShowAll
 				return a, nil
-			case key.Matches(msg, a.keys.Tab1):
+			case !inputActive && key.Matches(msg, a.keys.Tab1):
 				a.detailView = nil
 				return a.switchTab(TabProjects)
-			case key.Matches(msg, a.keys.Tab2):
+			case !inputActive && key.Matches(msg, a.keys.Tab2):
 				a.detailView = nil
 				return a.switchTab(TabSettings)
-			case key.Matches(msg, a.keys.Tab3):
+			case !inputActive && key.Matches(msg, a.keys.Tab3):
 				a.detailView = nil
 				return a.switchTab(TabAccess)
-			case key.Matches(msg, a.keys.Tab4):
+			case !inputActive && key.Matches(msg, a.keys.Tab4):
 				if a.auditLogMode != api.AuditLogOff {
 					a.detailView = nil
 					return a.switchTab(TabAudit)
@@ -349,7 +362,7 @@ func (a App) updateDetailView(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (a App) handleNavigate(msg NavigateMsg) (tea.Model, tea.Cmd) {
 	if msg.ProjectID != "" {
-		a.detailView = NewProjectDetailView(a.client, msg.ProjectID, msg.AgentType, msg.ProjectName, a.disconnectKey)
+		a.detailView = NewProjectDetailView(a.client, msg.ProjectID, msg.AgentType, msg.ProjectName, a.disconnectKey, msg.ForwardedPorts)
 		a.detailView, _ = a.detailView.Update(tea.WindowSizeMsg{
 			Width: a.width, Height: a.height,
 		})

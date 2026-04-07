@@ -381,6 +381,11 @@ func (v *ContainerFormView) buildNetworkFields() ([]string, int) {
 		v.appendField(&lines, &cursorLine, netDomains, "Allowed Domains", v.fieldViewNetwork(netDomains), "One per line")
 	}
 
+	// Forwarded ports.
+	v.appendListSection(&lines, &cursorLine,
+		netPorts, "Forwarded Ports", "Container ports exposed via reverse proxy",
+		"Add Port", v.portCursor, v.renderPortItems)
+
 	// Submit button.
 	v.appendSubmitButton(&lines, &cursorLine, netSubmit)
 
@@ -515,6 +520,21 @@ func (v *ContainerFormView) renderEnvItems(isActive bool) []string {
 				val = "********"
 			}
 			lines = append(lines, prefix+orEmpty(e.key)+" = "+val)
+		}
+	}
+	return lines
+}
+
+// renderPortItems renders forwarded port sub-items.
+func (v *ContainerFormView) renderPortItems(isActive bool) []string {
+	var lines []string
+	for i, port := range v.forwardedPorts {
+		isSelected := isActive && v.portCursor == i
+		prefix := subItemPrefix(isSelected)
+		if v.editingPort && isSelected {
+			lines = append(lines, prefix+"Port: "+v.portInput.View())
+		} else {
+			lines = append(lines, prefix+fmt.Sprintf(":%d", port))
 		}
 	}
 	return lines
