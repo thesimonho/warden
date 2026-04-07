@@ -4,6 +4,8 @@
 // coupling the dashboard to any single agent's data format.
 package agent
 
+import "github.com/thesimonho/warden/event"
+
 // Status holds agent-reported data for a single session/project directory.
 // Fields are optional — not all agents report all fields.
 type Status struct {
@@ -46,50 +48,14 @@ type TokenUsage struct {
 	CacheWriteTokens int64
 }
 
-// ParsedEventType identifies the kind of event parsed from a session JSONL line.
-// These string values intentionally match eventbus.ContainerEventType constants
-// so the wiring layer can map between them without translation. The types are
-// separate because agent/ must not import eventbus/ (would create a cycle).
-type ParsedEventType string
-
-const (
-	// EventSessionStart marks the beginning of an agent session.
-	EventSessionStart ParsedEventType = "session_start"
-	// EventSessionEnd marks the end of an agent session.
-	EventSessionEnd ParsedEventType = "session_end"
-	// EventToolUse records a tool invocation by the agent.
-	EventToolUse ParsedEventType = "tool_use"
-	// EventUserPrompt records a user message to the agent.
-	EventUserPrompt ParsedEventType = "user_prompt"
-	// EventTurnComplete marks the end of an agent turn (stop_reason: end_turn).
-	EventTurnComplete ParsedEventType = "turn_complete"
-	// EventTurnDuration records how long a turn took.
-	EventTurnDuration ParsedEventType = "turn_duration"
-	// EventTokenUpdate carries cumulative token usage for the session.
-	EventTokenUpdate ParsedEventType = "token_update"
-	// EventToolUseFailure records a tool invocation that returned an error.
-	EventToolUseFailure ParsedEventType = "tool_use_failure"
-	// EventStopFailure records an API or model error that interrupted a turn.
-	EventStopFailure ParsedEventType = "stop_failure"
-	// EventPermissionRequest records a request for user approval before acting.
-	EventPermissionRequest ParsedEventType = "permission_request"
-	// EventElicitation records an MCP server requesting user input.
-	EventElicitation ParsedEventType = "elicitation"
-	// EventSubagentStop records subagent termination (e.g. agents_killed in Claude).
-	EventSubagentStop ParsedEventType = "subagent_stop"
-	// EventApiMetrics records API performance metrics (TTFT, output tokens/sec).
-	EventApiMetrics ParsedEventType = "api_metrics"
-	// EventPermissionGrant records a permission grant (commands allowed).
-	EventPermissionGrant ParsedEventType = "permission_grant"
-	// EventContextCompact records context window compaction.
-	EventContextCompact ParsedEventType = "context_compact"
-	// EventSystemInfo records informational system messages not covered by other types.
-	EventSystemInfo ParsedEventType = "system_info"
-)
+// ParsedEventType is an alias for [event.ContainerEventType]. Parsers emit
+// the same type constants used by the event pipeline, eliminating the need
+// for a translation layer. The alias preserves readability in parser code.
+type ParsedEventType = event.ContainerEventType
 
 // ParsedEvent is an agent-agnostic event produced by parsing a session JSONL line.
 // The parser converts agent-specific JSONL formats into these uniform events,
-// which are then mapped to eventbus events for SSE broadcast and audit logging.
+// which are then converted to [event.ContainerEvent] for SSE broadcast and audit logging.
 type ParsedEvent struct {
 	// Type identifies what kind of event this is.
 	Type ParsedEventType

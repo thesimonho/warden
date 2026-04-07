@@ -8,6 +8,7 @@ import (
 
 	"github.com/thesimonho/warden/db"
 	"github.com/thesimonho/warden/engine"
+	"github.com/thesimonho/warden/event"
 )
 
 func mustMarshal(t *testing.T, v any) json.RawMessage {
@@ -22,11 +23,11 @@ func mustMarshal(t *testing.T, v any) json.RawMessage {
 func TestStore_HandleAttention(t *testing.T) {
 	store := NewStore(nil, nil)
 
-	store.HandleEvent(ContainerEvent{
-		Type:          EventAttention,
+	store.HandleEvent(event.ContainerEvent{
+		Type:          event.EventAttention,
 		ContainerName: "proj-1",
 		WorktreeID:    "main",
-		Data:          mustMarshal(t, AttentionData{NotificationType: engine.NotificationPermissionPrompt}),
+		Data:          mustMarshal(t, event.AttentionData{NotificationType: event.NotificationPermissionPrompt}),
 		Timestamp:     time.Now(),
 	})
 
@@ -34,7 +35,7 @@ func TestStore_HandleAttention(t *testing.T) {
 	if !att.NeedsInput {
 		t.Error("expected NeedsInput to be true")
 	}
-	if att.NotificationType != engine.NotificationPermissionPrompt {
+	if att.NotificationType != event.NotificationPermissionPrompt {
 		t.Errorf("expected permission_prompt, got %q", att.NotificationType)
 	}
 }
@@ -43,17 +44,17 @@ func TestStore_HandleAttentionClear(t *testing.T) {
 	store := NewStore(nil, nil)
 
 	// Set attention first.
-	store.HandleEvent(ContainerEvent{
-		Type:          EventAttention,
+	store.HandleEvent(event.ContainerEvent{
+		Type:          event.EventAttention,
 		ContainerName: "proj-1",
 		WorktreeID:    "main",
-		Data:          mustMarshal(t, AttentionData{NotificationType: engine.NotificationIdlePrompt}),
+		Data:          mustMarshal(t, event.AttentionData{NotificationType: event.NotificationIdlePrompt}),
 		Timestamp:     time.Now(),
 	})
 
 	// Clear it.
-	store.HandleEvent(ContainerEvent{
-		Type:          EventAttentionClear,
+	store.HandleEvent(event.ContainerEvent{
+		Type:          event.EventAttentionClear,
 		ContainerName: "proj-1",
 		WorktreeID:    "main",
 		Timestamp:     time.Now(),
@@ -68,8 +69,8 @@ func TestStore_HandleAttentionClear(t *testing.T) {
 func TestStore_HandleNeedsAnswer(t *testing.T) {
 	store := NewStore(nil, nil)
 
-	store.HandleEvent(ContainerEvent{
-		Type:          EventNeedsAnswer,
+	store.HandleEvent(event.ContainerEvent{
+		Type:          event.EventNeedsAnswer,
 		ContainerName: "proj-1",
 		WorktreeID:    "feature-x",
 		Timestamp:     time.Now(),
@@ -79,7 +80,7 @@ func TestStore_HandleNeedsAnswer(t *testing.T) {
 	if !att.NeedsInput {
 		t.Error("expected NeedsInput to be true")
 	}
-	if att.NotificationType != engine.NotificationElicitationDialog {
+	if att.NotificationType != event.NotificationElicitationDialog {
 		t.Errorf("expected elicitation_dialog, got %q", att.NotificationType)
 	}
 }
@@ -88,17 +89,17 @@ func TestStore_HandleSessionStart_SetsActiveAndClearsAttention(t *testing.T) {
 	store := NewStore(nil, nil)
 
 	// Set stale attention.
-	store.HandleEvent(ContainerEvent{
-		Type:          EventAttention,
+	store.HandleEvent(event.ContainerEvent{
+		Type:          event.EventAttention,
 		ContainerName: "proj-1",
 		WorktreeID:    "main",
-		Data:          mustMarshal(t, AttentionData{NotificationType: engine.NotificationPermissionPrompt}),
+		Data:          mustMarshal(t, event.AttentionData{NotificationType: event.NotificationPermissionPrompt}),
 		Timestamp:     time.Now(),
 	})
 
 	// New session starts.
-	store.HandleEvent(ContainerEvent{
-		Type:          EventSessionStart,
+	store.HandleEvent(event.ContainerEvent{
+		Type:          event.EventSessionStart,
 		ContainerName: "proj-1",
 		WorktreeID:    "main",
 		Timestamp:     time.Now(),
@@ -117,25 +118,25 @@ func TestStore_HandleSessionEnd_ClearsActiveAndAttention(t *testing.T) {
 	store := NewStore(nil, nil)
 
 	// Start session first.
-	store.HandleEvent(ContainerEvent{
-		Type:          EventSessionStart,
+	store.HandleEvent(event.ContainerEvent{
+		Type:          event.EventSessionStart,
 		ContainerName: "proj-1",
 		WorktreeID:    "main",
 		Timestamp:     time.Now(),
 	})
 
 	// Set attention during session.
-	store.HandleEvent(ContainerEvent{
-		Type:          EventAttention,
+	store.HandleEvent(event.ContainerEvent{
+		Type:          event.EventAttention,
 		ContainerName: "proj-1",
 		WorktreeID:    "main",
-		Data:          mustMarshal(t, AttentionData{NotificationType: engine.NotificationIdlePrompt}),
+		Data:          mustMarshal(t, event.AttentionData{NotificationType: event.NotificationIdlePrompt}),
 		Timestamp:     time.Now(),
 	})
 
 	// Session ends.
-	store.HandleEvent(ContainerEvent{
-		Type:          EventSessionEnd,
+	store.HandleEvent(event.ContainerEvent{
+		Type:          event.EventSessionEnd,
 		ContainerName: "proj-1",
 		WorktreeID:    "main",
 		Timestamp:     time.Now(),
@@ -154,19 +155,19 @@ func TestStore_SessionActive_PreservedAcrossAttentionEvents(t *testing.T) {
 	store := NewStore(nil, nil)
 
 	// Start session.
-	store.HandleEvent(ContainerEvent{
-		Type:          EventSessionStart,
+	store.HandleEvent(event.ContainerEvent{
+		Type:          event.EventSessionStart,
 		ContainerName: "proj-1",
 		WorktreeID:    "main",
 		Timestamp:     time.Now(),
 	})
 
 	// Attention event during active session.
-	store.HandleEvent(ContainerEvent{
-		Type:          EventAttention,
+	store.HandleEvent(event.ContainerEvent{
+		Type:          event.EventAttention,
 		ContainerName: "proj-1",
 		WorktreeID:    "main",
-		Data:          mustMarshal(t, AttentionData{NotificationType: engine.NotificationPermissionPrompt}),
+		Data:          mustMarshal(t, event.AttentionData{NotificationType: event.NotificationPermissionPrompt}),
 		Timestamp:     time.Now(),
 	})
 
@@ -179,8 +180,8 @@ func TestStore_SessionActive_PreservedAcrossAttentionEvents(t *testing.T) {
 	}
 
 	// Clear attention.
-	store.HandleEvent(ContainerEvent{
-		Type:          EventAttentionClear,
+	store.HandleEvent(event.ContainerEvent{
+		Type:          event.EventAttentionClear,
 		ContainerName: "proj-1",
 		WorktreeID:    "main",
 		Timestamp:     time.Now(),
@@ -199,16 +200,16 @@ func TestStore_HandleTurnComplete_SetsIdlePromptAttention(t *testing.T) {
 	store := NewStore(nil, nil)
 
 	// Start session first — turn_complete only fires during an active session.
-	store.HandleEvent(ContainerEvent{
-		Type:          EventSessionStart,
+	store.HandleEvent(event.ContainerEvent{
+		Type:          event.EventSessionStart,
 		ContainerName: "proj-1",
 		WorktreeID:    "main",
 		Timestamp:     time.Now().Add(-2 * time.Second),
 	})
 
 	// Turn completes — agent is now waiting for input.
-	store.HandleEvent(ContainerEvent{
-		Type:          EventTurnComplete,
+	store.HandleEvent(event.ContainerEvent{
+		Type:          event.EventTurnComplete,
 		ContainerName: "proj-1",
 		WorktreeID:    "main",
 		Timestamp:     time.Now().Add(-1 * time.Second),
@@ -218,7 +219,7 @@ func TestStore_HandleTurnComplete_SetsIdlePromptAttention(t *testing.T) {
 	if !ws.NeedsInput {
 		t.Error("expected NeedsInput to be true after turn_complete")
 	}
-	if ws.NotificationType != engine.NotificationIdlePrompt {
+	if ws.NotificationType != event.NotificationIdlePrompt {
 		t.Errorf("expected idle_prompt, got %q", ws.NotificationType)
 	}
 	if !ws.SessionActive {
@@ -230,8 +231,8 @@ func TestStore_HandleTurnComplete_SkipsWhenNoActiveSession(t *testing.T) {
 	store := NewStore(nil, nil)
 
 	// Turn complete without an active session — should be a no-op.
-	store.HandleEvent(ContainerEvent{
-		Type:          EventTurnComplete,
+	store.HandleEvent(event.ContainerEvent{
+		Type:          event.EventTurnComplete,
 		ContainerName: "proj-1",
 		WorktreeID:    "main",
 		Timestamp:     time.Now(),
@@ -247,30 +248,30 @@ func TestStore_HandleTurnComplete_SkipsWhenAlreadyNeedsInput(t *testing.T) {
 	store := NewStore(nil, nil)
 
 	// Start session, then set permission attention.
-	store.HandleEvent(ContainerEvent{
-		Type:          EventSessionStart,
+	store.HandleEvent(event.ContainerEvent{
+		Type:          event.EventSessionStart,
 		ContainerName: "proj-1",
 		WorktreeID:    "main",
 		Timestamp:     time.Now().Add(-3 * time.Second),
 	})
-	store.HandleEvent(ContainerEvent{
-		Type:          EventAttention,
+	store.HandleEvent(event.ContainerEvent{
+		Type:          event.EventAttention,
 		ContainerName: "proj-1",
 		WorktreeID:    "main",
-		Data:          mustMarshal(t, AttentionData{NotificationType: engine.NotificationPermissionPrompt}),
+		Data:          mustMarshal(t, event.AttentionData{NotificationType: event.NotificationPermissionPrompt}),
 		Timestamp:     time.Now().Add(-2 * time.Second),
 	})
 
 	// Turn complete should NOT downgrade permission_prompt to idle_prompt.
-	store.HandleEvent(ContainerEvent{
-		Type:          EventTurnComplete,
+	store.HandleEvent(event.ContainerEvent{
+		Type:          event.EventTurnComplete,
 		ContainerName: "proj-1",
 		WorktreeID:    "main",
 		Timestamp:     time.Now().Add(-1 * time.Second),
 	})
 
 	ws := store.GetWorktreeState("proj-1", "main")
-	if ws.NotificationType != engine.NotificationPermissionPrompt {
+	if ws.NotificationType != event.NotificationPermissionPrompt {
 		t.Errorf("expected permission_prompt preserved, got %q", ws.NotificationType)
 	}
 }
@@ -279,32 +280,32 @@ func TestStore_HandleTurnComplete_SkipsStaleEvent(t *testing.T) {
 	store := NewStore(nil, nil)
 
 	// Start session.
-	store.HandleEvent(ContainerEvent{
-		Type:          EventSessionStart,
+	store.HandleEvent(event.ContainerEvent{
+		Type:          event.EventSessionStart,
 		ContainerName: "proj-1",
 		WorktreeID:    "main",
 		Timestamp:     time.Now().Add(-3 * time.Second),
 	})
 
 	// Set and clear attention (simulates user sending a new prompt).
-	store.HandleEvent(ContainerEvent{
-		Type:          EventAttention,
+	store.HandleEvent(event.ContainerEvent{
+		Type:          event.EventAttention,
 		ContainerName: "proj-1",
 		WorktreeID:    "main",
-		Data:          mustMarshal(t, AttentionData{NotificationType: engine.NotificationIdlePrompt}),
+		Data:          mustMarshal(t, event.AttentionData{NotificationType: event.NotificationIdlePrompt}),
 		Timestamp:     time.Now().Add(-2 * time.Second),
 	})
 	clearTime := time.Now()
-	store.HandleEvent(ContainerEvent{
-		Type:          EventAttentionClear,
+	store.HandleEvent(event.ContainerEvent{
+		Type:          event.EventAttentionClear,
 		ContainerName: "proj-1",
 		WorktreeID:    "main",
 		Timestamp:     clearTime,
 	})
 
 	// Stale turn_complete from before the clear — should be ignored.
-	store.HandleEvent(ContainerEvent{
-		Type:          EventTurnComplete,
+	store.HandleEvent(event.ContainerEvent{
+		Type:          event.EventTurnComplete,
 		ContainerName: "proj-1",
 		WorktreeID:    "main",
 		Timestamp:     clearTime.Add(-1 * time.Second),
@@ -323,8 +324,8 @@ func TestStore_SeedWorktreeBaseline_RejectsHistoricalTurnComplete(t *testing.T) 
 	store.SeedWorktreeBaseline("proj-1", "main")
 
 	// Historical session_start from old JSONL — sets SessionActive.
-	store.HandleEvent(ContainerEvent{
-		Type:          EventSessionStart,
+	store.HandleEvent(event.ContainerEvent{
+		Type:          event.EventSessionStart,
 		ContainerName: "proj-1",
 		WorktreeID:    "main",
 		Timestamp:     time.Now().Add(-1 * time.Hour),
@@ -332,8 +333,8 @@ func TestStore_SeedWorktreeBaseline_RejectsHistoricalTurnComplete(t *testing.T) 
 
 	// Historical turn_complete from old JSONL — should be rejected
 	// because its timestamp is before the seeded baseline.
-	store.HandleEvent(ContainerEvent{
-		Type:          EventTurnComplete,
+	store.HandleEvent(event.ContainerEvent{
+		Type:          event.EventTurnComplete,
 		ContainerName: "proj-1",
 		WorktreeID:    "main",
 		Timestamp:     time.Now().Add(-30 * time.Minute),
@@ -352,8 +353,8 @@ func TestStore_SeedWorktreeBaseline_NoopWhenStateExists(t *testing.T) {
 	store := NewStore(nil, nil)
 
 	// Set up existing state via session_start.
-	store.HandleEvent(ContainerEvent{
-		Type:          EventSessionStart,
+	store.HandleEvent(event.ContainerEvent{
+		Type:          event.EventSessionStart,
 		ContainerName: "proj-1",
 		WorktreeID:    "main",
 		Timestamp:     time.Now(),
@@ -371,11 +372,11 @@ func TestStore_SeedWorktreeBaseline_NoopWhenStateExists(t *testing.T) {
 func TestStore_HandleCostUpdate_UpdatesCost(t *testing.T) {
 	store := NewStore(nil, nil)
 
-	store.HandleEvent(ContainerEvent{
-		Type:          EventCostUpdate,
+	store.HandleEvent(event.ContainerEvent{
+		Type:          event.EventCostUpdate,
 		ContainerName: "proj-1",
 		WorktreeID:    "main",
-		Data:          mustMarshal(t, CostData{TotalCost: 1.50, MessageCount: 42}),
+		Data:          mustMarshal(t, event.CostData{TotalCost: 1.50, MessageCount: 42}),
 		Timestamp:     time.Now(),
 	})
 
@@ -391,19 +392,19 @@ func TestStore_HandleCostUpdate_UpdatesCost(t *testing.T) {
 func TestStore_HandleCostUpdate_ClearsAttention(t *testing.T) {
 	store := NewStore(nil, nil)
 
-	store.HandleEvent(ContainerEvent{
-		Type:          EventAttention,
+	store.HandleEvent(event.ContainerEvent{
+		Type:          event.EventAttention,
 		ContainerName: "proj-1",
 		WorktreeID:    "main",
-		Data:          mustMarshal(t, AttentionData{NotificationType: engine.NotificationPermissionPrompt}),
+		Data:          mustMarshal(t, event.AttentionData{NotificationType: event.NotificationPermissionPrompt}),
 		Timestamp:     time.Now(),
 	})
 
-	store.HandleEvent(ContainerEvent{
-		Type:          EventCostUpdate,
+	store.HandleEvent(event.ContainerEvent{
+		Type:          event.EventCostUpdate,
 		ContainerName: "proj-1",
 		WorktreeID:    "main",
-		Data:          mustMarshal(t, CostData{TotalCost: 0.5, MessageCount: 1}),
+		Data:          mustMarshal(t, event.CostData{TotalCost: 0.5, MessageCount: 1}),
 		Timestamp:     time.Now(),
 	})
 
@@ -422,8 +423,8 @@ func TestStore_LastEventTime(t *testing.T) {
 	}
 
 	now := time.Now()
-	store.HandleEvent(ContainerEvent{
-		Type:          EventAttentionClear,
+	store.HandleEvent(event.ContainerEvent{
+		Type:          event.EventAttentionClear,
 		ContainerName: "proj-1",
 		WorktreeID:    "main",
 		Timestamp:     now,
@@ -461,11 +462,11 @@ func TestStore_ConcurrentAccess(t *testing.T) {
 		wg.Add(2)
 		go func(i int) {
 			defer wg.Done()
-			store.HandleEvent(ContainerEvent{
-				Type:          EventAttention,
+			store.HandleEvent(event.ContainerEvent{
+				Type:          event.EventAttention,
 				ContainerName: "proj-1",
 				WorktreeID:    "main",
-				Data:          mustMarshal(t, AttentionData{NotificationType: engine.NotificationIdlePrompt}),
+				Data:          mustMarshal(t, event.AttentionData{NotificationType: event.NotificationIdlePrompt}),
 				Timestamp:     time.Now(),
 			})
 		}(i)
@@ -482,11 +483,11 @@ func TestStore_ConcurrentAccess(t *testing.T) {
 func TestStore_IsolatesContainers(t *testing.T) {
 	store := NewStore(nil, nil)
 
-	store.HandleEvent(ContainerEvent{
-		Type:          EventAttention,
+	store.HandleEvent(event.ContainerEvent{
+		Type:          event.EventAttention,
 		ContainerName: "proj-1",
 		WorktreeID:    "main",
-		Data:          mustMarshal(t, AttentionData{NotificationType: engine.NotificationPermissionPrompt}),
+		Data:          mustMarshal(t, event.AttentionData{NotificationType: event.NotificationPermissionPrompt}),
 		Timestamp:     time.Now(),
 	})
 
@@ -499,11 +500,11 @@ func TestStore_IsolatesContainers(t *testing.T) {
 func TestStore_IsolatesWorktrees(t *testing.T) {
 	store := NewStore(nil, nil)
 
-	store.HandleEvent(ContainerEvent{
-		Type:          EventAttention,
+	store.HandleEvent(event.ContainerEvent{
+		Type:          event.EventAttention,
 		ContainerName: "proj-1",
 		WorktreeID:    "feature-a",
-		Data:          mustMarshal(t, AttentionData{NotificationType: engine.NotificationPermissionPrompt}),
+		Data:          mustMarshal(t, event.AttentionData{NotificationType: event.NotificationPermissionPrompt}),
 		Timestamp:     time.Now(),
 	})
 
@@ -520,11 +521,11 @@ func TestStore_IsolatesWorktrees(t *testing.T) {
 func TestStore_HandleTerminalConnected(t *testing.T) {
 	store := NewStore(nil, nil)
 
-	store.HandleEvent(ContainerEvent{
-		Type:          EventTerminalConnected,
+	store.HandleEvent(event.ContainerEvent{
+		Type:          event.EventTerminalConnected,
 		ContainerName: "proj-1",
 		WorktreeID:    "main",
-		Data:          mustMarshal(t, TerminalConnectedData{}),
+		Data:          mustMarshal(t, event.TerminalConnectedData{}),
 		Timestamp:     time.Now(),
 	})
 
@@ -544,17 +545,17 @@ func TestStore_HandleTerminalDisconnected(t *testing.T) {
 	store := NewStore(nil, nil)
 
 	// Connect first.
-	store.HandleEvent(ContainerEvent{
-		Type:          EventTerminalConnected,
+	store.HandleEvent(event.ContainerEvent{
+		Type:          event.EventTerminalConnected,
 		ContainerName: "proj-1",
 		WorktreeID:    "main",
-		Data:          mustMarshal(t, TerminalConnectedData{}),
+		Data:          mustMarshal(t, event.TerminalConnectedData{}),
 		Timestamp:     time.Now(),
 	})
 
 	// Disconnect.
-	store.HandleEvent(ContainerEvent{
-		Type:          EventTerminalDisconnected,
+	store.HandleEvent(event.ContainerEvent{
+		Type:          event.EventTerminalDisconnected,
 		ContainerName: "proj-1",
 		WorktreeID:    "main",
 		Timestamp:     time.Now(),
@@ -573,17 +574,17 @@ func TestStore_HandleProcessKilled(t *testing.T) {
 	store := NewStore(nil, nil)
 
 	// Connect first.
-	store.HandleEvent(ContainerEvent{
-		Type:          EventTerminalConnected,
+	store.HandleEvent(event.ContainerEvent{
+		Type:          event.EventTerminalConnected,
 		ContainerName: "proj-1",
 		WorktreeID:    "main",
-		Data:          mustMarshal(t, TerminalConnectedData{}),
+		Data:          mustMarshal(t, event.TerminalConnectedData{}),
 		Timestamp:     time.Now(),
 	})
 
 	// Kill everything.
-	store.HandleEvent(ContainerEvent{
-		Type:          EventProcessKilled,
+	store.HandleEvent(event.ContainerEvent{
+		Type:          event.EventProcessKilled,
 		ContainerName: "proj-1",
 		WorktreeID:    "main",
 		Timestamp:     time.Now(),
@@ -602,20 +603,20 @@ func TestStore_HandleSessionExit(t *testing.T) {
 	store := NewStore(nil, nil)
 
 	// Connect first.
-	store.HandleEvent(ContainerEvent{
-		Type:          EventTerminalConnected,
+	store.HandleEvent(event.ContainerEvent{
+		Type:          event.EventTerminalConnected,
 		ContainerName: "proj-1",
 		WorktreeID:    "main",
-		Data:          mustMarshal(t, TerminalConnectedData{}),
+		Data:          mustMarshal(t, event.TerminalConnectedData{}),
 		Timestamp:     time.Now(),
 	})
 
 	// Claude exits with code 0.
-	store.HandleEvent(ContainerEvent{
-		Type:          EventSessionExit,
+	store.HandleEvent(event.ContainerEvent{
+		Type:          event.EventSessionExit,
 		ContainerName: "proj-1",
 		WorktreeID:    "main",
-		Data:          mustMarshal(t, SessionExitData{ExitCode: 0}),
+		Data:          mustMarshal(t, event.SessionExitData{ExitCode: 0}),
 		Timestamp:     time.Now(),
 	})
 
@@ -632,8 +633,8 @@ func TestStore_HandleHeartbeat_UpdatesLastEventTime(t *testing.T) {
 	store := NewStore(nil, nil)
 
 	now := time.Now()
-	store.HandleEvent(ContainerEvent{
-		Type:          EventHeartbeat,
+	store.HandleEvent(event.ContainerEvent{
+		Type:          event.EventHeartbeat,
 		ContainerName: "proj-1",
 		WorktreeID:    "",
 		Timestamp:     now,
@@ -661,11 +662,11 @@ func TestStore_HasTerminalData(t *testing.T) {
 		t.Error("expected false for unknown container")
 	}
 
-	store.HandleEvent(ContainerEvent{
-		Type:          EventTerminalConnected,
+	store.HandleEvent(event.ContainerEvent{
+		Type:          event.EventTerminalConnected,
 		ContainerName: "proj-1",
 		WorktreeID:    "main",
-		Data:          mustMarshal(t, TerminalConnectedData{}),
+		Data:          mustMarshal(t, event.TerminalConnectedData{}),
 		Timestamp:     time.Now(),
 	})
 
@@ -686,13 +687,13 @@ func TestStore_ActiveContainers(t *testing.T) {
 		t.Errorf("expected empty, got %v", containers)
 	}
 
-	store.HandleEvent(ContainerEvent{
-		Type:          EventHeartbeat,
+	store.HandleEvent(event.ContainerEvent{
+		Type:          event.EventHeartbeat,
 		ContainerName: "proj-1",
 		Timestamp:     time.Now(),
 	})
-	store.HandleEvent(ContainerEvent{
-		Type:          EventHeartbeat,
+	store.HandleEvent(event.ContainerEvent{
+		Type:          event.EventHeartbeat,
 		ContainerName: "proj-2",
 		Timestamp:     time.Now(),
 	})
@@ -707,17 +708,17 @@ func TestStore_MarkContainerStale(t *testing.T) {
 	store := NewStore(nil, nil)
 
 	// Set up active worktree with terminal.
-	store.HandleEvent(ContainerEvent{
-		Type:          EventSessionStart,
+	store.HandleEvent(event.ContainerEvent{
+		Type:          event.EventSessionStart,
 		ContainerName: "proj-1",
 		WorktreeID:    "main",
 		Timestamp:     time.Now(),
 	})
-	store.HandleEvent(ContainerEvent{
-		Type:          EventTerminalConnected,
+	store.HandleEvent(event.ContainerEvent{
+		Type:          event.EventTerminalConnected,
 		ContainerName: "proj-1",
 		WorktreeID:    "main",
-		Data:          mustMarshal(t, TerminalConnectedData{}),
+		Data:          mustMarshal(t, event.TerminalConnectedData{}),
 		Timestamp:     time.Now(),
 	})
 
@@ -759,14 +760,14 @@ func TestStore_MarkContainerStale_IsolatesContainers(t *testing.T) {
 	store := NewStore(nil, nil)
 
 	// Set up two containers.
-	store.HandleEvent(ContainerEvent{
-		Type:          EventSessionStart,
+	store.HandleEvent(event.ContainerEvent{
+		Type:          event.EventSessionStart,
 		ContainerName: "proj-1",
 		WorktreeID:    "main",
 		Timestamp:     time.Now(),
 	})
-	store.HandleEvent(ContainerEvent{
-		Type:          EventSessionStart,
+	store.HandleEvent(event.ContainerEvent{
+		Type:          event.EventSessionStart,
 		ContainerName: "proj-2",
 		WorktreeID:    "main",
 		Timestamp:     time.Now(),
@@ -865,7 +866,7 @@ func TestDeriveWorktreeState(t *testing.T) {
 func TestBuildWorktreeBroadcast_IncludesTerminalState(t *testing.T) {
 	att := &WorktreeState{
 		NeedsInput:       true,
-		NotificationType: engine.NotificationPermissionPrompt,
+		NotificationType: event.NotificationPermissionPrompt,
 		SessionActive:    true,
 	}
 	ts := &TerminalState{
@@ -875,7 +876,7 @@ func TestBuildWorktreeBroadcast_IncludesTerminalState(t *testing.T) {
 		UpdatedAt:       time.Now(),
 	}
 
-	b := buildWorktreeBroadcast(ProjectRef{ProjectID: "project-1", AgentType: "claude-code", ContainerName: "proj-1"}, "main", att, ts)
+	b := buildWorktreeBroadcast(event.ProjectRef{ProjectID: "project-1", AgentType: "claude-code", ContainerName: "proj-1"}, "main", att, ts)
 
 	payload, ok := b.data.(WorktreeStatePayload)
 	if !ok {
@@ -896,24 +897,24 @@ func TestStore_GetContainerWorktreeStates(t *testing.T) {
 	store := NewStore(nil, nil)
 
 	// Two worktrees in proj-1, one in proj-2.
-	store.HandleEvent(ContainerEvent{
-		Type:          EventAttention,
+	store.HandleEvent(event.ContainerEvent{
+		Type:          event.EventAttention,
 		ContainerName: "proj-1",
 		WorktreeID:    "wt-1",
-		Data:          mustMarshal(t, AttentionData{NotificationType: engine.NotificationPermissionPrompt}),
+		Data:          mustMarshal(t, event.AttentionData{NotificationType: event.NotificationPermissionPrompt}),
 		Timestamp:     time.Now(),
 	})
-	store.HandleEvent(ContainerEvent{
-		Type:          EventSessionStart,
+	store.HandleEvent(event.ContainerEvent{
+		Type:          event.EventSessionStart,
 		ContainerName: "proj-1",
 		WorktreeID:    "wt-2",
 		Timestamp:     time.Now(),
 	})
-	store.HandleEvent(ContainerEvent{
-		Type:          EventAttention,
+	store.HandleEvent(event.ContainerEvent{
+		Type:          event.EventAttention,
 		ContainerName: "proj-2",
 		WorktreeID:    "main",
-		Data:          mustMarshal(t, AttentionData{NotificationType: engine.NotificationIdlePrompt}),
+		Data:          mustMarshal(t, event.AttentionData{NotificationType: event.NotificationIdlePrompt}),
 		Timestamp:     time.Now(),
 	})
 
@@ -938,15 +939,15 @@ func TestStore_EvictWorktree_ClearsAllState(t *testing.T) {
 	store := NewStore(nil, nil)
 
 	// Populate attention, terminal, and container tracking state.
-	store.HandleEvent(ContainerEvent{
-		Type:          EventAttention,
+	store.HandleEvent(event.ContainerEvent{
+		Type:          event.EventAttention,
 		ContainerName: "proj-1",
 		WorktreeID:    "wt-1",
-		Data:          mustMarshal(t, AttentionData{NotificationType: engine.NotificationPermissionPrompt}),
+		Data:          mustMarshal(t, event.AttentionData{NotificationType: event.NotificationPermissionPrompt}),
 		Timestamp:     time.Now(),
 	})
-	store.HandleEvent(ContainerEvent{
-		Type:          EventTerminalConnected,
+	store.HandleEvent(event.ContainerEvent{
+		Type:          event.EventTerminalConnected,
 		ContainerName: "proj-1",
 		WorktreeID:    "wt-1",
 		Timestamp:     time.Now(),
@@ -981,8 +982,8 @@ func TestStore_EvictWorktree_PreservesOtherWorktrees(t *testing.T) {
 
 	// Populate state for two worktrees.
 	for _, wt := range []string{"wt-1", "wt-2"} {
-		store.HandleEvent(ContainerEvent{
-			Type:          EventTerminalConnected,
+		store.HandleEvent(event.ContainerEvent{
+			Type:          event.EventTerminalConnected,
 			ContainerName: "proj-1",
 			WorktreeID:    wt,
 			Timestamp:     time.Now(),
@@ -1007,8 +1008,8 @@ func TestStore_EvictWorktree_PreservesOtherWorktrees(t *testing.T) {
 func TestStore_EvictWorktree_ClearsTerminalContainersWhenEmpty(t *testing.T) {
 	store := NewStore(nil, nil)
 
-	store.HandleEvent(ContainerEvent{
-		Type:          EventTerminalConnected,
+	store.HandleEvent(event.ContainerEvent{
+		Type:          event.EventTerminalConnected,
 		ContainerName: "proj-1",
 		WorktreeID:    "wt-1",
 		Timestamp:     time.Now(),
@@ -1025,7 +1026,7 @@ func TestStore_EvictWorktree_ClearsTerminalContainersWhenEmpty(t *testing.T) {
 func TestBuildWorktreeBroadcast_NilTerminalState(t *testing.T) {
 	att := &WorktreeState{SessionActive: true}
 
-	b := buildWorktreeBroadcast(ProjectRef{ProjectID: "project-1", AgentType: "claude-code", ContainerName: "proj-1"}, "main", att, nil)
+	b := buildWorktreeBroadcast(event.ProjectRef{ProjectID: "project-1", AgentType: "claude-code", ContainerName: "proj-1"}, "main", att, nil)
 
 	payload, ok := b.data.(WorktreeStatePayload)
 	if !ok {
@@ -1053,11 +1054,11 @@ func TestStore_HandleCostUpdate_CallbackWithValidCost(t *testing.T) {
 		called.cost = cost
 	})
 
-	store.HandleEvent(ContainerEvent{
-		Type:          EventCostUpdate,
+	store.HandleEvent(event.ContainerEvent{
+		Type:          event.EventCostUpdate,
 		ContainerName: "proj-1",
 		WorktreeID:    "main",
-		Data:          mustMarshal(t, CostData{TotalCost: 1.50, SessionID: "sess-1", MessageCount: 1}),
+		Data:          mustMarshal(t, event.CostData{TotalCost: 1.50, SessionID: "sess-1", MessageCount: 1}),
 		Timestamp:     time.Now(),
 	})
 
@@ -1082,11 +1083,11 @@ func TestStore_HandleCostUpdate_CallbackWithZeroCost(t *testing.T) {
 		receivedCost = cost
 	})
 
-	store.HandleEvent(ContainerEvent{
-		Type:          EventCostUpdate,
+	store.HandleEvent(event.ContainerEvent{
+		Type:          event.EventCostUpdate,
 		ContainerName: "proj-1",
 		WorktreeID:    "main",
-		Data:          mustMarshal(t, CostData{TotalCost: 0, MessageCount: 0}),
+		Data:          mustMarshal(t, event.CostData{TotalCost: 0, MessageCount: 0}),
 		Timestamp:     time.Now(),
 	})
 
@@ -1106,8 +1107,8 @@ func TestStore_HandleCostUpdate_CallbackWithNilData(t *testing.T) {
 		called = true
 	})
 
-	store.HandleEvent(ContainerEvent{
-		Type:          EventCostUpdate,
+	store.HandleEvent(event.ContainerEvent{
+		Type:          event.EventCostUpdate,
 		ContainerName: "proj-1",
 		WorktreeID:    "main",
 		Data:          nil,
@@ -1131,12 +1132,12 @@ func TestStore_AttentionEmitsProjectStateBroadcast(t *testing.T) {
 
 	store := NewStore(broker, nil)
 
-	store.HandleEvent(ContainerEvent{
-		Type:          EventAttention,
+	store.HandleEvent(event.ContainerEvent{
+		Type:          event.EventAttention,
 		ContainerName: "proj-1",
 		ProjectID:     "project-1",
 		WorktreeID:    "main",
-		Data:          mustMarshal(t, AttentionData{NotificationType: engine.NotificationPermissionPrompt}),
+		Data:          mustMarshal(t, event.AttentionData{NotificationType: event.NotificationPermissionPrompt}),
 		Timestamp:     time.Now(),
 	})
 
@@ -1144,20 +1145,20 @@ func TestStore_AttentionEmitsProjectStateBroadcast(t *testing.T) {
 	var gotWorktree, gotProject bool
 	for range 2 {
 		select {
-		case event := <-ch:
-			switch event.Event {
-			case SSEWorktreeState:
+		case evt := <-ch:
+			switch evt.Event {
+			case event.SSEWorktreeState:
 				gotWorktree = true
-			case SSEProjectState:
+			case event.SSEProjectState:
 				gotProject = true
 				var payload ProjectStatePayload
-				if err := json.Unmarshal(event.Data, &payload); err != nil {
+				if err := json.Unmarshal(evt.Data, &payload); err != nil {
 					t.Fatalf("failed to unmarshal project_state: %v", err)
 				}
 				if !payload.NeedsInput {
 					t.Error("expected project needsInput=true")
 				}
-				if payload.NotificationType != engine.NotificationPermissionPrompt {
+				if payload.NotificationType != event.NotificationPermissionPrompt {
 					t.Errorf("expected permission_prompt, got %s", payload.NotificationType)
 				}
 				if payload.ProjectID != "project-1" {
@@ -1183,12 +1184,12 @@ func TestStore_AttentionClearEmitsProjectStateBroadcast(t *testing.T) {
 	store := NewStore(broker, nil)
 
 	// Set attention first (without subscribing yet — we don't need those broadcasts).
-	store.HandleEvent(ContainerEvent{
-		Type:          EventAttention,
+	store.HandleEvent(event.ContainerEvent{
+		Type:          event.EventAttention,
 		ContainerName: "proj-1",
 		ProjectID:     "project-1",
 		WorktreeID:    "main",
-		Data:          mustMarshal(t, AttentionData{NotificationType: engine.NotificationPermissionPrompt}),
+		Data:          mustMarshal(t, event.AttentionData{NotificationType: event.NotificationPermissionPrompt}),
 		Timestamp:     time.Now(),
 	})
 
@@ -1196,8 +1197,8 @@ func TestStore_AttentionClearEmitsProjectStateBroadcast(t *testing.T) {
 	ch, unsub := broker.Subscribe()
 	defer unsub()
 
-	store.HandleEvent(ContainerEvent{
-		Type:          EventAttentionClear,
+	store.HandleEvent(event.ContainerEvent{
+		Type:          event.EventAttentionClear,
 		ContainerName: "proj-1",
 		ProjectID:     "project-1",
 		WorktreeID:    "main",
@@ -1208,11 +1209,11 @@ func TestStore_AttentionClearEmitsProjectStateBroadcast(t *testing.T) {
 	var gotProjectState bool
 	for range 2 {
 		select {
-		case event := <-ch:
-			if event.Event == SSEProjectState {
+		case evt := <-ch:
+			if evt.Event == event.SSEProjectState {
 				gotProjectState = true
 				var payload ProjectStatePayload
-				if err := json.Unmarshal(event.Data, &payload); err != nil {
+				if err := json.Unmarshal(evt.Data, &payload); err != nil {
 					t.Fatalf("failed to unmarshal: %v", err)
 				}
 				if payload.NeedsInput {
@@ -1235,12 +1236,12 @@ func TestStore_ProjectAttentionAggregatesHighestPriority(t *testing.T) {
 	store := NewStore(broker, nil)
 
 	// First worktree: idle_prompt (low priority).
-	store.HandleEvent(ContainerEvent{
-		Type:          EventAttention,
+	store.HandleEvent(event.ContainerEvent{
+		Type:          event.EventAttention,
 		ContainerName: "proj-1",
 		ProjectID:     "project-1",
 		WorktreeID:    "wt-1",
-		Data:          mustMarshal(t, AttentionData{NotificationType: engine.NotificationIdlePrompt}),
+		Data:          mustMarshal(t, event.AttentionData{NotificationType: event.NotificationIdlePrompt}),
 		Timestamp:     time.Now(),
 	})
 
@@ -1249,28 +1250,28 @@ func TestStore_ProjectAttentionAggregatesHighestPriority(t *testing.T) {
 	defer unsub()
 
 	// Second worktree: permission_prompt (high priority).
-	store.HandleEvent(ContainerEvent{
-		Type:          EventAttention,
+	store.HandleEvent(event.ContainerEvent{
+		Type:          event.EventAttention,
 		ContainerName: "proj-1",
 		ProjectID:     "project-1",
 		WorktreeID:    "wt-2",
-		Data:          mustMarshal(t, AttentionData{NotificationType: engine.NotificationPermissionPrompt}),
+		Data:          mustMarshal(t, event.AttentionData{NotificationType: event.NotificationPermissionPrompt}),
 		Timestamp:     time.Now(),
 	})
 
 	// Find the project_state broadcast.
 	for range 2 {
 		select {
-		case event := <-ch:
-			if event.Event == SSEProjectState {
+		case evt := <-ch:
+			if evt.Event == event.SSEProjectState {
 				var payload ProjectStatePayload
-				if err := json.Unmarshal(event.Data, &payload); err != nil {
+				if err := json.Unmarshal(evt.Data, &payload); err != nil {
 					t.Fatalf("failed to unmarshal: %v", err)
 				}
 				if !payload.NeedsInput {
 					t.Error("expected project needsInput=true")
 				}
-				if payload.NotificationType != engine.NotificationPermissionPrompt {
+				if payload.NotificationType != event.NotificationPermissionPrompt {
 					t.Errorf("expected highest-priority permission_prompt, got %s", payload.NotificationType)
 				}
 				return
@@ -1289,12 +1290,12 @@ func TestStore_ProjectAttentionIncludesCost(t *testing.T) {
 	store := NewStore(broker, nil)
 
 	// Record a cost first via a stop event.
-	store.HandleEvent(ContainerEvent{
-		Type:          EventCostUpdate,
+	store.HandleEvent(event.ContainerEvent{
+		Type:          event.EventCostUpdate,
 		ContainerName: "proj-1",
 		ProjectID:     "project-1",
 		WorktreeID:    "main",
-		Data:          mustMarshal(t, CostData{TotalCost: 5.25, SessionID: "sess-1"}),
+		Data:          mustMarshal(t, event.CostData{TotalCost: 5.25, SessionID: "sess-1"}),
 		Timestamp:     time.Now(),
 	})
 
@@ -1302,22 +1303,22 @@ func TestStore_ProjectAttentionIncludesCost(t *testing.T) {
 	defer unsub()
 
 	// Trigger an attention event.
-	store.HandleEvent(ContainerEvent{
-		Type:          EventAttention,
+	store.HandleEvent(event.ContainerEvent{
+		Type:          event.EventAttention,
 		ContainerName: "proj-1",
 		ProjectID:     "project-1",
 		WorktreeID:    "main",
-		Data:          mustMarshal(t, AttentionData{NotificationType: engine.NotificationIdlePrompt}),
+		Data:          mustMarshal(t, event.AttentionData{NotificationType: event.NotificationIdlePrompt}),
 		Timestamp:     time.Now(),
 	})
 
 	// The project_state broadcast should include both attention and cost.
 	for range 2 {
 		select {
-		case event := <-ch:
-			if event.Event == SSEProjectState {
+		case evt := <-ch:
+			if evt.Event == event.SSEProjectState {
 				var payload ProjectStatePayload
-				if err := json.Unmarshal(event.Data, &payload); err != nil {
+				if err := json.Unmarshal(evt.Data, &payload); err != nil {
 					t.Fatalf("failed to unmarshal: %v", err)
 				}
 				if !payload.NeedsInput {
@@ -1351,8 +1352,8 @@ func TestStore_AliveCallback_HeartbeatForUnknownContainer(t *testing.T) {
 		calledContainer = containerName
 	})
 
-	store.HandleEvent(ContainerEvent{
-		Type:          EventHeartbeat,
+	store.HandleEvent(event.ContainerEvent{
+		Type:          event.EventHeartbeat,
 		ContainerName: "proj-1",
 		ProjectID:     "pid-1",
 		WorktreeID:    "main",
@@ -1377,8 +1378,8 @@ func TestStore_AliveCallback_SessionStartForUnknownContainer(t *testing.T) {
 		called = true
 	})
 
-	store.HandleEvent(ContainerEvent{
-		Type:          EventSessionStart,
+	store.HandleEvent(event.ContainerEvent{
+		Type:          event.EventSessionStart,
 		ContainerName: "proj-1",
 		ProjectID:     "pid-1",
 		WorktreeID:    "main",
@@ -1399,8 +1400,8 @@ func TestStore_AliveCallback_SecondHeartbeatDoesNotFire(t *testing.T) {
 	})
 
 	// First heartbeat — should fire.
-	store.HandleEvent(ContainerEvent{
-		Type:          EventHeartbeat,
+	store.HandleEvent(event.ContainerEvent{
+		Type:          event.EventHeartbeat,
 		ContainerName: "proj-1",
 		ProjectID:     "pid-1",
 		WorktreeID:    "main",
@@ -1408,8 +1409,8 @@ func TestStore_AliveCallback_SecondHeartbeatDoesNotFire(t *testing.T) {
 	})
 
 	// Second heartbeat — should NOT fire.
-	store.HandleEvent(ContainerEvent{
-		Type:          EventHeartbeat,
+	store.HandleEvent(event.ContainerEvent{
+		Type:          event.EventHeartbeat,
 		ContainerName: "proj-1",
 		ProjectID:     "pid-1",
 		WorktreeID:    "main",
@@ -1430,8 +1431,8 @@ func TestStore_AliveCallback_FiresAgainAfterStale(t *testing.T) {
 	})
 
 	// First heartbeat — fires.
-	store.HandleEvent(ContainerEvent{
-		Type:          EventHeartbeat,
+	store.HandleEvent(event.ContainerEvent{
+		Type:          event.EventHeartbeat,
 		ContainerName: "proj-1",
 		ProjectID:     "pid-1",
 		WorktreeID:    "main",
@@ -1442,8 +1443,8 @@ func TestStore_AliveCallback_FiresAgainAfterStale(t *testing.T) {
 	store.MarkContainerStale("proj-1")
 
 	// Heartbeat again — should fire because container was removed from lastEvents.
-	store.HandleEvent(ContainerEvent{
-		Type:          EventHeartbeat,
+	store.HandleEvent(event.ContainerEvent{
+		Type:          event.EventHeartbeat,
 		ContainerName: "proj-1",
 		ProjectID:     "pid-1",
 		WorktreeID:    "main",
@@ -1464,12 +1465,12 @@ func TestStore_AliveCallback_NonLifecycleEventDoesNotFire(t *testing.T) {
 	})
 
 	// An attention event for an unknown container should NOT trigger alive.
-	store.HandleEvent(ContainerEvent{
-		Type:          EventAttention,
+	store.HandleEvent(event.ContainerEvent{
+		Type:          event.EventAttention,
 		ContainerName: "proj-1",
 		ProjectID:     "pid-1",
 		WorktreeID:    "main",
-		Data:          mustMarshal(t, AttentionData{NotificationType: engine.NotificationIdlePrompt}),
+		Data:          mustMarshal(t, event.AttentionData{NotificationType: event.NotificationIdlePrompt}),
 		Timestamp:     time.Now(),
 	})
 
@@ -1494,12 +1495,12 @@ func TestStore_WriteToAuditLog_SourceLineProducesSourceID(t *testing.T) {
 	writer := db.NewAuditWriter(dbStore, db.AuditDetailed, allEvents)
 	store := NewStore(nil, writer)
 
-	store.HandleEvent(ContainerEvent{
-		Type:          EventToolUse,
+	store.HandleEvent(event.ContainerEvent{
+		Type:          event.EventToolUse,
 		ContainerName: "proj-1",
 		ProjectID:     "aabbccddee01",
 		WorktreeID:    "main",
-		Data:          mustMarshal(t, ToolUseData{ToolName: "bash"}),
+		Data:          mustMarshal(t, event.ToolUseData{ToolName: "bash"}),
 		Timestamp:     time.Now(),
 		Source:        SourceJSONL,
 		SourceLine:    []byte(`{"type":"tool_use","tool":"bash"}`),
@@ -1516,12 +1517,12 @@ func TestStore_WriteToAuditLog_SourceLineProducesSourceID(t *testing.T) {
 
 	// SourceID is not returned by Query (it's json:"-"), so verify dedup
 	// by writing the same event again — it should be silently dropped.
-	store.HandleEvent(ContainerEvent{
-		Type:          EventToolUse,
+	store.HandleEvent(event.ContainerEvent{
+		Type:          event.EventToolUse,
 		ContainerName: "proj-1",
 		ProjectID:     "aabbccddee01",
 		WorktreeID:    "main",
-		Data:          mustMarshal(t, ToolUseData{ToolName: "bash"}),
+		Data:          mustMarshal(t, event.ToolUseData{ToolName: "bash"}),
 		Timestamp:     time.Now(),
 		Source:        SourceJSONL,
 		SourceLine:    []byte(`{"type":"tool_use","tool":"bash"}`),
@@ -1551,12 +1552,12 @@ func TestStore_WriteToAuditLog_NoSourceLineProducesEmptySourceID(t *testing.T) {
 	// Two identical events without SourceLine — both should be inserted
 	// because empty SourceID becomes NULL (no uniqueness constraint on NULLs).
 	for range 2 {
-		store.HandleEvent(ContainerEvent{
-			Type:          EventToolUse,
+		store.HandleEvent(event.ContainerEvent{
+			Type:          event.EventToolUse,
 			ContainerName: "proj-1",
 			ProjectID:     "aabbccddee01",
 			WorktreeID:    "main",
-			Data:          mustMarshal(t, ToolUseData{ToolName: "bash"}),
+			Data:          mustMarshal(t, event.ToolUseData{ToolName: "bash"}),
 			Timestamp:     time.Now(),
 			// No SourceLine set — hook-sourced event.
 		})
@@ -1585,23 +1586,23 @@ func TestStore_WriteToAuditLog_SameLineDifferentIndex_DifferentSourceIDs(t *test
 	sourceLine := []byte(`{"type":"tool_use","tool":"bash"}`)
 
 	// Same SourceLine but different SourceIndex values produce different hashes.
-	store.HandleEvent(ContainerEvent{
-		Type:          EventToolUse,
+	store.HandleEvent(event.ContainerEvent{
+		Type:          event.EventToolUse,
 		ContainerName: "proj-1",
 		ProjectID:     "aabbccddee01",
 		WorktreeID:    "main",
-		Data:          mustMarshal(t, ToolUseData{ToolName: "bash"}),
+		Data:          mustMarshal(t, event.ToolUseData{ToolName: "bash"}),
 		Timestamp:     time.Now(),
 		SourceLine:    sourceLine,
 		SourceIndex:   0,
 	})
 
-	store.HandleEvent(ContainerEvent{
-		Type:          EventToolUse,
+	store.HandleEvent(event.ContainerEvent{
+		Type:          event.EventToolUse,
 		ContainerName: "proj-1",
 		ProjectID:     "aabbccddee01",
 		WorktreeID:    "main",
-		Data:          mustMarshal(t, ToolUseData{ToolName: "bash"}),
+		Data:          mustMarshal(t, event.ToolUseData{ToolName: "bash"}),
 		Timestamp:     time.Now(),
 		SourceLine:    sourceLine,
 		SourceIndex:   1,
@@ -1628,11 +1629,11 @@ func TestStore_WriteToAuditLog_NetworkBlocked(t *testing.T) {
 	store := NewStore(nil, writer)
 
 	t.Run("with domain", func(t *testing.T) {
-		store.HandleEvent(ContainerEvent{
-			Type:          EventNetworkBlocked,
+		store.HandleEvent(event.ContainerEvent{
+			Type:          event.EventNetworkBlocked,
 			ContainerName: "proj-1",
 			ProjectID:     "aabbccddee01",
-			Data:          mustMarshal(t, NetworkBlockedData{IP: "104.18.27.120", Domain: "example.com"}),
+			Data:          mustMarshal(t, event.NetworkBlockedData{IP: "104.18.27.120", Domain: "example.com"}),
 			Timestamp:     time.Now(),
 		})
 
@@ -1655,11 +1656,11 @@ func TestStore_WriteToAuditLog_NetworkBlocked(t *testing.T) {
 	})
 
 	t.Run("without domain", func(t *testing.T) {
-		store.HandleEvent(ContainerEvent{
-			Type:          EventNetworkBlocked,
+		store.HandleEvent(event.ContainerEvent{
+			Type:          event.EventNetworkBlocked,
 			ContainerName: "proj-2",
 			ProjectID:     "aabbccddee02",
-			Data:          mustMarshal(t, NetworkBlockedData{IP: "1.2.3.4"}),
+			Data:          mustMarshal(t, event.NetworkBlockedData{IP: "1.2.3.4"}),
 			Timestamp:     time.Now(),
 		})
 

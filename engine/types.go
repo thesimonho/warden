@@ -9,6 +9,7 @@ import (
 	"github.com/thesimonho/warden/agent"
 	"github.com/thesimonho/warden/api"
 	"github.com/thesimonho/warden/constants"
+	"github.com/thesimonho/warden/event"
 )
 
 // AgentStatus represents whether the agent CLI is actively running inside a container.
@@ -23,34 +24,21 @@ const (
 	AgentStatusUnknown AgentStatus = "unknown"
 )
 
-// NotificationType represents the kind of attention Claude Code needs from the user.
-type NotificationType string
+// NotificationType is an alias for [event.NotificationType].
+// Kept for backward compatibility — new code should use event.NotificationType.
+type NotificationType = event.NotificationType
 
+// Re-export notification type constants from event/ for backward compatibility.
 const (
-	// NotificationPermissionPrompt means Claude needs tool approval.
-	NotificationPermissionPrompt NotificationType = "permission_prompt"
-	// NotificationIdlePrompt means Claude is done and waiting for the next prompt.
-	NotificationIdlePrompt NotificationType = "idle_prompt"
-	// NotificationAuthSuccess means authentication just completed.
-	NotificationAuthSuccess NotificationType = "auth_success"
-	// NotificationElicitationDialog means Claude is asking the user a question.
-	NotificationElicitationDialog NotificationType = "elicitation_dialog"
+	NotificationPermissionPrompt  = event.NotificationPermissionPrompt
+	NotificationIdlePrompt        = event.NotificationIdlePrompt
+	NotificationAuthSuccess       = event.NotificationAuthSuccess
+	NotificationElicitationDialog = event.NotificationElicitationDialog
 )
 
 // NotificationPriority returns a numeric priority for notification types.
-// Higher values indicate more urgent attention (permission_prompt > elicitation > idle).
-func NotificationPriority(nt NotificationType) int {
-	switch nt {
-	case NotificationPermissionPrompt:
-		return 3
-	case NotificationElicitationDialog:
-		return 2
-	case NotificationIdlePrompt:
-		return 1
-	default:
-		return 0
-	}
-}
+// Delegates to [event.NotificationPriority].
+var NotificationPriority = event.NotificationPriority
 
 // WorktreeState represents the terminal connection state of a worktree.
 type WorktreeState string

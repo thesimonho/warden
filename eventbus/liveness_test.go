@@ -3,19 +3,21 @@ package eventbus
 import (
 	"testing"
 	"time"
+
+	"github.com/thesimonho/warden/event"
 )
 
 func TestCheckContainerLiveness_SkipsRecentContainers(t *testing.T) {
 	store := NewStore(nil, nil)
 
 	// Simulate a recent heartbeat.
-	store.HandleEvent(ContainerEvent{
-		Type:          EventHeartbeat,
+	store.HandleEvent(event.ContainerEvent{
+		Type:          event.EventHeartbeat,
 		ContainerName: "proj-1",
 		Timestamp:     time.Now(),
 	})
-	store.HandleEvent(ContainerEvent{
-		Type:          EventSessionStart,
+	store.HandleEvent(event.ContainerEvent{
+		Type:          event.EventSessionStart,
 		ContainerName: "proj-1",
 		WorktreeID:    "main",
 		Timestamp:     time.Now(),
@@ -35,8 +37,8 @@ func TestCheckContainerLiveness_MarksStaleContainers(t *testing.T) {
 
 	// Simulate an old heartbeat (beyond the 30s threshold).
 	staleTime := time.Now().Add(-45 * time.Second)
-	store.HandleEvent(ContainerEvent{
-		Type:          EventSessionStart,
+	store.HandleEvent(event.ContainerEvent{
+		Type:          event.EventSessionStart,
 		ContainerName: "proj-1",
 		WorktreeID:    "main",
 		Timestamp:     staleTime,
@@ -54,16 +56,16 @@ func TestCheckContainerLiveness_PreservesHealthyContainers(t *testing.T) {
 	store := NewStore(nil, nil)
 
 	// proj-1 is stale.
-	store.HandleEvent(ContainerEvent{
-		Type:          EventSessionStart,
+	store.HandleEvent(event.ContainerEvent{
+		Type:          event.EventSessionStart,
 		ContainerName: "proj-1",
 		WorktreeID:    "main",
 		Timestamp:     time.Now().Add(-45 * time.Second),
 	})
 
 	// proj-2 is fresh.
-	store.HandleEvent(ContainerEvent{
-		Type:          EventSessionStart,
+	store.HandleEvent(event.ContainerEvent{
+		Type:          event.EventSessionStart,
 		ContainerName: "proj-2",
 		WorktreeID:    "main",
 		Timestamp:     time.Now(),

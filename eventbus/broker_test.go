@@ -3,6 +3,8 @@ package eventbus
 import (
 	"testing"
 	"time"
+
+	"github.com/thesimonho/warden/event"
 )
 
 func TestBroker_SubscribeAndBroadcast(t *testing.T) {
@@ -12,12 +14,12 @@ func TestBroker_SubscribeAndBroadcast(t *testing.T) {
 	ch, unsub := b.Subscribe()
 	defer unsub()
 
-	event := SSEEvent{Event: SSEWorktreeState, Data: []byte(`{"test":true}`)}
-	b.Broadcast(event)
+	evt := event.SSEEvent{Event: event.SSEWorktreeState, Data: []byte(`{"test":true}`)}
+	b.Broadcast(evt)
 
 	select {
 	case got := <-ch:
-		if got.Event != SSEWorktreeState {
+		if got.Event != event.SSEWorktreeState {
 			t.Errorf("expected worktree_state, got %s", got.Event)
 		}
 	case <-time.After(time.Second):
@@ -34,13 +36,13 @@ func TestBroker_MultipleClients(t *testing.T) {
 	ch2, unsub2 := b.Subscribe()
 	defer unsub2()
 
-	event := SSEEvent{Event: SSEProjectState, Data: []byte(`{}`)}
-	b.Broadcast(event)
+	evt := event.SSEEvent{Event: event.SSEProjectState, Data: []byte(`{}`)}
+	b.Broadcast(evt)
 
-	for _, ch := range []<-chan SSEEvent{ch1, ch2} {
+	for _, ch := range []<-chan event.SSEEvent{ch1, ch2} {
 		select {
 		case got := <-ch:
-			if got.Event != SSEProjectState {
+			if got.Event != event.SSEProjectState {
 				t.Errorf("expected project_state, got %s", got.Event)
 			}
 		case <-time.After(time.Second):
@@ -80,7 +82,7 @@ func TestBroker_SlowClientDoesNotBlock(t *testing.T) {
 	done := make(chan struct{})
 	go func() {
 		for range clientBufferSize + 10 {
-			b.Broadcast(SSEEvent{Event: SSEHeartbeat, Data: []byte(`{}`)})
+			b.Broadcast(event.SSEEvent{Event: event.SSEHeartbeat, Data: []byte(`{}`)})
 		}
 		close(done)
 	}()
@@ -96,7 +98,7 @@ func TestBroker_SlowClientDoesNotBlock(t *testing.T) {
 func TestBroker_Heartbeat(t *testing.T) {
 	// Create broker with a very short heartbeat for testing.
 	b := &Broker{
-		clients: make(map[chan SSEEvent]struct{}),
+		clients: make(map[chan event.SSEEvent]struct{}),
 		done:    make(chan struct{}),
 	}
 	// Start a custom heartbeat loop at a test-friendly interval.
@@ -108,7 +110,7 @@ func TestBroker_Heartbeat(t *testing.T) {
 			case <-b.done:
 				return
 			case <-ticker.C:
-				b.Broadcast(SSEEvent{Event: SSEHeartbeat, Data: []byte(`{}`)})
+				b.Broadcast(event.SSEEvent{Event: event.SSEHeartbeat, Data: []byte(`{}`)})
 			}
 		}
 	}()
@@ -119,7 +121,7 @@ func TestBroker_Heartbeat(t *testing.T) {
 
 	select {
 	case got := <-ch:
-		if got.Event != SSEHeartbeat {
+		if got.Event != event.SSEHeartbeat {
 			t.Errorf("expected heartbeat, got %s", got.Event)
 		}
 	case <-time.After(time.Second):

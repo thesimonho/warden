@@ -14,7 +14,7 @@ import (
 	"github.com/coder/websocket"
 
 	"github.com/thesimonho/warden/api"
-	"github.com/thesimonho/warden/eventbus"
+	"github.com/thesimonho/warden/event"
 )
 
 // SubscribeEvents opens a Server-Sent Events connection and returns a
@@ -39,12 +39,13 @@ import (
 //
 //	for event := range ch {
 //	    switch event.Event {
-//	    case eventbus.SSEWorktreeState:
+//	    case event.SSEWorktreeState:
 //	        // A worktree's state changed — refresh worktree list
-//	    case eventbus.SSEProjectState:
+//	    case event.SSEProjectState:
 //	        // Cost updated — refresh project list
 //	    }
 //	}
+//
 // SubscribeEventsOptions controls SSE event filtering.
 type SubscribeEventsOptions struct {
 	// ProjectID filters events to a single project. Empty means all projects.
@@ -53,9 +54,9 @@ type SubscribeEventsOptions struct {
 	AgentType string
 }
 
-func (c *Client) SubscribeEvents(ctx context.Context, opts ...SubscribeEventsOptions) (<-chan eventbus.SSEEvent, func(), error) {
+func (c *Client) SubscribeEvents(ctx context.Context, opts ...SubscribeEventsOptions) (<-chan event.SSEEvent, func(), error) {
 	ctx, cancel := context.WithCancel(ctx)
-	ch := make(chan eventbus.SSEEvent, 64)
+	ch := make(chan event.SSEEvent, 64)
 
 	path := "/api/v1/events"
 	if len(opts) > 0 {
@@ -103,7 +104,7 @@ func (c *Client) SubscribeEvents(ctx context.Context, opts ...SubscribeEventsOpt
 
 // readSSEStream parses an SSE text stream and sends events to the channel.
 // Closes the channel when the stream ends or the context is cancelled.
-func readSSEStream(ctx context.Context, body io.ReadCloser, ch chan<- eventbus.SSEEvent) {
+func readSSEStream(ctx context.Context, body io.ReadCloser, ch chan<- event.SSEEvent) {
 	defer close(ch)
 	defer body.Close() //nolint:errcheck
 
@@ -130,8 +131,8 @@ func readSSEStream(ctx context.Context, body io.ReadCloser, ch chan<- eventbus.S
 		case line == "":
 			// Empty line = end of event.
 			if eventType != "" && dataLines != nil {
-				event := eventbus.SSEEvent{
-					Event: eventbus.SSEEventType(eventType),
+				event := event.SSEEvent{
+					Event: event.SSEEventType(eventType),
 					Data:  json.RawMessage(dataLines),
 				}
 				select {

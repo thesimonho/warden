@@ -3,6 +3,8 @@ package agent
 import (
 	"strings"
 	"testing"
+
+	"github.com/thesimonho/warden/event"
 )
 
 type stubParser struct{}
@@ -11,9 +13,9 @@ func (s *stubParser) ParseLine(line []byte) []ParsedEvent {
 	text := string(line)
 	switch {
 	case strings.Contains(text, "tool"):
-		return []ParsedEvent{{Type: EventToolUse}}
+		return []ParsedEvent{{Type: event.EventToolUse}}
 	case strings.Contains(text, "token"):
-		return []ParsedEvent{{Type: EventTokenUpdate}}
+		return []ParsedEvent{{Type: event.EventTokenUpdate}}
 	default:
 		return nil
 	}
@@ -34,11 +36,11 @@ func TestValidateJSONL_CountsEvents(t *testing.T) {
 	if result.TotalEvents != 3 {
 		t.Errorf("TotalEvents = %d, want 3", result.TotalEvents)
 	}
-	if result.Counts[EventToolUse] != 2 {
-		t.Errorf("ToolUse = %d, want 2", result.Counts[EventToolUse])
+	if result.Counts[event.EventToolUse] != 2 {
+		t.Errorf("ToolUse = %d, want 2", result.Counts[event.EventToolUse])
 	}
-	if result.Counts[EventTokenUpdate] != 1 {
-		t.Errorf("TokenUpdate = %d, want 1", result.Counts[EventTokenUpdate])
+	if result.Counts[event.EventTokenUpdate] != 1 {
+		t.Errorf("TokenUpdate = %d, want 1", result.Counts[event.EventTokenUpdate])
 	}
 }
 
@@ -48,13 +50,13 @@ func TestValidationResult_Require(t *testing.T) {
 	result := &ValidationResult{
 		TotalEvents: 5,
 		Counts: map[ParsedEventType]int{
-			EventToolUse:     3,
-			EventTokenUpdate: 2,
+			event.EventToolUse:     3,
+			event.EventTokenUpdate: 2,
 		},
 	}
 
-	result.Require(EventToolUse, 1)
-	result.Require(EventTokenUpdate, 1)
+	result.Require(event.EventToolUse, 1)
+	result.Require(event.EventTokenUpdate, 1)
 	if err := result.Check(); err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
@@ -66,12 +68,12 @@ func TestValidationResult_RequireFails(t *testing.T) {
 	result := &ValidationResult{
 		TotalEvents: 1,
 		Counts: map[ParsedEventType]int{
-			EventToolUse: 1,
+			event.EventToolUse: 1,
 		},
 	}
 
-	result.Require(EventToolUse, 1)
-	result.Require(EventTokenUpdate, 1) // fails: 0 < 1
+	result.Require(event.EventToolUse, 1)
+	result.Require(event.EventTokenUpdate, 1) // fails: 0 < 1
 	if err := result.Check(); err == nil {
 		t.Error("expected error, got nil")
 	}

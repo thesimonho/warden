@@ -1,4 +1,4 @@
-package eventbus
+package hook
 
 import (
 	"context"
@@ -9,14 +9,16 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/thesimonho/warden/event"
 )
 
 // writeEventFile writes a JSON event file atomically using the same
 // pattern as the container-side warden-write-event.sh script.
-func writeEventFile(t *testing.T, dir string, event ContainerEvent) string {
+func writeEventFile(t *testing.T, dir string, ev event.ContainerEvent) string {
 	t.Helper()
 
-	data, err := json.Marshal(event)
+	data, err := json.Marshal(ev)
 	if err != nil {
 		t.Fatalf("marshal event: %v", err)
 	}
@@ -57,13 +59,13 @@ func setupTestWatcher(t *testing.T) (string, string, *Watcher, *eventCollector) 
 // eventCollector collects events for assertions in tests.
 type eventCollector struct {
 	mu     sync.Mutex
-	events []ContainerEvent
+	events []event.ContainerEvent
 }
 
-func (c *eventCollector) handle(event ContainerEvent) {
+func (c *eventCollector) handle(ev event.ContainerEvent) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	c.events = append(c.events, event)
+	c.events = append(c.events, ev)
 }
 
 func (c *eventCollector) count() int {
@@ -72,7 +74,7 @@ func (c *eventCollector) count() int {
 	return len(c.events)
 }
 
-func (c *eventCollector) get(i int) ContainerEvent {
+func (c *eventCollector) get(i int) event.ContainerEvent {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	return c.events[i]
@@ -103,8 +105,8 @@ func TestWatcher_ProcessesAtomicWrite(t *testing.T) {
 	}
 	defer w.Shutdown(context.Background()) //nolint:errcheck
 
-	writeEventFile(t, eventDir, ContainerEvent{
-		Type:          EventHeartbeat,
+	writeEventFile(t, eventDir, event.ContainerEvent{
+		Type:          event.EventHeartbeat,
 		ContainerName: "test-container",
 		Timestamp:     time.Now(),
 	})
@@ -112,8 +114,8 @@ func TestWatcher_ProcessesAtomicWrite(t *testing.T) {
 	collector.waitFor(t, 1, 3*time.Second)
 
 	got := collector.get(0)
-	if got.Type != EventHeartbeat {
-		t.Errorf("got type %q, want %q", got.Type, EventHeartbeat)
+	if got.Type != event.EventHeartbeat {
+		t.Errorf("got type %q, want %q", got.Type, event.EventHeartbeat)
 	}
 	if got.ContainerName != "test-container" {
 		t.Errorf("got container %q, want %q", got.ContainerName, "test-container")
@@ -177,8 +179,8 @@ func TestWatcher_ProcessExistingFiles(t *testing.T) {
 
 	// Write files BEFORE starting the watcher (crash recovery).
 	for i := 0; i < 3; i++ {
-		writeEventFile(t, eventDir, ContainerEvent{
-			Type:          EventHeartbeat,
+		writeEventFile(t, eventDir, event.ContainerEvent{
+			Type:          event.EventHeartbeat,
 			ContainerName: "test-container",
 			Timestamp:     time.Now(),
 		})
@@ -218,13 +220,13 @@ func TestWatcher_ConcurrentContainerDirs(t *testing.T) {
 	defer w.Shutdown(context.Background()) //nolint:errcheck
 
 	// Write to both directories.
-	writeEventFile(t, filepath.Join(baseDir, "container-a"), ContainerEvent{
-		Type:          EventSessionStart,
+	writeEventFile(t, filepath.Join(baseDir, "container-a"), event.ContainerEvent{
+		Type:          event.EventSessionStart,
 		ContainerName: "container-a",
 		Timestamp:     time.Now(),
 	})
-	writeEventFile(t, filepath.Join(baseDir, "container-b"), ContainerEvent{
-		Type:          EventSessionEnd,
+	writeEventFile(t, filepath.Join(baseDir, "container-b"), event.ContainerEvent{
+		Type:          event.EventSessionEnd,
 		ContainerName: "container-b",
 		Timestamp:     time.Now(),
 	})
@@ -247,8 +249,8 @@ func TestWatcher_CleanupContainerDir(t *testing.T) {
 	defer w.Shutdown(context.Background()) //nolint:errcheck
 
 	// Write an event, then clean up.
-	writeEventFile(t, eventDir, ContainerEvent{
-		Type:          EventHeartbeat,
+	writeEventFile(t, eventDir, event.ContainerEvent{
+		Type:          event.EventHeartbeat,
 		ContainerName: "test-container",
 		Timestamp:     time.Now(),
 	})
@@ -281,8 +283,8 @@ func TestWatcher_FallbackTimestamp(t *testing.T) {
 	defer w.Shutdown(context.Background()) //nolint:errcheck
 
 	// Write event without a timestamp — watcher should assign one.
-	writeEventFile(t, eventDir, ContainerEvent{
-		Type:          EventHeartbeat,
+	writeEventFile(t, eventDir, event.ContainerEvent{
+		Type:          event.EventHeartbeat,
 		ContainerName: "test-container",
 	})
 
@@ -347,8 +349,8 @@ func TestWatcher_CleanupDrainsUnprocessedEvents(t *testing.T) {
 
 	// Write event — with 1h poll interval, only CleanupContainerDir
 	// or fsnotify will process it.
-	writeEventFile(t, eventDir, ContainerEvent{
-		Type:          EventSessionStart,
+	writeEventFile(t, eventDir, event.ContainerEvent{
+		Type:          event.EventSessionStart,
 		ContainerName: containerName,
 		Timestamp:     time.Now(),
 	})
@@ -404,8 +406,8 @@ func TestWatcher_WatchAndUnwatchContainerDir(t *testing.T) {
 	// Manually register the container directory for fsnotify.
 	w.WatchContainerDir(containerName)
 
-	writeEventFile(t, eventDir, ContainerEvent{
-		Type:          EventHeartbeat,
+	writeEventFile(t, eventDir, event.ContainerEvent{
+		Type:          event.EventHeartbeat,
 		ContainerName: containerName,
 		Timestamp:     time.Now(),
 	})

@@ -11,39 +11,39 @@ import (
 	"github.com/thesimonho/warden/api"
 	"github.com/thesimonho/warden/constants"
 	"github.com/thesimonho/warden/db"
-	"github.com/thesimonho/warden/eventbus"
+	"github.com/thesimonho/warden/event"
 )
 
 // auditEventsByCategory maps audit categories to their corresponding event types.
 // Uses eventbus constants to avoid string literal drift.
 var auditEventsByCategory = map[api.AuditCategory][]string{
 	api.AuditCategorySession: {
-		string(eventbus.EventSessionStart), string(eventbus.EventSessionEnd),
-		string(eventbus.EventSessionExit),
-		string(eventbus.EventTurnComplete), string(eventbus.EventTurnDuration),
-		string(eventbus.EventContextCompact),
-		string(eventbus.EventSystemInfo),
+		string(event.EventSessionStart), string(event.EventSessionEnd),
+		string(event.EventSessionExit),
+		string(event.EventTurnComplete), string(event.EventTurnDuration),
+		string(event.EventContextCompact),
+		string(event.EventSystemInfo),
 		// Terminal lifecycle.
-		string(eventbus.EventTerminalConnected), string(eventbus.EventTerminalDisconnected),
+		string(event.EventTerminalConnected), string(event.EventTerminalDisconnected),
 		"container_heartbeat_stale", "container_startup_failed",
-		string(eventbus.EventContainerError),
+		string(event.EventContainerError),
 		// Worktree lifecycle.
 		"worktree_created", "worktree_removed", "worktree_reset", "worktree_cleaned_up",
 		"worktree_create_failed", "terminal_connect_failed", "terminal_disconnect_failed",
 		"worktree_kill_failed", "worktree_remove_failed", "worktree_reset_failed", "worktree_cleanup_failed",
-		string(eventbus.EventStopFailure),
+		string(event.EventStopFailure),
 	},
 	api.AuditCategoryAgent: {
-		string(eventbus.EventToolUse),
-		string(eventbus.EventToolUseFailure), string(eventbus.EventPermissionRequest),
-		string(eventbus.EventSubagentStart), string(eventbus.EventSubagentStop),
-		string(eventbus.EventTaskCompleted),
-		string(eventbus.EventElicitation), string(eventbus.EventElicitationResult),
-		string(eventbus.EventPermissionGrant),
+		string(event.EventToolUse),
+		string(event.EventToolUseFailure), string(event.EventPermissionRequest),
+		string(event.EventSubagentStart), string(event.EventSubagentStop),
+		string(event.EventTaskCompleted),
+		string(event.EventElicitation), string(event.EventElicitationResult),
+		string(event.EventPermissionGrant),
 	},
-	api.AuditCategoryPrompt: {string(eventbus.EventUserPrompt)},
+	api.AuditCategoryPrompt: {string(event.EventUserPrompt)},
 	api.AuditCategoryConfig: {
-		string(eventbus.EventConfigChange), string(eventbus.EventInstructionsLoaded),
+		string(event.EventConfigChange), string(event.EventInstructionsLoaded),
 	},
 	api.AuditCategoryBudget: {
 		"budget_exceeded", "budget_worktrees_stopped",
@@ -51,13 +51,13 @@ var auditEventsByCategory = map[api.AuditCategory][]string{
 		"cost_reset", "cost_snapshot",
 	},
 	api.AuditCategorySystem: {
-		string(eventbus.EventProcessKilled), "restart_blocked_stale_mounts",
+		string(event.EventProcessKilled), "restart_blocked_stale_mounts",
 		"project_removed", "container_created", "container_deleted", "container_updated", "audit_purged",
 		"access_item_created", "access_item_updated", "access_item_deleted", "access_item_reset",
-		string(eventbus.EventApiMetrics),
-		string(eventbus.EventRuntimeInstalled),
-		string(eventbus.EventAgentInstalled),
-		string(eventbus.EventNetworkBlocked),
+		string(event.EventApiMetrics),
+		string(event.EventRuntimeInstalled),
+		string(event.EventAgentInstalled),
+		string(event.EventNetworkBlocked),
 	},
 }
 
@@ -244,7 +244,7 @@ func (s *Service) PostAuditEvent(req api.PostAuditEventRequest) error {
 	}
 
 	entry := db.Entry{
-		Source:    db.Source(source),
+		Source:   db.Source(source),
 		Level:    level,
 		Event:    req.Event,
 		Message:  req.Message,

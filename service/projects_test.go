@@ -10,6 +10,7 @@ import (
 	"github.com/thesimonho/warden/api"
 	"github.com/thesimonho/warden/db"
 	"github.com/thesimonho/warden/engine"
+	"github.com/thesimonho/warden/event"
 	"github.com/thesimonho/warden/eventbus"
 )
 
@@ -267,8 +268,8 @@ func TestListProjects_OverlaysAttention(t *testing.T) {
 	_ = database.InsertProject(db.ProjectRow{ProjectID: "my-project", Name: "my-project", HostPath: "/test/my-project"})
 
 	store := eventbus.NewStore(nil, nil)
-	store.HandleEvent(eventbus.ContainerEvent{
-		Type:          eventbus.EventAttention,
+	store.HandleEvent(event.ContainerEvent{
+		Type:          event.EventAttention,
 		ContainerName: "my-project",
 		WorktreeID:    "main",
 		Data:          []byte(`{"notificationType":"permission_prompt"}`),
@@ -304,16 +305,16 @@ func TestListProjects_OverlaysAttentionHighestPriority(t *testing.T) {
 
 	store := eventbus.NewStore(nil, nil)
 	// One worktree needs idle_prompt (low priority)
-	store.HandleEvent(eventbus.ContainerEvent{
-		Type:          eventbus.EventAttention,
+	store.HandleEvent(event.ContainerEvent{
+		Type:          event.EventAttention,
 		ContainerName: "my-project",
 		WorktreeID:    "wt-1",
 		Data:          []byte(`{"notificationType":"idle_prompt"}`),
 		Timestamp:     time.Now(),
 	})
 	// Another worktree needs permission_prompt (high priority)
-	store.HandleEvent(eventbus.ContainerEvent{
-		Type:          eventbus.EventAttention,
+	store.HandleEvent(event.ContainerEvent{
+		Type:          event.EventAttention,
 		ContainerName: "my-project",
 		WorktreeID:    "wt-2",
 		Data:          []byte(`{"notificationType":"permission_prompt"}`),

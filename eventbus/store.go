@@ -1,3 +1,8 @@
+// Package eventbus implements the runtime event processing pipeline.
+// It maintains in-memory container state, broadcasts changes to SSE
+// subscribers, writes audit logs, and monitors container liveness.
+// Event types are defined in the [event] package; filesystem ingestion
+// is handled by [watcher/hook].
 package eventbus
 
 import (
@@ -7,6 +12,7 @@ import (
 
 	"github.com/thesimonho/warden/db"
 	"github.com/thesimonho/warden/engine"
+	"github.com/thesimonho/warden/event"
 )
 
 // WorktreeState holds the real-time state for a single worktree,
@@ -42,7 +48,7 @@ type worktreeKey struct {
 
 // pendingBroadcast holds an SSE event to be sent after the store lock is released.
 type pendingBroadcast struct {
-	event SSEEventType
+	event event.SSEEventType
 	data  any
 }
 
@@ -79,7 +85,7 @@ func (ts *TerminalState) DeriveWorktreeState() engine.WorktreeState {
 // WorktreeStatePayload is the JSON shape sent over SSE for worktree_state events.
 // Shared by all broadcast helpers to keep the Go and TypeScript types in sync.
 type WorktreeStatePayload struct {
-	ProjectRef
+	event.ProjectRef
 	WorktreeID       string                  `json:"worktreeId"`
 	NeedsInput       bool                    `json:"needsInput"`
 	NotificationType engine.NotificationType `json:"notificationType,omitempty"`
@@ -192,82 +198,82 @@ func (s *Store) SetAliveCallback(fn AliveCallbackFunc) {
 // HandleEvent processes a container event, updates state, and
 // broadcasts changes to SSE clients. This is the callback passed
 // to the Watcher.
-func (s *Store) HandleEvent(event ContainerEvent) {
+func (s *Store) HandleEvent(evt event.ContainerEvent) {
 	s.mu.Lock()
 
 	key := worktreeKey{
-		containerName: event.ContainerName,
-		worktreeID:    event.WorktreeID,
+		containerName: evt.ContainerName,
+		worktreeID:    evt.WorktreeID,
 	}
 
-	_, wasKnown := s.lastEvents[event.ContainerName]
-	isLifecycleEvent := event.Type == EventHeartbeat || event.Type == EventSessionStart
-	s.lastEvents[event.ContainerName] = event.Timestamp
+	_, wasKnown := s.lastEvents[evt.ContainerName]
+	isLifecycleEvent := evt.Type == event.EventHeartbeat || evt.Type == event.EventSessionStart
+	s.lastEvents[evt.ContainerName] = evt.Timestamp
 
 	var broadcasts []pendingBroadcast
-	var costData CostData // populated by handleCostUpdate, reused by onCostUpdate callback
+	var costData event.CostData // populated by handleCostUpdate, reused by onCostUpdate callback
 
-	switch event.Type {
-	case EventAttention:
-		broadcasts = s.handleAttention(key, event)
-	case EventAttentionClear:
-		broadcasts = s.handleAttentionClear(key, event)
-	case EventNeedsAnswer:
-		broadcasts = s.handleNeedsAnswer(key, event)
-	case EventSessionStart:
-		broadcasts = s.handleSessionStart(key, event)
-	case EventSessionEnd:
-		broadcasts = s.handleSessionEnd(key, event)
-	case EventCostUpdate:
-		broadcasts, costData = s.handleCostUpdate(key, event)
-	case EventHeartbeat:
+	switch evt.Type {
+	case event.EventAttention:
+		broadcasts = s.handleAttention(key, evt)
+	case event.EventAttentionClear:
+		broadcasts = s.handleAttentionClear(key, evt)
+	case event.EventNeedsAnswer:
+		broadcasts = s.handleNeedsAnswer(key, evt)
+	case event.EventSessionStart:
+		broadcasts = s.handleSessionStart(key, evt)
+	case event.EventSessionEnd:
+		broadcasts = s.handleSessionEnd(key, evt)
+	case event.EventCostUpdate:
+		broadcasts, costData = s.handleCostUpdate(key, evt)
+	case event.EventHeartbeat:
 		// No-op — lastEvents is already updated above for all event types.
-	case EventUserPrompt:
+	case event.EventUserPrompt:
 		// No state change — the prompt is logged to the audit log by writeToAuditLog below.
-	case EventToolUse, EventToolUseFailure:
+	case event.EventToolUse, event.EventToolUseFailure:
 		// No state change — tool events are logged to the audit log by writeToAuditLog below.
-	case EventStopFailure:
+	case event.EventStopFailure:
 		// No state change — stop failure is logged for audit.
-	case EventPermissionRequest:
+	case event.EventPermissionRequest:
 		// No state change — permission requests are logged for audit.
-	case EventSubagentStart, EventSubagentStop:
+	case event.EventSubagentStart, event.EventSubagentStop:
 		// No state change — subagent lifecycle is logged for audit.
-	case EventConfigChange, EventInstructionsLoaded:
+	case event.EventConfigChange, event.EventInstructionsLoaded:
 		// No state change — config events are logged for audit.
-	case EventTaskCompleted:
+	case event.EventTaskCompleted:
 		// No state change — task completion is logged for audit.
-	case EventElicitation, EventElicitationResult:
+	case event.EventElicitation, event.EventElicitationResult:
 		// No state change — MCP elicitation events are logged for audit.
-	case EventTurnComplete:
-		broadcasts = s.handleTurnComplete(key, event)
-	case EventTurnDuration:
+	case event.EventTurnComplete:
+		broadcasts = s.handleTurnComplete(key, evt)
+	case event.EventTurnDuration:
 		// No state change — turn duration is logged for audit.
-	case EventApiMetrics:
+	case event.EventApiMetrics:
 		// No state change — API performance metrics are logged for audit.
-	case EventPermissionGrant:
+	case event.EventPermissionGrant:
 		// No state change — permission grants are logged for audit.
-	case EventContextCompact:
+	case event.EventContextCompact:
 		// No state change — context compaction is logged for audit.
-	case EventSystemInfo:
+	case event.EventSystemInfo:
 		// No state change — informational system messages are logged for audit.
-	case EventRuntimeInstalling, EventRuntimeInstalled:
-		broadcasts = s.handleRuntimeStatus(event)
-	case EventAgentInstalling, EventAgentInstalled:
-		broadcasts = s.handleAgentStatus(event)
-	case EventNetworkBlocked:
+	case event.EventRuntimeInstalling, event.EventRuntimeInstalled:
+		broadcasts = s.handleRuntimeStatus(evt)
+	case event.EventAgentInstalling, event.EventAgentInstalled:
+		broadcasts = s.handleAgentStatus(evt)
+	case event.EventNetworkBlocked:
 		// No state change — blocked connections are logged for audit.
-	case EventContainerError:
+	case event.EventContainerError:
 		// No state change — fatal container errors are logged for audit.
-	case EventTerminalConnected:
-		broadcasts = s.handleTerminalConnected(key, event)
-	case EventTerminalDisconnected:
-		broadcasts = s.handleTerminalDisconnected(key, event)
-	case EventProcessKilled:
-		broadcasts = s.handleProcessKilled(key, event)
-	case EventSessionExit:
-		broadcasts = s.handleSessionExit(key, event)
+	case event.EventTerminalConnected:
+		broadcasts = s.handleTerminalConnected(key, evt)
+	case event.EventTerminalDisconnected:
+		broadcasts = s.handleTerminalDisconnected(key, evt)
+	case event.EventProcessKilled:
+		broadcasts = s.handleProcessKilled(key, evt)
+	case event.EventSessionExit:
+		broadcasts = s.handleSessionExit(key, evt)
 	default:
-		slog.Warn("unknown event type", "type", event.Type, "container", event.ContainerName)
+		slog.Warn("unknown event type", "type", evt.Type, "container", evt.ContainerName)
 	}
 
 	writer := s.auditWriter
@@ -280,20 +286,20 @@ func (s *Store) HandleEvent(event ContainerEvent) {
 	s.broadcast(broadcasts)
 
 	// Write to the audit log (outside the lock).
-	s.writeToAuditLog(writer, event)
+	s.writeToAuditLog(writer, evt)
 
 	// On every cost update, invoke the callback for cost persistence and
 	// budget enforcement. Uses cost data already parsed by handleCostUpdate.
 	// Runs outside the lock because enforcement may call back into docker.
-	if event.Type == EventCostUpdate && onCostUpdate != nil {
-		onCostUpdate(event.ProjectID, event.AgentType, event.ContainerName, costData.SessionID, costData.TotalCost, costData.IsEstimated)
+	if evt.Type == event.EventCostUpdate && onCostUpdate != nil {
+		onCostUpdate(evt.ProjectID, evt.AgentType, evt.ContainerName, costData.SessionID, costData.TotalCost, costData.IsEstimated)
 	}
 
 	// Fire alive callback when a container appears for the first time
 	// (or reappears after being marked stale). Only lifecycle events
 	// trigger this to avoid spurious watcher starts from stray events.
 	if !wasKnown && isLifecycleEvent && onAlive != nil {
-		onAlive(event.ProjectID, event.AgentType, event.ContainerName)
+		onAlive(evt.ProjectID, evt.AgentType, evt.ContainerName)
 	}
 }
 
@@ -407,7 +413,7 @@ func (s *Store) EvictWorktree(containerName, worktreeID string) {
 
 	// Broadcast cleared state so frontends drop the worktree immediately.
 	// TODO(Phase 5): pass projectID through EvictWorktree so SSE events carry it.
-	s.broadcast([]pendingBroadcast{buildWorktreeBroadcast(ProjectRef{ContainerName: containerName}, worktreeID, nil, nil)})
+	s.broadcast([]pendingBroadcast{buildWorktreeBroadcast(event.ProjectRef{ContainerName: containerName}, worktreeID, nil, nil)})
 }
 
 // HasTerminalData reports whether the store has any terminal lifecycle

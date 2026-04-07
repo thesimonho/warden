@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/thesimonho/warden/agent"
+	"github.com/thesimonho/warden/event"
 )
 
 // parseFixtureEvents reads the fixture and collects all parsed events.
@@ -41,35 +42,35 @@ func TestParseFixture_EventCounts(t *testing.T) {
 	}
 
 	// Minimum events any valid Codex session must produce.
-	result.Require(agent.EventToolUse, 1)
-	result.Require(agent.EventTokenUpdate, 1)
+	result.Require(event.EventToolUse, 1)
+	result.Require(event.EventTokenUpdate, 1)
 	if err := result.Check(); err != nil {
 		t.Fatalf("baseline validation failed: %v", err)
 	}
 
 	// Exact counts for this fixture.
-	if got := result.Counts[agent.EventSessionStart]; got != 1 {
+	if got := result.Counts[event.EventSessionStart]; got != 1 {
 		t.Errorf("SessionStart events = %d, want 1", got)
 	}
-	if got := result.Counts[agent.EventToolUse]; got != 9 {
+	if got := result.Counts[event.EventToolUse]; got != 9 {
 		t.Errorf("ToolUse events = %d, want 9", got)
 	}
-	if got := result.Counts[agent.EventUserPrompt]; got != 5 {
+	if got := result.Counts[event.EventUserPrompt]; got != 5 {
 		t.Errorf("UserPrompt events = %d, want 5", got)
 	}
-	if got := result.Counts[agent.EventTokenUpdate]; got != 3 {
+	if got := result.Counts[event.EventTokenUpdate]; got != 3 {
 		t.Errorf("TokenUpdate events = %d, want 3", got)
 	}
-	if got := result.Counts[agent.EventTurnComplete]; got != 1 {
+	if got := result.Counts[event.EventTurnComplete]; got != 1 {
 		t.Errorf("TurnComplete events = %d, want 1", got)
 	}
-	if got := result.Counts[agent.EventToolUseFailure]; got != 3 {
+	if got := result.Counts[event.EventToolUseFailure]; got != 3 {
 		t.Errorf("ToolUseFailure events = %d, want 3", got)
 	}
-	if got := result.Counts[agent.EventStopFailure]; got != 2 {
+	if got := result.Counts[event.EventStopFailure]; got != 2 {
 		t.Errorf("StopFailure events = %d, want 2", got)
 	}
-	if got := result.Counts[agent.EventContextCompact]; got != 3 {
+	if got := result.Counts[event.EventContextCompact]; got != 3 {
 		t.Errorf("ContextCompact events = %d, want 3", got)
 	}
 }
@@ -80,7 +81,7 @@ func TestParseFixture_ToolNames(t *testing.T) {
 
 	var toolNames []string
 	for _, e := range events {
-		if e.Type == agent.EventToolUse {
+		if e.Type == event.EventToolUse {
 			toolNames = append(toolNames, e.ToolName)
 		}
 	}
@@ -105,7 +106,7 @@ func TestParseFixture_TokensFromLastUpdate(t *testing.T) {
 
 	var lastTokenEvent agent.ParsedEvent
 	for _, e := range events {
-		if e.Type == agent.EventTokenUpdate {
+		if e.Type == event.EventTokenUpdate {
 			lastTokenEvent = e
 		}
 	}
@@ -128,10 +129,10 @@ func TestParseFixture_ModelPopulated(t *testing.T) {
 	events := parseFixtureEvents(t)
 
 	for _, e := range events {
-		if e.Type == agent.EventTokenUpdate && e.Model == "" {
+		if e.Type == event.EventTokenUpdate && e.Model == "" {
 			t.Error("TokenUpdate event has empty model")
 		}
-		if e.Type == agent.EventToolUse && e.Model == "" {
+		if e.Type == event.EventToolUse && e.Model == "" {
 			t.Error("ToolUse event has empty model")
 		}
 	}
@@ -142,7 +143,7 @@ func TestParseFixture_SessionStart(t *testing.T) {
 	events := parseFixtureEvents(t)
 
 	for _, e := range events {
-		if e.Type == agent.EventSessionStart {
+		if e.Type == event.EventSessionStart {
 			if e.SessionID != "test-codex-session-001" {
 				t.Errorf("SessionStart ID = %q, want %q", e.SessionID, "test-codex-session-001")
 			}
@@ -161,7 +162,7 @@ func TestParseFixture_EstimatedCost(t *testing.T) {
 
 	var lastCost float64
 	for _, e := range events {
-		if e.Type == agent.EventTokenUpdate {
+		if e.Type == event.EventTokenUpdate {
 			lastCost = e.EstimatedCostUSD
 		}
 	}
@@ -177,7 +178,7 @@ func TestParseFixture_ToolUseFailure(t *testing.T) {
 
 	var failures []string
 	for _, e := range events {
-		if e.Type == agent.EventToolUseFailure {
+		if e.Type == event.EventToolUseFailure {
 			failures = append(failures, e.ErrorContent)
 		}
 	}
@@ -192,7 +193,7 @@ func TestParseFixture_StopFailure(t *testing.T) {
 	events := parseFixtureEvents(t)
 
 	for _, e := range events {
-		if e.Type == agent.EventStopFailure {
+		if e.Type == event.EventStopFailure {
 			if e.ErrorContent == "" {
 				t.Error("StopFailure has empty error content")
 			}
@@ -208,7 +209,7 @@ func TestParseFixture_ContextCompact(t *testing.T) {
 
 	var triggers []string
 	for _, e := range events {
-		if e.Type == agent.EventContextCompact {
+		if e.Type == event.EventContextCompact {
 			triggers = append(triggers, e.CompactTrigger)
 		}
 	}
@@ -223,7 +224,7 @@ func TestParseFixture_TurnAborted(t *testing.T) {
 	events := parseFixtureEvents(t)
 
 	for _, e := range events {
-		if e.Type == agent.EventStopFailure && e.ErrorContent == "turn aborted: interrupted" {
+		if e.Type == event.EventStopFailure && e.ErrorContent == "turn aborted: interrupted" {
 			return
 		}
 	}
@@ -235,7 +236,7 @@ func TestParseFixture_LocalShellCall(t *testing.T) {
 	events := parseFixtureEvents(t)
 
 	for _, e := range events {
-		if e.Type == agent.EventToolUse && e.ToolName == "shell" {
+		if e.Type == event.EventToolUse && e.ToolName == "shell" {
 			if e.ToolInput != "ls -la /tmp" {
 				t.Errorf("shell ToolInput = %q, want %q", e.ToolInput, "ls -la /tmp")
 			}
@@ -250,7 +251,7 @@ func TestParseFixture_CustomToolCall(t *testing.T) {
 	events := parseFixtureEvents(t)
 
 	for _, e := range events {
-		if e.Type == agent.EventToolUse && e.ToolName == "lint_file" {
+		if e.Type == event.EventToolUse && e.ToolName == "lint_file" {
 			if e.ToolInput != "src/main.rs" {
 				t.Errorf("custom tool ToolInput = %q, want %q", e.ToolInput, "src/main.rs")
 			}
@@ -266,7 +267,7 @@ func TestParseFixture_UserShellCommand(t *testing.T) {
 
 	var bashCommands, bashOutputs []agent.ParsedEvent
 	for _, e := range events {
-		if e.Type != agent.EventUserPrompt {
+		if e.Type != event.EventUserPrompt {
 			continue
 		}
 		switch e.PromptSource {
@@ -494,8 +495,8 @@ func TestValidateLive(t *testing.T) {
 		t.Fatalf("parsing live JSONL: %v", err)
 	}
 
-	result.Require(agent.EventToolUse, 1)
-	result.Require(agent.EventTokenUpdate, 1)
+	result.Require(event.EventToolUse, 1)
+	result.Require(event.EventTokenUpdate, 1)
 	if err := result.Check(); err != nil {
 		t.Fatalf("live validation failed: %v", err)
 	}

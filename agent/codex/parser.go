@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/thesimonho/warden/agent"
+	"github.com/thesimonho/warden/event"
 )
 
 // likelyErrorPrefixes are lowercase prefixes that indicate a function_call_output
@@ -156,7 +157,7 @@ func (p *Parser) parseSessionMeta(item RolloutItem) []agent.ParsedEvent {
 	p.worktreeID = agent.WorktreeIDFromCWD(meta.CWD)
 
 	event := agent.ParsedEvent{
-		Type:       agent.EventSessionStart,
+		Type:       event.EventSessionStart,
 		SessionID:  meta.ID,
 		WorktreeID: p.worktreeID,
 		Timestamp:  item.Timestamp,
@@ -186,7 +187,7 @@ func (p *Parser) parseTurnContext(item RolloutItem) []agent.ParsedEvent {
 // toolUseEvent builds a tool_use ParsedEvent with common fields pre-filled.
 func (p *Parser) toolUseEvent(ts, toolName, toolInput string) agent.ParsedEvent {
 	return agent.ParsedEvent{
-		Type:       agent.EventToolUse,
+		Type:       event.EventToolUse,
 		SessionID:  p.sessionID,
 		WorktreeID: p.worktreeID,
 		Timestamp:  ts,
@@ -199,7 +200,7 @@ func (p *Parser) toolUseEvent(ts, toolName, toolInput string) agent.ParsedEvent 
 // toolFailureEvent builds a tool_use_failure ParsedEvent with common fields pre-filled.
 func (p *Parser) toolFailureEvent(ts, toolName, errorContent string) agent.ParsedEvent {
 	return agent.ParsedEvent{
-		Type:         agent.EventToolUseFailure,
+		Type:         event.EventToolUseFailure,
 		SessionID:    p.sessionID,
 		WorktreeID:   p.worktreeID,
 		Timestamp:    ts,
@@ -219,7 +220,7 @@ func (p *Parser) parseUserShellCommand(item RolloutItem, msg EventMsg) []agent.P
 	}
 
 	events := []agent.ParsedEvent{{
-		Type:         agent.EventUserPrompt,
+		Type:         event.EventUserPrompt,
 		SessionID:    p.sessionID,
 		WorktreeID:   p.worktreeID,
 		Timestamp:    item.Timestamp,
@@ -235,7 +236,7 @@ func (p *Parser) parseUserShellCommand(item RolloutItem, msg EventMsg) []agent.P
 	}
 	if output != "" {
 		events = append(events, agent.ParsedEvent{
-			Type:         agent.EventUserPrompt,
+			Type:         event.EventUserPrompt,
 			SessionID:    p.sessionID,
 			WorktreeID:   p.worktreeID,
 			Timestamp:    item.Timestamp,
@@ -333,7 +334,7 @@ func (p *Parser) parseEventMsg(item RolloutItem) []agent.ParsedEvent {
 			return nil
 		}
 		return []agent.ParsedEvent{{
-			Type:         agent.EventUserPrompt,
+			Type:         event.EventUserPrompt,
 			SessionID:    p.sessionID,
 			WorktreeID:   p.worktreeID,
 			Timestamp:    item.Timestamp,
@@ -353,7 +354,7 @@ func (p *Parser) parseEventMsg(item RolloutItem) []agent.ParsedEvent {
 			CacheWriteTokens: 0, // Codex doesn't report cache writes separately.
 		}
 		return []agent.ParsedEvent{{
-			Type:             agent.EventTokenUpdate,
+			Type:             event.EventTokenUpdate,
 			SessionID:        p.sessionID,
 			WorktreeID:       p.worktreeID,
 			Timestamp:        item.Timestamp,
@@ -366,7 +367,7 @@ func (p *Parser) parseEventMsg(item RolloutItem) []agent.ParsedEvent {
 		// Clear stale call ID → tool name mappings from the completed turn.
 		clear(p.toolNames)
 		return []agent.ParsedEvent{{
-			Type:       agent.EventTurnComplete,
+			Type:       event.EventTurnComplete,
 			SessionID:  p.sessionID,
 			WorktreeID: p.worktreeID,
 			Timestamp:  item.Timestamp,
@@ -380,7 +381,7 @@ func (p *Parser) parseEventMsg(item RolloutItem) []agent.ParsedEvent {
 	// Extended mode only — requires persist_extended_history (app-server).
 	case "error":
 		return []agent.ParsedEvent{{
-			Type:         agent.EventStopFailure,
+			Type:         event.EventStopFailure,
 			SessionID:    p.sessionID,
 			WorktreeID:   p.worktreeID,
 			Timestamp:    item.Timestamp,
@@ -390,7 +391,7 @@ func (p *Parser) parseEventMsg(item RolloutItem) []agent.ParsedEvent {
 	// Limited mode — always persisted.
 	case "turn_aborted":
 		return []agent.ParsedEvent{{
-			Type:         agent.EventStopFailure,
+			Type:         event.EventStopFailure,
 			SessionID:    p.sessionID,
 			WorktreeID:   p.worktreeID,
 			Timestamp:    item.Timestamp,
@@ -399,7 +400,7 @@ func (p *Parser) parseEventMsg(item RolloutItem) []agent.ParsedEvent {
 
 	case "context_compacted":
 		return []agent.ParsedEvent{{
-			Type:           agent.EventContextCompact,
+			Type:           event.EventContextCompact,
 			SessionID:      p.sessionID,
 			WorktreeID:     p.worktreeID,
 			Timestamp:      item.Timestamp,
@@ -408,7 +409,7 @@ func (p *Parser) parseEventMsg(item RolloutItem) []agent.ParsedEvent {
 
 	case "thread_rolled_back":
 		return []agent.ParsedEvent{{
-			Type:           agent.EventContextCompact,
+			Type:           event.EventContextCompact,
 			SessionID:      p.sessionID,
 			WorktreeID:     p.worktreeID,
 			Timestamp:      item.Timestamp,
@@ -451,7 +452,7 @@ func (p *Parser) parseCompacted(item RolloutItem) []agent.ParsedEvent {
 		return nil
 	}
 	return []agent.ParsedEvent{{
-		Type:           agent.EventContextCompact,
+		Type:           event.EventContextCompact,
 		SessionID:      p.sessionID,
 		WorktreeID:     p.worktreeID,
 		Timestamp:      item.Timestamp,
