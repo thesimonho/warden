@@ -304,35 +304,31 @@ Detects and returns available container runtimes with their socket paths and API
 
 ###### Content-Type: application/json
 
-**Array of:**
-
 - **`available`**
 
-  `boolean` — Available indicates whether the runtime's API socket is reachable.
+  `boolean` — Available indicates whether the Docker API socket is reachable.
 
 - **`name`**
 
-  `string`, possible values: `"docker"` — Name is the runtime identifier ("docker").
+  `string` — Name is the runtime identifier ("docker").
 
 - **`socketPath`**
 
-  `string` — SocketPath is the filesystem path to the runtime's API socket.
+  `string` — SocketPath is the filesystem path to the Docker API socket.
 
 - **`version`**
 
-  `string` — Version is the runtime's reported API version, if available.
+  `string` — Version is Docker's reported API version, if available.
 
 **Example:**
 
 ```json
-[
-  {
-    "available": true,
-    "name": "docker",
-    "socketPath": "",
-    "version": ""
-  }
-]
+{
+  "available": true,
+  "name": "",
+  "socketPath": "",
+  "version": ""
+}
 ```
 
 
