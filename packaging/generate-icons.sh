@@ -84,4 +84,8 @@ cp "${LOGO}" web/public/logo.svg
 # Docs site — shares the same favicon as the web app
 cp web/public/favicon.ico docs/site/public/favicon.ico
 
+# Docs site — light/dark logo variants for Starlight theme
+cp "${LOGO}" docs/site/src/assets/logo-light.svg
+sed 's/#262626/#ffffff/g' "${LOGO}" > docs/site/src/assets/logo-dark.svg
+
 echo "Generated icons for Linux, Windows, macOS, docs, and web"
