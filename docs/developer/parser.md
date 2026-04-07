@@ -11,7 +11,7 @@ Container writes JSONL session line
   → Host-side SessionWatcher polls every 2s
     → SessionParser.FindSessionFiles() discovers active session files
     → SessionParser.ParseLine() converts to []ParsedEvent
-  → SessionEventToContainerEvent() bridges to eventbus.ContainerEvent
+  → SessionEventToContainerEvent() bridges to event.ContainerEvent
   → eventbus pipeline broadcasts SSE + writes audit
 ```
 
