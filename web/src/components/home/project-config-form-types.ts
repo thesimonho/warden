@@ -52,6 +52,7 @@ export interface ProjectConfigFormData {
   costBudget?: number
   enabledAccessItems?: string[]
   enabledRuntimes?: string[]
+  forwardedPorts?: number[]
 }
 
 /** Default container image for new projects. */

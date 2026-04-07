@@ -243,7 +243,7 @@ Registers a host directory as a Warden project. Optionally creates a container i
 
   - **`forwardedPorts`**
 
-    `array` — ForwardedPorts lists container ports to expose via the reverse proxy. Each port (1-65535) is accessible at /api/v1/projects/{id}/{agentType}/proxy/{port}/...
+    `array` — ForwardedPorts lists container ports to expose via the reverse proxy. Each port (1-65535) is accessible at http\://{projectId}-{agentType}-{port}.localhost:{serverPort}/
 
     **Items:**
 

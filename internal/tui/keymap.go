@@ -144,6 +144,7 @@ type WorktreeKeyMap struct {
 	Remove     key.Binding
 	New        key.Binding
 	Cleanup    key.Binding
+	Ports      key.Binding
 	Back       key.Binding
 }
 
@@ -178,6 +179,10 @@ func DefaultWorktreeKeyMap() WorktreeKeyMap {
 			key.WithKeys("c"),
 			key.WithHelp("c", "cleanup"),
 		),
+		Ports: key.NewBinding(
+			key.WithKeys("p"),
+			key.WithHelp("p", "ports"),
+		),
 		Back: key.NewBinding(
 			key.WithKeys("backspace", "esc"),
 			key.WithHelp("esc", "back"),
@@ -193,7 +198,7 @@ func (k WorktreeKeyMap) ShortHelp() []key.Binding {
 // FullHelp returns bindings shown in expanded help.
 func (k WorktreeKeyMap) FullHelp() [][]key.Binding {
 	return [][]key.Binding{
-		{k.Connect, k.Disconnect},
+		{k.Connect, k.Disconnect, k.Ports},
 		{k.Kill, k.Reset, k.Remove},
 		{k.New, k.Cleanup, k.Back},
 	}

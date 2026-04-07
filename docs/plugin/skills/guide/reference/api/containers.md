@@ -106,7 +106,7 @@ Creates a new container for the given project with the provided configuration. S
 
 - **`forwardedPorts`**
 
-  `array` — ForwardedPorts lists container ports to expose via the reverse proxy. Each port (1-65535) is accessible at /api/v1/projects/{id}/{agentType}/proxy/{port}/...
+  `array` — ForwardedPorts lists container ports to expose via the reverse proxy. Each port (1-65535) is accessible at http\://{projectId}-{agentType}-{port}.localhost:{serverPort}/
 
   **Items:**
 
@@ -252,7 +252,7 @@ Updates the project's container configuration. Lightweight changes (budget, skip
 
 - **`forwardedPorts`**
 
-  `array` — ForwardedPorts lists container ports to expose via the reverse proxy. Each port (1-65535) is accessible at /api/v1/projects/{id}/{agentType}/proxy/{port}/...
+  `array` — ForwardedPorts lists container ports to expose via the reverse proxy. Each port (1-65535) is accessible at http\://{projectId}-{agentType}-{port}.localhost:{serverPort}/
 
   **Items:**
 

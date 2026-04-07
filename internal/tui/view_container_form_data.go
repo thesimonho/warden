@@ -85,6 +85,8 @@ func (v *ContainerFormView) submit() tea.Cmd {
 		}
 	}
 
+	req.ForwardedPorts = v.forwardedPorts
+
 	if v.editID != "" {
 		return func() tea.Msg {
 			_, err := v.client.UpdateContainer(context.Background(), v.editID, v.editAgentType, req)
@@ -95,6 +97,40 @@ func (v *ContainerFormView) submit() tea.Cmd {
 		_, err := v.client.CreateContainer(context.Background(), "", string(req.AgentType), req)
 		return OperationResultMsg{Operation: "create", Err: err}
 	}
+}
+
+// savePortInput parses the port input value and saves it to the list.
+// Invalid values or duplicates silently cancel the edit.
+func (v *ContainerFormView) savePortInput() {
+	portStr := strings.TrimSpace(v.portInput.Value())
+	port, err := strconv.Atoi(portStr)
+	if err != nil || port < 1 || port > 65535 {
+		v.cancelPortEdit()
+		return
+	}
+	for _, p := range v.forwardedPorts {
+		if p == port {
+			v.cancelPortEdit()
+			return
+		}
+	}
+	v.forwardedPorts[v.portCursor] = port
+	v.editingPort = false
+	v.portIsNew = false
+	v.portInput.Blur()
+}
+
+// cancelPortEdit discards the current port edit, removing new entries.
+func (v *ContainerFormView) cancelPortEdit() {
+	if v.portIsNew && v.portCursor >= 0 && v.portCursor < len(v.forwardedPorts) {
+		v.forwardedPorts = append(v.forwardedPorts[:v.portCursor], v.forwardedPorts[v.portCursor+1:]...)
+		if v.portCursor >= len(v.forwardedPorts) {
+			v.portCursor = max(len(v.forwardedPorts)-1, -1)
+		}
+	}
+	v.editingPort = false
+	v.portIsNew = false
+	v.portInput.Blur()
 }
 
 // toggleRuntime flips the toggle for a runtime if it is not always-enabled.
@@ -233,6 +269,10 @@ func (v *ContainerFormView) applyTemplate(tmpl *api.ProjectTemplate, currentAgen
 		for _, r := range v.runtimeDefaults {
 			v.runtimeToggles[r.ID] = templateSet[r.ID] || r.AlwaysEnabled
 		}
+	}
+
+	if len(tmpl.ForwardedPorts) > 0 {
+		v.forwardedPorts = tmpl.ForwardedPorts
 	}
 
 	// Apply agent-specific domains with runtime domains merged in.

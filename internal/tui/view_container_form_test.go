@@ -88,10 +88,10 @@ func TestMoveCursorSkipsHiddenFields(t *testing.T) {
 	v.fieldCursor = netNetwork
 
 	// Moving down from Network should skip Domains (hidden when mode=full)
-	// and land on Submit.
+	// and land on Ports.
 	v.moveCursor(1)
-	if v.fieldCursor != netSubmit {
-		t.Errorf("after moving down from Network: fieldCursor=%d, want %d (Submit)", v.fieldCursor, netSubmit)
+	if v.fieldCursor != netPorts {
+		t.Errorf("after moving down from Network: fieldCursor=%d, want %d (Ports)", v.fieldCursor, netPorts)
 	}
 }
 

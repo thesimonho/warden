@@ -11,6 +11,20 @@
 /** Base URL for API requests. Empty string since Vite proxies /api to the backend. */
 export const API_BASE = ''
 
+/**
+ * Returns the port the Go backend is listening on. In production the SPA
+ * is served from the same origin, so `window.location.port` is correct.
+ * In development the Vite dev server runs on a different port and proxies
+ * /api to the backend — `VITE_API_PORT` (defaulting to 8090) provides
+ * the real backend port for subdomain proxy URLs.
+ */
+export function serverPort(): string {
+  if (import.meta.env.DEV) {
+    return (import.meta.env.VITE_API_PORT as string) || '8090'
+  }
+  return window.location.port
+}
+
 /** Builds the URL prefix for a project-scoped API endpoint. */
 export function projectUrl(projectId: string, agentType: string): string {
   return `/api/v1/projects/${projectId}/${agentType}`

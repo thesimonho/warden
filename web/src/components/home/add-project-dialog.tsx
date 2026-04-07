@@ -99,6 +99,7 @@ export default function AddProjectDialog({
           costBudget: data.costBudget,
           enabledAccessItems: data.enabledAccessItems,
           enabledRuntimes: data.enabledRuntimes,
+          forwardedPorts: data.forwardedPorts,
         }
 
         if (isEditMode && editProjectId && editAgentType) {

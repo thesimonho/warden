@@ -322,6 +322,13 @@ func (a *ServiceAdapter) Shutdown(_ context.Context) error {
 	return nil
 }
 
+// BaseURL returns an empty string in embedded mode since there is no
+// HTTP server running. Port forwarding proxy URLs are only available
+// when the TUI connects to a remote Warden server via client.Client.
+func (a *ServiceAdapter) BaseURL() string {
+	return ""
+}
+
 // --- Real-time Events ---
 
 // SubscribeEvents subscribes to the event broker directly (no SSE).

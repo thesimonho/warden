@@ -59,6 +59,7 @@ const (
 const (
 	netNetwork = iota
 	netDomains // only visible when network == "restricted"
+	netPorts
 	netSubmit
 	netFieldCount
 )
@@ -149,6 +150,13 @@ type ContainerFormView struct {
 	envInputs     [2]textinput.Model // key, value
 	envInputFocus int                // 0=key, 1=value
 
+	// Forwarded ports.
+	forwardedPorts []int
+	portCursor     int // sub-cursor within the ports list (-1 = header/add)
+	editingPort    bool
+	portIsNew      bool
+	portInput      textinput.Model
+
 	dirBrowser *components.DirectoryBrowser
 
 	// Server-provided restricted domains per agent type.
@@ -157,6 +165,12 @@ type ContainerFormView struct {
 	keys   FormKeyMap
 	width  int
 	height int
+}
+
+// IsCapturingInput reports whether the form is actively capturing text
+// input (editing a field, inline mount/env/port editing, or browsing).
+func (v *ContainerFormView) IsCapturingInput() bool {
+	return v.editing || v.editingMount || v.editingEnv || v.editingPort || v.browsing
 }
 
 // envVarEntry is a single key-value environment variable.
@@ -263,6 +277,12 @@ func (v *ContainerFormView) initFields(name, path, image, network, domains strin
 	}
 	v.envInputs[0].Placeholder = "VARIABLE_NAME"
 	v.envInputs[1].Placeholder = "variable value"
+
+	v.portInput = textinput.New()
+	v.portInput.Prompt = ""
+	v.portInput.Placeholder = "8080"
+	v.portInput.SetWidth(10)
+	v.portCursor = -1
 }
 
 // Init fetches defaults, settings, and container config (if editing).
@@ -432,6 +452,10 @@ func (v *ContainerFormView) Update(msg tea.Msg) (View, tea.Cmd) {
 			}
 		}
 
+		if len(msg.Config.ForwardedPorts) > 0 {
+			v.forwardedPorts = msg.Config.ForwardedPorts
+		}
+
 		v.loading = false
 		return v, nil
 
@@ -458,7 +482,7 @@ func (v *ContainerFormView) Update(msg tea.Msg) (View, tea.Cmd) {
 		return v.handleKey(msg)
 	}
 
-	if v.editing || v.editingMount || v.editingEnv {
+	if v.editing || v.editingMount || v.editingEnv || v.editingPort {
 		return v.updateActiveField(msg)
 	}
 

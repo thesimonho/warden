@@ -48,7 +48,12 @@ import {
   findRequiredMount,
   withRequiredMount,
 } from './project-config-form-types'
-import { FormField, BindMountsField, EnvVarsField } from './project-config-form-fields'
+import {
+  FormField,
+  BindMountsField,
+  EnvVarsField,
+  ForwardedPortsField,
+} from './project-config-form-fields'
 import { StepTabs, StepFooter } from './project-config-form-steps'
 
 export type { ProjectConfigFormData } from './project-config-form-types'
@@ -97,6 +102,9 @@ export default function ProjectConfigForm({
       ? String(initialValues.costBudget)
       : '',
   )
+  const [forwardedPorts, setForwardedPorts] = useState<number[]>(
+    initialValues?.forwardedPorts ?? [],
+  )
   const [accessItems, setAccessItems] = useState<AccessItemResponse[]>([])
   const [accessToggles, setAccessToggles] = useState<Record<string, boolean>>({})
   const [runtimeDefaults, setRuntimeDefaults] = useState<RuntimeDefault[]>([])
@@ -130,6 +138,8 @@ export default function ProjectConfigForm({
       if (tmpl.costBudget !== undefined && tmpl.costBudget > 0) {
         setCostBudget(String(tmpl.costBudget))
       }
+
+      if (tmpl.forwardedPorts) setForwardedPorts(tmpl.forwardedPorts)
 
       // Apply runtime toggles — template runtimes override detection.
       // Also sync env vars since they're derived from which runtimes are enabled.
@@ -453,6 +463,7 @@ export default function ProjectConfigForm({
       costBudget: parseFloat(costBudget) || 0,
       enabledAccessItems: enabledIds.length > 0 ? enabledIds : undefined,
       enabledRuntimes: enabledRuntimeIds.length > 0 ? enabledRuntimeIds : undefined,
+      forwardedPorts: forwardedPorts.length > 0 ? forwardedPorts : undefined,
     })
   }
 
@@ -504,12 +515,16 @@ export default function ProjectConfigForm({
     const environmentConfigured = runtimeDefaults.length > 0 || accessItems.length > 0
 
     // Network
+    const portsSuffix =
+      forwardedPorts.length > 0
+        ? `, ${forwardedPorts.length} port${forwardedPorts.length !== 1 ? 's' : ''}`
+        : ''
     const networkSummary =
-      networkMode === 'full'
+      (networkMode === 'full'
         ? 'Full access'
         : networkMode === 'restricted'
           ? 'Restricted'
-          : 'No network'
+          : 'No network') + portsSuffix
 
     // Advanced
     const hasCustomImage = image.trim() !== DEFAULT_IMAGE
@@ -551,6 +566,7 @@ export default function ProjectConfigForm({
     requiredContainerPath,
     envVars,
     runtimeEnvKeys,
+    forwardedPorts,
   ])
 
   /** Navigate to the previous step. */
@@ -819,6 +835,33 @@ export default function ProjectConfigForm({
                 All outbound traffic will be blocked. Package installs and API calls will not work.
               </p>
             )}
+
+            <div className="mt-6 space-y-2 border-t pt-6">
+              <label className="block font-medium">
+                <span className="flex items-center gap-1.5">
+                  Forwarded Ports
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Info className="text-muted-foreground h-3.5 w-3.5" />
+                    </TooltipTrigger>
+                    <TooltipContent side="right" className="max-w-64">
+                      <p>
+                        Container ports exposed via reverse proxy. Use for dev servers (Vite,
+                        Next.js, etc.) — supports HTTP and WebSocket for HMR.
+                      </p>
+                    </TooltipContent>
+                  </Tooltip>
+                </span>
+              </label>
+              <ForwardedPortsField
+                ports={forwardedPorts}
+                isSubmitting={isSubmitting}
+                onAdd={(port) => setForwardedPorts((prev) => [...prev, port])}
+                onRemove={(index) =>
+                  setForwardedPorts((prev) => prev.filter((_, i) => i !== index))
+                }
+              />
+            </div>
           </div>
         )}
 

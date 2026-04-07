@@ -66,6 +66,11 @@ func New(baseURL string) *Client {
 	}
 }
 
+// BaseURL returns the HTTP base URL of the Warden server.
+func (c *Client) BaseURL() string {
+	return c.baseURL
+}
+
 // --- Error Types ---
 
 // APIError represents a non-2xx response from the Warden API.

@@ -143,10 +143,13 @@ type ProjectDetailView struct {
 	// New worktree input overlay.
 	showNewInput     bool
 	newWorktreeInput textinput.Model
+	// Port forwarding overlay.
+	showPorts      bool
+	forwardedPorts []int
 }
 
 // NewProjectDetailView creates a project detail view.
-func NewProjectDetailView(client Client, projectID, agentType, projectName, disconnectKey string) *ProjectDetailView {
+func NewProjectDetailView(client Client, projectID, agentType, projectName, disconnectKey string, forwardedPorts []int) *ProjectDetailView {
 	delegate := newWorktreeDelegate()
 
 	l := list.New([]list.Item{}, delegate, 0, 0)
@@ -157,14 +160,15 @@ func NewProjectDetailView(client Client, projectID, agentType, projectName, disc
 	l.SetFilteringEnabled(true)
 
 	return &ProjectDetailView{
-		client:        client,
-		projectID:     projectID,
-		agentType:     agentType,
-		projectName:   projectName,
-		disconnectKey: disconnectKey,
-		list:          l,
-		loading:       true,
-		keys:          DefaultWorktreeKeyMap(),
+		client:         client,
+		projectID:      projectID,
+		agentType:      agentType,
+		projectName:    projectName,
+		disconnectKey:  disconnectKey,
+		list:           l,
+		loading:        true,
+		keys:           DefaultWorktreeKeyMap(),
+		forwardedPorts: forwardedPorts,
 	}
 }
 
@@ -176,6 +180,16 @@ func (v *ProjectDetailView) Init() tea.Cmd {
 
 // Update handles messages for the project detail view.
 func (v *ProjectDetailView) Update(msg tea.Msg) (View, tea.Cmd) {
+	// If the port overlay is active, intercept keys.
+	if v.showPorts {
+		if keyMsg, ok := msg.(tea.KeyPressMsg); ok {
+			if keyMsg.String() == "esc" || keyMsg.String() == "p" {
+				v.showPorts = false
+			}
+		}
+		return v, nil
+	}
+
 	// If the new worktree input is active, delegate to it.
 	if v.showNewInput {
 		return v.updateNewWorktreeInput(msg)
@@ -283,6 +297,27 @@ func (v *ProjectDetailView) openNewWorktreeInput() tea.Cmd {
 
 // Render renders the project detail view.
 func (v *ProjectDetailView) Render(width, height int) string {
+	// Show forwarded ports overlay.
+	if v.showPorts {
+		s := Styles.Muted.Render("← ") + Styles.Bold.Render(v.projectName) + "\n\n"
+		s += Styles.Bold.Render("Forwarded Ports") + "\n\n"
+		baseURL := v.client.BaseURL()
+		if baseURL == "" {
+			s += Styles.Muted.Render("  Port forwarding requires a running Warden server.\n")
+			s += Styles.Muted.Render("  Use warden-desktop or connect via the HTTP client.\n")
+		} else {
+			serverPort := "8090"
+			if parts := strings.SplitN(baseURL, ":", 3); len(parts) == 3 {
+				serverPort = parts[2]
+			}
+			for _, port := range v.forwardedPorts {
+				s += fmt.Sprintf("  :%d  →  %s\n", port, api.ProxyURL(serverPort, v.projectID, v.agentType, port))
+			}
+		}
+		s += "\n" + Styles.Muted.Render("p/esc to close")
+		return s
+	}
+
 	// Show new worktree form overlay.
 	if v.showNewInput {
 		s := Styles.Muted.Render("← ") + Styles.Bold.Render(v.projectName) + "\n\n"
@@ -330,7 +365,8 @@ func (k worktreeHelpKeyMap) FullHelp() [][]key.Binding {
 	return [][]key.Binding{
 		{k.keys.Connect, k.disconnectHint, k.keys.Disconnect},
 		{k.keys.Kill, k.keys.Reset, k.keys.Remove},
-		{k.keys.New, k.keys.Cleanup, filterBinding, k.keys.Back},
+		{k.keys.New, k.keys.Cleanup, k.keys.Ports},
+		{filterBinding, k.keys.Back},
 	}
 }
 
@@ -372,6 +408,12 @@ func (v *ProjectDetailView) handleKey(msg tea.KeyPressMsg) (View, tea.Cmd) {
 
 	case key.Matches(msg, v.keys.Cleanup):
 		return v, cleanupWorktrees(v.client, v.projectID, v.agentType)
+
+	case key.Matches(msg, v.keys.Ports):
+		if len(v.forwardedPorts) > 0 {
+			v.showPorts = true
+		}
+		return v, nil
 	}
 
 	// Delegate to list for cursor movement.

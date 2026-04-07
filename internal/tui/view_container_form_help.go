@@ -58,7 +58,7 @@ func (v *ContainerFormView) HelpKeyMap() help.KeyMap {
 	if v.browsing {
 		return browsingHelpKeyMap
 	}
-	if v.editing {
+	if v.editing || v.editingPort {
 		return editingHelpKeyMap
 	}
 	if v.editingMount || v.editingEnv {
@@ -68,6 +68,9 @@ func (v *ContainerFormView) HelpKeyMap() help.KeyMap {
 		return formWithRemoveKeyMap{keys: v.keys, isMounts: true}
 	}
 	if v.step == stepAdvanced && v.fieldCursor == advEnvVars && v.envCursor >= 0 {
+		return formWithRemoveKeyMap{keys: v.keys, isMounts: false}
+	}
+	if v.step == stepNetwork && v.fieldCursor == netPorts && v.portCursor >= 0 {
 		return formWithRemoveKeyMap{keys: v.keys, isMounts: false}
 	}
 	if v.step == stepGeneral && v.fieldCursor == genSkipPerms {

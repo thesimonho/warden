@@ -2,6 +2,7 @@ package tui
 
 import (
 	"context"
+	"fmt"
 
 	"charm.land/bubbles/v2/textinput"
 	tea "charm.land/bubbletea/v2"
@@ -13,6 +14,17 @@ import (
 func (v *ContainerFormView) handleKey(msg tea.KeyPressMsg) (View, tea.Cmd) {
 	if v.browsing && v.dirBrowser != nil {
 		return v.handleBrowsingKey(msg)
+	}
+	if v.editingPort {
+		switch msg.String() {
+		case "enter":
+			v.savePortInput()
+			return v, nil
+		case "esc":
+			v.cancelPortEdit()
+			return v, nil
+		}
+		return v.updateActiveField(msg)
 	}
 	if v.editingMount {
 		// Required mounts only allow editing the host path — skip tab to container path.
@@ -258,6 +270,21 @@ func (v *ContainerFormView) moveCursor(delta int) {
 		return
 	}
 
+	if v.step == stepNetwork && v.fieldCursor == netPorts {
+		next := v.portCursor + delta
+		if next < -1 {
+			v.portCursor = -1
+			v.moveCursorField(delta)
+			return
+		}
+		if next >= len(v.forwardedPorts) {
+			v.moveCursorField(delta)
+			return
+		}
+		v.portCursor = next
+		return
+	}
+
 	if v.step == stepAdvanced && v.fieldCursor == advEnvVars {
 		next := v.envCursor + delta
 		if next < -1 {
@@ -308,6 +335,14 @@ func (v *ContainerFormView) initSubCursorForField(delta int) {
 				v.accessCursor = 0
 			} else {
 				v.accessCursor = max(len(v.accessItems)-1, 0)
+			}
+		}
+	case stepNetwork:
+		if v.fieldCursor == netPorts {
+			if delta > 0 {
+				v.portCursor = -1
+			} else {
+				v.portCursor = max(len(v.forwardedPorts)-1, -1)
 			}
 		}
 	case stepAdvanced:
@@ -388,6 +423,21 @@ func (v *ContainerFormView) activateNetworkField() (View, tea.Cmd) {
 	case netDomains:
 		v.editing = true
 		return v, v.domains.Focus()
+	case netPorts:
+		if v.portCursor == -1 {
+			v.forwardedPorts = append(v.forwardedPorts, 0)
+			v.portCursor = len(v.forwardedPorts) - 1
+			v.portIsNew = true
+			v.portInput.SetValue("")
+			v.editingPort = true
+			return v, v.portInput.Focus()
+		}
+		if v.portCursor >= 0 && v.portCursor < len(v.forwardedPorts) {
+			v.portIsNew = false
+			v.portInput.SetValue(fmt.Sprintf("%d", v.forwardedPorts[v.portCursor]))
+			v.editingPort = true
+			return v, v.portInput.Focus()
+		}
 	case netSubmit:
 		return v, v.submit()
 	}
@@ -484,6 +534,16 @@ func (v *ContainerFormView) removeCurrentItem() (View, tea.Cmd) {
 		}
 		return v, nil
 	}
+	if v.step == stepNetwork && v.fieldCursor == netPorts && v.portCursor >= 0 && v.portCursor < len(v.forwardedPorts) {
+		v.forwardedPorts = append(v.forwardedPorts[:v.portCursor], v.forwardedPorts[v.portCursor+1:]...)
+		if v.portCursor >= len(v.forwardedPorts) {
+			v.portCursor = len(v.forwardedPorts) - 1
+		}
+		if len(v.forwardedPorts) == 0 {
+			v.portCursor = -1
+		}
+		return v, nil
+	}
 	return v, nil
 }
 
@@ -520,6 +580,9 @@ func (v *ContainerFormView) blurActiveField() {
 		if v.fieldCursor == netDomains {
 			v.domains.Blur()
 		}
+		if v.fieldCursor == netPorts {
+			v.portInput.Blur()
+		}
 	case stepAdvanced:
 		if v.fieldCursor == advImage {
 			v.inputs[inputImage].Blur()
@@ -542,6 +605,8 @@ func (v *ContainerFormView) updateActiveField(msg tea.Msg) (View, tea.Cmd) {
 		} else {
 			v.envInputs[1], cmd = v.envInputs[1].Update(msg)
 		}
+	case v.editingPort:
+		v.portInput, cmd = v.portInput.Update(msg)
 	case v.step == stepGeneral && v.fieldCursor == genName:
 		v.inputs[inputName], cmd = v.inputs[inputName].Update(msg)
 	case v.step == stepGeneral && v.fieldCursor == genBudget:

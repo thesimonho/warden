@@ -19,9 +19,11 @@ import { formatCost } from '@/lib/cost'
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { serverPort } from '@/lib/api-core'
 import { abbreviateHomePath, cn } from '@/lib/utils'
 import StatusBadge from '@/components/home/status-badge'
 import AgentStatusIndicator from '@/components/home/agent-status-indicator'
+import { LinkPortChip } from '@/components/home/port-chip'
 import { AgentIcon } from '@/components/ui/agent-icons'
 
 /** Props for the ProjectCard component. */
@@ -268,7 +270,7 @@ export default function ProjectCard({
         </div>
       </CardContent>
 
-      <CardFooter className="gap-2">
+      <CardFooter className="items-end gap-2">
         <Button
           data-testid="view-button"
           size="sm"
@@ -278,6 +280,18 @@ export default function ProjectCard({
         >
           View
         </Button>
+
+        {isRunning && project.forwardedPorts && project.forwardedPorts.length > 0 && (
+          <div className="flex flex-wrap gap-1.5">
+            {project.forwardedPorts.map((port) => (
+              <LinkPortChip
+                key={port}
+                port={port}
+                href={`http://${project.projectId}-${project.agentType}-${port}.localhost:${serverPort()}/`}
+              />
+            ))}
+          </div>
+        )}
 
         <div className="ml-auto flex items-center gap-1">
           <Tooltip>

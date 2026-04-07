@@ -160,10 +160,11 @@ func (v *ProjectsView) handleKey(msg tea.KeyPressMsg) (View, tea.Cmd) {
 		if selected != nil && selected.State == components.ContainerStateRunning {
 			return v, func() tea.Msg {
 				return NavigateMsg{
-					Tab:         TabProjects,
-					ProjectID:   selected.ProjectID,
-					AgentType:   string(selected.AgentType),
-					ProjectName: selected.Name,
+					Tab:            TabProjects,
+					ProjectID:      selected.ProjectID,
+					AgentType:      string(selected.AgentType),
+					ProjectName:    selected.Name,
+					ForwardedPorts: selected.ForwardedPorts,
 				}
 			}
 		}
