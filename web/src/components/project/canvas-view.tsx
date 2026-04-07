@@ -193,6 +193,7 @@ function CanvasViewInner({
           branch={panel.branch}
           isActive={isActive}
           isFocused={isFocused}
+          autoFocus
           terminalInert={!isFocused}
           stateDotClass={stateDotClass}
           stateLabel={stateLabel}

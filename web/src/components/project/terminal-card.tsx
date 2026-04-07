@@ -72,6 +72,11 @@ export interface TerminalCardProps {
   terminalInert?: boolean
   /** Extra CSS class applied to the outer container. */
   className?: string
+  /**
+   * When true, gives keyboard focus to xterm after it attaches to the DOM.
+   * Solves the race where focus is requested before xterm.open() completes.
+   */
+  autoFocus?: boolean
   /** Data attribute for testing. */
   'data-testid'?: string
 }
@@ -105,6 +110,7 @@ const TerminalCard = forwardRef<TerminalCardHandle, TerminalCardProps>(function 
     titleBarClassName,
     dragHandleProps,
     actions,
+    autoFocus = false,
     terminalInert = false,
     className,
     'data-testid': testId,
@@ -119,6 +125,7 @@ const TerminalCard = forwardRef<TerminalCardHandle, TerminalCardProps>(function 
     worktreeId,
     isActive,
     isFocused: isFocused && activeTab === 'terminal',
+    autoFocus,
   })
 
   useImperativeHandle(ref, () => ({
