@@ -107,6 +107,8 @@ type ProjectRow struct {
 	EnabledAccessItems string
 	// EnabledRuntimes is a comma-separated list of enabled runtime IDs (e.g. "node,python,go").
 	EnabledRuntimes string
+	// ForwardedPorts is a comma-separated list of forwarded port numbers (e.g. "5173,3000").
+	ForwardedPorts string
 	// AgentType identifies the CLI agent running in this project (e.g. "claude-code", "codex").
 	AgentType string
 	// ContainerID is the Docker-assigned container ID (empty when no container exists).

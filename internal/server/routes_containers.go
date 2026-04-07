@@ -50,6 +50,10 @@ func (rt *routes) handleCreateContainer(w http.ResponseWriter, r *http.Request) 
 		writeError(w, ErrCodeInvalidNetworkConfig, msg, http.StatusBadRequest)
 		return
 	}
+	if msg := validateForwardedPorts(req.ForwardedPorts); msg != "" {
+		writeError(w, ErrCodeInvalidBody, msg, http.StatusBadRequest)
+		return
+	}
 
 	result, err := rt.svc.CreateContainer(r.Context(), req)
 	if err != nil {
@@ -199,6 +203,10 @@ func (rt *routes) handleUpdateContainer(w http.ResponseWriter, r *http.Request) 
 
 	if msg := validateNetworkConfig(req); msg != "" {
 		writeError(w, ErrCodeInvalidNetworkConfig, msg, http.StatusBadRequest)
+		return
+	}
+	if msg := validateForwardedPorts(req.ForwardedPorts); msg != "" {
+		writeError(w, ErrCodeInvalidBody, msg, http.StatusBadRequest)
 		return
 	}
 

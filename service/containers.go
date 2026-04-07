@@ -189,6 +189,9 @@ func (s *Service) InspectContainer(ctx context.Context, projectID, agentType str
 	if project.EnabledRuntimes != "" {
 		cfg.EnabledRuntimes = splitCSV(project.EnabledRuntimes)
 	}
+	if project.ForwardedPorts != "" {
+		cfg.ForwardedPorts = parsePortList(project.ForwardedPorts)
+	}
 
 	return cfg, nil
 }
@@ -247,6 +250,7 @@ func (s *Service) updateContainerSettings(ctx context.Context, project *db.Proje
 		}
 	}
 
+	newPorts := joinPorts(req.ForwardedPorts)
 	if err := s.db.UpdateProjectSettings(
 		project.ProjectID,
 		project.AgentType,
@@ -255,6 +259,7 @@ func (s *Service) updateContainerSettings(ctx context.Context, project *db.Proje
 		req.SkipPermissions,
 		req.CostBudget,
 		newDomains,
+		newPorts,
 	); err != nil {
 		return nil, fmt.Errorf("updating project settings: %w", err)
 	}
@@ -461,6 +466,10 @@ func (s *Service) auditContainerUpdate(old *db.ProjectRow, req api.CreateContain
 	if !stringSlicesEqual(newRT, oldRT) {
 		changes = append(changes, containerChange{"enabledRuntimes", oldRT, newRT})
 	}
+	newPorts := joinPorts(req.ForwardedPorts)
+	if newPorts != old.ForwardedPorts {
+		changes = append(changes, containerChange{"forwardedPorts", parsePortList(old.ForwardedPorts), req.ForwardedPorts})
+	}
 	reqNetwork := string(req.NetworkMode)
 	if reqNetwork != "" && reqNetwork != old.NetworkMode {
 		changes = append(changes, containerChange{"networkMode", old.NetworkMode, reqNetwork})
@@ -544,6 +553,9 @@ func projectRowFromRequest(req api.CreateContainerRequest) (db.ProjectRow, error
 		row.EnabledAccessItems = strings.Join(req.EnabledAccessItems, ",")
 	}
 	row.EnabledRuntimes = strings.Join(normalizeRuntimes(req.EnabledRuntimes), ",")
+	if len(req.ForwardedPorts) > 0 {
+		row.ForwardedPorts = joinPorts(req.ForwardedPorts)
+	}
 
 	return row, nil
 }
@@ -563,6 +575,7 @@ func reconstructRequestFromRow(project *db.ProjectRow, update api.CreateContaine
 		CostBudget:         update.CostBudget,
 		EnabledAccessItems: splitCSV(project.EnabledAccessItems),
 		EnabledRuntimes:    splitCSV(project.EnabledRuntimes),
+		ForwardedPorts:     update.ForwardedPorts,
 	}
 	if len(project.EnvVars) > 0 {
 		_ = json.Unmarshal(project.EnvVars, &req.EnvVars)
@@ -589,3 +602,4 @@ func mergeRuntimeDomains(req *api.CreateContainerRequest) {
 		}
 	}
 }
+

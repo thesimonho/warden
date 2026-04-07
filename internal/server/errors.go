@@ -31,6 +31,9 @@ const (
 	ErrCodeStaleMounts    ErrorCode = "STALE_MOUNTS"    // 409
 	ErrCodeBudgetExceeded ErrorCode = "BUDGET_EXCEEDED" // 403
 
+	// Proxy errors.
+	ErrCodeProxyError ErrorCode = "PROXY_ERROR" // 502
+
 	// Catch-all for unclassified server errors.
 	ErrCodeInternal ErrorCode = "INTERNAL" // 500
 )

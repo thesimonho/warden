@@ -38,6 +38,7 @@ func projectResponseFromEngine(p engine.Project) api.ProjectResponse {
 		NetworkMode:         p.NetworkMode,
 		AllowedDomains:      p.AllowedDomains,
 		AgentVersion:        p.AgentVersion,
+		ForwardedPorts:      p.ForwardedPorts,
 	}
 }
 

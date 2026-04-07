@@ -501,6 +501,13 @@ components:
           additionalProperties:
             type: string
           type: object
+        forwardedPorts:
+          description: ForwardedPorts lists container ports exposed via the reverse
+            proxy.
+          items:
+            type: integer
+          type: array
+          uniqueItems: false
         image:
           type: string
         mounts:
@@ -585,6 +592,14 @@ components:
           additionalProperties:
             type: string
           type: object
+        forwardedPorts:
+          description: |-
+            ForwardedPorts lists container ports to expose via the reverse proxy.
+            Each port (1-65535) is accessible at /api/v1/projects/{id}/{agentType}/proxy/{port}/...
+          items:
+            type: integer
+          type: array
+          uniqueItems: false
         image:
           type: string
         mounts:
@@ -797,6 +812,13 @@ components:
           type: number
         createdAt:
           type: integer
+        forwardedPorts:
+          description: ForwardedPorts lists container ports exposed via the reverse
+            proxy.
+          items:
+            type: integer
+          type: array
+          uniqueItems: false
         hasContainer:
           description: HasContainer is true when a Docker container is associated
             with this project.
@@ -889,6 +911,11 @@ components:
           type: object
         costBudget:
           type: number
+        forwardedPorts:
+          items:
+            type: integer
+          type: array
+          uniqueItems: false
         image:
           type: string
         networkMode:
@@ -1104,6 +1131,7 @@ components:
       - NOT_CONFIGURED
       - STALE_MOUNTS
       - BUDGET_EXCEEDED
+      - PROXY_ERROR
       - INTERNAL
       type: string
       x-enum-comments:
@@ -1112,6 +1140,7 @@ components:
         ErrCodeNameTaken: "409"
         ErrCodeNotConfigured: "503"
         ErrCodeNotFound: "404"
+        ErrCodeProxyError: "502"
         ErrCodeStaleMounts: "409"
       x-enum-varnames:
       - ErrCodeInvalidBody
@@ -1128,6 +1157,7 @@ components:
       - ErrCodeNotConfigured
       - ErrCodeStaleMounts
       - ErrCodeBudgetExceeded
+      - ErrCodeProxyError
       - ErrCodeInternal
     server.apiError:
       properties:
@@ -2600,6 +2630,62 @@ paths:
       summary: Get project costs
       tags:
       - projects
+  /api/v1/projects/{projectId}/{agentType}/proxy/{port}/{path}:
+    get:
+      description: |-
+        Reverse-proxies HTTP and WebSocket requests to the specified port
+        inside the project's container. The port must be declared in the
+        project's forwardedPorts list. Supports all HTTP methods and
+        WebSocket upgrade for HMR.
+      parameters:
+      - description: Project ID
+        in: path
+        name: projectId
+        required: true
+        schema:
+          type: string
+      - description: Agent type
+        in: path
+        name: agentType
+        required: true
+        schema:
+          type: string
+      - description: Container port number (1-65535)
+        in: path
+        name: port
+        required: true
+        schema:
+          type: integer
+      - description: Path to proxy
+        in: path
+        name: path
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: Proxied response from container
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/server.apiError'
+          description: Invalid port number
+        "404":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/server.apiError'
+          description: Port not declared or project not found
+        "502":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/server.apiError'
+          description: Container unreachable
+      summary: Proxy to container port
+      tags:
+      - proxy
   /api/v1/projects/{projectId}/{agentType}/restart:
     post:
       description: Restarts the container for the given project. Fails with STALE_MOUNTS

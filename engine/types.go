@@ -118,6 +118,8 @@ type Project struct {
 	AllowedDomains []string `json:"allowedDomains,omitempty"`
 	// AgentVersion is the pinned CLI version installed in this container.
 	AgentVersion string `json:"agentVersion,omitempty"`
+	// ForwardedPorts lists container ports exposed via the reverse proxy.
+	ForwardedPorts []int `json:"forwardedPorts,omitempty"`
 }
 
 // Worktree represents a git worktree (or implicit project root) with its terminal state.
@@ -182,6 +184,9 @@ type Client interface {
 
 	// InspectContainer returns the editable configuration of a container.
 	InspectContainer(ctx context.Context, id string) (*api.ContainerConfig, error)
+
+	// ContainerIP returns the bridge network IP address of a running container.
+	ContainerIP(ctx context.Context, containerID string) (string, error)
 
 	// RenameContainer changes the name of an existing container without recreation.
 	RenameContainer(ctx context.Context, id string, newName string) error

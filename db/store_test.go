@@ -681,7 +681,7 @@ func TestUpdateProjectSettings(t *testing.T) {
 	}
 
 	// Update only lightweight settings.
-	if err := store.UpdateProjectSettings("aabbccddee02", "claude-code", "new-name", "new-name", true, 42.5, "*.github.com,*.anthropic.com"); err != nil {
+	if err := store.UpdateProjectSettings("aabbccddee02", "claude-code", "new-name", "new-name", true, 42.5, "*.github.com,*.anthropic.com", "5173,3000"); err != nil {
 		t.Fatalf("UpdateProjectSettings() error: %v", err)
 	}
 
@@ -703,6 +703,9 @@ func TestUpdateProjectSettings(t *testing.T) {
 	}
 	if got.AllowedDomains != "*.github.com,*.anthropic.com" {
 		t.Errorf("AllowedDomains = %q, want %q", got.AllowedDomains, "*.github.com,*.anthropic.com")
+	}
+	if got.ForwardedPorts != "5173,3000" {
+		t.Errorf("ForwardedPorts = %q, want %q", got.ForwardedPorts, "5173,3000")
 	}
 	// Verify non-updated fields are preserved.
 	if got.Image != "warden:latest" {

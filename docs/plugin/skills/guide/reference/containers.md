@@ -37,6 +37,7 @@ curl -s -X POST http://localhost:8090/api/v1/projects/a1b2c3d4e5f6/claude-code/c
     ],
     "enabledRuntimes": ["node", "python", "go"],
     "enabledAccessItems": ["git", "ssh"],
+    "forwardedPorts": [5173, 3000],
     "costBudget": 50.00,
     "skipPermissions": false
   }'
@@ -127,7 +128,7 @@ IDs of access items to enable (e.g., `["git", "ssh"]`). Access items resolve cre
 
 The update endpoint accepts the same body shape as create. Warden classifies changes into two categories:
 
-- **Lightweight changes** (`costBudget`, `skipPermissions`, `allowedDomains`) -- applied in-place without restarting
+- **Lightweight changes** (`costBudget`, `skipPermissions`, `allowedDomains`, `forwardedPorts`) -- applied in-place without restarting
 - **Structural changes** (`image`, `mounts`, `envVars`, `networkMode`, `enabledRuntimes`, `enabledAccessItems`) -- trigger a full container recreation
 
 The response includes `recreated: true` or `recreated: false` so your integration knows what happened. During recreation, existing worktrees are preserved but there is a brief gap in SSE events while the internal session watcher restarts on the new container. Poll `GET /api/v1/projects` after a recreation to re-sync state.

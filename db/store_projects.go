@@ -9,7 +9,7 @@ import (
 
 // projectColumns is the SELECT column list shared by project queries.
 const projectColumns = `project_id, name, host_path, added_at, image, env_vars, mounts, original_mounts,
-	skip_permissions, network_mode, allowed_domains, cost_budget, enabled_access_items, enabled_runtimes, agent_type, container_id, container_name`
+	skip_permissions, network_mode, allowed_domains, cost_budget, enabled_access_items, enabled_runtimes, forwarded_ports, agent_type, container_id, container_name`
 
 // InsertProject adds a project to the database. If a project with the same
 // project ID already exists, it is replaced (upsert).
@@ -45,8 +45,8 @@ func (l *Store) InsertProject(p ProjectRow) error {
 		`INSERT OR REPLACE INTO projects
 		 (project_id, name, host_path, added_at, image, env_vars, mounts, original_mounts,
 		  skip_permissions, network_mode, allowed_domains, cost_budget, enabled_access_items,
-		  enabled_runtimes, agent_type, container_id, container_name)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		  enabled_runtimes, forwarded_ports, agent_type, container_id, container_name)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		p.ProjectID,
 		p.Name,
 		p.HostPath,
@@ -61,6 +61,7 @@ func (l *Store) InsertProject(p ProjectRow) error {
 		p.CostBudget,
 		p.EnabledAccessItems,
 		p.EnabledRuntimes,
+		p.ForwardedPorts,
 		agentType,
 		p.ContainerID,
 		p.ContainerName,
@@ -229,7 +230,7 @@ func scanProjectRow(s scanner) (*ProjectRow, error) {
 		&p.ProjectID, &p.Name, &p.HostPath, &addedAtStr, &p.Image,
 		&envVars, &mounts, &origMounts,
 		&skipPerms, &p.NetworkMode, &p.AllowedDomains, &p.CostBudget,
-		&p.EnabledAccessItems, &p.EnabledRuntimes, &p.AgentType,
+		&p.EnabledAccessItems, &p.EnabledRuntimes, &p.ForwardedPorts, &p.AgentType,
 		&p.ContainerID, &p.ContainerName,
 	)
 	if err != nil {
@@ -296,8 +297,9 @@ func (l *Store) UpdateProjectContainer(projectID, agentType, containerID, contai
 
 // UpdateProjectSettings updates lightweight project settings that do not
 // require container recreation (name, skip_permissions, cost_budget,
-// container_name, allowed_domains). All other fields remain unchanged.
-func (l *Store) UpdateProjectSettings(projectID, agentType, name, containerName string, skipPermissions bool, costBudget float64, allowedDomains string) error {
+// container_name, allowed_domains, forwarded_ports). All other fields
+// remain unchanged.
+func (l *Store) UpdateProjectSettings(projectID, agentType, name, containerName string, skipPermissions bool, costBudget float64, allowedDomains, forwardedPorts string) error {
 	if l == nil {
 		return nil
 	}
@@ -307,9 +309,9 @@ func (l *Store) UpdateProjectSettings(projectID, agentType, name, containerName 
 
 	_, err := l.db.Exec(
 		`UPDATE projects
-		 SET name = ?, container_name = ?, skip_permissions = ?, cost_budget = ?, allowed_domains = ?
+		 SET name = ?, container_name = ?, skip_permissions = ?, cost_budget = ?, allowed_domains = ?, forwarded_ports = ?
 		 WHERE project_id = ? AND agent_type = ?`,
-		name, containerName, skipPermissions, costBudget, allowedDomains, projectID, agentType,
+		name, containerName, skipPermissions, costBudget, allowedDomains, forwardedPorts, projectID, agentType,
 	)
 	if err != nil {
 		return fmt.Errorf("updating settings for project %q/%s: %w", projectID, agentType, err)

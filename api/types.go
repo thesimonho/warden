@@ -65,6 +65,8 @@ type ProjectResponse struct {
 	AllowedDomains []string `json:"allowedDomains,omitempty"`
 	// AgentVersion is the pinned CLI version installed in this container.
 	AgentVersion string `json:"agentVersion,omitempty"`
+	// ForwardedPorts lists container ports exposed via the reverse proxy.
+	ForwardedPorts []int `json:"forwardedPorts,omitempty"`
 }
 
 // AddProjectRequest is the JSON body for registering a project directory.
@@ -383,6 +385,7 @@ type ProjectTemplate struct {
 	NetworkMode     NetworkMode                      `json:"networkMode,omitempty"`
 	CostBudget      *float64                         `json:"costBudget,omitempty"`
 	Runtimes        []string                         `json:"runtimes,omitempty"`
+	ForwardedPorts  []int                            `json:"forwardedPorts,omitempty"`
 	Agents          map[string]AgentTemplateOverride `json:"agents,omitempty"`
 }
 
@@ -671,6 +674,9 @@ type CreateContainerRequest struct {
 	EnabledAccessItems []string `json:"enabledAccessItems,omitempty"`
 	// EnabledRuntimes lists active runtime IDs (e.g. ["node","python","go"]).
 	EnabledRuntimes []string `json:"enabledRuntimes,omitempty"`
+	// ForwardedPorts lists container ports to expose via the reverse proxy.
+	// Each port (1-65535) is accessible at /api/v1/projects/{id}/{agentType}/proxy/{port}/...
+	ForwardedPorts []int `json:"forwardedPorts,omitempty"`
 }
 
 // ContainerConfig holds the editable configuration of an existing container.
@@ -694,4 +700,6 @@ type ContainerConfig struct {
 	EnabledAccessItems []string `json:"enabledAccessItems,omitempty"`
 	// EnabledRuntimes lists active runtime IDs (e.g. ["node","python","go"]).
 	EnabledRuntimes []string `json:"enabledRuntimes,omitempty"`
+	// ForwardedPorts lists container ports exposed via the reverse proxy.
+	ForwardedPorts []int `json:"forwardedPorts,omitempty"`
 }

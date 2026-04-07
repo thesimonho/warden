@@ -51,6 +51,14 @@ Returns all configured projects enriched with live container state, Claude statu
 
   `integer`
 
+- **`forwardedPorts`**
+
+  `array` — ForwardedPorts lists container ports exposed via the reverse proxy.
+
+  **Items:**
+
+  `integer`
+
 - **`hasContainer`**
 
   `boolean` — HasContainer is true when a Docker container is associated with this project.
@@ -145,6 +153,9 @@ Returns all configured projects enriched with live container state, Claude statu
     ],
     "costBudget": 1,
     "createdAt": 1,
+    "forwardedPorts": [
+      1
+    ],
     "hasContainer": true,
     "hostPath": "",
     "id": "",
@@ -229,6 +240,14 @@ Registers a host directory as a Warden project. Optionally creates a container i
   - **`envVars`**
 
     `object`
+
+  - **`forwardedPorts`**
+
+    `array` — ForwardedPorts lists container ports to expose via the reverse proxy. Each port (1-65535) is accessible at /api/v1/projects/{id}/{agentType}/proxy/{port}/...
+
+    **Items:**
+
+    `integer`
 
   - **`image`**
 
@@ -449,6 +468,14 @@ Returns a single project enriched with live container state, Claude status, work
 
   `integer`
 
+- **`forwardedPorts`**
+
+  `array` — ForwardedPorts lists container ports exposed via the reverse proxy.
+
+  **Items:**
+
+  `integer`
+
 - **`hasContainer`**
 
   `boolean` — HasContainer is true when a Docker container is associated with this project.
@@ -542,6 +569,9 @@ Returns a single project enriched with live container state, Claude status, work
   ],
   "costBudget": 1,
   "createdAt": 1,
+  "forwardedPorts": [
+    1
+  ],
   "hasContainer": true,
   "hostPath": "",
   "id": "",

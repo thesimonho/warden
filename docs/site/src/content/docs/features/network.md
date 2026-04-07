@@ -45,6 +45,65 @@ All outbound traffic is blocked. Only loopback (localhost) and established conne
 
 Use this for air-gapped operation — when Claude should work entirely with local files and tools, with no internet access.
 
+## Accessing Host Services
+
+Containers can reach services running on the host machine (e.g. a local dev server, database, or API) using the special hostname `host.docker.internal`.
+
+For example, if you're running a dev server on port 3000 on the host:
+
+```bash
+# Inside the container
+curl http://host.docker.internal:3000
+```
+
+This works in all network modes — `host.docker.internal` resolves to the host's IP via Docker's `host-gateway` mapping. It does not count as outbound internet traffic, so it is not affected by domain allowlists in Restricted mode or blocked in None mode.
+
+:::tip
+If you're building a project that has both a backend and a frontend (e.g. a Vite + Express app), you can run the backend on the host and have the agent inside the container test against it using `host.docker.internal`.
+:::
+
+## Port Forwarding
+
+When an agent starts a web server inside the container (e.g. Vite on port 5173), you can access it from the host via Warden's built-in reverse proxy.
+
+**Declaring ports:**
+
+Add the ports you want to forward in your project's container settings. Ports can also be declared in `.warden.json`:
+
+```json
+{
+  "forwardedPorts": [5173, 3000]
+}
+```
+
+Each declared port is accessible at:
+
+```
+http://localhost:8090/api/v1/projects/{projectId}/{agentType}/proxy/{port}/
+```
+
+For example, if your project ID is `a1b2c3d4e5f6` and you're running Claude Code with Vite on port 5173:
+
+```
+http://localhost:8090/api/v1/projects/a1b2c3d4e5f6/claude-code/proxy/5173/
+```
+
+**How it works:**
+
+Warden's Go backend reverse-proxies HTTP and WebSocket traffic to the container's internal IP. This means:
+
+- HMR (hot module replacement) works — WebSocket upgrade is supported
+- Multiple containers can each use the same port internally without conflicts
+- No Docker port bindings are needed, so no container recreation is required
+
+**Live updates:**
+
+Forwarded ports can be added or removed on a running container without restarting it. The proxy validates each request against the current declared port list — undeclared ports return a 404.
+
+:::note
+Port forwarding only handles HTTP and WebSocket traffic. For non-HTTP protocols (gRPC, raw TCP), the container's services are not accessible from the host.
+:::
+
 ## Limitations
 
 - **Domain IPs are resolved dynamically**, but if a domain's IP changes and DNS caching hasn't refreshed, there may be a brief interruption. Editing the allowed domains list triggers a full re-resolution; otherwise restart the container.

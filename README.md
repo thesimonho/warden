@@ -110,7 +110,7 @@ Example web apps built up from core Warden features:
 - **Full container isolation** — each project gets its own filesystem, env vars, and credentials. No credential bleed, no cross-project file access.
 - **Process hardening** — containers run with dropped capabilities, a custom seccomp profile blocking dangerous syscalls, and `no-new-privileges` to prevent escalation. Applied automatically to every container.
 - **Safe autonomous mode** — run `--dangerously-skip-permissions` without risking your host. The blast radius is one disposable container.
-- **Network access controls** — per-container policy: full access, restricted (domain allowlist), or air-gapped.
+- **Network access controls** — per-container policy: full access, restricted (domain allowlist), or air-gapped. Built-in reverse proxy for accessing dev servers inside containers.
 - **Language runtimes** — declare which runtimes a project needs (Python, Go, Rust, Ruby, Lua). Warden installs them and opens only the required network domains. Auto-detected from project marker files.
 - **Credential passthrough** — share Git, SSH, and custom credentials with containers automatically without storing them.
 

@@ -84,6 +84,7 @@ func isEmptyTemplate(tmpl *api.ProjectTemplate) bool {
 		tmpl.NetworkMode == "" &&
 		tmpl.CostBudget == nil &&
 		len(tmpl.Runtimes) == 0 &&
+		len(tmpl.ForwardedPorts) == 0 &&
 		len(tmpl.Agents) == 0
 }
 
@@ -156,6 +157,7 @@ type templateData struct {
 	CostBudget      float64
 	Runtimes        []string
 	AllowedDomains  []string
+	ForwardedPorts  []int
 }
 
 // newTemplateData normalizes a CreateContainerRequest into a templateData.
@@ -170,6 +172,7 @@ func newTemplateData(req api.CreateContainerRequest) templateData {
 		CostBudget:      req.CostBudget,
 		Runtimes:        normalizeRuntimes(req.EnabledRuntimes),
 		AllowedDomains:  req.AllowedDomains,
+		ForwardedPorts:  req.ForwardedPorts,
 	}
 }
 
@@ -187,9 +190,10 @@ func writeProjectTemplate(td templateData) {
 	}
 
 	tmpl := api.ProjectTemplate{
-		Image:       td.Image,
-		NetworkMode: td.NetworkMode,
-		Runtimes:    td.Runtimes,
+		Image:          td.Image,
+		NetworkMode:    td.NetworkMode,
+		Runtimes:       td.Runtimes,
+		ForwardedPorts: td.ForwardedPorts,
 	}
 
 	// Pointer fields only set when non-default to keep the file clean.
