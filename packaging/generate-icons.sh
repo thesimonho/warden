@@ -8,6 +8,16 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "${REPO_ROOT}"
 
+# Detect ImageMagick binary: IM7 uses "magick", IM6 uses "convert".
+if command -v magick >/dev/null 2>&1; then
+    IM=magick
+elif command -v convert >/dev/null 2>&1; then
+    IM=convert
+else
+    echo "ImageMagick not found (need magick or convert)" >&2
+    exit 1
+fi
+
 ICON="icon.svg"
 LOGO="logo.svg"
 for f in "${ICON}" "${LOGO}"; do
@@ -24,7 +34,7 @@ done
 # corrupts pixel data on ImageMagick 6.x.
 HI="$(mktemp /tmp/warden-icon-1024.XXXXXX.png)"
 trap 'rm -f "${HI}"' EXIT
-magick -density 384 -background white "${ICON}" -flatten -resize 1024x1024 \
+${IM} -density 384 -background white "${ICON}" -flatten -resize 1024x1024 \
     -depth 8 -define png:color-type=6 "${HI}"
 
 # All downstream resizes must also force RGBA, otherwise ImageMagick
@@ -38,7 +48,7 @@ RGBA="-define png:color-type=6"
 # downscale from 512 (which produces blurry taskbar/panel icons).
 for size in 16 32 48 64 128 256 512; do
     mkdir -p "packaging/linux/icons/${size}x${size}"
-    magick "${HI}" -resize "${size}x${size}" ${RGBA} "packaging/linux/icons/${size}x${size}/warden.png"
+    ${IM} "${HI}" -resize "${size}x${size}" ${RGBA} "packaging/linux/icons/${size}x${size}/warden.png"
 done
 cp "packaging/linux/icons/512x512/warden.png" packaging/linux/warden.png
 
@@ -46,11 +56,11 @@ cp "packaging/linux/icons/512x512/warden.png" packaging/linux/warden.png
 # Generated directly from SVG (no white background) so systray.SetTemplateIcon
 # can let macOS handle light/dark mode. 256px RGBA; ensures crisp rendering
 # on HiDPI Linux/Windows trays.
-magick -density 384 -background none "${ICON}" -resize 256x256 \
+${IM} -density 384 -background none "${ICON}" -resize 256x256 \
     -depth 8 -define png:color-type=6 cmd/warden-tray/icon.png
 
 # Windows — multi-size .ico
-magick "${HI}" \
+${IM} "${HI}" \
     \( -clone 0 -resize 16x16 \) \
     \( -clone 0 -resize 32x32 \) \
     \( -clone 0 -resize 48x48 \) \
@@ -67,15 +77,15 @@ for pair in "16x16:icon_16x16" "32x32:icon_16x16@2x" "32x32:icon_32x32" \
             "1024x1024:icon_512x512@2x"; do
     size="${pair%%:*}"
     name="${pair#*:}"
-    magick "${HI}" -resize "${size}" ${RGBA} "packaging/macos/warden.iconset/${name}.png"
+    ${IM} "${HI}" -resize "${size}" ${RGBA} "packaging/macos/warden.iconset/${name}.png"
 done
 
 # Web — favicon and PWA icons (served from web/public/)
 mkdir -p web/public
-magick "${HI}" -resize 32x32 web/public/favicon.ico
-magick "${HI}" -resize 180x180 ${RGBA} web/public/apple-touch-icon.png
-magick "${HI}" -resize 192x192 ${RGBA} web/public/favicon-192.png
-magick "${HI}" -resize 512x512 ${RGBA} web/public/favicon-512.png
+${IM} "${HI}" -resize 32x32 web/public/favicon.ico
+${IM} "${HI}" -resize 180x180 ${RGBA} web/public/apple-touch-icon.png
+${IM} "${HI}" -resize 192x192 ${RGBA} web/public/favicon-192.png
+${IM} "${HI}" -resize 512x512 ${RGBA} web/public/favicon-512.png
 
 # Copy SVGs for direct use in web UI (transparent, theme-adapted via CSS)
 cp "${ICON}" web/public/icon.svg
