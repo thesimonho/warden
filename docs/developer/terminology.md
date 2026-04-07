@@ -45,6 +45,7 @@ The tmux session is configured with:
 - `mouse off` — mouse events pass through to xterm.js
 - `history-limit 50000` — scrollback buffer for replay on reconnect
 - `window-size latest` — resizes to the most recently attached client
+- `set-clipboard on` — forwards OSC 52 clipboard sequences from agents to the browser
 - `-u` flag — force UTF-8 mode for correct box-drawing character rendering
 
 Agents run with `TMUX` env var unset so they don't detect they're inside tmux.

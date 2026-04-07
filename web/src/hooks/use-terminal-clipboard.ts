@@ -59,6 +59,38 @@ function convertToPng(blob: Blob): Promise<Blob> {
 /** CSI u encoding for Ctrl+Shift+C (codepoint 99, modifier 6 = ctrl+shift+1). */
 const CSI_CTRL_SHIFT_C = '\x1b[99;6u'
 
+/**
+ * Writes text to the browser clipboard, retrying once on focus regain if the
+ * initial attempt fails because the document is not focused (e.g. devtools
+ * has focus). Returns true on success.
+ */
+async function writeClipboardText(text: string): Promise<boolean> {
+  try {
+    await navigator.clipboard.writeText(text)
+    return true
+  } catch {
+    // "Document is not focused" — wait for focus and retry once.
+    if (!document.hasFocus()) {
+      return new Promise((resolve) => {
+        const onFocus = () => {
+          window.removeEventListener('focus', onFocus)
+          navigator.clipboard.writeText(text).then(
+            () => resolve(true),
+            () => resolve(false),
+          )
+        }
+        window.addEventListener('focus', onFocus, { once: true })
+        // Give up after 5s if focus never returns.
+        setTimeout(() => {
+          window.removeEventListener('focus', onFocus)
+          resolve(false)
+        }, 5000)
+      })
+    }
+    return false
+  }
+}
+
 /** Raw Ctrl+V byte (0x16 / SYN). */
 const CTRL_V_BYTE = '\x16'
 
@@ -130,17 +162,27 @@ export function useTerminalClipboard({
   )
 
   /**
-   * Copies the current selection to clipboard. If xterm.js has a selection,
-   * copies it directly. Otherwise sends Ctrl+Shift+C to the PTY so the
-   * agent (e.g. Claude Code fullscreen mode) can handle it via OSC 52.
+   * Copies the current selection to clipboard via one of two paths:
+   *
+   * 1. **xterm.js selection exists** (bare bash, auth screen) — copy directly
+   *    from the terminal buffer. Fast, local, no round-trip.
+   *
+   * 2. **No xterm.js selection** (Claude Code chat with mouse reporting) —
+   *    send Ctrl+Shift+C keystroke to the PTY. The agent copies its own
+   *    TUI selection and responds with an OSC 52 escape sequence, which
+   *    the registered OSC 52 handler writes to the browser clipboard.
    */
   const copySelection = useCallback(() => {
     const terminal = terminalRef.current
     if (!terminal) return
     const selection = terminal.getSelection()
     if (selection) {
-      navigator.clipboard.writeText(selection).then(() => {
-        toast.success('Copied to clipboard')
+      writeClipboardText(selection).then((ok) => {
+        if (ok) {
+          toast.success('Copied to clipboard')
+        } else {
+          toast.error('Copy failed — clipboard access denied')
+        }
       })
     } else {
       sendToPty(CSI_CTRL_SHIFT_C)
@@ -274,9 +316,11 @@ export function useTerminalClipboard({
         .map((line) => line.trimEnd())
         .join('\n')
         .trimEnd()
-      navigator.clipboard.writeText(trimmed).then(() => {
-        terminal.clearSelection()
-        toast.success('Copied all to clipboard')
+      writeClipboardText(trimmed).then((ok) => {
+        if (ok) {
+          terminal.clearSelection()
+          toast.success('Copied all to clipboard')
+        }
       })
     }
   }, [terminalRef])
@@ -312,19 +356,16 @@ export function useTerminalClipboard({
         }
 
         if (payload === '') {
-          navigator.clipboard.writeText('').catch(() => {})
+          writeClipboardText('')
           return true
         }
 
         const isExplicit = tracker.consume()
         try {
           const text = atob(payload)
-          navigator.clipboard
-            .writeText(text)
-            .then(() => {
-              if (isExplicit) toast.success('Copied to clipboard')
-            })
-            .catch(() => {})
+          writeClipboardText(text).then((ok) => {
+            if (ok && isExplicit) toast.success('Copied to clipboard')
+          })
         } catch {
           // Invalid base64.
         }

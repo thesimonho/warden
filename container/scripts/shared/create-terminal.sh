@@ -189,6 +189,10 @@ tmux set-option -t "${SESSION_NAME}" window-size latest 2>/dev/null || true
 tmux set-option -t "${SESSION_NAME}" status off 2>/dev/null || true
 tmux set-option -t "${SESSION_NAME}" mouse off 2>/dev/null || true
 tmux set-option -t "${SESSION_NAME}" history-limit 50000 2>/dev/null || true
+# Forward OSC 52 clipboard sequences from agents to the attached client
+# (our WebSocket proxy). Without this, tmux eats the sequences and copy
+# from inside Claude Code's TUI never reaches the browser.
+tmux set-option -t "${SESSION_NAME}" set-clipboard on 2>/dev/null || true
 
 # Push terminal_connected event to the event bus
 /usr/local/bin/warden-push-event.sh terminal_connected "$WORKTREE_ID" &
