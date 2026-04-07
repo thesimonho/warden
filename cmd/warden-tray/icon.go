@@ -2,9 +2,9 @@ package main
 
 import _ "embed"
 
-// iconData is the tray icon (256x256 PNG). Source of truth is
-// packaging/linux/icons/256x256/warden.png — kept in sync by
-// the `just generate-icons` recipe.
+// iconData is the tray icon (64x64 RGBA PNG, black on transparent).
+// Generated from icon.svg by packaging/generate-icons.sh (run
+// automatically by the icons CI workflow on SVG changes).
 //
 //go:embed icon.png
 var iconData []byte
