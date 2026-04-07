@@ -59,6 +59,13 @@ interface UseTerminalOptions {
    * interval to reduce rendering load when many panels are visible.
    */
   isFocused?: boolean
+  /**
+   * When true, gives keyboard focus to xterm after `terminal.open()` + initial
+   * fit inside the font-ready callback. Consumed once on mount — re-renders
+   * don't re-trigger it. Solves the race where `terminal.focus()` is called
+   * before xterm is attached to the DOM.
+   */
+  autoFocus?: boolean
 }
 
 /** Terminal font family with local fallbacks. */
@@ -120,6 +127,7 @@ export function useTerminal({
   worktreeId,
   isActive,
   isFocused = true,
+  autoFocus = false,
 }: UseTerminalOptions) {
   const containerRef = useRef<HTMLDivElement>(null)
   const terminalRef = useRef<Terminal | null>(null)
@@ -136,6 +144,7 @@ export function useTerminal({
   const flushRafRef = useRef(0)
   const throttleTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const isFocusedRef = useRef(isFocused)
+  const autoFocusRef = useRef(autoFocus)
   const [status, setStatus] = useState<TerminalStatus>('disconnected')
 
   const clipboard = useTerminalClipboard({ terminalRef, wsRef, projectId, agentType })
@@ -531,6 +540,12 @@ export function useTerminal({
             fitAddon.fit()
           } catch {
             // Ignore if not yet visible.
+          }
+          // Focus after fit — the deterministic "xterm is ready" signal.
+          // Consumed once so re-renders don't re-trigger it.
+          if (autoFocusRef.current) {
+            autoFocusRef.current = false
+            terminal.focus()
           }
         }
       })
