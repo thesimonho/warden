@@ -5,6 +5,7 @@ Comment=Dashboard and control plane for AI coding agents
 Exec=warden-desktop
 Icon=warden
 Categories=Development;
+Keywords=AI;Agent;Container;Docker;Claude;Codex;Developer;
 Terminal=false
 StartupNotify=true
 StartupWMClass=warden

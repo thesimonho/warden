@@ -26,5 +26,7 @@
     <string>public.app-category.developer-tools</string>
     <key>LSUIElement</key>
     <false/>
+    <key>NSHumanReadableCopyright</key>
+    <string>Copyright © 2026 Simon Ho</string>
 </dict>
 </plist>
