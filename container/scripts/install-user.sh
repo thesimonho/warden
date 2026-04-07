@@ -27,6 +27,15 @@ if ! id -u warden >/dev/null 2>&1; then
 fi
 
 # -------------------------------------------------------------------
+# Passwordless sudo — agents need to install packages (apt-get install)
+# without interactive password prompts. Safe because the container's
+# capability bounding set is tight (no NET_ADMIN, no SYS_ADMIN, no
+# MKNOD) — root-via-sudo cannot modify iptables or escape the container.
+# -------------------------------------------------------------------
+echo 'warden ALL=(ALL) NOPASSWD:ALL' > /etc/sudoers.d/warden
+chmod 0440 /etc/sudoers.d/warden
+
+# -------------------------------------------------------------------
 # Pre-create ~/.local/bin so .profile's PATH block picks it up during
 # login shells (Claude CLI installs here).
 # -------------------------------------------------------------------
