@@ -1,6 +1,5 @@
-// Package runtime detects the Docker container runtime
-// and resolves its API socket path.
-package runtime
+// Package docker detects the Docker daemon and resolves its API socket path.
+package docker
 
 import (
 	"context"
@@ -11,27 +10,22 @@ import (
 	"github.com/docker/docker/client"
 )
 
-// Runtime identifies a container runtime engine.
-type Runtime string
+// Name is the identifier for the Docker container runtime.
+const Name = "docker"
 
-const (
-	// RuntimeDocker is the Docker container runtime.
-	RuntimeDocker Runtime = "docker"
-)
-
-// RuntimeInfo describes a detected container runtime.
-type RuntimeInfo struct {
+// Info describes the detected Docker runtime status.
+type Info struct {
 	// Name is the runtime identifier ("docker").
-	Name Runtime `json:"name"`
-	// Available indicates whether the runtime's API socket is reachable.
+	Name string `json:"name"`
+	// Available indicates whether the Docker API socket is reachable.
 	Available bool `json:"available"`
-	// SocketPath is the filesystem path to the runtime's API socket.
+	// SocketPath is the filesystem path to the Docker API socket.
 	SocketPath string `json:"socketPath"`
-	// Version is the runtime's reported API version, if available.
+	// Version is Docker's reported API version, if available.
 	Version string `json:"version,omitempty"`
 }
 
-// socketCandidates is defined per-platform in sockets_{linux,darwin,windows}.go.
+// socketCandidates returns platform-specific Docker socket paths (build-tagged).
 
 // SocketHost converts a raw socket path to a Docker client host URI.
 //
@@ -49,8 +43,8 @@ func SocketHost(socketPath string) string {
 	return "unix://" + socketPath
 }
 
-// probeSocket attempts to connect to the runtime API at the given socket path
-// and returns version info if successful.
+// probeSocket attempts to connect to the Docker API at the given socket path
+// and returns the API version if successful.
 func probeSocket(ctx context.Context, socketPath string) (string, error) {
 	cli, err := client.NewClientWithOpts(
 		client.WithHost(SocketHost(socketPath)),
@@ -69,58 +63,49 @@ func probeSocket(ctx context.Context, socketPath string) (string, error) {
 	return ping.APIVersion, nil
 }
 
-// probeBinary checks whether the runtime binary is installed and returns its
+// probeBinary checks whether the docker binary is installed and returns its
 // version. This serves as a fallback when socket probing fails.
-func probeBinary(ctx context.Context, rt Runtime) (string, error) {
-	binName := string(rt)
-	binPath, err := exec.LookPath(binName)
+func probeBinary(ctx context.Context) (string, error) {
+	binPath, err := exec.LookPath(Name)
 	if err != nil {
-		return "", fmt.Errorf("%s binary not found: %w", binName, err)
+		return "", fmt.Errorf("%s binary not found: %w", Name, err)
 	}
 
 	out, err := exec.CommandContext(ctx, binPath, "version", "--format", "{{.Client.Version}}").Output()
 	if err != nil {
-		return "", fmt.Errorf("getting %s version: %w", binName, err)
+		return "", fmt.Errorf("getting %s version: %w", Name, err)
 	}
 
 	return strings.TrimSpace(string(out)), nil
 }
 
-// DetectAvailable checks whether Docker is available and returns its status.
+// Detect checks whether Docker is available and returns its status.
 // Docker is probed first by connecting to its API socket, then by checking
 // for the binary as a fallback.
-func DetectAvailable(ctx context.Context) []RuntimeInfo {
-	info := RuntimeInfo{Name: RuntimeDocker}
+func Detect(ctx context.Context) Info {
+	info := Info{Name: Name}
 
-	for _, socketPath := range socketCandidates(RuntimeDocker) {
+	for _, socketPath := range socketCandidates() {
 		version, err := probeSocket(ctx, socketPath)
 		if err == nil {
 			info.Available = true
 			info.SocketPath = socketPath
 			info.Version = version
-			break
+			return info
 		}
 	}
 
 	// Fall back to binary detection if socket probe failed.
-	if !info.Available {
-		if version, err := probeBinary(ctx, RuntimeDocker); err == nil {
-			info.Available = true
-			info.Version = version
-		}
+	if version, err := probeBinary(ctx); err == nil {
+		info.Available = true
+		info.Version = version
 	}
 
-	return []RuntimeInfo{info}
+	return info
 }
 
-// SocketForRuntime returns the first reachable Docker socket path,
+// SocketPath returns the first reachable Docker socket path,
 // or an empty string if no socket is found (allowing fallback to client.FromEnv).
-func SocketForRuntime(ctx context.Context) string {
-	for _, socketPath := range socketCandidates(RuntimeDocker) {
-		_, err := probeSocket(ctx, socketPath)
-		if err == nil {
-			return socketPath
-		}
-	}
-	return ""
+func SocketPath(ctx context.Context) string {
+	return Detect(ctx).SocketPath
 }

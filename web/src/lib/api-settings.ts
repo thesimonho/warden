@@ -7,13 +7,13 @@ import type { RuntimeInfo, ServerSettings, RuntimeDefault, ProjectTemplate } fro
 import { apiFetch } from './api-core'
 
 /**
- * Fetches available container runtimes and their status.
+ * Fetches Docker runtime availability and status.
  *
- * @returns An array of runtime info objects.
+ * @returns Docker runtime info.
  */
-export async function fetchRuntimes(): Promise<RuntimeInfo[]> {
+export async function fetchDockerStatus(): Promise<RuntimeInfo> {
   const response = await apiFetch('/api/v1/runtimes')
-  return response.json() as Promise<RuntimeInfo[]>
+  return response.json() as Promise<RuntimeInfo>
 }
 
 /**

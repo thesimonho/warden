@@ -19,7 +19,7 @@ import (
 
 	"github.com/thesimonho/warden/agent"
 	"github.com/thesimonho/warden/api"
-	cruntime "github.com/thesimonho/warden/runtime"
+	"github.com/thesimonho/warden/docker"
 )
 
 // stopTimeout is the grace period before force-killing a container.
@@ -54,7 +54,7 @@ type EngineClient struct {
 func NewClient(socketPath string, registry *agent.Registry) (*EngineClient, error) {
 	opts := []client.Opt{client.WithAPIVersionNegotiation()}
 	if socketPath != "" {
-		opts = append(opts, client.WithHost(cruntime.SocketHost(socketPath)))
+		opts = append(opts, client.WithHost(docker.SocketHost(socketPath)))
 	} else {
 		opts = append(opts, client.FromEnv)
 	}

@@ -14,7 +14,7 @@ import {
   removeTestProject,
   fetchProjects,
   fetchWorktrees,
-  fetchRuntimes,
+  fetchDockerStatus,
   type ApiRuntime,
 } from './helpers/api'
 import { existsSync, mkdirSync, writeFileSync, rmSync } from 'fs'
@@ -36,10 +36,9 @@ const codexTest = base.extend<
   { codexProject: TestProjectInfo; codexRuntime: ApiRuntime }
 >({
   codexRuntime: [async ({}, use) => {
-    const runtimes = await fetchRuntimes()
-    const active = runtimes.find((r) => r.available)
-    if (!active) throw new Error('No container runtime available.')
-    await use(active)
+    const info = await fetchDockerStatus()
+    if (!info.available) throw new Error('No container runtime available.')
+    await use(info)
   }, { scope: 'worker' }],
 
   codexProject: [async ({ codexRuntime }, use) => {

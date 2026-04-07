@@ -1,32 +1,23 @@
-package runtime
+package docker
 
 import (
 	"context"
 	"testing"
 )
 
-func TestSocketCandidates_Docker(t *testing.T) {
+func TestSocketCandidates(t *testing.T) {
 	t.Parallel()
 
-	candidates := socketCandidates(RuntimeDocker)
+	candidates := socketCandidates()
 	if len(candidates) == 0 {
 		t.Fatal("expected at least one Docker socket candidate")
-	}
-}
-
-func TestSocketCandidates_Unknown(t *testing.T) {
-	t.Parallel()
-
-	candidates := socketCandidates(Runtime("unknown"))
-	if candidates != nil {
-		t.Errorf("expected nil for unknown runtime, got %v", candidates)
 	}
 }
 
 func TestSocketCandidates_DockerHostEnv(t *testing.T) {
 	t.Setenv("DOCKER_HOST", "tcp://localhost:2375")
 
-	candidates := socketCandidates(RuntimeDocker)
+	candidates := socketCandidates()
 	if len(candidates) == 0 {
 		t.Fatal("expected at least one candidate")
 	}
@@ -69,19 +60,21 @@ func TestSocketHost_ExistingScheme(t *testing.T) {
 	}
 }
 
-func TestProbeBinary_UnknownRuntime(t *testing.T) {
-	t.Parallel()
-
-	_, err := probeBinary(context.Background(), Runtime("nonexistent-runtime"))
+func TestProbeBinary_Nonexistent(t *testing.T) {
+	// Override PATH to ensure docker binary isn't found.
+	// Cannot use t.Parallel with t.Setenv.
+	t.Setenv("PATH", "")
+	_, err := probeBinary(context.Background())
 	if err == nil {
 		t.Error("expected error for nonexistent binary")
 	}
 }
 
-func TestRuntimeConstants(t *testing.T) {
+func TestDetect_PopulatesName(t *testing.T) {
 	t.Parallel()
 
-	if RuntimeDocker != "docker" {
-		t.Errorf("expected 'docker', got %s", RuntimeDocker)
+	info := Detect(context.Background())
+	if info.Name != Name {
+		t.Errorf("expected Name %q, got %q", Name, info.Name)
 	}
 }

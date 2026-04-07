@@ -11,7 +11,7 @@ import (
 	"github.com/thesimonho/warden/client"
 	"github.com/thesimonho/warden/engine"
 	"github.com/thesimonho/warden/eventbus"
-	"github.com/thesimonho/warden/runtime"
+	"github.com/thesimonho/warden/docker"
 )
 
 // Client abstracts all Warden operations for the TUI. It is the key
@@ -159,7 +159,7 @@ type Client interface {
 
 	// ListRuntimes returns available container runtimes.
 	// API: GET /api/v1/runtimes
-	ListRuntimes(ctx context.Context) ([]runtime.RuntimeInfo, error)
+	ListRuntimes(ctx context.Context) (*docker.Info, error)
 
 	// GetAuditLog returns filtered audit events.
 	// API: GET /api/v1/audit

@@ -1038,6 +1038,21 @@ components:
       - AgentClaudeCode
       - AgentCodex
       - DefaultAgentType
+    docker.Info:
+      properties:
+        available:
+          description: Available indicates whether the Docker API socket is reachable.
+          type: boolean
+        name:
+          description: Name is the runtime identifier ("docker").
+          type: string
+        socketPath:
+          description: SocketPath is the filesystem path to the Docker API socket.
+          type: string
+        version:
+          description: Version is Docker's reported API version, if available.
+          type: string
+      type: object
     engine.NotificationType:
       description: NotificationType indicates why Claude needs attention.
       enum:
@@ -1094,27 +1109,6 @@ components:
       - WorktreeStateShell
       - WorktreeStateBackground
       - WorktreeStateStopped
-    runtime.Runtime:
-      description: Name is the runtime identifier ("docker").
-      enum:
-      - docker
-      type: string
-      x-enum-varnames:
-      - RuntimeDocker
-    runtime.RuntimeInfo:
-      properties:
-        available:
-          description: Available indicates whether the runtime's API socket is reachable.
-          type: boolean
-        name:
-          $ref: '#/components/schemas/runtime.Runtime'
-        socketPath:
-          description: SocketPath is the filesystem path to the runtime's API socket.
-          type: string
-        version:
-          description: Version is the runtime's reported API version, if available.
-          type: string
-      type: object
     server.ErrorCode:
       enum:
       - INVALID_BODY
@@ -3318,9 +3312,7 @@ paths:
           content:
             application/json:
               schema:
-                items:
-                  $ref: '#/components/schemas/runtime.RuntimeInfo'
-                type: array
+                $ref: '#/components/schemas/docker.Info'
           description: OK
       summary: List runtimes
       tags:
