@@ -2,9 +2,8 @@ package main
 
 import _ "embed"
 
-// iconData is the tray icon (64x64 RGBA PNG, black on transparent).
-// Generated from icon.svg by packaging/generate-icons.sh (run
-// automatically by the icons CI workflow on SVG changes).
+// iconData is the 64x64 RGBA PNG tray icon (black on transparent).
+// Regenerated from icon.svg by packaging/generate-icons.sh.
 //
 //go:embed icon.png
 var iconData []byte

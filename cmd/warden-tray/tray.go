@@ -38,6 +38,7 @@ func quitTray() {
 
 // onReady is called by systray once the tray is initialized.
 func (t *trayState) onReady() {
+	// Template icon lets macOS handle light/dark mode inversion automatically.
 	systray.SetTemplateIcon(iconData, iconData)
 	systray.SetTooltip("Warden")
 

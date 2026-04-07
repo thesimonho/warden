@@ -41,7 +41,7 @@ for size in 16 32 48 64 128 256 512; do
     mkdir -p "packaging/linux/icons/${size}x${size}"
     magick "${HI}" -resize "${size}x${size}" ${RGBA} "packaging/linux/icons/${size}x${size}/warden.png"
 done
-magick "${HI}" -resize 512x512 ${RGBA} packaging/linux/warden.png
+cp "packaging/linux/icons/512x512/warden.png" packaging/linux/warden.png
 
 # Tray icon — black on transparent for macOS menu bar template image.
 # Generated directly from SVG (no white background) so systray.SetTemplateIcon
