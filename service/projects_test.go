@@ -156,6 +156,62 @@ func TestAddProject(t *testing.T) {
 	}
 }
 
+func TestAddProject_Remote(t *testing.T) {
+	t.Parallel()
+
+	database := testDB(t)
+	svc := New(ServiceDeps{DockerAvailable: true, Engine: &mockEngine{}, DB: database})
+
+	result, err := svc.AddProject("remote-project", "", "claude-code", "https://github.com/org/repo.git", false)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if result.ProjectID == "" {
+		t.Error("expected non-empty ProjectID")
+	}
+
+	has, _ := database.HasProject(result.ProjectID, "claude-code")
+	if !has {
+		t.Error("expected remote project to be added to database")
+	}
+
+	// Verify the same URL produces the same project (idempotent).
+	result2, err := svc.AddProject("remote-project", "", "claude-code", "https://github.com/org/repo.git", false)
+	if err != nil {
+		t.Fatalf("unexpected error on second add: %v", err)
+	}
+	if result2.ProjectID != result.ProjectID {
+		t.Errorf("expected same ProjectID %q, got %q", result.ProjectID, result2.ProjectID)
+	}
+}
+
+func TestAddProject_RemoteTemporary(t *testing.T) {
+	t.Parallel()
+
+	database := testDB(t)
+	svc := New(ServiceDeps{DockerAvailable: true, Engine: &mockEngine{}, DB: database})
+
+	result, err := svc.AddProject("temp-project", "", "claude-code", "https://github.com/org/repo.git", true)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	row, err := database.GetProject(result.ProjectID, "claude-code")
+	if err != nil {
+		t.Fatalf("unexpected error getting project: %v", err)
+	}
+	if row == nil {
+		t.Fatal("expected project row to exist")
+	}
+	if !row.Temporary {
+		t.Error("expected Temporary to be true")
+	}
+	if row.CloneURL != "https://github.com/org/repo.git" {
+		t.Errorf("expected CloneURL %q, got %q", "https://github.com/org/repo.git", row.CloneURL)
+	}
+}
+
 func TestRemoveProject(t *testing.T) {
 	t.Parallel()
 
