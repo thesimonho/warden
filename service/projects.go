@@ -454,7 +454,7 @@ func (s *Service) RestartProject(
 		}
 	}
 
-	if err := s.docker.RestartProject(ctx, project.ContainerID, originalMounts); err != nil {
+	if err := s.docker.RestartProject(ctx, project.ContainerID, originalMounts, project.NetworkMode, splitCSV(project.AllowedDomains)); err != nil {
 		var staleErr *engine.StaleMountsError
 		if errors.As(err, &staleErr) {
 			s.audit.Write(db.Entry{

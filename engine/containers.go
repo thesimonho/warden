@@ -117,8 +117,11 @@ func (ec *EngineClient) CreateContainer(ctx context.Context, req api.CreateConta
 		networkMode = api.NetworkModeFull
 	}
 
-	// All project metadata lives in the SQLite database — no Docker labels needed.
-	labels := map[string]string{}
+	// Label Warden-managed containers so the Docker events watcher can filter
+	// container start events efficiently (re-apply network isolation on restart).
+	labels := map[string]string{
+		"dev.warden.managed": "true",
+	}
 
 	// Pass network mode to the container as env vars so the entrypoint
 	// can set up iptables rules for restricted/none modes.
@@ -254,6 +257,17 @@ func (ec *EngineClient) CreateContainer(ctx context.Context, req api.CreateConta
 	id := resp.ID
 	if len(id) > 12 {
 		id = id[:12]
+	}
+
+	// Apply network isolation via privileged docker exec. This runs the
+	// same setup-network-isolation.sh script but from outside the container,
+	// so NET_ADMIN is never in the container's bounding set. Even sudo
+	// can't undo iptables rules without NET_ADMIN.
+	if networkMode != api.NetworkModeFull {
+		if err := ec.ApplyNetworkIsolation(ctx, id, string(networkMode), req.AllowedDomains); err != nil {
+			_ = ec.stopAndRemove(ctx, resp.ID)
+			return "", fmt.Errorf("setting up network isolation: %w", err)
+		}
 	}
 
 	slog.Info("created container", "name", req.Name, "id", id, "image", image)
@@ -399,13 +413,15 @@ func (ec *EngineClient) RenameContainer(ctx context.Context, id string, newName 
 }
 
 // ReloadAllowedDomains re-runs the network isolation script inside a running
-// container to update the allowed domain list without recreation. Runs as
-// root via docker exec with env var overrides (since the container's baked-in
-// WARDEN_ALLOWED_DOMAINS env var can't be changed at runtime).
+// container to update the allowed domain list without recreation. Uses
+// privileged exec because the container's capability set does not include
+// NET_ADMIN — iptables modifications require the elevated privileges that
+// only docker exec --privileged can provide.
 func (ec *EngineClient) ReloadAllowedDomains(ctx context.Context, containerID string, domains []string) error {
 	cfg := container.ExecOptions{
 		Cmd:          []string{"/usr/local/bin/setup-network-isolation.sh"},
 		User:         "root",
+		Privileged:   true,
 		Env:          []string{"WARDEN_NETWORK_MODE=restricted", "WARDEN_ALLOWED_DOMAINS=" + strings.Join(domains, ",")},
 		AttachStdout: true,
 		AttachStderr: true,
@@ -413,6 +429,27 @@ func (ec *EngineClient) ReloadAllowedDomains(ctx context.Context, containerID st
 	_, err := ec.execAndCaptureStrict(ctx, containerID, cfg)
 	if err != nil {
 		return fmt.Errorf("reloading allowed domains: %w", err)
+	}
+	return nil
+}
+
+// ApplyNetworkIsolation runs the network isolation script via privileged
+// docker exec. Used after container start/restart to set up iptables
+// without granting NET_ADMIN to the container's capability set. This makes
+// network isolation tamper-proof — even root inside the container cannot
+// modify iptables rules.
+func (ec *EngineClient) ApplyNetworkIsolation(ctx context.Context, containerID, mode string, domains []string) error {
+	cfg := container.ExecOptions{
+		Cmd:          []string{"/usr/local/bin/setup-network-isolation.sh"},
+		User:         "root",
+		Privileged:   true,
+		Env:          []string{"WARDEN_NETWORK_MODE=" + mode, "WARDEN_ALLOWED_DOMAINS=" + strings.Join(domains, ",")},
+		AttachStdout: true,
+		AttachStderr: true,
+	}
+	_, err := ec.execAndCaptureStrict(ctx, containerID, cfg)
+	if err != nil {
+		return fmt.Errorf("applying network isolation: %w", err)
 	}
 	return nil
 }
@@ -460,13 +497,16 @@ func (ec *EngineClient) RecreateContainer(ctx context.Context, id string, req ap
 
 // baseCapabilities are the Linux capabilities granted to every Warden container.
 // These are the minimum set required for the entrypoint (root → warden user switch
-// via gosu, chown, kill) and standard dev tooling (bind to low ports, ping).
+// via gosu, chown, kill), sudo for package installation, and standard dev tooling
+// (bind to low ports, ping).
 //
 // Dropped from Docker's defaults: SETPCAP, MKNOD, SETFCAP, AUDIT_WRITE — these
 // allow modifying capability sets, creating device nodes, and writing to the
 // kernel audit log, none of which is needed in a coding agent container.
-// AUDIT_WRITE was previously required for PAM (used by su), but the entrypoint
-// now uses gosu which calls setuid/setgid directly.
+//
+// Notably absent: NET_ADMIN. Network isolation (iptables) is applied via
+// privileged docker exec from the Go server, keeping it out of the bounding
+// set so even root-via-sudo cannot modify firewall rules.
 var baseCapabilities = []string{
 	"CHOWN",            // entrypoint chown of bind mounts
 	"DAC_OVERRIDE",     // root reading/writing files owned by warden user
@@ -481,26 +521,28 @@ var baseCapabilities = []string{
 }
 
 // buildSecurityConfig returns the capability drop/add lists and security
-// options for a container based on its network mode. Every container gets:
+// options for a container. Every container gets the same security profile:
 //   - CapDrop ALL (drop all default capabilities)
 //   - CapAdd with baseCapabilities (re-add only what's needed)
-//   - no-new-privileges (prevent setuid binary escalation)
 //   - Custom seccomp profile (denylist of dangerous syscalls) as inline JSON
 //
-// Containers with restricted or none network modes additionally get
-// NET_ADMIN for iptables-based network isolation.
-func buildSecurityConfig(networkMode api.NetworkMode, seccompValue string) (capDrop, capAdd []string, securityOpts []string) {
+// NET_ADMIN is intentionally excluded from all modes. Network isolation
+// (iptables/dnsmasq) is applied via privileged docker exec from the Go
+// server after container start. This keeps NET_ADMIN out of the container's
+// bounding set, making network rules tamper-proof — even sudo cannot
+// modify iptables without NET_ADMIN.
+//
+// no-new-privileges is not set so that sudo (a SUID binary) can elevate
+// to root for package installation. This is safe because the bounding set
+// is tight: no NET_ADMIN (can't touch iptables), no SYS_ADMIN (can't
+// mount/unmount), no MKNOD (can't create devices).
+func buildSecurityConfig(_ api.NetworkMode, seccompValue string) (capDrop, capAdd []string, securityOpts []string) {
 	capDrop = []string{"ALL"}
 
 	capAdd = make([]string, len(baseCapabilities))
 	copy(capAdd, baseCapabilities)
 
-	if networkMode == api.NetworkModeRestricted || networkMode == api.NetworkModeNone {
-		capAdd = append(capAdd, "NET_ADMIN")
-	}
-
 	securityOpts = []string{
-		"no-new-privileges",
 		"seccomp=" + seccompValue,
 	}
 

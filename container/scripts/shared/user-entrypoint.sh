@@ -17,6 +17,28 @@ set -euo pipefail
 WORKSPACE_DIR="${WARDEN_WORKSPACE_DIR:-/project}"
 
 # -------------------------------------------------------------------
+# Wait for network isolation setup. The Go server applies iptables
+# rules via privileged docker exec after container start. This gate
+# ensures no network-dependent work (agent CLI, package installs)
+# runs before isolation is confirmed. Timeout prevents indefinite
+# hangs if the server crashes before applying isolation.
+# -------------------------------------------------------------------
+if [ "${WARDEN_NETWORK_MODE:-full}" != "full" ]; then
+  echo "[warden] waiting for network isolation setup..."
+  elapsed=0
+  timeout=120
+  while [ ! -f /tmp/warden-network-ready ] && [ "$elapsed" -lt "$timeout" ]; do
+    sleep 0.5
+    elapsed=$((elapsed + 1))
+  done
+  if [ ! -f /tmp/warden-network-ready ]; then
+    echo "[warden] FATAL: network isolation setup timed out after ${timeout}s" >&2
+    exit 1
+  fi
+  echo "[warden] network isolation active"
+fi
+
+# -------------------------------------------------------------------
 # Ensure TERM is set for full color support in terminal sessions.
 # Containers default to "dumb" which suppresses ANSI color output
 # in Claude Code and other CLI tools.

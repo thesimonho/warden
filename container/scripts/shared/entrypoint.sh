@@ -18,6 +18,12 @@ set -euo pipefail
 
 WARDEN_USER="warden"
 
+# Clear any stale network readiness marker from previous runs. The Go
+# server writes this marker after applying network isolation via
+# privileged docker exec. Clearing it ensures the user-entrypoint
+# blocks until isolation is confirmed on every container start.
+rm -f /tmp/warden-network-ready
+
 # -------------------------------------------------------------------
 # Podman with --userns=keep-id runs the entrypoint as the mapped host
 # user (non-root). No privilege drop needed — skip straight to the
@@ -71,26 +77,13 @@ if [ -n "${WARDEN_AGENT_TYPE:-}" ] && [ -x /usr/local/bin/install-agent.sh ]; th
 fi
 
 # -------------------------------------------------------------------
-# Network isolation — apply iptables rules for restricted/none modes.
-# Must run as root (requires NET_ADMIN capability).
+# Network isolation is configured by the Go server via
+# docker exec --privileged after container start. This keeps
+# NET_ADMIN out of the container's capability set, making iptables
+# rules tamper-proof from inside the container (even with sudo).
+# The user-entrypoint.sh waits for /tmp/warden-network-ready before
+# proceeding with any network-dependent work.
 # -------------------------------------------------------------------
-if [ -n "${WARDEN_NETWORK_MODE:-}" ] && [ "$WARDEN_NETWORK_MODE" != "full" ]; then
-  if [ -x /usr/local/bin/setup-network-isolation.sh ]; then
-    if ! /usr/local/bin/setup-network-isolation.sh; then
-      echo "[warden] FATAL: network isolation setup failed for mode=$WARDEN_NETWORK_MODE" >&2
-      # Push error event so the frontend can display the failure.
-      # shellcheck source=warden-write-event.sh
-      source /usr/local/bin/warden-write-event.sh
-      if warden_check_event_env; then
-        WORKTREE_ID="main"
-        EVENT_JSON=$(warden_build_event_json "container_error" \
-          "{\"message\":\"Network isolation setup failed for mode=$WARDEN_NETWORK_MODE\"}")
-        warden_write_event "$EVENT_JSON"
-      fi
-      exit 1
-    fi
-  fi
-fi
 
 # -------------------------------------------------------------------
 # Runtime installation — install user-selected language runtimes.

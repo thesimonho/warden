@@ -584,15 +584,19 @@ func (ec *EngineClient) StopProject(ctx context.Context, id string) error {
 	return nil
 }
 
-// RestartProject restarts a container. Before restarting, it validates
-// that all bind mount source paths still exist on the host. If any are
-// stale (e.g. Nix Home Manager switched generations and garbage-collected
-// old store paths), the restart is blocked with a StaleMountsError so the
-// caller can warn the user and let them decide how to proceed.
+// RestartProject restarts a container and re-applies network isolation.
+// Before restarting, it validates that all bind mount source paths still
+// exist on the host. If any are stale, the restart is blocked with a
+// StaleMountsError so the caller can warn the user.
+//
+// After the restart completes, network isolation is re-applied via
+// privileged docker exec if the project uses restricted or none mode.
+// Iptables rules don't persist across container restarts, so they must
+// be re-established every time.
 //
 // originalMounts are the pre-symlink-resolution mount specs from the DB.
 // When nil, mount validation is skipped (container predates the migration).
-func (ec *EngineClient) RestartProject(ctx context.Context, id string, originalMounts []api.Mount) error {
+func (ec *EngineClient) RestartProject(ctx context.Context, id string, originalMounts []api.Mount, networkMode string, allowedDomains []string) error {
 	if err := ec.validateMountSources(ctx, id, originalMounts); err != nil {
 		return err
 	}
@@ -603,6 +607,14 @@ func (ec *EngineClient) RestartProject(ctx context.Context, id string, originalM
 	})
 	if err != nil {
 		return fmt.Errorf("restarting container %s: %w", id, err)
+	}
+
+	// Re-apply network isolation after restart. Iptables rules are lost
+	// when the container stops, so they must be re-established.
+	if networkMode != "" && api.NetworkMode(networkMode) != api.NetworkModeFull {
+		if err := ec.ApplyNetworkIsolation(ctx, id, networkMode, allowedDomains); err != nil {
+			return fmt.Errorf("re-applying network isolation after restart: %w", err)
+		}
 	}
 
 	slog.Info("restarted project", "id", id)
