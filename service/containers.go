@@ -604,16 +604,7 @@ func (s *Service) HandleContainerStart(containerID, containerName string) {
 	// Merge runtime domains so the re-applied isolation matches what
 	// was originally configured during container creation.
 	if mode == api.NetworkModeRestricted && project.EnabledRuntimes != "" {
-		runtimeDomains := runtimes.DomainsForRuntimes(splitCSV(project.EnabledRuntimes))
-		existing := make(map[string]bool, len(domains))
-		for _, d := range domains {
-			existing[d] = true
-		}
-		for _, d := range runtimeDomains {
-			if !existing[d] {
-				domains = append(domains, d)
-			}
-		}
+		domains = mergeDomainsDedup(domains, runtimes.DomainsForRuntimes(splitCSV(project.EnabledRuntimes)))
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
@@ -642,15 +633,20 @@ func mergeRuntimeDomains(req *api.CreateContainerRequest) {
 	if req.NetworkMode != api.NetworkModeRestricted || len(req.EnabledRuntimes) == 0 {
 		return
 	}
-	runtimeDomains := runtimes.DomainsForRuntimes(req.EnabledRuntimes)
-	existing := make(map[string]bool, len(req.AllowedDomains))
-	for _, d := range req.AllowedDomains {
-		existing[d] = true
+	req.AllowedDomains = mergeDomainsDedup(req.AllowedDomains, runtimes.DomainsForRuntimes(req.EnabledRuntimes))
+}
+
+// mergeDomainsDedup appends domains from extra into base, skipping duplicates.
+func mergeDomainsDedup(base, extra []string) []string {
+	seen := make(map[string]bool, len(base))
+	for _, d := range base {
+		seen[d] = true
 	}
-	for _, d := range runtimeDomains {
-		if !existing[d] {
-			req.AllowedDomains = append(req.AllowedDomains, d)
+	for _, d := range extra {
+		if !seen[d] {
+			base = append(base, d)
 		}
 	}
+	return base
 }
 

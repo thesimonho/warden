@@ -76,14 +76,8 @@ if [ -n "${WARDEN_AGENT_TYPE:-}" ] && [ -x /usr/local/bin/install-agent.sh ]; th
   /usr/local/bin/install-agent.sh || echo "[warden] warning: agent CLI installation failed"
 fi
 
-# -------------------------------------------------------------------
-# Network isolation is configured by the Go server via
-# docker exec --privileged after container start. This keeps
-# NET_ADMIN out of the container's capability set, making iptables
-# rules tamper-proof from inside the container (even with sudo).
-# The user-entrypoint.sh waits for /tmp/warden-network-ready before
-# proceeding with any network-dependent work.
-# -------------------------------------------------------------------
+# Network isolation: applied by the Go server via docker exec --privileged
+# after container start (keeps NET_ADMIN out of the container's bounding set).
 
 # -------------------------------------------------------------------
 # Runtime installation — install user-selected language runtimes.

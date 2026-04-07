@@ -28,7 +28,7 @@ if [ "${WARDEN_NETWORK_MODE:-full}" != "full" ]; then
   elapsed=0
   timeout=120
   while [ ! -f /tmp/warden-network-ready ] && [ "$elapsed" -lt "$timeout" ]; do
-    sleep 0.5
+    sleep 1
     elapsed=$((elapsed + 1))
   done
   if [ ! -f /tmp/warden-network-ready ]; then

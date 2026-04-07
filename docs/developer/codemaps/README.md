@@ -49,6 +49,6 @@ Container image, scripts, and security at `container/`.
 | File                                       | Covers                                                                             |
 | ------------------------------------------ | ---------------------------------------------------------------------------------- |
 | [image.md](container/image.md)             | Dockerfile, install-tools.sh, devcontainer feature                                 |
-| [security.md](container/security.md)       | Capability dropping, seccomp profile, no-new-privileges, network isolation         |
+| [security.md](container/security.md)       | Capability dropping, seccomp profile, external network isolation, sudo support     |
 | [scripts.md](container/scripts.md)         | Terminal lifecycle scripts, event scripts, attention tracking, audit logging modes |
 | [environment.md](container/environment.md) | Process architecture, env var forwarding, storage layout, event bus communication  |

@@ -216,7 +216,7 @@ func (ec *EngineClient) CreateContainer(ctx context.Context, req api.CreateConta
 		binds = append(binds, fmt.Sprintf("%s:%s", eventHostDir, containerEventDir))
 	}
 
-	capDrop, capAdd, securityOpts := buildSecurityConfig(networkMode, ec.seccompProfileJSON)
+	capDrop, capAdd, securityOpts := buildSecurityConfig(ec.seccompProfileJSON)
 
 	pidsLimit := defaultPidsLimit
 	hostConfig := &container.HostConfig{
@@ -413,21 +413,11 @@ func (ec *EngineClient) RenameContainer(ctx context.Context, id string, newName 
 }
 
 // ReloadAllowedDomains re-runs the network isolation script inside a running
-// container to update the allowed domain list without recreation. Uses
-// privileged exec because the container's capability set does not include
-// NET_ADMIN — iptables modifications require the elevated privileges that
-// only docker exec --privileged can provide.
+// container to update the allowed domain list without recreation. Delegates
+// to ApplyNetworkIsolation with restricted mode hardcoded (the only mode
+// that uses domain hot-reload).
 func (ec *EngineClient) ReloadAllowedDomains(ctx context.Context, containerID string, domains []string) error {
-	cfg := container.ExecOptions{
-		Cmd:          []string{"/usr/local/bin/setup-network-isolation.sh"},
-		User:         "root",
-		Privileged:   true,
-		Env:          []string{"WARDEN_NETWORK_MODE=restricted", "WARDEN_ALLOWED_DOMAINS=" + strings.Join(domains, ",")},
-		AttachStdout: true,
-		AttachStderr: true,
-	}
-	_, err := ec.execAndCaptureStrict(ctx, containerID, cfg)
-	if err != nil {
+	if err := ec.ApplyNetworkIsolation(ctx, containerID, string(api.NetworkModeRestricted), domains); err != nil {
 		return fmt.Errorf("reloading allowed domains: %w", err)
 	}
 	return nil
@@ -536,7 +526,7 @@ var baseCapabilities = []string{
 // to root for package installation. This is safe because the bounding set
 // is tight: no NET_ADMIN (can't touch iptables), no SYS_ADMIN (can't
 // mount/unmount), no MKNOD (can't create devices).
-func buildSecurityConfig(_ api.NetworkMode, seccompValue string) (capDrop, capAdd []string, securityOpts []string) {
+func buildSecurityConfig(seccompValue string) (capDrop, capAdd []string, securityOpts []string) {
 	capDrop = []string{"ALL"}
 
 	capAdd = make([]string, len(baseCapabilities))

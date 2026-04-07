@@ -755,42 +755,11 @@ func (ec *EngineClient) WatchContainerEvents(ctx context.Context, onStart func(c
 			return
 		}
 
-		eventsCh, errCh := ec.api.Events(ctx, events.ListOptions{
-			Filters: filters.NewArgs(
-				filters.Arg("type", string(events.ContainerEventType)),
-				filters.Arg("event", string(events.ActionStart)),
-				filters.Arg("label", "dev.warden.managed=true"),
-			),
-		})
-
-		backoff = time.Second // reset on successful subscription
-
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case msg, ok := <-eventsCh:
-				if !ok {
-					goto reconnect
-				}
-				name := msg.Actor.Attributes["name"]
-				if name == "" {
-					continue
-				}
-				onStart(msg.Actor.ID, name)
-			case err, ok := <-errCh:
-				if !ok {
-					goto reconnect
-				}
-				if ctx.Err() != nil {
-					return
-				}
-				slog.Warn("docker events stream error, reconnecting", "err", err, "backoff", backoff)
-				goto reconnect
-			}
+		if ec.processContainerEvents(ctx, onStart) {
+			return // context cancelled
 		}
 
-	reconnect:
+		// Stream closed or errored — reconnect with backoff.
 		select {
 		case <-ctx.Done():
 			return
@@ -798,6 +767,44 @@ func (ec *EngineClient) WatchContainerEvents(ctx context.Context, onStart func(c
 		}
 		if backoff < 30*time.Second {
 			backoff *= 2
+		}
+	}
+}
+
+// processContainerEvents subscribes to Docker container start events and
+// dispatches them to onStart. Returns true if the context was cancelled
+// (caller should exit), false if the stream ended and needs reconnection.
+func (ec *EngineClient) processContainerEvents(ctx context.Context, onStart func(string, string)) bool {
+	eventsCh, errCh := ec.api.Events(ctx, events.ListOptions{
+		Filters: filters.NewArgs(
+			filters.Arg("type", string(events.ContainerEventType)),
+			filters.Arg("event", string(events.ActionStart)),
+			filters.Arg("label", "dev.warden.managed=true"),
+		),
+	})
+
+	for {
+		select {
+		case <-ctx.Done():
+			return true
+		case msg, ok := <-eventsCh:
+			if !ok {
+				return false
+			}
+			name := msg.Actor.Attributes["name"]
+			if name == "" {
+				continue
+			}
+			onStart(msg.Actor.ID, name)
+		case err, ok := <-errCh:
+			if !ok {
+				return false
+			}
+			if ctx.Err() != nil {
+				return true
+			}
+			slog.Warn("docker events stream error, reconnecting", "err", err)
+			return false
 		}
 	}
 }
