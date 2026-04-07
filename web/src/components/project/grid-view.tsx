@@ -141,6 +141,7 @@ function GridCellInner({
         branch={panel.branch}
         isActive={isActive}
         isFocused={isFocused}
+        autoFocus
         stateDotClass={stateDotClass}
         stateLabel={stateLabel}
         needsInput={needsInput}
