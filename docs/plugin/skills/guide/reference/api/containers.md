@@ -80,6 +80,10 @@ Creates a new container for the given project with the provided configuration. S
 
   `string`
 
+- **`cloneURL`**
+
+  `string` — CloneURL is the git repository URL to clone inside the container (remote projects).
+
 - **`costBudget`**
 
   `number` — CostBudget is the per-project cost limit in USD (0 = use global default).
@@ -149,6 +153,10 @@ Creates a new container for the given project with the provided configuration. S
 - **`skipPermissions`**
 
   `boolean` — SkipPermissions controls whether terminals skip permission prompts. Stored as a Docker label on the container.
+
+- **`temporary`**
+
+  `boolean` — Temporary is true when a remote project's workspace is ephemeral.
 
 **Example:**
 
@@ -226,6 +234,10 @@ Updates the project's container configuration. Lightweight changes (budget, skip
 
   `string`
 
+- **`cloneURL`**
+
+  `string` — CloneURL is the git repository URL to clone inside the container (remote projects).
+
 - **`costBudget`**
 
   `number` — CostBudget is the per-project cost limit in USD (0 = use global default).
@@ -295,6 +307,10 @@ Updates the project's container configuration. Lightweight changes (budget, skip
 - **`skipPermissions`**
 
   `boolean` — SkipPermissions controls whether terminals skip permission prompts. Stored as a Docker label on the container.
+
+- **`temporary`**
+
+  `boolean` — Temporary is true when a remote project's workspace is ephemeral.
 
 **Example:**
 
@@ -371,6 +387,10 @@ Returns the editable configuration of the project's container, including name, i
 
   `string`
 
+- **`cloneURL`**
+
+  `string` — CloneURL is the git repository URL (remote projects only).
+
 - **`costBudget`**
 
   `number` — CostBudget is the per-project cost limit in USD (0 = use global default).
@@ -441,6 +461,10 @@ Returns the editable configuration of the project's container, including name, i
 
   `boolean`
 
+- **`temporary`**
+
+  `boolean` — Temporary is true when a remote project's workspace is ephemeral.
+
 **Example:**
 
 ```json
@@ -449,6 +473,7 @@ Returns the editable configuration of the project's container, including name, i
   "allowedDomains": [
     ""
   ],
+  "cloneURL": "",
   "costBudget": 1,
   "enabledAccessItems": [
     ""
@@ -473,7 +498,8 @@ Returns the editable configuration of the project's container, including name, i
   "name": "",
   "networkMode": "full",
   "projectPath": "",
-  "skipPermissions": true
+  "skipPermissions": true,
+  "temporary": true
 }
 ```
 
