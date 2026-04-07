@@ -21,7 +21,7 @@ type WorktreeState struct {
 	// NeedsInput is true when Claude is waiting for user attention.
 	NeedsInput bool
 	// NotificationType indicates why attention is needed.
-	NotificationType engine.NotificationType
+	NotificationType event.NotificationType
 	// SessionActive is true when a Claude session is running in this worktree.
 	SessionActive bool
 	// UpdatedAt is when this state was last changed.
@@ -86,12 +86,12 @@ func (ts *TerminalState) DeriveWorktreeState() engine.WorktreeState {
 // Shared by all broadcast helpers to keep the Go and TypeScript types in sync.
 type WorktreeStatePayload struct {
 	event.ProjectRef
-	WorktreeID       string                  `json:"worktreeId"`
-	NeedsInput       bool                    `json:"needsInput"`
-	NotificationType engine.NotificationType `json:"notificationType,omitempty"`
-	SessionActive    bool                    `json:"sessionActive"`
-	State            engine.WorktreeState    `json:"state,omitempty"`
-	ExitCode         int                     `json:"exitCode,omitempty"`
+	WorktreeID       string                 `json:"worktreeId"`
+	NeedsInput       bool                   `json:"needsInput"`
+	NotificationType event.NotificationType `json:"notificationType,omitempty"`
+	SessionActive    bool                   `json:"sessionActive"`
+	State            engine.WorktreeState   `json:"state,omitempty"`
+	ExitCode         int                    `json:"exitCode,omitempty"`
 }
 
 // CostUpdateCallbackFunc is called on every cost update event with

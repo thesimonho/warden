@@ -5,7 +5,6 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/thesimonho/warden/engine"
 	"github.com/thesimonho/warden/event"
 )
 
@@ -61,7 +60,7 @@ func (s *Store) handleNeedsAnswer(key worktreeKey, evt event.ContainerEvent) []p
 
 	att := &WorktreeState{
 		NeedsInput:       true,
-		NotificationType: engine.NotificationElicitationDialog,
+		NotificationType: event.NotificationElicitationDialog,
 		SessionActive:    sessionActive,
 		UpdatedAt:        evt.Timestamp,
 	}
@@ -142,7 +141,7 @@ func (s *Store) handleTurnComplete(key worktreeKey, evt event.ContainerEvent) []
 
 	att := &WorktreeState{
 		NeedsInput:       true,
-		NotificationType: engine.NotificationIdlePrompt,
+		NotificationType: event.NotificationIdlePrompt,
 		SessionActive:    existing.SessionActive,
 		UpdatedAt:        evt.Timestamp,
 	}

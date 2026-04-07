@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"log/slog"
 
-	"github.com/thesimonho/warden/engine"
 	"github.com/thesimonho/warden/event"
 )
 
@@ -96,10 +95,10 @@ func buildWorktreeBroadcast(ref event.ProjectRef, worktreeID string, att *Worktr
 // Carries both cost and attention state so the home page can update in real time.
 type ProjectStatePayload struct {
 	event.ProjectRef
-	TotalCost        float64                 `json:"totalCost"`
-	MessageCount     int                     `json:"messageCount"`
-	NeedsInput       bool                    `json:"needsInput"`
-	NotificationType engine.NotificationType `json:"notificationType,omitempty"`
+	TotalCost        float64                `json:"totalCost"`
+	MessageCount     int                    `json:"messageCount"`
+	NeedsInput       bool                   `json:"needsInput"`
+	NotificationType event.NotificationType `json:"notificationType,omitempty"`
 }
 
 // buildProjectBroadcast creates a project_state broadcast with complete state:
@@ -126,7 +125,7 @@ func (s *Store) buildProjectBroadcast(ref event.ProjectRef) pendingBroadcast {
 // AggregateContainerAttention returns the highest-priority attention state
 // across all worktrees for a container. The internal variant (lowercase) is
 // used under existing lock; this public variant acquires its own read lock.
-func (s *Store) AggregateContainerAttention(containerName string) (needsInput bool, highest engine.NotificationType) {
+func (s *Store) AggregateContainerAttention(containerName string) (needsInput bool, highest event.NotificationType) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	return s.aggregateContainerAttention(containerName)
@@ -134,13 +133,13 @@ func (s *Store) AggregateContainerAttention(containerName string) (needsInput bo
 
 // aggregateContainerAttention returns the highest-priority attention state
 // across all worktrees for a container. Must be called under lock.
-func (s *Store) aggregateContainerAttention(containerName string) (needsInput bool, highest engine.NotificationType) {
+func (s *Store) aggregateContainerAttention(containerName string) (needsInput bool, highest event.NotificationType) {
 	for key, att := range s.attention {
 		if key.containerName != containerName || !att.NeedsInput {
 			continue
 		}
 		needsInput = true
-		if highest == "" || engine.NotificationPriority(att.NotificationType) > engine.NotificationPriority(highest) {
+		if highest == "" || event.NotificationPriority(att.NotificationType) > event.NotificationPriority(highest) {
 			highest = att.NotificationType
 		}
 	}

@@ -109,8 +109,7 @@ func (w *Watcher) Start(ctx context.Context) error {
 }
 
 // Shutdown stops the watcher gracefully, processing any remaining files.
-// The context parameter is unused — drain is handled via WaitGroup. The
-// signature matches the old Listener.Shutdown for drop-in compatibility.
+// The context parameter is unused — drain is handled via WaitGroup.
 func (w *Watcher) Shutdown(_ context.Context) error {
 	if w.cancel != nil {
 		w.cancel()

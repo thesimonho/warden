@@ -48,9 +48,10 @@ type TokenUsage struct {
 	CacheWriteTokens int64
 }
 
-// ParsedEventType is an alias for [event.ContainerEventType]. Parsers emit
-// the same type constants used by the event pipeline, eliminating the need
-// for a translation layer. The alias preserves readability in parser code.
+// ParsedEventType is an alias for [event.ContainerEventType]. Parsers use
+// the same constants as the event pipeline directly. The only exception is
+// [event.EventTokenUpdate], which the session bridge remaps to
+// [event.EventCostUpdate] before entering the store.
 type ParsedEventType = event.ContainerEventType
 
 // ParsedEvent is an agent-agnostic event produced by parsing a session JSONL line.
