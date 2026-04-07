@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.9.1](https://github.com/thesimonho/warden/compare/v1.9.0...v1.9.1) (2026-04-07)
+
+
+### Bug Fixes
+
+* add firewall verification smoke test for restricted mode ([#158](https://github.com/thesimonho/warden/issues/158)) ([6b52845](https://github.com/thesimonho/warden/commit/6b528459c9484f665b2643f9ebe7dfa50c707207))
+* add GitHub meta API ranges and SSH seed for restricted mode ([#157](https://github.com/thesimonho/warden/issues/157)) ([04b64dc](https://github.com/thesimonho/warden/commit/04b64dca842f53a7fd807c052f82fc711399fd94))
+
 ## [1.9.0](https://github.com/thesimonho/warden/compare/v1.8.1...v1.9.0) (2026-04-07)
 
 
