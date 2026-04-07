@@ -131,6 +131,50 @@ curl http://localhost:8090/api/v1/projects/{projectId}/{agentType}/container/con
 
 The response includes `networkMode` and `allowedDomains` fields in the container configuration.
 
+## Port forwarding
+
+Warden includes a reverse proxy that lets you access HTTP and WebSocket services running inside a container from the host. Declare which ports to forward in the container configuration, then access them via the proxy URL.
+
+### Declaring forwarded ports
+
+Include `forwardedPorts` in the create or update container request:
+
+```bash
+curl -X POST http://localhost:8090/api/v1/projects/{projectId}/{agentType}/container \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "my-app",
+    "projectPath": "/home/user/my-app",
+    "forwardedPorts": [5173, 3000]
+  }'
+```
+
+Forwarded ports can also be set in `.warden.json`:
+
+```json
+{
+  "forwardedPorts": [5173, 3000]
+}
+```
+
+### Accessing forwarded ports
+
+Each declared port is accessible via the proxy endpoint:
+
+```
+GET /api/v1/projects/{projectId}/{agentType}/proxy/{port}/{path...}
+```
+
+The proxy handles all HTTP methods and WebSocket upgrade (needed for Vite HMR). Undeclared ports return 404. If the container is not running, the proxy returns 502.
+
+### Hot-reload
+
+Forwarded ports can be added or removed on a running container without recreation. Update the container configuration with the new port list -- the proxy validates against the current list on each request.
+
+### WebSocket support
+
+The proxy supports WebSocket upgrade transparently. When the container service responds with `101 Switching Protocols`, the proxy establishes a bidirectional tunnel. This is required for dev server features like hot module replacement (HMR).
+
 ## Edge cases
 
 - **DNS caching:** Domain IPs are resolved dynamically, but if a domain's IP changes and DNS caching has not refreshed, there may be a brief interruption. Updating the allowed domains list triggers a full re-resolution. Otherwise, restart the container.

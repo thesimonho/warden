@@ -74,6 +74,10 @@ func (m *mockEngineClient) InspectContainer(_ context.Context, _ string) (*api.C
 	return m.inspectConfig, m.inspectErr
 }
 
+func (m *mockEngineClient) ContainerIP(_ context.Context, _ string) (string, error) {
+	return "172.17.0.2", nil
+}
+
 func (m *mockEngineClient) RenameContainer(_ context.Context, _ string, _ string) error {
 	return nil
 }

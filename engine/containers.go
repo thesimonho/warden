@@ -375,6 +375,24 @@ func (ec *EngineClient) InspectContainer(ctx context.Context, id string) (*api.C
 	return cfg, nil
 }
 
+// ContainerIP returns the bridge network IP address of a running container.
+// Returns an error if the container has no bridge network or the IP is empty
+// (e.g. container is stopped).
+func (ec *EngineClient) ContainerIP(ctx context.Context, containerID string) (string, error) {
+	info, err := ec.api.ContainerInspect(ctx, containerID)
+	if err != nil {
+		return "", fmt.Errorf("inspecting container %s: %w", containerID, err)
+	}
+	if info.NetworkSettings == nil || info.NetworkSettings.Networks == nil {
+		return "", fmt.Errorf("container %s has no network settings", containerID)
+	}
+	bridge, ok := info.NetworkSettings.Networks["bridge"]
+	if !ok || bridge.IPAddress == "" {
+		return "", fmt.Errorf("container %s has no bridge network IP", containerID)
+	}
+	return bridge.IPAddress, nil
+}
+
 // RenameContainer changes the name of an existing container without recreation.
 func (ec *EngineClient) RenameContainer(ctx context.Context, id string, newName string) error {
 	return ec.api.ContainerRename(ctx, id, newName)

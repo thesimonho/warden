@@ -104,6 +104,14 @@ Creates a new container for the given project with the provided configuration. S
 
   `object`
 
+- **`forwardedPorts`**
+
+  `array` — ForwardedPorts lists container ports to expose via the reverse proxy. Each port (1-65535) is accessible at /api/v1/projects/{id}/{agentType}/proxy/{port}/...
+
+  **Items:**
+
+  `integer`
+
 - **`image`**
 
   `string`
@@ -242,6 +250,14 @@ Updates the project's container configuration. Lightweight changes (budget, skip
 
   `object`
 
+- **`forwardedPorts`**
+
+  `array` — ForwardedPorts lists container ports to expose via the reverse proxy. Each port (1-65535) is accessible at /api/v1/projects/{id}/{agentType}/proxy/{port}/...
+
+  **Items:**
+
+  `integer`
+
 - **`image`**
 
   `string`
@@ -379,6 +395,14 @@ Returns the editable configuration of the project's container, including name, i
 
   `object`
 
+- **`forwardedPorts`**
+
+  `array` — ForwardedPorts lists container ports exposed via the reverse proxy.
+
+  **Items:**
+
+  `integer`
+
 - **`image`**
 
   `string`
@@ -435,6 +459,9 @@ Returns the editable configuration of the project's container, including name, i
   "envVars": {
     "additionalProperty": ""
   },
+  "forwardedPorts": [
+    1
+  ],
   "image": "",
   "mounts": [
     {

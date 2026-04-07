@@ -31,6 +31,13 @@ type viewerKey struct {
 	worktreeID  string
 }
 
+// proxyKey identifies a cached reverse proxy instance.
+type proxyKey struct {
+	projectID string
+	agentType string
+	port      int
+}
+
 // routes holds dependencies and provides HTTP handler methods.
 type routes struct {
 	svc           *service.Service
@@ -40,11 +47,19 @@ type routes struct {
 	// viewerMu guards viewerCounts for concurrent WebSocket connect/disconnect.
 	viewerMu     sync.Mutex
 	viewerCounts map[viewerKey]int
+
+	// proxyMu guards proxyCache for concurrent proxy requests.
+	proxyMu    sync.Mutex
+	proxyCache map[proxyKey]*cachedProxy
 }
 
 // registerAPIRoutes attaches all API endpoint handlers to the given mux.
 func registerAPIRoutes(mux *http.ServeMux, svc *service.Service, broker *eventbus.Broker, termProxy *terminal.Proxy, shutdownCh chan<- struct{}) {
-	rt := &routes{svc: svc, broker: broker, terminalProxy: termProxy, viewerCounts: make(map[viewerKey]int)}
+	rt := &routes{
+		svc: svc, broker: broker, terminalProxy: termProxy,
+		viewerCounts: make(map[viewerKey]int),
+		proxyCache:   make(map[proxyKey]*cachedProxy),
+	}
 
 	mux.HandleFunc("GET /api/v1/health", handleHealth)
 	mux.HandleFunc("POST /api/v1/shutdown", makeHandleShutdown(shutdownCh, broker))
@@ -99,6 +114,7 @@ func registerAPIRoutes(mux *http.ServeMux, svc *service.Service, broker *eventbu
 	mux.HandleFunc("GET /api/v1/events", rt.handleSSE)
 	mux.HandleFunc("POST /api/v1/projects/{projectId}/{agentType}/clipboard", rt.handleUploadClipboard)
 	mux.HandleFunc("GET /api/v1/projects/{projectId}/{agentType}/ws/{wid}", rt.handleTerminalWS)
+	mux.HandleFunc("/api/v1/projects/{projectId}/{agentType}/proxy/{port}/{path...}", rt.handleProxy)
 }
 
 // --- Helpers ---

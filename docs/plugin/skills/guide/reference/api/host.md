@@ -119,6 +119,14 @@ Returns server-resolved default values for the create container form, including 
 
     `number`
 
+  - **`forwardedPorts`**
+
+    `array`
+
+    **Items:**
+
+    `integer`
+
   - **`image`**
 
     `string`
@@ -189,6 +197,9 @@ Returns server-resolved default values for the create container form, including 
       }
     },
     "costBudget": 1,
+    "forwardedPorts": [
+      1
+    ],
     "image": "",
     "networkMode": "full",
     "runtimes": [
@@ -349,6 +360,14 @@ Reads and parses a .warden.json file from the given path. Used to import templat
 
   `number`
 
+- **`forwardedPorts`**
+
+  `array`
+
+  **Items:**
+
+  `integer`
+
 - **`image`**
 
   `string`
@@ -381,6 +400,9 @@ Reads and parses a .warden.json file from the given path. Used to import templat
     }
   },
   "costBudget": 1,
+  "forwardedPorts": [
+    1
+  ],
   "image": "",
   "networkMode": "full",
   "runtimes": [
@@ -415,6 +437,14 @@ Accepts a raw .warden.json body, validates it against the ProjectTemplate schema
 - **`costBudget`**
 
   `number`
+
+- **`forwardedPorts`**
+
+  `array`
+
+  **Items:**
+
+  `integer`
 
 - **`image`**
 
@@ -456,6 +486,14 @@ Accepts a raw .warden.json body, validates it against the ProjectTemplate schema
 
   `number`
 
+- **`forwardedPorts`**
+
+  `array`
+
+  **Items:**
+
+  `integer`
+
 - **`image`**
 
   `string`
@@ -488,6 +526,9 @@ Accepts a raw .warden.json body, validates it against the ProjectTemplate schema
     }
   },
   "costBudget": 1,
+  "forwardedPorts": [
+    1
+  ],
   "image": "",
   "networkMode": "full",
   "runtimes": [

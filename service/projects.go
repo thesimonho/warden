@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"strconv"
 	"strings"
 	"time"
 
@@ -494,6 +495,9 @@ func applyDBMetadata(p *engine.Project, row *db.ProjectRow, defaultBudget float6
 	if row.HostPath != "" && p.MountedDir == "" {
 		p.MountedDir = row.HostPath
 	}
+	if row.ForwardedPorts != "" {
+		p.ForwardedPorts = parsePortList(row.ForwardedPorts)
+	}
 	if row.CostBudget > 0 {
 		p.CostBudget = row.CostBudget
 	} else if defaultBudget > 0 {
@@ -626,6 +630,40 @@ func splitCSV(s string) []string {
 		return nil
 	}
 	return strings.Split(s, ",")
+}
+
+// isValidPort reports whether p is a valid TCP/UDP port number.
+func isValidPort(p int) bool {
+	return p >= 1 && p <= 65535
+}
+
+// parsePortList converts a comma-separated port string to a slice of ints.
+// Invalid entries are silently skipped.
+func parsePortList(s string) []int {
+	parts := splitCSV(s)
+	if len(parts) == 0 {
+		return nil
+	}
+	ports := make([]int, 0, len(parts))
+	for _, p := range parts {
+		n, err := strconv.Atoi(strings.TrimSpace(p))
+		if err == nil && isValidPort(n) {
+			ports = append(ports, n)
+		}
+	}
+	return ports
+}
+
+// joinPorts serializes a slice of port ints to a comma-separated string.
+func joinPorts(ports []int) string {
+	if len(ports) == 0 {
+		return ""
+	}
+	parts := make([]string, len(ports))
+	for i, p := range ports {
+		parts[i] = strconv.Itoa(p)
+	}
+	return strings.Join(parts, ",")
 }
 
 // overlayCost merges cost data into the project list.
