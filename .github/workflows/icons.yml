@@ -12,6 +12,9 @@ on:
       - "icon.svg"
       - "logo.svg"
       - ".github/workflows/icons.yml"
+concurrency:
+  group: icons-${{ github.ref }}
+  cancel-in-progress: true
 permissions:
   contents: write
 jobs:
