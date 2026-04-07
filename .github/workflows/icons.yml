@@ -25,8 +25,7 @@ jobs:
           ref: ${{ github.head_ref || github.ref }}
           token: ${{ steps.app-token.outputs.token }}
 
-      - name: Install ImageMagick
-        run: sudo apt-get update && sudo apt-get install -y imagemagick
+      - uses: mfinelli/setup-imagemagick@v7
 
       - name: Generate icons
         run: bash packaging/generate-icons.sh
