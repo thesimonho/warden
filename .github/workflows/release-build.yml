@@ -238,6 +238,10 @@ jobs:
           # AppImage requires desktop file and icon at root.
           # Use 256x256 — the best balance for app launchers on most DEs.
           cp packaging/linux/warden.desktop Warden.AppDir/warden.desktop
+          # GearLever and other AppImage managers read version from this field.
+          VERSION="${{ needs.setup.outputs.tag_name }}"
+          VERSION="${VERSION#v}"
+          echo "X-AppImage-Version=${VERSION}" >> Warden.AppDir/warden.desktop
           cp packaging/linux/icons/256x256/warden.png Warden.AppDir/warden.png
 
           # Symlink AppRun to the binary
@@ -374,6 +378,25 @@ jobs:
       - name: Embed icon and version info
         shell: bash
         run: |
+          # Inject release version into versioninfo.json for exe Properties → Details.
+          VERSION="${{ needs.setup.outputs.tag_name }}"
+          VERSION="${VERSION#v}"
+          MAJOR=$(echo "$VERSION" | cut -d. -f1)
+          MINOR=$(echo "$VERSION" | cut -d. -f2)
+          PATCH=$(echo "$VERSION" | cut -d. -f3)
+
+          VINFO="packaging/windows/versioninfo.json"
+          tmp=$(mktemp)
+          jq \
+            --argjson major "$MAJOR" --argjson minor "$MINOR" --argjson patch "$PATCH" \
+            --arg ver "$VERSION" \
+            '
+              .FixedFileInfo.FileVersion    = {Major: $major, Minor: $minor, Patch: $patch, Build: 0} |
+              .FixedFileInfo.ProductVersion  = {Major: $major, Minor: $minor, Patch: $patch, Build: 0} |
+              .StringFileInfo.FileVersion    = $ver |
+              .StringFileInfo.ProductVersion = $ver
+            ' "$VINFO" > "$tmp" && mv "$tmp" "$VINFO"
+
           go install github.com/josephspurrier/goversioninfo/cmd/goversioninfo@latest
           goversioninfo -64 \
             -icon packaging/windows/warden.ico \
