@@ -5,6 +5,13 @@ on:
     paths:
       - "icon.svg"
       - "logo.svg"
+      - ".github/workflows/icons.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "icon.svg"
+      - "logo.svg"
+      - ".github/workflows/icons.yml"
 permissions:
   contents: write
 jobs:
