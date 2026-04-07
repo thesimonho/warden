@@ -18,9 +18,17 @@ set -euo pipefail
 #
 # Restricted mode uses dnsmasq as a local DNS forwarder. When a DNS
 # query matches an allowed domain, dnsmasq adds the resolved IPs to
-# an ipset. iptables allows traffic to any IP in the set. This handles
-# wildcard domains correctly — e.g. *.github.com covers ssh.github.com
-# even when it resolves to different IPs than github.com.
+# an ipset (hash:net for CIDR support). iptables allows traffic to
+# any IP in the set. This handles wildcard domains correctly — e.g.
+# *.github.com covers ssh.github.com even when it resolves to
+# different IPs than github.com.
+#
+# When github.com is in the allowed domains list, the script also:
+#   - Explicitly seeds ssh.github.com so SSH git operations work
+#     immediately without waiting for a dnsmasq lookup.
+#   - Fetches GitHub's official CIDR ranges from the meta API and
+#     adds them to the ipset, covering CDN/edge infrastructure that
+#     DNS resolution alone would miss.
 #
 # Hot-reload: when re-run on a container where dnsmasq is already
 # running, the script regenerates the dnsmasq config, flushes and
@@ -110,6 +118,64 @@ verify_firewall() {
   fi
 }
 
+# Check if a domain (or its parent) is in the allowed domains list.
+# Matches both exact (github.com) and wildcard (*.github.com) entries.
+has_domain() {
+  local target="$1"
+  local domains="${ALLOWED_DOMAINS:-}"
+  [ -z "$domains" ] && return 1
+  IFS=',' read -ra _domains <<< "$domains"
+  for d in "${_domains[@]}"; do
+    d=$(echo "$d" | xargs)
+    d="${d#\*.}"
+    [ "$d" = "$target" ] && return 0
+  done
+  return 1
+}
+
+# Fetch GitHub's official IP ranges from the meta API and add all
+# CIDR blocks to the ipset. Uses aggregate to collapse overlapping
+# ranges. Fails silently if the API is unreachable — DNS-based
+# resolution is the fallback.
+seed_github_meta() {
+  local meta_json cidrs
+  meta_json=$(curl -fsSL --connect-timeout 3 --max-time 10 \
+    "https://api.github.com/meta" 2>/dev/null) || {
+    echo "[warden] warning: could not fetch api.github.com/meta, using DNS-only resolution for GitHub" >&2
+    return 0
+  }
+
+  # Extract all IPv4 CIDR ranges from every array-valued key in the
+  # meta response. IPv6 CIDRs are intentionally excluded — the ipset
+  # is IPv4-only (hash:net family inet). The grep serves as both an
+  # IPv4 filter and an injection guard against malformed API responses.
+  cidrs=$(echo "$meta_json" \
+    | jq -r '[.[] | arrays] | flatten | .[]' 2>/dev/null \
+    | grep -E '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+/[0-9]+$' \
+    | sort -u) || true
+
+  if [ -z "$cidrs" ]; then
+    echo "[warden] warning: no valid CIDRs from api.github.com/meta" >&2
+    return 0
+  fi
+
+  # Aggregate overlapping CIDRs if the tool is available.
+  # Fall back to unaggregated list if aggregate fails.
+  if command -v aggregate >/dev/null 2>&1; then
+    aggregated=$(echo "$cidrs" | aggregate 2>/dev/null) || aggregated=""
+    [ -n "$aggregated" ] && cidrs="$aggregated"
+  fi
+
+  local count=0
+  while IFS= read -r cidr; do
+    [ -z "$cidr" ] && continue
+    ipset add warden_allowed "$cidr" timeout 300 2>/dev/null || true
+    count=$((count + 1))
+  done <<< "$cidrs"
+
+  echo "[warden] added $count GitHub CIDR ranges from meta API"
+}
+
 # Detect hot-reload: if dnsmasq is already running, this is a re-run
 # via docker exec. Skip iptables setup (rules are already in place)
 # and jump straight to domain config update.
@@ -185,7 +251,7 @@ if [ "$MODE" = "restricted" ]; then
   # --- Create ipset with auto-expiry ---
   # Entries expire after 300s unless refreshed by a new DNS lookup.
   # The ESTABLISHED,RELATED rule keeps existing connections alive.
-  ipset create warden_allowed hash:ip timeout 300 2>/dev/null || true
+  ipset create warden_allowed hash:net timeout 300 2>/dev/null || true
 
   # --- Generate dnsmasq config ---
   # dnsmasq's /domain/ syntax matches the domain AND all subdomains,
@@ -224,6 +290,21 @@ if [ "$MODE" = "restricted" ]; then
     done
   done
 
+  # --- Seed ssh.github.com and GitHub meta API CIDRs ---
+  # On hot-reload, seed before signaling dnsmasq. On first run, seed
+  # after reject_and_track so the unrestricted window isn't extended
+  # by the meta API fetch (up to 10s timeout). The DNS seed loop above
+  # already populates github.com IPs, so curl can reach the API through
+  # the ipset ACCEPT rule.
+  if has_domain "github.com"; then
+    for ip in $(resolve_domain_ips "ssh.github.com"); do
+      ipset add warden_allowed "$ip" timeout 300 2>/dev/null || true
+    done
+    if [ "$IS_RELOAD" = "true" ]; then
+      seed_github_meta
+    fi
+  fi
+
   # --- Hot-reload: signal dnsmasq and exit ---
   # Config and ipset are already updated above. SIGHUP causes dnsmasq
   # to re-read its config files. No need to touch iptables or resolv.conf
@@ -239,6 +320,13 @@ if [ "$MODE" = "restricted" ]; then
 
   # Reject everything else (instant failure vs DROP's silent 5min timeout).
   reject_and_track
+
+  # Fetch GitHub meta API CIDRs now that the firewall is in place.
+  # The DNS seed loop already added github.com IPs to the ipset, so
+  # curl reaches api.github.com through the ipset ACCEPT rule.
+  if has_domain "github.com"; then
+    seed_github_meta
+  fi
 
   # --- Start dnsmasq and wait for it to be ready ---
   dnsmasq --conf-dir=/etc/dnsmasq.d --keep-in-foreground &
