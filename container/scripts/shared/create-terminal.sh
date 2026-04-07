@@ -96,27 +96,39 @@ case "$AGENT_TYPE" in
       fi
     fi
 
+    # Build the fresh command (no resume flag).
+    AGENT_CMD_FRESH="codex --no-alt-screen"
+    if [ "$SKIP_PERMISSIONS" = "--skip-permissions" ]; then
+      AGENT_CMD_FRESH="${AGENT_CMD_FRESH} --dangerously-bypass-approvals-and-sandbox"
+    fi
+
     # resume is a subcommand — must come before flags
     if [ -n "$RESUME_FLAG" ]; then
       AGENT_CMD="codex ${RESUME_FLAG} --no-alt-screen"
+      if [ "$SKIP_PERMISSIONS" = "--skip-permissions" ]; then
+        AGENT_CMD="${AGENT_CMD} --dangerously-bypass-approvals-and-sandbox"
+      fi
     else
-      AGENT_CMD="codex --no-alt-screen"
-    fi
-    if [ "$SKIP_PERMISSIONS" = "--skip-permissions" ]; then
-      AGENT_CMD="${AGENT_CMD} --dangerously-bypass-approvals-and-sandbox"
+      AGENT_CMD="$AGENT_CMD_FRESH"
+      AGENT_CMD_FRESH=""
     fi
     ;;
 
   *) # claude-code (default)
-    AGENT_CMD="claude"
+    # Build the fresh command (no resume flag).
+    AGENT_CMD_FRESH="claude"
     if [ "$IS_GIT_REPO" = true ] && [ "$WORKTREE_ID" != "main" ]; then
-      AGENT_CMD="${AGENT_CMD} --worktree '${WORKTREE_ID}'"
+      AGENT_CMD_FRESH="${AGENT_CMD_FRESH} --worktree '${WORKTREE_ID}'"
     fi
     if [ "$SKIP_PERMISSIONS" = "--skip-permissions" ]; then
-      AGENT_CMD="${AGENT_CMD} --dangerously-skip-permissions"
+      AGENT_CMD_FRESH="${AGENT_CMD_FRESH} --dangerously-skip-permissions"
     fi
+
     if [ -n "$RESUME_FLAG" ]; then
-      AGENT_CMD="${AGENT_CMD} ${RESUME_FLAG}"
+      AGENT_CMD="${AGENT_CMD_FRESH} ${RESUME_FLAG}"
+    else
+      AGENT_CMD="$AGENT_CMD_FRESH"
+      AGENT_CMD_FRESH=""
     fi
     ;;
 esac
@@ -140,6 +152,12 @@ cat > "$INNER_SCRIPT" << EOF
 unset TMUX
 cd '${WORK_DIR}' && ${AGENT_CMD}
 EXIT_CODE=\$?
+# If auto-resume failed (e.g. no conversation to continue), fall back
+# to a fresh session so the user doesn't get dumped into bare bash.
+if [ \$EXIT_CODE -ne 0 ] && [ -n '${AGENT_CMD_FRESH}' ]; then
+  ${AGENT_CMD_FRESH}
+  EXIT_CODE=\$?
+fi
 echo \$EXIT_CODE > '${TERMINAL_DIR}/exit_code'
 /usr/local/bin/warden-push-event.sh session_exit '${WORKTREE_ID}' "{\"exitCode\":\$EXIT_CODE}"
 exec bash

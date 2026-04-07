@@ -68,6 +68,8 @@ Calling connect on a worktree that already has a running tmux session is safe. I
 
 When connecting to a worktree after the agent has exited, Warden automatically resumes the previous conversation instead of starting fresh. This happens transparently -- the agent launches with `--continue` (Claude Code) or `resume --last` (Codex).
 
+If the resume attempt fails (e.g. JSONL files exist from session initialization but no actual conversation happened), the agent automatically falls back to a fresh session instead of leaving the user at a bare bash prompt.
+
 Auto-resume triggers when an `exit_code` file exists in the terminal tracking directory. This file is written:
 
 - When the **kill** endpoint is called (writes `exit_code=137`)

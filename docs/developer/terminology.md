@@ -55,6 +55,8 @@ The browser connects via `GET /api/v1/projects/{projectID}/{agentType}/ws/{wid}`
 
 When a terminal reconnects after the agent has exited (Stop button, container restart, or normal exit), `create-terminal.sh` detects the previous session via `exit_code` file + JSONL session files and launches the agent with `--continue` (Claude Code) or `resume --last` (Codex) instead of starting fresh. The user sees their previous conversation history.
 
+If the resume attempt fails (e.g. no actual conversation to continue despite JSONL files existing from session initialization), the inner script automatically falls back to a fresh session. This prevents the user from being dropped into bare bash when `exit_code` and JSONL files exist but the agent has no conversation to resume.
+
 Auto-resume triggers when:
 
 - **Stop button** — `kill-worktree.sh` writes `exit_code=137` before killing tmux
