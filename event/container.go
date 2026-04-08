@@ -1,14 +1,12 @@
-// Package eventbus implements a file-based event system for container-to-host
-// communication. Containers write JSON event files to a bind-mounted directory;
-// the Go backend watches for new files, maintains in-memory state, and
-// broadcasts changes to SSE-connected frontends.
-package eventbus
+// Package event defines the shared event vocabulary for container-to-host
+// and server-to-client communication. It holds type definitions and constants
+// only — no state, no I/O, no business logic. Any package can depend on it
+// safely (leaf package).
+package event
 
 import (
 	"encoding/json"
 	"time"
-
-	"github.com/thesimonho/warden/engine"
 )
 
 // EventSource identifies how an event entered the pipeline.
@@ -121,7 +119,40 @@ const (
 	// EventContainerError is emitted when a fatal container-level error occurs
 	// (e.g. network isolation setup failure). The container exits after emitting this.
 	EventContainerError ContainerEventType = "container_error"
+
+	// EventTokenUpdate carries cumulative token usage from JSONL session files.
+	// This is a parser-only event type: it is mapped to EventCostUpdate by the
+	// session bridge before entering the event pipeline.
+	EventTokenUpdate ContainerEventType = "token_update"
 )
+
+// knownTypes is the set of all defined ContainerEventType values.
+var knownTypes = func() map[ContainerEventType]struct{} {
+	types := []ContainerEventType{
+		EventAttention, EventAttentionClear, EventSessionStart, EventSessionEnd,
+		EventCostUpdate, EventNeedsAnswer, EventUserPrompt, EventHeartbeat,
+		EventTerminalConnected, EventTerminalDisconnected, EventProcessKilled,
+		EventSessionExit, EventToolUse, EventToolUseFailure, EventStopFailure,
+		EventPermissionRequest, EventSubagentStart, EventSubagentStop,
+		EventConfigChange, EventInstructionsLoaded, EventTaskCompleted,
+		EventElicitation, EventElicitationResult, EventTurnComplete,
+		EventTurnDuration, EventApiMetrics, EventPermissionGrant,
+		EventContextCompact, EventSystemInfo, EventRuntimeInstalling,
+		EventRuntimeInstalled, EventAgentInstalling, EventAgentInstalled,
+		EventNetworkBlocked, EventContainerError, EventTokenUpdate,
+	}
+	m := make(map[ContainerEventType]struct{}, len(types))
+	for _, t := range types {
+		m[t] = struct{}{}
+	}
+	return m
+}()
+
+// IsKnownType reports whether t is a defined ContainerEventType constant.
+func IsKnownType(t ContainerEventType) bool {
+	_, ok := knownTypes[t]
+	return ok
+}
 
 // ContainerEvent is the JSON payload written by container hook scripts
 // to the bind-mounted event directory.
@@ -151,18 +182,38 @@ type ContainerEvent struct {
 	SourceIndex int `json:"-"`
 }
 
-// Ref returns a [ProjectRef] from this event's identity fields.
-func (e ContainerEvent) Ref() ProjectRef {
-	return ProjectRef{
-		ProjectID:     e.ProjectID,
-		AgentType:     e.AgentType,
-		ContainerName: e.ContainerName,
+// NotificationType represents the kind of attention the agent needs from the user.
+type NotificationType string
+
+const (
+	// NotificationPermissionPrompt means the agent needs tool approval.
+	NotificationPermissionPrompt NotificationType = "permission_prompt"
+	// NotificationIdlePrompt means the agent is done and waiting for the next prompt.
+	NotificationIdlePrompt NotificationType = "idle_prompt"
+	// NotificationAuthSuccess means authentication just completed.
+	NotificationAuthSuccess NotificationType = "auth_success"
+	// NotificationElicitationDialog means the agent is asking the user a question.
+	NotificationElicitationDialog NotificationType = "elicitation_dialog"
+)
+
+// NotificationPriority returns a numeric priority for notification types.
+// Higher values indicate more urgent attention (permission_prompt > elicitation > idle).
+func NotificationPriority(nt NotificationType) int {
+	switch nt {
+	case NotificationPermissionPrompt:
+		return 3
+	case NotificationElicitationDialog:
+		return 2
+	case NotificationIdlePrompt:
+		return 1
+	default:
+		return 0
 	}
 }
 
 // AttentionData carries notification details for attention events.
 type AttentionData struct {
-	NotificationType engine.NotificationType `json:"notificationType"`
+	NotificationType NotificationType `json:"notificationType"`
 }
 
 // CostData carries cost information from the stop event.
@@ -280,14 +331,6 @@ type RuntimeStatusData struct {
 	RuntimeLabel string `json:"runtimeLabel"`
 }
 
-// RuntimeStatusPayload is the SSE payload for runtime install progress.
-type RuntimeStatusPayload struct {
-	ProjectRef
-	Phase        string `json:"phase"`
-	RuntimeID    string `json:"runtimeId"`
-	RuntimeLabel string `json:"runtimeLabel"`
-}
-
 // NetworkBlockedData carries details about a blocked outbound connection.
 type NetworkBlockedData struct {
 	IP     string `json:"ip"`
@@ -304,69 +347,11 @@ type AgentStatusData struct {
 	Version string `json:"version"`
 }
 
-// AgentStatusPayload is the SSE payload for agent CLI install progress.
-type AgentStatusPayload struct {
-	ProjectRef
-	Phase   string `json:"phase"`
-	Version string `json:"version"`
-}
-
-// SSEEventType identifies the kind of event sent to frontend clients.
-type SSEEventType string
-
-const (
-	// SSEWorktreeState is sent when a worktree's attention/session state changes.
-	SSEWorktreeState SSEEventType = "worktree_state"
-	// SSEProjectState is sent when project-level data changes (e.g. cost).
-	SSEProjectState SSEEventType = "project_state"
-	// SSEWorktreeListChanged is sent when the worktree list changes (create, remove, cleanup, kill).
-	SSEWorktreeListChanged SSEEventType = "worktree_list_changed"
-	// SSEBudgetExceeded is sent when a project exceeds its cost budget.
-	SSEBudgetExceeded SSEEventType = "budget_exceeded"
-	// SSEBudgetContainerStopped is sent after a container is stopped due to budget enforcement.
-	SSEBudgetContainerStopped SSEEventType = "budget_container_stopped"
-	// SSEServerShutdown is sent immediately before the server stops.
-	// Frontends should show a "Warden stopped" state. Integrators can
-	// use this to trigger cleanup or reconnection logic.
-	SSEServerShutdown SSEEventType = "server_shutdown"
-	// SSEHeartbeat is a keepalive sent at regular intervals.
-	SSEHeartbeat SSEEventType = "heartbeat"
-	// SSERuntimeStatus is sent when a runtime installation starts or completes.
-	SSERuntimeStatus SSEEventType = "runtime_status"
-	// SSEAgentStatus is sent when an agent CLI installation starts or completes.
-	SSEAgentStatus SSEEventType = "agent_status"
-)
-
-// ProjectRef identifies a project in SSE event payloads. Embedded by all
-// broadcast payload structs so the frontend can match events to the correct
-// (projectId, agentType) pair. ContainerName is included for display and
-// legacy matching.
-type ProjectRef struct {
-	ProjectID     string `json:"projectId,omitempty"`
-	AgentType     string `json:"agentType,omitempty"`
-	ContainerName string `json:"containerName"`
-}
-
-// BudgetEventPayload is the shared JSON payload for budget enforcement SSE
-// events (budget_exceeded and budget_container_stopped).
-type BudgetEventPayload struct {
-	ProjectRef
-	TotalCost float64 `json:"totalCost"`
-	Budget    float64 `json:"budget"`
-}
-
-// BudgetContainerStoppedPayload extends [BudgetEventPayload] with the
-// container ID so frontends can match against a URL-based project ID
-// without needing a project list lookup.
-type BudgetContainerStoppedPayload struct {
-	BudgetEventPayload
-	ContainerID string `json:"containerId"`
-}
-
-// SSEEvent is a typed event sent to frontend clients over Server-Sent Events.
-type SSEEvent struct {
-	// Event is the SSE event name (used in the `event:` field).
-	Event SSEEventType `json:"event"`
-	// Data is the JSON-encoded payload (used in the `data:` field).
-	Data json.RawMessage `json:"data"`
+// Ref returns a ProjectRef identifying the project this event belongs to.
+func (e ContainerEvent) Ref() ProjectRef {
+	return ProjectRef{
+		ProjectID:     e.ProjectID,
+		AgentType:     e.AgentType,
+		ContainerName: e.ContainerName,
+	}
 }

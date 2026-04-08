@@ -12,9 +12,9 @@ import (
 	"github.com/thesimonho/warden/access"
 	"github.com/thesimonho/warden/api"
 	"github.com/thesimonho/warden/client"
-	"github.com/thesimonho/warden/engine"
-	"github.com/thesimonho/warden/eventbus"
 	"github.com/thesimonho/warden/docker"
+	"github.com/thesimonho/warden/engine"
+	"github.com/thesimonho/warden/event"
 )
 
 // Compile-time check: ServiceAdapter must satisfy Client.
@@ -334,7 +334,7 @@ func (a *ServiceAdapter) BaseURL() string {
 
 // SubscribeEvents subscribes to the event broker directly (no SSE).
 // Filter options are ignored in embedded mode — the TUI receives all events.
-func (a *ServiceAdapter) SubscribeEvents(_ context.Context, _ ...client.SubscribeEventsOptions) (<-chan eventbus.SSEEvent, func(), error) {
+func (a *ServiceAdapter) SubscribeEvents(_ context.Context, _ ...client.SubscribeEventsOptions) (<-chan event.SSEEvent, func(), error) {
 	ch, unsub := a.w.Broker.Subscribe()
 	return ch, unsub, nil
 }

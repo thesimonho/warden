@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/thesimonho/warden/engine"
+	"github.com/thesimonho/warden/event"
 )
 
 func TestWorktreeStateDot(t *testing.T) {
@@ -72,14 +73,14 @@ func TestAttentionDot(t *testing.T) {
 
 	tests := []struct {
 		name             string
-		notificationType engine.NotificationType
+		notificationType event.NotificationType
 		wantEmpty        bool
 	}{
-		{"permission", engine.NotificationPermissionPrompt, false},
-		{"answer", engine.NotificationElicitationDialog, false},
-		{"input", engine.NotificationIdlePrompt, false},
-		{"empty", engine.NotificationType(""), true},
-		{"unknown", engine.NotificationType("unknown"), true},
+		{"permission", event.NotificationPermissionPrompt, false},
+		{"answer", event.NotificationElicitationDialog, false},
+		{"input", event.NotificationIdlePrompt, false},
+		{"empty", event.NotificationType(""), true},
+		{"unknown", event.NotificationType("unknown"), true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -103,9 +104,9 @@ func TestAttentionDot(t *testing.T) {
 func TestAttentionDot_UniqueStylesPerType(t *testing.T) {
 	t.Parallel()
 
-	permission := AttentionDot(engine.NotificationPermissionPrompt)
-	elicitation := AttentionDot(engine.NotificationElicitationDialog)
-	idle := AttentionDot(engine.NotificationIdlePrompt)
+	permission := AttentionDot(event.NotificationPermissionPrompt)
+	elicitation := AttentionDot(event.NotificationElicitationDialog)
+	idle := AttentionDot(event.NotificationIdlePrompt)
 
 	if permission == elicitation {
 		t.Error("permission and elicitation should have different styling")

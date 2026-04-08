@@ -11,9 +11,9 @@ import (
 	"testing"
 
 	"github.com/thesimonho/warden/api"
-	"github.com/thesimonho/warden/engine"
-	"github.com/thesimonho/warden/eventbus"
 	"github.com/thesimonho/warden/docker"
+	"github.com/thesimonho/warden/engine"
+	"github.com/thesimonho/warden/event"
 	"github.com/thesimonho/warden/service"
 )
 
@@ -238,13 +238,13 @@ func TestSubscribeEvents(t *testing.T) {
 
 	// Read first event.
 	event1 := <-ch
-	if event1.Event != eventbus.SSEWorktreeState {
+	if event1.Event != event.SSEWorktreeState {
 		t.Errorf("expected worktree_state, got %q", event1.Event)
 	}
 
 	// Read second event.
 	event2 := <-ch
-	if event2.Event != eventbus.SSEProjectState {
+	if event2.Event != event.SSEProjectState {
 		t.Errorf("expected project_state, got %q", event2.Event)
 	}
 
@@ -271,7 +271,7 @@ func TestReadSSEStream_ParsesMultipleEvents(t *testing.T) {
 
 	// Directly test the SSE parser with a pipe.
 	pr, pw := io.Pipe()
-	ch := make(chan eventbus.SSEEvent, 10)
+	ch := make(chan event.SSEEvent, 10)
 
 	go readSSEStream(context.Background(), pr, ch)
 
@@ -280,7 +280,7 @@ func TestReadSSEStream_ParsesMultipleEvents(t *testing.T) {
 	_, _ = fmt.Fprintf(pw, "event:worktree_list_changed\ndata:{\"containerName\":\"c1\"}\n\n")
 	_ = pw.Close()
 
-	events := make([]eventbus.SSEEvent, 0)
+	events := make([]event.SSEEvent, 0)
 	for e := range ch {
 		events = append(events, e)
 	}
@@ -288,10 +288,10 @@ func TestReadSSEStream_ParsesMultipleEvents(t *testing.T) {
 	if len(events) != 2 {
 		t.Fatalf("expected 2 events, got %d", len(events))
 	}
-	if events[0].Event != eventbus.SSEHeartbeat {
+	if events[0].Event != event.SSEHeartbeat {
 		t.Errorf("expected heartbeat, got %q", events[0].Event)
 	}
-	if events[1].Event != eventbus.SSEWorktreeListChanged {
+	if events[1].Event != event.SSEWorktreeListChanged {
 		t.Errorf("expected worktree_list_changed, got %q", events[1].Event)
 	}
 }
@@ -300,7 +300,7 @@ func TestReadSSEStream_IgnoresIncompleteEvents(t *testing.T) {
 	t.Parallel()
 
 	pr, pw := io.Pipe()
-	ch := make(chan eventbus.SSEEvent, 10)
+	ch := make(chan event.SSEEvent, 10)
 
 	go readSSEStream(context.Background(), pr, ch)
 
@@ -312,7 +312,7 @@ func TestReadSSEStream_IgnoresIncompleteEvents(t *testing.T) {
 	_, _ = fmt.Fprintf(pw, "event:project_state\ndata:{\"cost\":1}\n\n")
 	_ = pw.Close()
 
-	events := make([]eventbus.SSEEvent, 0)
+	events := make([]event.SSEEvent, 0)
 	for e := range ch {
 		events = append(events, e)
 	}
@@ -320,7 +320,7 @@ func TestReadSSEStream_IgnoresIncompleteEvents(t *testing.T) {
 	if len(events) != 1 {
 		t.Fatalf("expected 1 complete event, got %d", len(events))
 	}
-	if events[0].Event != eventbus.SSEProjectState {
+	if events[0].Event != event.SSEProjectState {
 		t.Errorf("expected project_state, got %q", events[0].Event)
 	}
 }
@@ -329,7 +329,7 @@ func TestReadSSEStream_CancelledContext(t *testing.T) {
 	t.Parallel()
 
 	pr, pw := io.Pipe()
-	ch := make(chan eventbus.SSEEvent, 10)
+	ch := make(chan event.SSEEvent, 10)
 
 	ctx, cancel := context.WithCancel(context.Background())
 

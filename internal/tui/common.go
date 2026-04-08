@@ -4,7 +4,7 @@ import (
 	"github.com/thesimonho/warden/access"
 	"github.com/thesimonho/warden/api"
 	"github.com/thesimonho/warden/engine"
-	"github.com/thesimonho/warden/eventbus"
+	"github.com/thesimonho/warden/event"
 )
 
 // Tab identifies the top-level navigation tabs.
@@ -112,7 +112,7 @@ type NavigateBackMsg struct{}
 // --- Real-time event messages ---
 
 // SSEEventMsg wraps an SSE event received from the event bus.
-type SSEEventMsg eventbus.SSEEvent
+type SSEEventMsg event.SSEEvent
 
 // EventStreamClosedMsg indicates the SSE channel was closed.
 type EventStreamClosedMsg struct{}

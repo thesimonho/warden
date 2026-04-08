@@ -668,4 +668,3 @@ func mergeDomainsDedup(base, extra []string) []string {
 	}
 	return base
 }
-

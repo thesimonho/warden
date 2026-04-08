@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/thesimonho/warden/db"
-	"github.com/thesimonho/warden/eventbus"
+	"github.com/thesimonho/warden/event"
 )
 
 // ErrBudgetExceeded is returned when a project operation is blocked
@@ -117,7 +117,7 @@ func (s *Service) enforceBudget(projectID, agentType string) {
 			Message:       fmt.Sprintf("cost $%.2f exceeds budget $%.2f", effectiveCost, budget),
 		})
 		if s.store != nil {
-			ref := eventbus.ProjectRef{ProjectID: projectID, AgentType: agentType, ContainerName: containerName}
+			ref := event.ProjectRef{ProjectID: projectID, AgentType: agentType, ContainerName: containerName}
 			s.store.BroadcastBudgetExceeded(ref, effectiveCost, budget)
 		}
 	}
@@ -203,7 +203,7 @@ func (s *Service) enforceBudget(projectID, agentType string) {
 				Message:       fmt.Sprintf("container stopped (cost $%.2f exceeds budget $%.2f)", effectiveCost, budget),
 			})
 			if s.store != nil {
-				ref := eventbus.ProjectRef{ProjectID: projectID, AgentType: agentType, ContainerName: containerName}
+				ref := event.ProjectRef{ProjectID: projectID, AgentType: agentType, ContainerName: containerName}
 				s.store.BroadcastBudgetContainerStopped(ref, containerID, effectiveCost, budget)
 			}
 		}

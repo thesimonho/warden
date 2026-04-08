@@ -9,7 +9,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/thesimonho/warden/eventbus"
+	"github.com/thesimonho/warden/event"
 )
 
 // handleSSE streams Server-Sent Events to the client.
@@ -72,15 +72,15 @@ func (rt *routes) handleSSE(w http.ResponseWriter, r *http.Request) {
 // sseEventMatchesFilter reports whether an SSE event matches the given project
 // filter. Returns true (pass through) when no filter is set, or when the event
 // type has no project context (heartbeat, server_shutdown, runtime/agent status).
-func sseEventMatchesFilter(event eventbus.SSEEvent, projectID, agentType string) bool {
+func sseEventMatchesFilter(evt event.SSEEvent, projectID, agentType string) bool {
 	if projectID == "" && agentType == "" {
 		return true
 	}
 
 	// Global events always pass through — they aren't project-scoped.
-	switch event.Event {
-	case eventbus.SSEHeartbeat, eventbus.SSEServerShutdown,
-		eventbus.SSERuntimeStatus, eventbus.SSEAgentStatus:
+	switch evt.Event {
+	case event.SSEHeartbeat, event.SSEServerShutdown,
+		event.SSERuntimeStatus, event.SSEAgentStatus:
 		return true
 	}
 
@@ -89,7 +89,7 @@ func sseEventMatchesFilter(event eventbus.SSEEvent, projectID, agentType string)
 		ProjectID string `json:"projectId"`
 		AgentType string `json:"agentType"`
 	}
-	if err := json.Unmarshal(event.Data, &ref); err != nil {
+	if err := json.Unmarshal(evt.Data, &ref); err != nil {
 		return true // can't parse — pass through to avoid dropping events
 	}
 

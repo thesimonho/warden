@@ -16,7 +16,7 @@ import (
 	"github.com/thesimonho/warden/api"
 	"github.com/thesimonho/warden/client"
 	"github.com/thesimonho/warden/engine"
-	"github.com/thesimonho/warden/eventbus"
+	"github.com/thesimonho/warden/event"
 	"github.com/thesimonho/warden/internal/tui/components"
 )
 
@@ -224,9 +224,9 @@ func (v *ProjectDetailView) Update(msg tea.Msg) (View, tea.Cmd) {
 		return v, loadWorktrees(v.client, v.projectID, v.agentType)
 
 	case SSEEventMsg:
-		evt := eventbus.SSEEvent(msg)
+		evt := event.SSEEvent(msg)
 		switch evt.Event {
-		case eventbus.SSEWorktreeState, eventbus.SSEWorktreeListChanged:
+		case event.SSEWorktreeState, event.SSEWorktreeListChanged:
 			return v, loadWorktrees(v.client, v.projectID, v.agentType)
 		}
 		return v, nil

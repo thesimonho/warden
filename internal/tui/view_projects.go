@@ -13,7 +13,7 @@ import (
 
 	"github.com/thesimonho/warden/agent"
 	"github.com/thesimonho/warden/api"
-	"github.com/thesimonho/warden/eventbus"
+	"github.com/thesimonho/warden/event"
 	"github.com/thesimonho/warden/internal/tui/components"
 )
 
@@ -86,9 +86,9 @@ func (v *ProjectsView) Update(msg tea.Msg) (View, tea.Cmd) {
 
 	case SSEEventMsg:
 		// Only reload on state/cost changes, not heartbeats.
-		evt := eventbus.SSEEvent(msg)
+		evt := event.SSEEvent(msg)
 		switch evt.Event {
-		case eventbus.SSEWorktreeState, eventbus.SSEProjectState, eventbus.SSEWorktreeListChanged:
+		case event.SSEWorktreeState, event.SSEProjectState, event.SSEWorktreeListChanged:
 			return v, loadProjects(v.client)
 		}
 		return v, nil
