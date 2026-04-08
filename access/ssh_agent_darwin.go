@@ -22,10 +22,9 @@ func sshAgentCredential() Credential {
 		},
 		Injections: []Injection{
 			{
-				Type:     InjectionMountSocket,
-				Key:      containerSSHAgentPath,
-				Value:    dockerDesktopSSHAgentPath,
-				ReadOnly: true,
+				Type:  InjectionMountSocket,
+				Key:   containerSSHAgentPath,
+				Value: dockerDesktopSSHAgentPath,
 			},
 			{
 				Type:  InjectionEnvVar,

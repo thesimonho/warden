@@ -83,7 +83,7 @@ func TestBuildSocketMounts(t *testing.T) {
 
 	t.Run("converts to structured bind mounts", func(t *testing.T) {
 		mounts := []api.Mount{
-			{HostPath: "/run/host-services/ssh-auth.sock", ContainerPath: "/run/ssh-agent.sock", ReadOnly: true},
+			{HostPath: "/run/host-services/ssh-auth.sock", ContainerPath: "/run/ssh-agent.sock"},
 		}
 		result := buildSocketMounts(mounts)
 		if len(result) != 1 {
@@ -98,8 +98,8 @@ func TestBuildSocketMounts(t *testing.T) {
 		if result[0].Target != "/run/ssh-agent.sock" {
 			t.Errorf("expected container target, got %s", result[0].Target)
 		}
-		if !result[0].ReadOnly {
-			t.Error("expected read-only")
+		if result[0].ReadOnly {
+			t.Error("expected read-write (connect() requires write permission on Unix sockets)")
 		}
 	})
 }
