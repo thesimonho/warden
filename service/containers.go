@@ -62,6 +62,10 @@ func (s *Service) CreateContainer(ctx context.Context, req api.CreateContainerRe
 		return nil, err
 	}
 
+	// Mark as recently created so HandleContainerStart (fired by the
+	// Docker events watcher) skips redundant network isolation.
+	s.recentlyCreated.Store(containerID, true)
+
 	// Store the Docker container ID/name on the project row.
 	row.ContainerID = containerID
 	row.ContainerName = req.Name
@@ -251,12 +255,14 @@ func (s *Service) updateContainerSettings(ctx context.Context, project *db.Proje
 	}
 
 	// Hot-reload allowed domains if they changed on a restricted-mode container.
-	// Best-effort: if the exec fails (e.g. container stopped), the DB is still
-	// updated so the correct domains apply on next container start/recreation.
+	// Merge system + runtime domains so the reload matches what was configured
+	// at creation. Best-effort: if the exec fails (e.g. container stopped), the
+	// DB is still updated so the correct domains apply on next start/recreation.
 	newDomains := strings.Join(req.AllowedDomains, ",")
 	existingMode := normalizeNetworkMode(api.NetworkMode(project.NetworkMode))
 	if newDomains != project.AllowedDomains && existingMode == api.NetworkModeRestricted {
-		if err := s.docker.ReloadAllowedDomains(ctx, project.ContainerID, req.AllowedDomains); err != nil {
+		effectiveDomains := buildEffectiveDomains(req.AllowedDomains, splitCSV(project.EnabledRuntimes))
+		if err := s.docker.ReloadAllowedDomains(ctx, project.ContainerID, effectiveDomains); err != nil {
 			slog.Warn("failed to hot-reload domains (container may be stopped)", "err", err)
 		}
 	}
@@ -327,6 +333,9 @@ func (s *Service) recreateContainer(ctx context.Context, project *db.ProjectRow,
 	if err != nil {
 		return nil, err
 	}
+
+	// Mark as recently created so HandleContainerStart skips it.
+	s.recentlyCreated.Store(newID, true)
 
 	// Update DB row with new config and container ID.
 	row.ContainerID = newID
@@ -606,8 +615,22 @@ func reconstructRequestFromRow(project *db.ProjectRow, update api.CreateContaine
 // start event (including auto-restarts by the Docker daemon). Re-applies
 // network isolation if the project uses restricted or none mode.
 //
-// Runs asynchronously from the Docker events watcher goroutine.
+// Called synchronously from the Docker events watcher goroutine.
+// The actual isolation work runs in a separate goroutine to avoid
+// blocking the events stream while waiting for installs.
 func (s *Service) HandleContainerStart(containerID, containerName string) {
+	// Skip containers just created by CreateContainer/RestartProject —
+	// they already wait for installs and apply network isolation.
+	// Truncate to 12 chars to match the format stored by those paths
+	// (Docker events provide the full 64-char ID).
+	shortID := containerID
+	if len(shortID) > 12 {
+		shortID = shortID[:12]
+	}
+	if _, created := s.recentlyCreated.LoadAndDelete(shortID); created {
+		return
+	}
+
 	project, err := s.db.GetProjectByContainerName(containerName)
 	if err != nil || project == nil {
 		return
@@ -620,39 +643,61 @@ func (s *Service) HandleContainerStart(containerID, containerName string) {
 
 	domains := splitCSV(project.AllowedDomains)
 
-	// Merge runtime domains so the re-applied isolation matches what
-	// was originally configured during container creation.
-	if mode == api.NetworkModeRestricted && project.EnabledRuntimes != "" {
-		domains = mergeDomainsDedup(domains, runtimes.DomainsForRuntimes(splitCSV(project.EnabledRuntimes)))
+	// Merge system and runtime domains so the re-applied isolation
+	// matches what was originally configured during container creation.
+	if mode == api.NetworkModeRestricted {
+		domains = buildEffectiveDomains(domains, splitCSV(project.EnabledRuntimes))
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
-	defer cancel()
+	// Run in a goroutine to avoid blocking the Docker events stream.
+	// WaitForInstalls can take minutes if agent CLI or runtimes are
+	// being downloaded.
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+		defer cancel()
 
-	if err := s.docker.ApplyNetworkIsolation(ctx, containerID, string(mode), domains); err != nil {
-		slog.Warn("failed to re-apply network isolation after container start",
+		if err := s.docker.WaitForInstalls(ctx, containerID); err != nil {
+			slog.Warn("timed out waiting for installs on auto-restart, applying network isolation anyway",
+				"container", containerName, "err", err)
+		}
+
+		if err := s.docker.ApplyNetworkIsolation(ctx, containerID, string(mode), domains); err != nil {
+			slog.Warn("failed to re-apply network isolation after container start",
+				"container", containerName,
+				"mode", mode,
+				"err", err,
+			)
+			return
+		}
+
+		slog.Info("re-applied network isolation after container start",
 			"container", containerName,
 			"mode", mode,
-			"err", err,
 		)
-		return
-	}
-
-	slog.Info("re-applied network isolation after container start",
-		"container", containerName,
-		"mode", mode,
-	)
+	}()
 }
 
-// mergeRuntimeDomains adds runtime-contributed network domains to the
-// request's allowed domain list when network mode is restricted. The DB
-// stores user-entered domains only (via projectRowFromRequest which runs
-// before this); merged domains are only passed to the Docker engine.
+// mergeRuntimeDomains adds runtime-contributed and system network domains
+// to the request's allowed domain list when network mode is restricted.
+// The DB stores user-entered domains only (via projectRowFromRequest which
+// runs before this); merged domains are only passed to the Docker engine.
 func mergeRuntimeDomains(req *api.CreateContainerRequest) {
-	if req.NetworkMode != api.NetworkModeRestricted || len(req.EnabledRuntimes) == 0 {
+	if req.NetworkMode != api.NetworkModeRestricted {
 		return
 	}
-	req.AllowedDomains = mergeDomainsDedup(req.AllowedDomains, runtimes.DomainsForRuntimes(req.EnabledRuntimes))
+	req.AllowedDomains = buildEffectiveDomains(req.AllowedDomains, req.EnabledRuntimes)
+}
+
+// buildEffectiveDomains merges user-specified domains with system domains
+// (for agent CLI downloads) and runtime-contributed domains (for package
+// registries). Used by both initial creation and restart re-application
+// to keep the domain lists consistent.
+func buildEffectiveDomains(userDomains, enabledRuntimes []string) []string {
+	domains := mergeDomainsDedup(userDomains, runtimes.SystemDomains())
+	if len(enabledRuntimes) > 0 {
+		domains = mergeDomainsDedup(domains, runtimes.DomainsForRuntimes(enabledRuntimes))
+	}
+	return domains
 }
 
 // mergeDomainsDedup appends domains from extra into base, skipping duplicates.

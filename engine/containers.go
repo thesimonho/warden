@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/image"
@@ -300,11 +301,18 @@ func (ec *EngineClient) CreateContainer(ctx context.Context, req api.CreateConta
 		id = id[:12]
 	}
 
-	// Apply network isolation via privileged docker exec. This runs the
-	// same setup-network-isolation.sh script but from outside the container,
-	// so NET_ADMIN is never in the container's bounding set. Even sudo
-	// can't undo iptables rules without NET_ADMIN.
+	// Apply network isolation via privileged docker exec. Wait for the
+	// entrypoint to finish agent CLI and runtime installs first — they
+	// need unrestricted network access. The entrypoint writes a marker
+	// file when installs are done, then this applies iptables rules and
+	// writes the network-ready marker for the user-phase entrypoint.
 	if networkMode != api.NetworkModeFull {
+		installCtx, installCancel := context.WithTimeout(ctx, 5*time.Minute)
+		if err := ec.WaitForInstalls(installCtx, id); err != nil {
+			slog.Warn("timed out waiting for installs, applying network isolation anyway",
+				"container", req.Name, "err", err)
+		}
+		installCancel()
 		if err := ec.ApplyNetworkIsolation(ctx, id, string(networkMode), req.AllowedDomains); err != nil {
 			_ = ec.stopAndRemove(ctx, resp.ID)
 			return "", fmt.Errorf("setting up network isolation: %w", err)
@@ -470,6 +478,43 @@ func (ec *EngineClient) ReloadAllowedDomains(ctx context.Context, containerID st
 		return fmt.Errorf("reloading allowed domains: %w", err)
 	}
 	return nil
+}
+
+// markerInstallsDone is the path to the marker file written by
+// entrypoint.sh after agent CLI and runtime installs complete.
+// Must match the `touch` in container/scripts/shared/entrypoint.sh.
+const markerInstallsDone = "/tmp/warden-installs-done"
+
+// WaitForInstalls polls the container for the install-complete marker
+// written by entrypoint.sh. This ensures network isolation is not applied
+// while downloads are in progress. Returns nil once the marker exists,
+// or an error on timeout/context cancellation.
+func (ec *EngineClient) WaitForInstalls(ctx context.Context, containerID string) error {
+	const pollInterval = 2 * time.Second
+
+	ticker := time.NewTicker(pollInterval)
+	defer ticker.Stop()
+
+	// Check immediately before waiting for the first tick.
+	cfg := container.ExecOptions{
+		Cmd:          []string{"test", "-f", markerInstallsDone},
+		AttachStdout: true,
+		AttachStderr: true,
+	}
+	if _, err := ec.execAndCaptureStrict(ctx, containerID, cfg); err == nil {
+		return nil
+	}
+
+	for {
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("waiting for installs: %w", ctx.Err())
+		case <-ticker.C:
+			if _, err := ec.execAndCaptureStrict(ctx, containerID, cfg); err == nil {
+				return nil
+			}
+		}
+	}
 }
 
 // ApplyNetworkIsolation runs the network isolation script via privileged

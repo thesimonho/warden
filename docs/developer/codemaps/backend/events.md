@@ -20,6 +20,14 @@ Generic file-tailing primitives. Zero internal module dependencies (only stdlib 
 | `tailer.go`       | `FileTailer` — discovers and tails files with periodic polling. Seeks to stored byte offset on open (via `OffsetStore`), persists offset after reading complete lines. Resets to byte 0 if file is smaller than stored offset (truncation safety). Prunes stale offset rows when files disappear from the discovery list. `TailerConfig` carries `OffsetStore`, `ProjectID`, `AgentType` for offset scoping. |
 | `offset_store.go` | `OffsetStore` interface — `LoadOffset`, `SaveOffset`, `DeleteOffset`, `DeleteOffsets`. Implemented by `db.OffsetStoreAdapter`.                                                                                                                                                                                                                                                                               |
 
+## runtimes/
+
+Language runtime registry with network domain declarations.
+
+| File          | Purpose                                                                                                                                                                                                                                                                                                                                                      |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `runtimes.go` | Registry of language runtimes (Node, Python, Go, Rust, Ruby, Lua). Each runtime declares: `ID`, `Label`, `Description`, `AlwaysEnabled`, `Domains` (network domains required for package registries), `EnvVars` (cache paths for the shared volume), `MarkerFiles` (filenames indicating project uses this runtime). `SystemDomains()` returns domains needed for agent CLI installation (currently `storage.googleapis.com` for Claude Code binary). `DomainsForRuntimes(ids)` merges domains for specified runtimes. No internal dependencies — importable by any consumer. |
+
 ## eventlog/
 
 Centralized host-side event log for container and system events.

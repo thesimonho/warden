@@ -80,7 +80,7 @@ var registry = []Runtime{
 			"dl.google.com",
 			"proxy.golang.org",
 			"sum.golang.org",
-			"storage.googleapis.com",
+			"storage.googleapis.com", // also in SystemDomains() for agent CLI; deduped at merge
 		},
 		EnvVars: map[string]string{
 			"GOMODCACHE": cacheBase + "/go/mod",
@@ -141,6 +141,20 @@ var registry = []Runtime{
 			".luacheckrc",
 		},
 	},
+}
+
+// SystemDomains returns network domains required for agent CLI
+// installation, independent of user-selected runtimes. These are
+// always merged into the allowed domain list for restricted-mode
+// containers so downloads succeed even when iptables are active.
+//
+// Currently: storage.googleapis.com (Claude Code binary on GCS).
+// Node.js registry (for Codex npm install) is already covered by the
+// always-enabled Node runtime.
+func SystemDomains() []string {
+	return []string{
+		"storage.googleapis.com",
+	}
 }
 
 // Registry returns the full ordered list of available runtimes.

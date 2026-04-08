@@ -9,10 +9,10 @@ container/scripts/
   install-user.sh               # warden user, workspace dirs, .profile env forwarding
   install-warden.sh             # Copy scripts to /usr/local/bin/, create /project
   shared/                       # Agent-agnostic scripts
-    entrypoint.sh               # Root-phase: UID remapping, agent CLI install, exec gosu
+    entrypoint.sh               # Root-phase: UID remapping, git clone (remote), agent CLI install, chown workspace (remote), write marker, exec gosu
     install-agent.sh            # Agent CLI install (Claude binary / Codex npm) with version pinning
     install-runtimes.sh         # Language runtime install (Python, Go, Rust, Ruby, Lua)
-    user-entrypoint.sh          # User-phase (PID 1): env forwarding, git config, heartbeat
+    user-entrypoint.sh          # User-phase (PID 1): env forwarding, git config, heartbeat, handle orphaned terminals (remote)
     create-terminal.sh          # Agent-aware terminal creation (branches on WARDEN_AGENT_TYPE)
     disconnect-terminal.sh      # Disconnect viewer, tmux session continues
     kill-worktree.sh            # Kill the tmux session + all processes for a worktree
@@ -42,6 +42,10 @@ Agent CLIs are installed at container startup (not at build time) by `install-ag
 
 ## Terminal Lifecycle
 
+### entrypoint.sh
+
+Root-phase entrypoint. For local projects: sets up UID remapping and drops privileges via gosu. For remote projects: clones the repository into the workspace volume first, then chowns the workspace to match the warden user. Both paths: installs agent CLI and language runtimes, writes `/tmp/warden-installs-done` marker to signal the Go server that network isolation can be applied (only after downloads are complete), then `exec gosu warden` to permanently drop to the warden user for the user-phase entrypoint.
+
 ### create-terminal.sh
 
 Accepts `<worktree-id> [--skip-permissions]`. Branches on `WARDEN_AGENT_TYPE` env var:
@@ -49,6 +53,12 @@ Accepts `<worktree-id> [--skip-permissions]`. Branches on `WARDEN_AGENT_TYPE` en
 - **Auto-resume detection**: before building the agent command, checks if `exit_code` exists (from a prior session) and JSONL session files are present. If so, appends `--continue` (claude-code) or uses `codex resume --last` (codex) to resume the previous conversation. Also builds a fresh command (without resume flag) for fallback.
 - **claude-code** (default): launches `claude --worktree <id>` in `.claude/worktrees/<id>/` (Claude manages worktrees natively). Adds `--dangerously-skip-permissions` if requested.
 - **codex**: creates the git worktree manually (`git worktree add`) in `.warden/worktrees/<id>/` if it doesn't exist, with fallback to use existing branch if worktree creation fails, then launches `codex --no-alt-screen` in the worktree directory (the `--no-alt-screen` flag disables alternate screen mode so terminal scrollback is preserved). Adds `--dangerously-bypass-approvals-and-sandbox` if skip-permissions is requested.
+
+### user-entrypoint.sh
+
+User-phase (PID 1) entrypoint. Forwards environment variables, configures git, and starts the heartbeat background process. For remote projects: scans for orphaned terminal directories (from containers that were killed without cleanup) and writes exit_code markers so they can be auto-resumed on reconnect. For non-full network modes: starts `warden-network-block-logger.sh` to poll for blocked IPs and write audit events.
+
+### create-terminal.sh
 
 Unsets `TMUX` env var in the inner script so agents don't detect they're inside tmux. If the agent exits with a non-zero code and auto-resume was attempted, falls back to a fresh session (prevents being dumped into bare bash when there's no conversation to resume). When the agent exits: records exit code, pushes `session_exit` event, drops to `exec bash`.
 

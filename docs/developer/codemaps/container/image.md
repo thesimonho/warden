@@ -35,7 +35,7 @@ runtime stage:
   Layer 3: install-warden.sh       (Warden scripts — changes every release)
 ```
 
-Agent CLIs (Claude Code, Codex) are **not baked into the image**. They are installed at container startup by `install-agent.sh` using pinned versions from `agent/versions.go`, passed as env vars (`WARDEN_CLAUDE_VERSION`, `WARDEN_CODEX_VERSION`). The `warden-cache` Docker volume caches downloads across container creates.
+Agent CLIs (Claude Code, Codex) are **not baked into the image**. They are installed at container startup by `install-agent.sh` using pinned versions from `agent/versions.go`, passed as env vars (`WARDEN_CLAUDE_VERSION`, `WARDEN_CODEX_VERSION`). The `warden-cache` Docker volume caches downloads across container creates. For remote projects, a Docker volume named `warden-workspace-{containerName}` persists the cloned workspace across container recreates (when `temporary=false`); temporary remote workspaces (when `temporary=true`) store code in the container's writable layer and are lost on recreation.
 
 ### Sub-Script Responsibilities
 
