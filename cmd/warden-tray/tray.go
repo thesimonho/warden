@@ -9,7 +9,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/energye/systray"
+	"github.com/godbus/dbus/v5"
+	"fyne.io/systray"
 )
 
 const pollInterval = 5 * time.Second
@@ -21,6 +22,10 @@ type trayState struct {
 	shuttingDown atomic.Bool
 	menuStatus   *systray.MenuItem
 	mu           sync.Mutex
+
+	// needsAttention tracks whether any project needs user input.
+	// Protected by mu.
+	needsAttention bool
 }
 
 // runTray initializes the system tray and blocks until exit.
@@ -38,17 +43,24 @@ func quitTray() {
 
 // onReady is called by systray once the tray is initialized.
 func (t *trayState) onReady() {
-	// Template icon lets macOS handle light/dark mode inversion automatically.
-	systray.SetTemplateIcon(iconData, iconData)
+	applyIcon(false)
+	if runtime.GOOS == "linux" {
+		go watchColorScheme()
+	}
 	systray.SetTooltip("Warden")
 
-	systray.SetOnClick(func(_ systray.IMenu) { t.openDashboard() })
-	systray.SetOnRClick(func(menu systray.IMenu) { _ = menu.ShowMenu() })
+	systray.SetOnTapped(func() { t.openDashboard() })
 
-	mOpen := systray.AddMenuItem("Open Dashboard", "Open the Warden dashboard in a browser")
-	mOpen.Click(func() { t.openDashboard() })
+	versionLabel := "Warden"
+	if v := t.srv.fetchVersion(); v != "" {
+		versionLabel = "Warden " + v
+	}
+	mVersion := systray.AddMenuItem(versionLabel, "")
+	mVersion.Disable()
 
 	systray.AddSeparator()
+
+	mOpen := systray.AddMenuItem("Open Dashboard", "Open the Warden dashboard in a browser")
 
 	t.menuStatus = systray.AddMenuItem("Checking...", "")
 	t.menuStatus.Disable()
@@ -56,12 +68,136 @@ func (t *trayState) onReady() {
 	systray.AddSeparator()
 
 	mQuit := systray.AddMenuItem("Quit Warden", "Shut down the Warden server")
-	mQuit.Click(func() { t.handleQuit() })
+
+	// Route menu item clicks via channels.
+	go func() {
+		for {
+			select {
+			case <-mOpen.ClickedCh:
+				t.openDashboard()
+			case <-mQuit.ClickedCh:
+				t.handleQuit()
+			}
+		}
+	}()
 
 	// Update container count immediately, then poll.
 	t.updateStatus()
 	go t.pollLoop()
 }
+
+// applyIcon sets the tray icon based on the current platform, color scheme,
+// and attention state. On macOS, uses SetTemplateIcon (OS handles inversion)
+// with a separate attention variant. On Linux, detects dark/light via the
+// freedesktop portal. On Windows, defaults to the dark icon for now.
+func applyIcon(attention bool) {
+	switch runtime.GOOS {
+	case "darwin":
+		if attention {
+			systray.SetIcon(iconDataAttention)
+		} else {
+			systray.SetTemplateIcon(iconData, iconData)
+		}
+	case "linux":
+		dark := isDarkTheme()
+		switch {
+		case dark && attention:
+			systray.SetIcon(iconDataAttentionLight)
+		case dark:
+			systray.SetIcon(iconDataLight)
+		case attention:
+			systray.SetIcon(iconDataAttention)
+		default:
+			systray.SetIcon(iconData)
+		}
+	default:
+		if attention {
+			systray.SetIcon(iconDataAttention)
+		} else {
+			systray.SetIcon(iconData)
+		}
+	}
+}
+
+// isDarkTheme queries the freedesktop desktop portal for the system color
+// scheme. Returns true if the user prefers a dark theme. Works on KDE,
+// GNOME, and other modern DEs that implement the portal. Defaults to true
+// (dark panels are more common) if the portal is unavailable.
+func isDarkTheme() bool {
+	conn, err := dbus.SessionBus()
+	if err != nil {
+		return true
+	}
+	return readColorScheme(conn) == 1
+}
+
+// readColorScheme reads the color-scheme setting from the freedesktop portal.
+// Returns 0 (no preference), 1 (prefer dark), or 2 (prefer light).
+func readColorScheme(conn *dbus.Conn) uint32 {
+	obj := conn.Object(
+		"org.freedesktop.portal.Desktop",
+		"/org/freedesktop/portal/desktop",
+	)
+
+	call := obj.Call(
+		"org.freedesktop.portal.Settings.Read", 0,
+		"org.freedesktop.appearance", "color-scheme",
+	)
+	if call.Err != nil {
+		return 1 // default dark
+	}
+
+	var outer dbus.Variant
+	if err := call.Store(&outer); err != nil {
+		return 1
+	}
+	inner, ok := outer.Value().(dbus.Variant)
+	if !ok {
+		return 1
+	}
+	scheme, ok := inner.Value().(uint32)
+	if !ok {
+		return 1
+	}
+	return scheme
+}
+
+// watchColorScheme listens for freedesktop portal SettingChanged signals
+// and swaps the tray icon when the color scheme changes.
+func watchColorScheme() {
+	conn, err := dbus.SessionBus()
+	if err != nil {
+		return
+	}
+
+	if err := conn.AddMatchSignal(
+		dbus.WithMatchObjectPath("/org/freedesktop/portal/desktop"),
+		dbus.WithMatchInterface("org.freedesktop.portal.Settings"),
+		dbus.WithMatchMember("SettingChanged"),
+	); err != nil {
+		log.Printf("failed to watch color scheme changes: %v", err)
+		return
+	}
+
+	ch := make(chan *dbus.Signal, 10)
+	conn.Signal(ch)
+
+	for sig := range ch {
+		if len(sig.Body) < 3 {
+			continue
+		}
+		namespace, _ := sig.Body[0].(string)
+		key, _ := sig.Body[1].(string)
+		if namespace == "org.freedesktop.appearance" && key == "color-scheme" {
+			// Re-read attention state to apply correct icon variant.
+			applyIcon(globalAttention.Load())
+		}
+	}
+}
+
+// globalAttention tracks the current attention state for the color scheme
+// watcher, which runs in a separate goroutine.
+var globalAttention atomic.Bool
 
 // pollLoop periodically checks server health (via the projects endpoint)
 // and updates the container count. A single HTTP call per tick serves
@@ -91,25 +227,41 @@ func (t *trayState) updateStatus() {
 	t.updateStatusFromProjects(projects)
 }
 
-// updateStatusFromProjects refreshes the container count menu item.
+// updateStatusFromProjects refreshes the container count menu item and
+// swaps the tray icon when any project needs user attention.
 func (t *trayState) updateStatusFromProjects(projects []project) {
-	var count int
+	var running int
+	var attention bool
 	for _, p := range projects {
 		if p.State == stateRunning {
-			count++
+			running++
 		}
+		if p.NeedsInput && p.NotificationType == "permission_prompt" {
+			attention = true
+		}
+	}
+
+	t.mu.Lock()
+	changed := t.needsAttention != attention
+	t.needsAttention = attention
+	t.mu.Unlock()
+
+	globalAttention.Store(attention)
+
+	if changed {
+		applyIcon(attention)
 	}
 
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
-	switch count {
+	switch running {
 	case 0:
 		t.menuStatus.SetTitle("No containers running")
 	case 1:
 		t.menuStatus.SetTitle("1 container running")
 	default:
-		t.menuStatus.SetTitle(fmt.Sprintf("%d containers running", count))
+		t.menuStatus.SetTitle(fmt.Sprintf("%d containers running", running))
 	}
 }
 

@@ -33,10 +33,12 @@ type serverClient struct {
 // ProjectID is the stable identifier used in API paths; ID is the
 // Docker container ID (not used by the tray).
 type project struct {
-	ProjectID string `json:"projectId"`
-	Name      string `json:"name"`
-	AgentType string `json:"agentType"`
-	State     string `json:"state"`
+	ProjectID        string `json:"projectId"`
+	Name             string `json:"name"`
+	AgentType        string `json:"agentType"`
+	State            string `json:"state"`
+	NeedsInput       bool   `json:"needsInput"`
+	NotificationType string `json:"notificationType"`
 }
 
 func newServerClient(baseURL string) *serverClient {
@@ -68,6 +70,26 @@ func (s *serverClient) isHealthy() bool {
 	}
 	resp.Body.Close() //nolint:errcheck
 	return resp.StatusCode == http.StatusOK && resp.Header.Get("X-Warden") == "1"
+}
+
+// healthResponse is the minimal subset of the health endpoint response.
+type healthResponse struct {
+	Version string `json:"version"`
+}
+
+// fetchVersion returns the server version from the health endpoint.
+func (s *serverClient) fetchVersion() string {
+	resp, err := s.http.Get(s.baseURL + healthPath) //nolint:noctx
+	if err != nil {
+		return ""
+	}
+	defer resp.Body.Close() //nolint:errcheck
+
+	var h healthResponse
+	if err := json.NewDecoder(resp.Body).Decode(&h); err != nil {
+		return ""
+	}
+	return h.Version
 }
 
 // listProjects returns all projects from the server.

@@ -33,7 +33,8 @@ done
 # renders the dock icon correctly. Do NOT use -type TrueColorAlpha — it
 # corrupts pixel data on ImageMagick 6.x.
 HI="$(mktemp /tmp/warden-icon-1024.XXXXXX.png)"
-trap 'rm -f "${HI}"' EXIT
+DOT="$(mktemp /tmp/warden-dot-256.XXXXXX.png)"
+trap 'rm -f "${HI}" "${DOT}"' EXIT
 ${IM} -density 384 -background white "${ICON}" -flatten -resize 1024x1024 \
     -depth 8 -define png:color-type=6 "${HI}"
 
@@ -52,12 +53,27 @@ for size in 16 32 48 64 128 256 512; do
 done
 cp "packaging/linux/icons/512x512/warden.png" packaging/linux/warden.png
 
-# Tray icon — black on transparent for macOS menu bar template image.
-# Generated directly from SVG (no white background) so systray.SetTemplateIcon
-# can let macOS handle light/dark mode. 256px RGBA; ensures crisp rendering
-# on HiDPI Linux/Windows trays.
+# Tray icon (dark) — black on transparent for macOS template icon and
+# Linux/Windows light themes. 256px RGBA for crisp HiDPI rendering.
 ${IM} -density 384 -background none "${ICON}" -resize 256x256 \
     -depth 8 -define png:color-type=6 cmd/warden-tray/icon.png
+
+# Tray icon (light) — white on transparent for Linux/Windows dark themes.
+# Inverts only the RGB channels, preserving the alpha channel.
+${IM} -density 384 -background none "${ICON}" -resize 256x256 \
+    -channel RGB -negate -depth 8 -define png:color-type=6 cmd/warden-tray/icon_light.png
+
+# Attention dot overlay — rasterized once, composited onto both icon variants.
+${IM} -background none packaging/attention-dot.svg -resize 256x256 \
+    -depth 8 -define png:color-type=6 "${DOT}"
+
+# Tray icon (dark + attention) — black W with orange dot overlay.
+${IM} cmd/warden-tray/icon.png "${DOT}" -composite \
+    -depth 8 -define png:color-type=6 cmd/warden-tray/icon_attention.png
+
+# Tray icon (light + attention) — white W with orange dot overlay.
+${IM} cmd/warden-tray/icon_light.png "${DOT}" -composite \
+    -depth 8 -define png:color-type=6 cmd/warden-tray/icon_attention_light.png
 
 # Windows — multi-size .ico
 ${IM} "${HI}" \

@@ -29,5 +29,5 @@ Environment variables:
 
 ## Dependencies
 
-- [energye/systray](https://github.com/energye/systray) — cross-platform system tray (Linux DBus, macOS Cocoa, Windows Win32)
+- [fyne-io/systray](https://github.com/fyne-io/systray) — cross-platform system tray (Linux DBus, macOS Cocoa, Windows Win32)
 - [ncruces/zenity](https://github.com/ncruces/zenity) — cross-platform native dialogs (no CGo needed for dialogs)
