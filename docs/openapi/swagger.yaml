@@ -739,13 +739,6 @@ components:
         hostPath:
           description: HostPath is the absolute path on the host.
           type: string
-        isSocket:
-          description: |-
-            IsSocket indicates the host path is a Unix domain socket rather
-            than a regular file or directory. Socket mounts use the Docker
-            structured mount API to avoid the daemon trying to mkdir the
-            host path, which fails on macOS with Docker Desktop.
-          type: boolean
         readOnly:
           description: ReadOnly mounts the path as read-only inside the container.
           type: boolean
