@@ -105,7 +105,7 @@ When you create a container, Warden validates that these binaries exist at `/usr
 | Binary | Purpose |
 |--------|---------|
 | `gosu` | Privilege drop in entrypoint |
-| `entrypoint.sh` | Root-phase setup (UID remapping, network isolation) |
+| `entrypoint.sh` | Root-phase setup (UID remapping, agent CLI install, runtime installation) |
 | `user-entrypoint.sh` | User-phase setup (env forwarding, git/ssh config) |
 | `create-terminal.sh` | Start tmux session + Claude Code |
 | `disconnect-terminal.sh` | Clean disconnect (kill viewer, keep tmux session) |

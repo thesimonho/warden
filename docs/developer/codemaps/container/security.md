@@ -6,21 +6,22 @@ Every Warden container is hardened with three layers of process isolation, appli
 
 All default Linux capabilities are dropped (`CapDrop: ALL`), then only the minimum required set is re-added:
 
-| Capability       | Why needed                                      | When            |
-| ---------------- | ----------------------------------------------- | --------------- |
-| CHOWN            | Entrypoint chown of bind mounts                 | Always          |
-| DAC_OVERRIDE     | Root reading/writing files owned by warden user | Always          |
-| FOWNER           | Entrypoint file ownership operations            | Always          |
-| FSETID           | Preserve setuid/setgid bits during chown        | Always          |
-| KILL             | Shutdown handler: kill -TERM -1                 | Always          |
-| SETUID           | gosu privilege drop (setuid syscall)            | Always          |
-| SETGID           | gosu privilege drop (setgid syscall)            | Always          |
-| NET_BIND_SERVICE | Dev servers binding to ports < 1024             | Always          |
-| NET_RAW          | Ping and network diagnostics                    | Always          |
-| SYS_CHROOT       | Some tools (e.g. npm) use chroot                | Always          |
-| NET_ADMIN        | iptables for network isolation                  | restricted/none |
+| Capability       | Why needed                                      | When   |
+| ---------------- | ----------------------------------------------- | ------ |
+| CHOWN            | Entrypoint chown of bind mounts                 | Always |
+| DAC_OVERRIDE     | Root reading/writing files owned by warden user | Always |
+| FOWNER           | Entrypoint file ownership operations            | Always |
+| FSETID           | Preserve setuid/setgid bits during chown        | Always |
+| KILL             | Shutdown handler: kill -TERM -1                 | Always |
+| SETUID           | gosu privilege drop and sudo elevation          | Always |
+| SETGID           | gosu privilege drop and sudo elevation          | Always |
+| NET_BIND_SERVICE | Dev servers binding to ports < 1024             | Always |
+| NET_RAW          | Ping and network diagnostics                    | Always |
+| SYS_CHROOT       | Some tools (e.g. npm) use chroot                | Always |
 
 Dropped from Docker defaults: SETPCAP, MKNOD, SETFCAP, AUDIT_WRITE.
+
+Notably absent: **NET_ADMIN**. Network isolation (iptables) is applied externally via privileged docker exec, keeping it out of the container's capability bounding set. See "External Network Isolation" below.
 
 ## 2. Seccomp Profile
 
@@ -31,13 +32,42 @@ A denylist-based seccomp profile (`SCMP_ACT_ALLOW` default) blocks dangerous sys
 - **Security-sensitive**: bpf, perf_event_open, userfaultfd, open_by_handle_at, keyring operations
 - **System administration**: acct, swapon, swapoff, syslog, settimeofday
 
-## 3. No New Privileges
+## 3. Sudo Support
 
-The `no-new-privileges` flag prevents privilege escalation via setuid/setgid binaries inside the container. The entrypoint starts as root for privileged setup (UID remapping, iptables), then permanently drops to the `warden` user via `exec gosu`. PID 1 runs as `warden` — no root process remains after startup.
+The warden user has passwordless sudo (`NOPASSWD:ALL`) for package installation (e.g. `sudo apt-get install`). This is safe because the capability bounding set is tight:
 
-## Network Isolation
+- No NET_ADMIN → cannot modify iptables rules (network isolation is tamper-proof)
+- No SYS_ADMIN → cannot mount/unmount filesystems or escape the container
+- No MKNOD → cannot create device nodes
+- No SETPCAP/SETFCAP → cannot modify capability sets
 
-Container network modes are passed as environment variables to enforce isolation at container start:
+The `no-new-privileges` security option is intentionally not set, because sudo requires the SUID bit to function. The tight bounding set limits what root-via-sudo can do, making this a safe trade-off.
+
+## External Network Isolation
+
+Network isolation is enforced **from outside the container** via `docker exec --privileged`. This is the key security property: the container never has NET_ADMIN in its capability bounding set, so even root inside the container cannot modify iptables rules.
+
+### How it works
+
+1. Container is created without NET_ADMIN capability.
+2. After `ContainerStart`, the Go server runs `setup-network-isolation.sh` via `docker exec --privileged` (Docker grants ALL capabilities to privileged exec processes regardless of the container's bounding set).
+3. The script sets up iptables rules, dnsmasq, and ipset — same mechanism as before, just invoked externally.
+4. The user-entrypoint waits for a `/tmp/warden-network-ready` marker before allowing the agent to start. This prevents any network-dependent work before isolation is active.
+
+### Container restart handling
+
+Iptables rules don't persist across container restarts. The Go server re-applies them via two mechanisms:
+
+- **Explicit restarts** (via API): `RestartProject` re-runs the privileged exec after the restart completes.
+- **Auto-restarts** (Docker `unless-stopped` policy): A Docker events watcher subscribes to container start events filtered by the `dev.warden.managed` label. On each start event, it looks up the project's network mode from the DB and re-applies isolation.
+
+The readiness gate in `user-entrypoint.sh` ensures the agent cannot start until network isolation is confirmed, even during restarts.
+
+### Hot-reload
+
+Allowed domains can be updated on a running container without restarting it. `ReloadAllowedDomains` uses the same privileged exec mechanism to re-run the script with updated env vars. dnsmasq is signaled with SIGHUP to reload its config.
+
+## Network Modes
 
 | Mode         | Env Var                          | Behavior                                    |
 | ------------ | -------------------------------- | ------------------------------------------- |
@@ -45,7 +75,7 @@ Container network modes are passed as environment variables to enforce isolation
 | `restricted` | `WARDEN_NETWORK_MODE=restricted` | Outbound traffic limited to allowed domains |
 | `none`       | `WARDEN_NETWORK_MODE=none`       | All outbound traffic blocked (air-gapped)   |
 
-For `restricted` mode, allowed domains are passed as `WARDEN_ALLOWED_DOMAINS=domain1.com,domain2.com`. The `setup-network-isolation.sh` script runs in the entrypoint (before user code executes) and configures iptables OUTPUT rules based on the network mode:
+For `restricted` mode, allowed domains are passed as `WARDEN_ALLOWED_DOMAINS=domain1.com,domain2.com`. The `setup-network-isolation.sh` script configures iptables OUTPUT rules based on the network mode:
 
 - **full**: No rules applied
 - **restricted**: dnsmasq + ipset for dynamic domain-based filtering; all other outbound traffic blocked
@@ -53,8 +83,4 @@ For `restricted` mode, allowed domains are passed as `WARDEN_ALLOWED_DOMAINS=dom
 
 Wildcard domains (e.g. `*.github.com`) are supported — dnsmasq's `/domain/` syntax matches all subdomains and adds resolved IPs to the ipset automatically.
 
-The script supports hot-reload: when re-run via `docker exec` on a container where dnsmasq is already running, it regenerates the dnsmasq config, flushes and re-seeds the ipset, and signals dnsmasq with SIGHUP — without touching iptables rules or resolv.conf. The engine's `ReloadAllowedDomains` method triggers this by running the script as root with env var overrides.
-
 Default allowed domains are agent-scoped (defined in `service/host.go`): Claude Code gets `*.anthropic.com`, Codex gets `*.openai.com` + `*.chatgpt.com`, both share GitHub and package registry domains. Served via `/api/v1/defaults` → `RestrictedDomains`.
-
-NET_ADMIN capability is added only for `restricted` and `none` modes.

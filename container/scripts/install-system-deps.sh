@@ -34,6 +34,7 @@ apt-get install -y --no-install-recommends \
   dnsmasq-base \
   aggregate \
   bubblewrap \
+  sudo \
   tmux
 
 # -------------------------------------------------------------------

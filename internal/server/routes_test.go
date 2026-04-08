@@ -56,7 +56,7 @@ func (m *mockEngineClient) StopProject(_ context.Context, _ string) error {
 	return m.stopErr
 }
 
-func (m *mockEngineClient) RestartProject(_ context.Context, _ string, _ []api.Mount) error {
+func (m *mockEngineClient) RestartProject(_ context.Context, _ string, _ []api.Mount, _ string, _ []string) error {
 	return m.restartErr
 }
 
@@ -83,6 +83,10 @@ func (m *mockEngineClient) RenameContainer(_ context.Context, _ string, _ string
 }
 
 func (m *mockEngineClient) ReloadAllowedDomains(_ context.Context, _ string, _ []string) error {
+	return nil
+}
+
+func (m *mockEngineClient) ApplyNetworkIsolation(_ context.Context, _, _ string, _ []string) error {
 	return nil
 }
 

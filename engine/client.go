@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/api/types/events"
 	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/client"
 	"github.com/docker/docker/pkg/stdcopy"
@@ -584,15 +585,19 @@ func (ec *EngineClient) StopProject(ctx context.Context, id string) error {
 	return nil
 }
 
-// RestartProject restarts a container. Before restarting, it validates
-// that all bind mount source paths still exist on the host. If any are
-// stale (e.g. Nix Home Manager switched generations and garbage-collected
-// old store paths), the restart is blocked with a StaleMountsError so the
-// caller can warn the user and let them decide how to proceed.
+// RestartProject restarts a container and re-applies network isolation.
+// Before restarting, it validates that all bind mount source paths still
+// exist on the host. If any are stale, the restart is blocked with a
+// StaleMountsError so the caller can warn the user.
+//
+// After the restart completes, network isolation is re-applied via
+// privileged docker exec if the project uses restricted or none mode.
+// Iptables rules don't persist across container restarts, so they must
+// be re-established every time.
 //
 // originalMounts are the pre-symlink-resolution mount specs from the DB.
 // When nil, mount validation is skipped (container predates the migration).
-func (ec *EngineClient) RestartProject(ctx context.Context, id string, originalMounts []api.Mount) error {
+func (ec *EngineClient) RestartProject(ctx context.Context, id string, originalMounts []api.Mount, networkMode string, allowedDomains []string) error {
 	if err := ec.validateMountSources(ctx, id, originalMounts); err != nil {
 		return err
 	}
@@ -603,6 +608,14 @@ func (ec *EngineClient) RestartProject(ctx context.Context, id string, originalM
 	})
 	if err != nil {
 		return fmt.Errorf("restarting container %s: %w", id, err)
+	}
+
+	// Re-apply network isolation after restart. Iptables rules are lost
+	// when the container stops, so they must be re-established.
+	if networkMode != "" && api.NetworkMode(networkMode) != api.NetworkModeFull {
+		if err := ec.ApplyNetworkIsolation(ctx, id, networkMode, allowedDomains); err != nil {
+			return fmt.Errorf("re-applying network isolation after restart: %w", err)
+		}
 	}
 
 	slog.Info("restarted project", "id", id)
@@ -725,4 +738,73 @@ func (ec *EngineClient) ContainerStartupHealth(ctx context.Context, containerNam
 	health.LogTail = buf.String()
 
 	return health, nil
+}
+
+// WatchContainerEvents subscribes to Docker container start events and
+// calls onStart for each Warden-managed container that starts. This
+// catches auto-restarts by the Docker daemon (restart policy:
+// unless-stopped) so the Go server can re-apply network isolation.
+//
+// The watcher reconnects automatically on errors with exponential
+// backoff. It runs until the context is cancelled.
+func (ec *EngineClient) WatchContainerEvents(ctx context.Context, onStart func(containerID, containerName string)) {
+	backoff := time.Second
+
+	for {
+		if ctx.Err() != nil {
+			return
+		}
+
+		if ec.processContainerEvents(ctx, onStart) {
+			return // context cancelled
+		}
+
+		// Stream closed or errored — reconnect with backoff.
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(backoff):
+		}
+		if backoff < 30*time.Second {
+			backoff *= 2
+		}
+	}
+}
+
+// processContainerEvents subscribes to Docker container start events and
+// dispatches them to onStart. Returns true if the context was cancelled
+// (caller should exit), false if the stream ended and needs reconnection.
+func (ec *EngineClient) processContainerEvents(ctx context.Context, onStart func(string, string)) bool {
+	eventsCh, errCh := ec.api.Events(ctx, events.ListOptions{
+		Filters: filters.NewArgs(
+			filters.Arg("type", string(events.ContainerEventType)),
+			filters.Arg("event", string(events.ActionStart)),
+			filters.Arg("label", "dev.warden.managed=true"),
+		),
+	})
+
+	for {
+		select {
+		case <-ctx.Done():
+			return true
+		case msg, ok := <-eventsCh:
+			if !ok {
+				return false
+			}
+			name := msg.Actor.Attributes["name"]
+			if name == "" {
+				continue
+			}
+			onStart(msg.Actor.ID, name)
+		case err, ok := <-errCh:
+			if !ok {
+				return false
+			}
+			if ctx.Err() != nil {
+				return true
+			}
+			slog.Warn("docker events stream error, reconnecting", "err", err)
+			return false
+		}
+	}
 }

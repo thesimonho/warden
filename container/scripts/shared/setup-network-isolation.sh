@@ -200,6 +200,7 @@ if [ "$MODE" = "none" ]; then
   # Air-gapped: reject everything else (REJECT gives instant failure vs DROP's 5min timeout).
   reject_and_track
   echo "[warden] network isolation: air-gapped (all outbound blocked)"
+  touch /tmp/warden-network-ready
   exit 0
 fi
 
@@ -211,6 +212,7 @@ if [ "$MODE" = "restricted" ]; then
     if [ "$IS_RELOAD" = "false" ]; then
       reject_and_track
     fi
+    touch /tmp/warden-network-ready
     exit 0
   fi
 
@@ -245,6 +247,7 @@ if [ "$MODE" = "restricted" ]; then
     done
     reject_and_track
     echo "[warden] network isolation: restricted/static ($(echo "$ALLOWED_DOMAINS" | tr ',' ' '))"
+    touch /tmp/warden-network-ready
     exit 0
   fi
 
@@ -312,6 +315,7 @@ if [ "$MODE" = "restricted" ]; then
   if [ "$IS_RELOAD" = "true" ]; then
     pkill -HUP -x dnsmasq 2>/dev/null || true
     echo "[warden] network isolation: reloaded ($(echo "$ALLOWED_DOMAINS" | tr ',' ' '))"
+    touch /tmp/warden-network-ready
     exit 0
   fi
 
@@ -358,6 +362,7 @@ if [ "$MODE" = "restricted" ]; then
   echo "[warden] network isolation: restricted/dynamic via dnsmasq ($(echo "$ALLOWED_DOMAINS" | tr ',' ' '))"
   # Smoke test runs only on first run — the IS_RELOAD branch exits above.
   verify_firewall
+  touch /tmp/warden-network-ready
   exit 0
 fi
 
