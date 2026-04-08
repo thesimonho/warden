@@ -5,6 +5,17 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
+/**
+ * Extracts owner/repo from a git clone URL.
+ * Handles HTTPS (`https://github.com/owner/repo.git`) and
+ * SSH (`git@github.com:owner/repo.git`) formats.
+ * Falls back to the full URL if parsing fails.
+ */
+export function shortenCloneURL(url: string): string {
+  const match = url.match(/(?:[/:])([^/:]+\/[^/.]+?)(?:\.git)?$/)
+  return match ? match[1] : url
+}
+
 /** Abbreviates /home/<user> and /Users/<user> prefixes to ~ for display. */
 export function abbreviateHomePath(path: string): string {
   return path.replace(/^\/(?:home|Users)\/[^/]+/, '~')
