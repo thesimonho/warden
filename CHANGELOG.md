@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.10.2](https://github.com/thesimonho/warden/compare/v1.10.1...v1.10.2) (2026-04-08)
+
+
+### Bug Fixes
+
+* platform-aware SSH agent socket mounting for Docker Desktop ([#181](https://github.com/thesimonho/warden/issues/181)) ([d608f50](https://github.com/thesimonho/warden/commit/d608f504de30db0441fd3c4627a3f40833d784c3))
+* remote repo create button disabled and temporary flag not loading ([#183](https://github.com/thesimonho/warden/issues/183)) ([6e59a9c](https://github.com/thesimonho/warden/commit/6e59a9c7ee5c0d36f519c2a94112e68fc967dd7d)), closes [#179](https://github.com/thesimonho/warden/issues/179)
+
 ## [1.10.1](https://github.com/thesimonho/warden/compare/v1.10.0...v1.10.1) (2026-04-08)
 
 
