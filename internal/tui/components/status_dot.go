@@ -4,6 +4,7 @@ package components
 import (
 	"charm.land/lipgloss/v2"
 	"github.com/thesimonho/warden/engine"
+	"github.com/thesimonho/warden/event"
 )
 
 // Status dot colors.
@@ -60,13 +61,13 @@ func WorktreeStateDot(state engine.WorktreeState) string {
 //   - permission_prompt    → orange ◉
 //   - elicitation_dialog  → red ◉
 //   - idle_prompt         → blue ◉
-func AttentionDot(notificationType engine.NotificationType) string {
+func AttentionDot(notificationType event.NotificationType) string {
 	switch notificationType {
-	case engine.NotificationPermissionPrompt:
+	case event.NotificationPermissionPrompt:
 		return dotOrange.Render("◉")
-	case engine.NotificationElicitationDialog:
+	case event.NotificationElicitationDialog:
 		return dotRed.Render("◉")
-	case engine.NotificationIdlePrompt:
+	case event.NotificationIdlePrompt:
 		return dotBlue.Render("◉")
 	default:
 		return ""

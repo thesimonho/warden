@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/thesimonho/warden/event"
 	"github.com/thesimonho/warden/eventbus"
 	"github.com/thesimonho/warden/internal/terminal"
 	"github.com/thesimonho/warden/service"
@@ -129,8 +130,8 @@ func makeHandleShutdown(ch chan<- struct{}, broker *eventbus.Broker) http.Handle
 		// the connection drops. Sent before the response so clients
 		// receive it while the connection is still open.
 		if broker != nil {
-			broker.Broadcast(eventbus.SSEEvent{
-				Event: eventbus.SSEServerShutdown,
+			broker.Broadcast(event.SSEEvent{
+				Event: event.SSEServerShutdown,
 				Data:  json.RawMessage(`{}`),
 			})
 		}

@@ -9,7 +9,7 @@ import (
 
 	"github.com/thesimonho/warden/api"
 	"github.com/thesimonho/warden/engine"
-	"github.com/thesimonho/warden/eventbus"
+	"github.com/thesimonho/warden/event"
 	"github.com/thesimonho/warden/internal/tui/components"
 	"github.com/thesimonho/warden/version"
 )
@@ -47,7 +47,7 @@ type App struct {
 	help            help.Model
 	width           int
 	height          int
-	eventCh         <-chan eventbus.SSEEvent
+	eventCh         <-chan event.SSEEvent
 	unsubscribe     func()
 	err             error
 	auditLogMode    api.AuditLogMode
@@ -450,7 +450,7 @@ func (m mergedKeyMap) FullHelp() [][]key.Binding {
 //
 //	// In Update(), after handling SSEEventMsg:
 //	return a, tea.Batch(viewCmd, waitForEvent(a.eventCh))
-func waitForEvent(ch <-chan eventbus.SSEEvent) tea.Cmd {
+func waitForEvent(ch <-chan event.SSEEvent) tea.Cmd {
 	if ch == nil {
 		return nil
 	}

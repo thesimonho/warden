@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/thesimonho/warden/agent"
-	"github.com/thesimonho/warden/eventbus"
+	"github.com/thesimonho/warden/event"
 )
 
 // SessionContext identifies the project and worktree a parsed event belongs to.
@@ -20,87 +20,87 @@ type SessionContext struct {
 // into a ContainerEvent for the event pipeline (store → broker → SSE →
 // frontend, audit log). Returns nil for events that don't map to container
 // event types.
-func SessionEventToContainerEvent(event agent.ParsedEvent, ctx SessionContext) *eventbus.ContainerEvent {
-	eventType := mapEventType(event.Type)
+func SessionEventToContainerEvent(parsed agent.ParsedEvent, ctx SessionContext) *event.ContainerEvent {
+	eventType := mapEventType(parsed.Type)
 	if eventType == "" {
 		return nil
 	}
 
-	ce := &eventbus.ContainerEvent{
+	ce := &event.ContainerEvent{
 		Type:          eventType,
 		ContainerName: ctx.ContainerName,
 		ProjectID:     ctx.ProjectID,
 		AgentType:     ctx.AgentType,
 		WorktreeID:    ctx.WorktreeID,
-		Timestamp:     parseTimestamp(event.Timestamp),
-		Source:        eventbus.SourceJSONL,
-		SourceLine:    event.SourceLine,
-		SourceIndex:   event.SourceIndex,
+		Timestamp:     parseTimestamp(parsed.Timestamp),
+		Source:        event.SourceJSONL,
+		SourceLine:    parsed.SourceLine,
+		SourceIndex:   parsed.SourceIndex,
 	}
 
 	// Attach event-specific data payloads.
-	switch event.Type {
-	case agent.EventToolUse:
-		ce.Data = marshalData(eventbus.ToolUseData{
-			ToolName:  event.ToolName,
-			ToolInput: event.ToolInput,
+	switch parsed.Type {
+	case event.EventToolUse:
+		ce.Data = marshalData(event.ToolUseData{
+			ToolName:  parsed.ToolName,
+			ToolInput: parsed.ToolInput,
 		})
-	case agent.EventUserPrompt:
+	case event.EventUserPrompt:
 		promptSource := ""
-		if event.PromptSource.IsBash() {
-			promptSource = string(event.PromptSource)
+		if parsed.PromptSource.IsBash() {
+			promptSource = string(parsed.PromptSource)
 		}
-		ce.Data = marshalData(eventbus.UserPromptData{
-			Prompt:       event.Prompt,
+		ce.Data = marshalData(event.UserPromptData{
+			Prompt:       parsed.Prompt,
 			PromptSource: promptSource,
 		})
-	case agent.EventTokenUpdate:
-		ce.Data = marshalData(eventbus.CostData{
-			TotalCost:   event.EstimatedCostUSD,
+	case event.EventTokenUpdate:
+		ce.Data = marshalData(event.CostData{
+			TotalCost:   parsed.EstimatedCostUSD,
 			IsEstimated: true,
-			SessionID:   event.SessionID,
+			SessionID:   parsed.SessionID,
 		})
-	case agent.EventToolUseFailure:
-		ce.Data = marshalData(eventbus.ToolUseFailureData{
-			ToolName: event.ToolName,
-			Error:    event.ErrorContent,
+	case event.EventToolUseFailure:
+		ce.Data = marshalData(event.ToolUseFailureData{
+			ToolName: parsed.ToolName,
+			Error:    parsed.ErrorContent,
 		})
-	case agent.EventStopFailure:
-		ce.Data = marshalData(eventbus.StopFailureData{
-			Error: event.ErrorContent,
+	case event.EventStopFailure:
+		ce.Data = marshalData(event.StopFailureData{
+			Error: parsed.ErrorContent,
 		})
-	case agent.EventPermissionRequest:
-		ce.Data = marshalData(eventbus.PermissionRequestData{
-			ToolName: event.ToolName,
+	case event.EventPermissionRequest:
+		ce.Data = marshalData(event.PermissionRequestData{
+			ToolName: parsed.ToolName,
 		})
-	case agent.EventElicitation:
-		ce.Data = marshalData(eventbus.ElicitationData{
-			MCPServerName: event.ServerName,
+	case event.EventElicitation:
+		ce.Data = marshalData(event.ElicitationData{
+			MCPServerName: parsed.ServerName,
 		})
-	case agent.EventTurnDuration:
-		ce.Data = marshalData(eventbus.TurnDurationData{
-			DurationMs: event.DurationMs,
+	case event.EventTurnDuration:
+		ce.Data = marshalData(event.TurnDurationData{
+			DurationMs: parsed.DurationMs,
 		})
-	case agent.EventSubagentStop:
-		ce.Data = marshalData(eventbus.SubagentData{})
-	case agent.EventApiMetrics:
-		ce.Data = marshalData(eventbus.ApiMetricsData{
-			TTFTMs:             event.TTFTMs,
-			OutputTokensPerSec: event.OutputTokensPerSec,
+	case event.EventSubagentStop:
+		ce.Data = marshalData(event.SubagentData{})
+	case event.EventApiMetrics:
+		ce.Data = marshalData(event.ApiMetricsData{
+			TTFTMs:             parsed.TTFTMs,
+			OutputTokensPerSec: parsed.OutputTokensPerSec,
 		})
-	case agent.EventPermissionGrant:
-		ce.Data = marshalData(eventbus.PermissionGrantData{
-			Commands: event.Commands,
+	case event.EventPermissionGrant:
+		ce.Data = marshalData(event.PermissionGrantData{
+			Commands: parsed.Commands,
 		})
-	case agent.EventContextCompact:
-		ce.Data = marshalData(eventbus.ContextCompactData{
-			Trigger:   event.CompactTrigger,
-			PreTokens: event.PreCompactTokens,
+	case event.EventContextCompact:
+		ce.Data = marshalData(event.ContextCompactData{
+			Trigger:   parsed.CompactTrigger,
+			PreTokens: parsed.PreCompactTokens,
 		})
-	case agent.EventSystemInfo:
-		ce.Data = marshalData(eventbus.SystemInfoData{
-			Subtype: event.Subtype,
-			Content: event.Content,
+	case event.EventSystemInfo:
+		ce.Data = marshalData(event.SystemInfoData{
+			Subtype: parsed.Subtype,
+			Content: parsed.Content,
 		})
 	}
 
@@ -108,46 +108,19 @@ func SessionEventToContainerEvent(event agent.ParsedEvent, ctx SessionContext) *
 }
 
 // mapEventType converts a ParsedEventType to a ContainerEventType.
-// Returns "" for event types that don't map to container events.
-func mapEventType(parsed agent.ParsedEventType) eventbus.ContainerEventType {
-	switch parsed {
-	case agent.EventSessionStart:
-		return eventbus.EventSessionStart
-	case agent.EventSessionEnd:
-		return eventbus.EventSessionEnd
-	case agent.EventToolUse:
-		return eventbus.EventToolUse
-	case agent.EventUserPrompt:
-		return eventbus.EventUserPrompt
-	case agent.EventTokenUpdate:
+// Since both are now the same underlying type ([event.ContainerEventType]),
+// most types pass through as-is. Only EventTokenUpdate requires remapping
+// to EventCostUpdate. Returns "" for unknown event types.
+func mapEventType(parsed event.ContainerEventType) event.ContainerEventType {
+	if parsed == event.EventTokenUpdate {
 		// Token updates carry cumulative cost data and are mapped to cost
 		// update events for the cost persistence + budget enforcement pipeline.
-		return eventbus.EventCostUpdate
-	case agent.EventToolUseFailure:
-		return eventbus.EventToolUseFailure
-	case agent.EventStopFailure:
-		return eventbus.EventStopFailure
-	case agent.EventPermissionRequest:
-		return eventbus.EventPermissionRequest
-	case agent.EventElicitation:
-		return eventbus.EventElicitation
-	case agent.EventSubagentStop:
-		return eventbus.EventSubagentStop
-	case agent.EventApiMetrics:
-		return eventbus.EventApiMetrics
-	case agent.EventPermissionGrant:
-		return eventbus.EventPermissionGrant
-	case agent.EventContextCompact:
-		return eventbus.EventContextCompact
-	case agent.EventSystemInfo:
-		return eventbus.EventSystemInfo
-	case agent.EventTurnComplete:
-		return eventbus.EventTurnComplete
-	case agent.EventTurnDuration:
-		return eventbus.EventTurnDuration
-	default:
+		return event.EventCostUpdate
+	}
+	if !event.IsKnownType(parsed) {
 		return ""
 	}
+	return parsed
 }
 
 // parseTimestamp converts an ISO 8601 timestamp string to time.Time.

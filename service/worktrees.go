@@ -8,7 +8,7 @@ import (
 	"github.com/thesimonho/warden/api"
 	"github.com/thesimonho/warden/db"
 	"github.com/thesimonho/warden/engine"
-	"github.com/thesimonho/warden/eventbus"
+	"github.com/thesimonho/warden/event"
 )
 
 // ListWorktrees returns all worktrees for the given project with
@@ -102,7 +102,7 @@ func (s *Service) CreateWorktree(ctx context.Context, projectID, agentType, name
 	})
 
 	if containerName != "" && s.store != nil {
-		s.store.BroadcastWorktreeListChanged(eventbus.ProjectRef{
+		s.store.BroadcastWorktreeListChanged(event.ProjectRef{
 			ProjectID: project.ProjectID, AgentType: project.AgentType, ContainerName: containerName,
 		})
 	}
@@ -137,14 +137,14 @@ func (s *Service) ConnectTerminal(ctx context.Context, projectID, agentType, wor
 	}
 
 	if containerName != "" && s.store != nil {
-		s.store.HandleEvent(eventbus.ContainerEvent{
-			Type:          eventbus.EventTerminalConnected,
+		s.store.HandleEvent(event.ContainerEvent{
+			Type:          event.EventTerminalConnected,
 			ContainerName: containerName,
 			ProjectID:     project.ProjectID,
 			AgentType:     project.AgentType,
 			WorktreeID:    worktreeID,
 			Timestamp:     time.Now(),
-			Source:        eventbus.SourceBackend,
+			Source:        event.SourceBackend,
 		})
 	}
 
@@ -178,14 +178,14 @@ func (s *Service) DisconnectTerminal(ctx context.Context, projectID, agentType, 
 	}
 
 	if containerName != "" && s.store != nil {
-		s.store.HandleEvent(eventbus.ContainerEvent{
-			Type:          eventbus.EventTerminalDisconnected,
+		s.store.HandleEvent(event.ContainerEvent{
+			Type:          event.EventTerminalDisconnected,
 			ContainerName: containerName,
 			ProjectID:     project.ProjectID,
 			AgentType:     project.AgentType,
 			WorktreeID:    worktreeID,
 			Timestamp:     time.Now(),
-			Source:        eventbus.SourceBackend,
+			Source:        event.SourceBackend,
 		})
 	}
 
@@ -216,7 +216,7 @@ func (s *Service) KillWorktreeProcess(ctx context.Context, projectID, agentType,
 	}
 
 	if containerName != "" && s.store != nil {
-		s.store.BroadcastWorktreeListChanged(eventbus.ProjectRef{
+		s.store.BroadcastWorktreeListChanged(event.ProjectRef{
 			ProjectID: project.ProjectID, AgentType: project.AgentType, ContainerName: containerName,
 		})
 	}
@@ -265,7 +265,7 @@ func (s *Service) RemoveWorktree(ctx context.Context, projectID, agentType, work
 	})
 
 	if containerName != "" && s.store != nil {
-		s.store.BroadcastWorktreeListChanged(eventbus.ProjectRef{
+		s.store.BroadcastWorktreeListChanged(event.ProjectRef{
 			ProjectID: project.ProjectID, AgentType: project.AgentType, ContainerName: containerName,
 		})
 	}
@@ -337,7 +337,7 @@ func (s *Service) ResetWorktree(ctx context.Context, projectID, agentType, workt
 	s.RestartSessionWatcher(project.ProjectID, containerName, project.AgentType, workspaceDir)
 
 	if containerName != "" && s.store != nil {
-		s.store.BroadcastWorktreeListChanged(eventbus.ProjectRef{
+		s.store.BroadcastWorktreeListChanged(event.ProjectRef{
 			ProjectID: project.ProjectID, AgentType: project.AgentType, ContainerName: containerName,
 		})
 	}
@@ -387,7 +387,7 @@ func (s *Service) CleanupWorktrees(ctx context.Context, projectID, agentType str
 	}
 
 	if containerName != "" && s.store != nil && len(removed) > 0 {
-		s.store.BroadcastWorktreeListChanged(eventbus.ProjectRef{
+		s.store.BroadcastWorktreeListChanged(event.ProjectRef{
 			ProjectID: project.ProjectID, AgentType: project.AgentType, ContainerName: containerName,
 		})
 	}
@@ -410,14 +410,14 @@ func (s *Service) GetWorktreeDiff(ctx context.Context, projectID, agentType, wor
 func (s *Service) NotifyTerminalDisconnected(_ context.Context, project *db.ProjectRow, worktreeID string) {
 	containerName := effectiveContainerName(project)
 	if containerName != "" && s.store != nil {
-		s.store.HandleEvent(eventbus.ContainerEvent{
-			Type:          eventbus.EventTerminalDisconnected,
+		s.store.HandleEvent(event.ContainerEvent{
+			Type:          event.EventTerminalDisconnected,
 			ContainerName: containerName,
 			ProjectID:     project.ProjectID,
 			AgentType:     project.AgentType,
 			WorktreeID:    worktreeID,
 			Timestamp:     time.Now(),
-			Source:        eventbus.SourceBackend,
+			Source:        event.SourceBackend,
 		})
 	}
 }

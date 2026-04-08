@@ -25,11 +25,12 @@ import (
 	"github.com/thesimonho/warden/agent/claudecode"
 	"github.com/thesimonho/warden/agent/codex"
 	"github.com/thesimonho/warden/db"
+	"github.com/thesimonho/warden/docker"
 	"github.com/thesimonho/warden/engine"
 	"github.com/thesimonho/warden/engine/seccomp"
 	"github.com/thesimonho/warden/eventbus"
-	"github.com/thesimonho/warden/docker"
 	"github.com/thesimonho/warden/service"
+	"github.com/thesimonho/warden/watcher/hook"
 )
 
 // Options configures the Warden application. All fields are optional
@@ -59,7 +60,7 @@ type Warden struct {
 	DB *db.Store
 
 	// Watcher is the file-based event watcher (advanced use only).
-	Watcher *eventbus.Watcher
+	Watcher *hook.Watcher
 
 	// DockerAvailable indicates whether the Docker daemon was reachable
 	// at startup. When false, container operations are disabled but the
@@ -136,7 +137,7 @@ func New(opts Options) (*Warden, error) {
 	eventBaseDir := filepath.Join(dbDir, "events")
 	broker := eventbus.NewBroker()
 	store := eventbus.NewStore(broker, auditWriter)
-	watcher := eventbus.NewWatcher(eventBaseDir, store.HandleEvent, 2*time.Second)
+	watcher := hook.NewWatcher(eventBaseDir, store.HandleEvent, 2*time.Second)
 
 	if err := watcher.Start(context.Background()); err != nil {
 		broker.Shutdown()

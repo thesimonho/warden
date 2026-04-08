@@ -1,6 +1,10 @@
 package eventbus
 
-import "time"
+import (
+	"time"
+
+	"github.com/thesimonho/warden/event"
+)
 
 // MarkContainerStale clears all worktree states for a container that
 // has stopped sending heartbeats, and broadcasts updates to frontends.
@@ -22,7 +26,7 @@ func (s *Store) MarkContainerStale(containerName string) {
 
 		cleared := &WorktreeState{UpdatedAt: now}
 		ts := s.terminals[key]
-		broadcasts = append(broadcasts, buildWorktreeBroadcast(ProjectRef{ContainerName: containerName}, key.worktreeID, cleared, ts))
+		broadcasts = append(broadcasts, buildWorktreeBroadcast(event.ProjectRef{ContainerName: containerName}, key.worktreeID, cleared, ts))
 		broadcastedKeys[key] = struct{}{}
 	}
 
@@ -31,7 +35,7 @@ func (s *Store) MarkContainerStale(containerName string) {
 			continue
 		}
 		if _, alreadySent := broadcastedKeys[key]; !alreadySent {
-			broadcasts = append(broadcasts, buildWorktreeBroadcast(ProjectRef{ContainerName: containerName}, key.worktreeID, nil, nil))
+			broadcasts = append(broadcasts, buildWorktreeBroadcast(event.ProjectRef{ContainerName: containerName}, key.worktreeID, nil, nil))
 		}
 	}
 

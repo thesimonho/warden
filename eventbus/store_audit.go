@@ -7,6 +7,7 @@ import (
 	"strconv"
 
 	"github.com/thesimonho/warden/db"
+	"github.com/thesimonho/warden/event"
 )
 
 // writeToAuditLog persists a container event to the audit log via the
@@ -17,31 +18,31 @@ import (
 //   - cost_update: fires on every assistant message with token usage; cost data
 //     is already persisted via handleCostUpdate → PersistSessionCost, so the
 //     audit entry adds noise without value
-func (s *Store) writeToAuditLog(writer *db.AuditWriter, event ContainerEvent) {
-	if writer == nil || event.Type == EventHeartbeat || event.Type == EventAttentionClear || event.Type == EventCostUpdate || event.Type == EventRuntimeInstalling || event.Type == EventAgentInstalling {
+func (s *Store) writeToAuditLog(writer *db.AuditWriter, evt event.ContainerEvent) {
+	if writer == nil || evt.Type == event.EventHeartbeat || evt.Type == event.EventAttentionClear || evt.Type == event.EventCostUpdate || evt.Type == event.EventRuntimeInstalling || evt.Type == event.EventAgentInstalling {
 		return
 	}
 
 	source := db.SourceAgent
-	eventName := string(event.Type)
+	eventName := string(evt.Type)
 	var message string
 
-	switch event.Type {
-	case EventTerminalConnected, EventTerminalDisconnected, EventProcessKilled, EventSessionExit:
+	switch evt.Type {
+	case event.EventTerminalConnected, event.EventTerminalDisconnected, event.EventProcessKilled, event.EventSessionExit:
 		source = db.SourceContainer
-	case EventContainerError:
+	case event.EventContainerError:
 		source = db.SourceContainer
-		if event.Data != nil {
-			var data ContainerErrorData
-			if err := json.Unmarshal(event.Data, &data); err == nil {
+		if evt.Data != nil {
+			var data event.ContainerErrorData
+			if err := json.Unmarshal(evt.Data, &data); err == nil {
 				message = data.Message
 			}
 		}
-	case EventNetworkBlocked:
+	case event.EventNetworkBlocked:
 		source = db.SourceContainer
-		if event.Data != nil {
-			var data NetworkBlockedData
-			if err := json.Unmarshal(event.Data, &data); err == nil {
+		if evt.Data != nil {
+			var data event.NetworkBlockedData
+			if err := json.Unmarshal(evt.Data, &data); err == nil {
 				if data.Domain != "" {
 					message = data.Domain + " (" + data.IP + ")"
 				} else {
@@ -49,73 +50,73 @@ func (s *Store) writeToAuditLog(writer *db.AuditWriter, event ContainerEvent) {
 				}
 			}
 		}
-	case EventToolUse:
-		if event.Data != nil {
-			var data ToolUseData
-			if err := json.Unmarshal(event.Data, &data); err == nil && data.ToolName != "" {
+	case event.EventToolUse:
+		if evt.Data != nil {
+			var data event.ToolUseData
+			if err := json.Unmarshal(evt.Data, &data); err == nil && data.ToolName != "" {
 				message = data.ToolName
 			}
 		}
-	case EventToolUseFailure:
-		if event.Data != nil {
-			var data ToolUseFailureData
-			if err := json.Unmarshal(event.Data, &data); err == nil {
+	case event.EventToolUseFailure:
+		if evt.Data != nil {
+			var data event.ToolUseFailureData
+			if err := json.Unmarshal(evt.Data, &data); err == nil {
 				message = data.ToolName
 			}
 		}
-	case EventStopFailure:
-		if event.Data != nil {
-			var data StopFailureData
-			if err := json.Unmarshal(event.Data, &data); err == nil {
+	case event.EventStopFailure:
+		if evt.Data != nil {
+			var data event.StopFailureData
+			if err := json.Unmarshal(evt.Data, &data); err == nil {
 				message = data.Error
 			}
 		}
-	case EventPermissionRequest:
-		if event.Data != nil {
-			var data PermissionRequestData
-			if err := json.Unmarshal(event.Data, &data); err == nil {
+	case event.EventPermissionRequest:
+		if evt.Data != nil {
+			var data event.PermissionRequestData
+			if err := json.Unmarshal(evt.Data, &data); err == nil {
 				message = data.ToolName
 			}
 		}
-	case EventSubagentStart, EventSubagentStop:
-		if event.Data != nil {
-			var data SubagentData
-			if err := json.Unmarshal(event.Data, &data); err == nil {
+	case event.EventSubagentStart, event.EventSubagentStop:
+		if evt.Data != nil {
+			var data event.SubagentData
+			if err := json.Unmarshal(evt.Data, &data); err == nil {
 				message = data.AgentType
 			}
 		}
-	case EventConfigChange:
-		if event.Data != nil {
-			var data ConfigChangeData
-			if err := json.Unmarshal(event.Data, &data); err == nil {
+	case event.EventConfigChange:
+		if evt.Data != nil {
+			var data event.ConfigChangeData
+			if err := json.Unmarshal(evt.Data, &data); err == nil {
 				message = data.Source
 			}
 		}
-	case EventInstructionsLoaded:
-		if event.Data != nil {
-			var data InstructionsLoadedData
-			if err := json.Unmarshal(event.Data, &data); err == nil {
+	case event.EventInstructionsLoaded:
+		if evt.Data != nil {
+			var data event.InstructionsLoadedData
+			if err := json.Unmarshal(evt.Data, &data); err == nil {
 				message = data.FilePath
 			}
 		}
-	case EventTaskCompleted:
-		if event.Data != nil {
-			var data TaskCompletedData
-			if err := json.Unmarshal(event.Data, &data); err == nil {
+	case event.EventTaskCompleted:
+		if evt.Data != nil {
+			var data event.TaskCompletedData
+			if err := json.Unmarshal(evt.Data, &data); err == nil {
 				message = data.TaskSubject
 			}
 		}
-	case EventElicitation, EventElicitationResult:
-		if event.Data != nil {
-			var data ElicitationData
-			if err := json.Unmarshal(event.Data, &data); err == nil {
+	case event.EventElicitation, event.EventElicitationResult:
+		if evt.Data != nil {
+			var data event.ElicitationData
+			if err := json.Unmarshal(evt.Data, &data); err == nil {
 				message = data.MCPServerName
 			}
 		}
-	case EventUserPrompt:
-		if event.Data != nil {
-			var data UserPromptData
-			if err := json.Unmarshal(event.Data, &data); err == nil {
+	case event.EventUserPrompt:
+		if evt.Data != nil {
+			var data event.UserPromptData
+			if err := json.Unmarshal(evt.Data, &data); err == nil {
 				prefix := ""
 				if data.IsBash() {
 					prefix = "[bash] "
@@ -126,31 +127,31 @@ func (s *Store) writeToAuditLog(writer *db.AuditWriter, event ContainerEvent) {
 	}
 
 	level := db.LevelInfo
-	switch event.Type {
-	case EventToolUseFailure, EventStopFailure, EventNetworkBlocked, EventContainerError:
+	switch evt.Type {
+	case event.EventToolUseFailure, event.EventStopFailure, event.EventNetworkBlocked, event.EventContainerError:
 		level = db.LevelError
 	}
 
 	entry := db.Entry{
-		Timestamp:     event.Timestamp,
+		Timestamp:     evt.Timestamp,
 		Source:        source,
 		Level:         level,
-		ProjectID:     event.ProjectID,
-		AgentType:     event.AgentType,
-		ContainerName: event.ContainerName,
-		Worktree:      event.WorktreeID,
+		ProjectID:     evt.ProjectID,
+		AgentType:     evt.AgentType,
+		ContainerName: evt.ContainerName,
+		Worktree:      evt.WorktreeID,
 		Event:         eventName,
 		Message:       message,
-		Data:          event.Data,
+		Data:          evt.Data,
 	}
 
 	// Compute content hash for JSONL-sourced event dedup. Only JSONL events
 	// carry SourceLine bytes; event-dir and backend events are inherently
 	// unique (one file per event, one call per action).
-	if event.Source == SourceJSONL && len(event.SourceLine) > 0 {
+	if evt.Source == event.SourceJSONL && len(evt.SourceLine) > 0 {
 		h := fnv.New64a()
-		h.Write(event.SourceLine)
-		h.Write([]byte(strconv.Itoa(event.SourceIndex)))
+		h.Write(evt.SourceLine)
+		h.Write([]byte(strconv.Itoa(evt.SourceIndex)))
 		entry.SourceID = hex.EncodeToString(h.Sum(nil))
 	}
 

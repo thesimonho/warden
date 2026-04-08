@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/thesimonho/warden/agent"
+	"github.com/thesimonho/warden/event"
 )
 
 // filterOut returns events with the given type removed.
@@ -51,51 +52,51 @@ func TestParseFixture_EventCounts(t *testing.T) {
 	}
 
 	// Minimum events any valid Claude session must produce.
-	result.Require(agent.EventSessionStart, 1)
-	result.Require(agent.EventToolUse, 1)
-	result.Require(agent.EventTokenUpdate, 1)
+	result.Require(event.EventSessionStart, 1)
+	result.Require(event.EventToolUse, 1)
+	result.Require(event.EventTokenUpdate, 1)
 	if err := result.Check(); err != nil {
 		t.Fatalf("baseline validation failed: %v", err)
 	}
 
 	// Exact counts for this fixture.
-	if got := result.Counts[agent.EventSessionStart]; got != 1 {
+	if got := result.Counts[event.EventSessionStart]; got != 1 {
 		t.Errorf("SessionStart events = %d, want 1", got)
 	}
-	if got := result.Counts[agent.EventToolUse]; got != 4 {
+	if got := result.Counts[event.EventToolUse]; got != 4 {
 		t.Errorf("ToolUse events = %d, want 4", got)
 	}
-	if got := result.Counts[agent.EventUserPrompt]; got != 2 {
+	if got := result.Counts[event.EventUserPrompt]; got != 2 {
 		t.Errorf("UserPrompt events = %d, want 2", got)
 	}
-	if got := result.Counts[agent.EventTokenUpdate]; got != 5 {
+	if got := result.Counts[event.EventTokenUpdate]; got != 5 {
 		t.Errorf("TokenUpdate events = %d, want 5", got)
 	}
-	if got := result.Counts[agent.EventTurnComplete]; got != 1 {
+	if got := result.Counts[event.EventTurnComplete]; got != 1 {
 		t.Errorf("TurnComplete events = %d, want 1", got)
 	}
-	if got := result.Counts[agent.EventTurnDuration]; got != 1 {
+	if got := result.Counts[event.EventTurnDuration]; got != 1 {
 		t.Errorf("TurnDuration events = %d, want 1", got)
 	}
-	if got := result.Counts[agent.EventToolUseFailure]; got != 1 {
+	if got := result.Counts[event.EventToolUseFailure]; got != 1 {
 		t.Errorf("ToolUseFailure events = %d, want 1", got)
 	}
-	if got := result.Counts[agent.EventStopFailure]; got != 1 {
+	if got := result.Counts[event.EventStopFailure]; got != 1 {
 		t.Errorf("StopFailure events = %d, want 1", got)
 	}
-	if got := result.Counts[agent.EventSubagentStop]; got != 1 {
+	if got := result.Counts[event.EventSubagentStop]; got != 1 {
 		t.Errorf("SubagentStop events = %d, want 1", got)
 	}
-	if got := result.Counts[agent.EventApiMetrics]; got != 1 {
+	if got := result.Counts[event.EventApiMetrics]; got != 1 {
 		t.Errorf("ApiMetrics events = %d, want 1", got)
 	}
-	if got := result.Counts[agent.EventPermissionGrant]; got != 1 {
+	if got := result.Counts[event.EventPermissionGrant]; got != 1 {
 		t.Errorf("PermissionGrant events = %d, want 1", got)
 	}
-	if got := result.Counts[agent.EventContextCompact]; got != 1 {
+	if got := result.Counts[event.EventContextCompact]; got != 1 {
 		t.Errorf("ContextCompact events = %d, want 1", got)
 	}
-	if got := result.Counts[agent.EventSystemInfo]; got != 2 {
+	if got := result.Counts[event.EventSystemInfo]; got != 2 {
 		t.Errorf("SystemInfo events = %d, want 2", got)
 	}
 }
@@ -106,7 +107,7 @@ func TestParseFixture_ToolNames(t *testing.T) {
 
 	var toolNames []string
 	for _, e := range events {
-		if e.Type == agent.EventToolUse {
+		if e.Type == event.EventToolUse {
 			toolNames = append(toolNames, e.ToolName)
 		}
 	}
@@ -128,7 +129,7 @@ func TestParseFixture_TokensAccumulate(t *testing.T) {
 
 	var lastTokenEvent agent.ParsedEvent
 	for _, e := range events {
-		if e.Type == agent.EventTokenUpdate {
+		if e.Type == event.EventTokenUpdate {
 			lastTokenEvent = e
 		}
 	}
@@ -156,7 +157,7 @@ func TestParseFixture_ModelPopulated(t *testing.T) {
 	events := parseFixtureEvents(t)
 
 	for _, e := range events {
-		if e.Type == agent.EventTokenUpdate {
+		if e.Type == event.EventTokenUpdate {
 			if e.Model == "" {
 				t.Error("TokenUpdate event has empty model")
 			}
@@ -164,7 +165,7 @@ func TestParseFixture_ModelPopulated(t *testing.T) {
 				t.Errorf("TokenUpdate model = %q, want %q", e.Model, "claude-sonnet-4-6")
 			}
 		}
-		if e.Type == agent.EventToolUse {
+		if e.Type == event.EventToolUse {
 			if e.Model == "" {
 				t.Error("ToolUse event has empty model")
 			}
@@ -181,7 +182,7 @@ func TestParseFixture_UserPromptContent(t *testing.T) {
 
 	var prompts []agent.ParsedEvent
 	for _, e := range events {
-		if e.Type == agent.EventUserPrompt {
+		if e.Type == event.EventUserPrompt {
 			if e.Prompt == "" {
 				t.Error("UserPrompt event has empty prompt")
 			}
@@ -212,7 +213,7 @@ func TestParseFixture_TurnDuration(t *testing.T) {
 	events := parseFixtureEvents(t)
 
 	for _, e := range events {
-		if e.Type == agent.EventTurnDuration {
+		if e.Type == event.EventTurnDuration {
 			if e.DurationMs != 7500 {
 				t.Errorf("TurnDuration = %d ms, want 7500", e.DurationMs)
 			}
@@ -228,7 +229,7 @@ func TestParseFixture_EstimatedCost(t *testing.T) {
 
 	var lastCost float64
 	for _, e := range events {
-		if e.Type == agent.EventTokenUpdate {
+		if e.Type == event.EventTokenUpdate {
 			lastCost = e.EstimatedCostUSD
 		}
 	}
@@ -256,8 +257,8 @@ func TestParseFixture_SessionStartIsFirstEvent(t *testing.T) {
 	if len(events) == 0 {
 		t.Fatal("no events parsed")
 	}
-	if events[0].Type != agent.EventSessionStart {
-		t.Errorf("first event type = %s, want %s", events[0].Type, agent.EventSessionStart)
+	if events[0].Type != event.EventSessionStart {
+		t.Errorf("first event type = %s, want %s", events[0].Type, event.EventSessionStart)
 	}
 	if events[0].SessionID != "test-session-001" {
 		t.Errorf("SessionStart sessionID = %q, want %q", events[0].SessionID, "test-session-001")
@@ -273,7 +274,7 @@ func TestParseLine_SessionStartEmittedOncePerSessionID(t *testing.T) {
 	events := parser.ParseLine([]byte(`{"type":"user","sessionId":"s1","timestamp":"2026-01-01T00:00:00Z","cwd":"/home/warden/project","message":{"content":"hello","role":"user"}}`))
 	var sessionStarts int
 	for _, e := range events {
-		if e.Type == agent.EventSessionStart {
+		if e.Type == event.EventSessionStart {
 			sessionStarts++
 		}
 	}
@@ -284,7 +285,7 @@ func TestParseLine_SessionStartEmittedOncePerSessionID(t *testing.T) {
 	// Second line with same session ID — no SessionStart.
 	events = parser.ParseLine([]byte(`{"type":"user","sessionId":"s1","timestamp":"2026-01-01T00:00:01Z","cwd":"/home/warden/project","message":{"content":"world","role":"user"}}`))
 	for _, e := range events {
-		if e.Type == agent.EventSessionStart {
+		if e.Type == event.EventSessionStart {
 			t.Error("second line with same sessionId should not emit SessionStart")
 		}
 	}
@@ -302,7 +303,7 @@ func TestParseLine_SessionStartOnSessionIDChange(t *testing.T) {
 	events := parser.ParseLine([]byte(`{"type":"user","sessionId":"s2","timestamp":"2026-01-01T00:01:00Z","cwd":"/home/warden/project","message":{"content":"resumed","role":"user"}}`))
 	var found bool
 	for _, e := range events {
-		if e.Type == agent.EventSessionStart {
+		if e.Type == event.EventSessionStart {
 			found = true
 			if e.SessionID != "s2" {
 				t.Errorf("SessionStart sessionID = %q, want %q", e.SessionID, "s2")
@@ -326,7 +327,7 @@ func TestParseLine_SessionStartResetsTokenAccumulation(t *testing.T) {
 	events := parser.ParseLine([]byte(`{"type":"assistant","sessionId":"s2","timestamp":"2026-01-01T00:01:00Z","cwd":"/home/warden/project","message":{"model":"claude-sonnet-4-6","role":"assistant","content":[{"type":"text","text":"hi"}],"usage":{"input_tokens":500,"output_tokens":100}}}`))
 
 	for _, e := range events {
-		if e.Type == agent.EventTokenUpdate {
+		if e.Type == event.EventTokenUpdate {
 			if e.Tokens.InputTokens != 500 {
 				t.Errorf("cumulative input tokens = %d, want 500 (reset for new session)", e.Tokens.InputTokens)
 			}
@@ -344,7 +345,7 @@ func TestParseFixture_ToolUseFailure(t *testing.T) {
 	events := parseFixtureEvents(t)
 
 	for _, e := range events {
-		if e.Type == agent.EventToolUseFailure {
+		if e.Type == event.EventToolUseFailure {
 			if e.ToolName != "Read" {
 				t.Errorf("ToolUseFailure tool = %q, want %q", e.ToolName, "Read")
 			}
@@ -362,7 +363,7 @@ func TestParseFixture_StopFailure(t *testing.T) {
 	events := parseFixtureEvents(t)
 
 	for _, e := range events {
-		if e.Type == agent.EventStopFailure {
+		if e.Type == event.EventStopFailure {
 			if e.ErrorContent == "" {
 				t.Error("StopFailure has empty error content")
 			}
@@ -380,7 +381,7 @@ func TestParseFixture_SubagentStop(t *testing.T) {
 	events := parseFixtureEvents(t)
 
 	for _, e := range events {
-		if e.Type == agent.EventSubagentStop {
+		if e.Type == event.EventSubagentStop {
 			if e.Content != "Killed 2 subagents" {
 				t.Errorf("SubagentStop content = %q, want %q", e.Content, "Killed 2 subagents")
 			}
@@ -395,7 +396,7 @@ func TestParseFixture_ApiMetrics(t *testing.T) {
 	events := parseFixtureEvents(t)
 
 	for _, e := range events {
-		if e.Type == agent.EventApiMetrics {
+		if e.Type == event.EventApiMetrics {
 			if e.TTFTMs != 1234.5 {
 				t.Errorf("TTFTMs = %f, want 1234.5", e.TTFTMs)
 			}
@@ -413,7 +414,7 @@ func TestParseFixture_PermissionGrant(t *testing.T) {
 	events := parseFixtureEvents(t)
 
 	for _, e := range events {
-		if e.Type == agent.EventPermissionGrant {
+		if e.Type == event.EventPermissionGrant {
 			if len(e.Commands) != 2 {
 				t.Fatalf("PermissionGrant commands = %v, want 2 items", e.Commands)
 			}
@@ -431,7 +432,7 @@ func TestParseFixture_ContextCompact(t *testing.T) {
 	events := parseFixtureEvents(t)
 
 	for _, e := range events {
-		if e.Type == agent.EventContextCompact {
+		if e.Type == event.EventContextCompact {
 			if e.CompactTrigger != "auto" {
 				t.Errorf("CompactTrigger = %q, want %q", e.CompactTrigger, "auto")
 			}
@@ -450,7 +451,7 @@ func TestParseFixture_SystemInfo(t *testing.T) {
 
 	var subtypes []string
 	for _, e := range events {
-		if e.Type == agent.EventSystemInfo {
+		if e.Type == event.EventSystemInfo {
 			subtypes = append(subtypes, e.Subtype)
 			if e.Content == "" {
 				t.Errorf("SystemInfo %q has empty content", e.Subtype)
@@ -482,7 +483,7 @@ func TestParseLine_WorktreeIDFromClaude(t *testing.T) {
 
 	// User prompt from a Claude Code worktree.
 	events := parser.ParseLine([]byte(`{"type":"user","cwd":"/home/warden/project/.claude/worktrees/fix-auth","sessionId":"s1","timestamp":"2026-01-01T00:00:00Z","message":{"content":"hello","role":"user"}}`))
-	events = filterOut(events, agent.EventSessionStart)
+	events = filterOut(events, event.EventSessionStart)
 	if len(events) != 1 {
 		t.Fatalf("expected 1 event, got %d", len(events))
 	}
@@ -498,7 +499,7 @@ func TestParseLine_WorktreeIDWithUnderscore(t *testing.T) {
 
 	// Worktree name with underscores — should be preserved exactly.
 	events := parser.ParseLine([]byte(`{"type":"user","cwd":"/home/warden/project/.claude/worktrees/tools_again","sessionId":"s1","timestamp":"2026-01-01T00:00:00Z","message":{"content":"hello","role":"user"}}`))
-	events = filterOut(events, agent.EventSessionStart)
+	events = filterOut(events, event.EventSessionStart)
 	if len(events) != 1 {
 		t.Fatalf("expected 1 event, got %d", len(events))
 	}
@@ -514,7 +515,7 @@ func TestParseLine_WorktreeIDFromSubdirectory(t *testing.T) {
 
 	// CWD is a subdirectory inside the worktree — should still extract the worktree ID.
 	events := parser.ParseLine([]byte(`{"type":"user","cwd":"/home/warden/project/.claude/worktrees/my-branch/src/lib","sessionId":"s1","timestamp":"2026-01-01T00:00:00Z","message":{"content":"hello","role":"user"}}`))
-	events = filterOut(events, agent.EventSessionStart)
+	events = filterOut(events, event.EventSessionStart)
 	if len(events) != 1 {
 		t.Fatalf("expected 1 event, got %d", len(events))
 	}
@@ -530,7 +531,7 @@ func TestParseLine_WorktreeIDNoCWD(t *testing.T) {
 
 	// No CWD field — WorktreeID should remain empty (callback defaults to "main").
 	events := parser.ParseLine([]byte(`{"type":"system","subtype":"turn_duration","durationMs":5000,"sessionId":"s1","timestamp":"2026-01-01T00:00:00Z"}`))
-	events = filterOut(events, agent.EventSessionStart)
+	events = filterOut(events, event.EventSessionStart)
 	if len(events) != 1 {
 		t.Fatalf("expected 1 event, got %d", len(events))
 	}
@@ -571,7 +572,7 @@ func TestParseLine_WorktreeIDFromWardenManaged(t *testing.T) {
 
 	// Warden-managed worktrees use .warden/worktrees/ prefix (Codex pattern).
 	events := parser.ParseLine([]byte(`{"type":"user","cwd":"/home/warden/project/.warden/worktrees/my-fix","sessionId":"s1","timestamp":"2026-01-01T00:00:00Z","message":{"content":"hello","role":"user"}}`))
-	events = filterOut(events, agent.EventSessionStart)
+	events = filterOut(events, event.EventSessionStart)
 	if len(events) != 1 {
 		t.Fatalf("expected 1 event, got %d", len(events))
 	}
@@ -585,12 +586,12 @@ func TestParseLine_QueueOperationEnqueue(t *testing.T) {
 
 	parser := NewParser()
 	events := parser.ParseLine([]byte(`{"type":"queue-operation","operation":"enqueue","timestamp":"2026-01-01T00:00:00Z","sessionId":"s1","content":"fix the tests","cwd":"/home/warden/project"}`))
-	events = filterOut(events, agent.EventSessionStart)
+	events = filterOut(events, event.EventSessionStart)
 	if len(events) != 1 {
 		t.Fatalf("expected 1 event, got %d", len(events))
 	}
-	if events[0].Type != agent.EventUserPrompt {
-		t.Errorf("event type = %s, want %s", events[0].Type, agent.EventUserPrompt)
+	if events[0].Type != event.EventUserPrompt {
+		t.Errorf("event type = %s, want %s", events[0].Type, event.EventUserPrompt)
 	}
 	if events[0].Prompt != "fix the tests" {
 		t.Errorf("prompt = %q, want %q", events[0].Prompt, "fix the tests")
@@ -605,7 +606,7 @@ func TestParseLine_QueueOperationRemove(t *testing.T) {
 
 	parser := NewParser()
 	events := parser.ParseLine([]byte(`{"type":"queue-operation","operation":"remove","timestamp":"2026-01-01T00:00:00Z","sessionId":"s1"}`))
-	events = filterOut(events, agent.EventSessionStart)
+	events = filterOut(events, event.EventSessionStart)
 	if len(events) != 0 {
 		t.Errorf("remove operation produced %d events, want 0", len(events))
 	}
@@ -616,7 +617,7 @@ func TestParseLine_QueueOperationEmptyContent(t *testing.T) {
 
 	parser := NewParser()
 	events := parser.ParseLine([]byte(`{"type":"queue-operation","operation":"enqueue","timestamp":"2026-01-01T00:00:00Z","sessionId":"s1","content":""}`))
-	events = filterOut(events, agent.EventSessionStart)
+	events = filterOut(events, event.EventSessionStart)
 	if len(events) != 0 {
 		t.Errorf("empty content enqueue produced %d events, want 0", len(events))
 	}
@@ -715,9 +716,9 @@ func TestValidateLive(t *testing.T) {
 		t.Fatalf("parsing live JSONL: %v", err)
 	}
 
-	result.Require(agent.EventSessionStart, 1)
-	result.Require(agent.EventToolUse, 1)
-	result.Require(agent.EventTokenUpdate, 1)
+	result.Require(event.EventSessionStart, 1)
+	result.Require(event.EventToolUse, 1)
+	result.Require(event.EventTokenUpdate, 1)
 	if err := result.Check(); err != nil {
 		t.Fatalf("live validation failed: %v", err)
 	}

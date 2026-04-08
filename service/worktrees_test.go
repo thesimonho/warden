@@ -9,6 +9,7 @@ import (
 
 	"github.com/thesimonho/warden/db"
 	"github.com/thesimonho/warden/engine"
+	"github.com/thesimonho/warden/event"
 	"github.com/thesimonho/warden/eventbus"
 )
 
@@ -100,8 +101,8 @@ func TestListWorktrees_OverlaysState(t *testing.T) {
 
 	// Push a terminal connected event so the store has terminal data.
 	now := time.Now()
-	store.HandleEvent(eventbus.ContainerEvent{
-		Type:          eventbus.EventTerminalConnected,
+	store.HandleEvent(event.ContainerEvent{
+		Type:          event.EventTerminalConnected,
 		ContainerName: "my-project",
 		WorktreeID:    "main",
 		Timestamp:     now,
@@ -109,8 +110,8 @@ func TestListWorktrees_OverlaysState(t *testing.T) {
 
 	// Push a session exit to transition to shell state.
 	exitData, _ := json.Marshal(map[string]any{"exitCode": 0})
-	store.HandleEvent(eventbus.ContainerEvent{
-		Type:          eventbus.EventSessionExit,
+	store.HandleEvent(event.ContainerEvent{
+		Type:          event.EventSessionExit,
 		ContainerName: "my-project",
 		WorktreeID:    "main",
 		Data:          exitData,

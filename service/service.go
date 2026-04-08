@@ -16,7 +16,9 @@ import (
 	"github.com/thesimonho/warden/agent"
 	"github.com/thesimonho/warden/db"
 	"github.com/thesimonho/warden/engine"
+	"github.com/thesimonho/warden/event"
 	"github.com/thesimonho/warden/eventbus"
+	"github.com/thesimonho/warden/watcher/hook"
 )
 
 // ErrDockerUnavailable is returned by container-mutating operations
@@ -35,8 +37,8 @@ type ServiceDeps struct {
 	Store           *eventbus.Store
 	Audit           *db.AuditWriter
 	Registry        *agent.Registry
-	EventWatcher    *eventbus.Watcher
-	EventHandler    func(eventbus.ContainerEvent)
+	EventWatcher    *hook.Watcher
+	EventHandler    func(event.ContainerEvent)
 	HomeDir         string
 	DockerAvailable bool
 
@@ -62,8 +64,8 @@ type Service struct {
 
 	// Lifecycle deps for session watchers and event directory management.
 	agentRegistry *agent.Registry
-	eventWatcher  *eventbus.Watcher
-	eventHandler  func(eventbus.ContainerEvent)
+	eventWatcher  *hook.Watcher
+	eventHandler  func(event.ContainerEvent)
 	homeDir       string
 	workingDir    string
 

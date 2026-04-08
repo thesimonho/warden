@@ -18,6 +18,7 @@ import (
 	"github.com/thesimonho/warden/api"
 	"github.com/thesimonho/warden/db"
 	"github.com/thesimonho/warden/engine"
+	"github.com/thesimonho/warden/event"
 	"github.com/thesimonho/warden/eventbus"
 	"github.com/thesimonho/warden/service"
 )
@@ -1094,8 +1095,8 @@ func TestHandleListWorktrees_OverlaysAttentionFromStore(t *testing.T) {
 	}
 
 	store := eventbus.NewStore(nil, nil)
-	store.HandleEvent(eventbus.ContainerEvent{
-		Type:          eventbus.EventAttention,
+	store.HandleEvent(event.ContainerEvent{
+		Type:          event.EventAttention,
 		ContainerName: "test-project",
 		WorktreeID:    "main",
 		Data:          []byte(`{"notificationType":"permission_prompt"}`),
@@ -1156,15 +1157,15 @@ func TestHandleListWorktrees_AttentionClearOverlay(t *testing.T) {
 
 	store := eventbus.NewStore(nil, nil)
 	// First set attention, then clear it
-	store.HandleEvent(eventbus.ContainerEvent{
-		Type:          eventbus.EventAttention,
+	store.HandleEvent(event.ContainerEvent{
+		Type:          event.EventAttention,
 		ContainerName: "test-project",
 		WorktreeID:    "main",
 		Data:          []byte(`{"notificationType":"permission_prompt"}`),
 		Timestamp:     time.Now(),
 	})
-	store.HandleEvent(eventbus.ContainerEvent{
-		Type:          eventbus.EventAttentionClear,
+	store.HandleEvent(event.ContainerEvent{
+		Type:          event.EventAttentionClear,
 		ContainerName: "test-project",
 		WorktreeID:    "main",
 		Timestamp:     time.Now(),
@@ -1205,8 +1206,8 @@ func TestHandleListWorktrees_OverlayWorksWithoutInspect(t *testing.T) {
 	}
 
 	store := eventbus.NewStore(nil, nil)
-	store.HandleEvent(eventbus.ContainerEvent{
-		Type:          eventbus.EventAttention,
+	store.HandleEvent(event.ContainerEvent{
+		Type:          event.EventAttention,
 		ContainerName: "test-project",
 		WorktreeID:    "main",
 		Data:          []byte(`{"notificationType":"permission_prompt"}`),
@@ -1246,14 +1247,14 @@ func TestHandleListWorktrees_SessionEndTransitionsToShell(t *testing.T) {
 
 	store := eventbus.NewStore(nil, nil)
 	// Start session, then end it.
-	store.HandleEvent(eventbus.ContainerEvent{
-		Type:          eventbus.EventSessionStart,
+	store.HandleEvent(event.ContainerEvent{
+		Type:          event.EventSessionStart,
 		ContainerName: "test-project",
 		WorktreeID:    "main",
 		Timestamp:     time.Now(),
 	})
-	store.HandleEvent(eventbus.ContainerEvent{
-		Type:          eventbus.EventSessionEnd,
+	store.HandleEvent(event.ContainerEvent{
+		Type:          event.EventSessionEnd,
 		ContainerName: "test-project",
 		WorktreeID:    "main",
 		Timestamp:     time.Now(),

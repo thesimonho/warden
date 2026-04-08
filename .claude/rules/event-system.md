@@ -1,6 +1,8 @@
 ---
 paths:
+  - "event/**/*"
   - "eventbus/**/*"
+  - "watcher/hook/**/*"
   - "container/scripts/**/*"
   - "service/**/*"
   - "internal/terminal/**/*"
@@ -14,7 +16,7 @@ paths:
 
 ## Attention tracking
 
-Agent hook events are pushed via agent-specific scripts (`warden-event-claude.sh`, `warden-event-codex.sh`) to a bind-mounted event directory (`WARDEN_EVENT_DIR`) → `eventbus/watcher.go` detects files and parses events → `eventbus/store.go` tracks attention state → SSE broadcasts to frontend → audit log write. The watcher watches the directory using fsnotify (fast path) + polling every 2s (reliable fallback). Filesystem permissions handle access control (no bearer token needed). Claude Code's `UserPromptSubmit` fires two events: `attention_clear` (internal state — not written to audit log) and `user_prompt` (logged with prompt text, truncated to 500 chars). ContainerEvent includes `agentType` field for scoping events to a specific agent type per directory.
+Agent hook events are pushed via agent-specific scripts (`warden-event-claude.sh`, `warden-event-codex.sh`) to a bind-mounted event directory (`WARDEN_EVENT_DIR`) → `watcher/hook/watcher.go` detects files and parses events → `eventbus/store.go` tracks attention state → SSE broadcasts to frontend → audit log write. The watcher watches the directory using fsnotify (fast path) + polling every 2s (reliable fallback). Filesystem permissions handle access control (no bearer token needed). Claude Code's `UserPromptSubmit` fires two events: `attention_clear` (internal state — not written to audit log) and `user_prompt` (logged with prompt text, truncated to 500 chars). ContainerEvent includes `agentType` field for scoping events to a specific agent type per directory. Event types are defined in the `event/` leaf package; both `agent/` and `eventbus/` import from it.
 
 In `HandleEvent()`, SSE broadcast runs before audit DB write — both are independent operations outside the store lock, but broadcasting first minimizes frontend notification latency.
 

@@ -1,4 +1,7 @@
-package eventbus
+// Package hook monitors bind-mounted event directories for JSON event files
+// written by container hook scripts. It uses fsnotify for low-latency
+// detection on Linux and polling as a reliable fallback for all platforms.
+package hook
 
 import (
 	"context"
@@ -13,12 +16,12 @@ import (
 	"time"
 
 	"github.com/fsnotify/fsnotify"
+
+	"github.com/thesimonho/warden/event"
 )
 
 // Watcher monitors bind-mounted event directories for JSON event files
-// written by container hook scripts. It replaces the TCP-based Listener
-// with a filesystem-based approach that works regardless of host firewall
-// configuration or container network mode (including air-gapped).
+// written by container hook scripts.
 //
 // Each container has its own subdirectory under the base directory:
 //
@@ -31,7 +34,7 @@ import (
 //     across the VM boundary
 type Watcher struct {
 	baseDir      string
-	handler      func(ContainerEvent)
+	handler      func(event.ContainerEvent)
 	fsWatcher    *fsnotify.Watcher
 	pollInterval time.Duration
 	cancel       context.CancelFunc
@@ -53,7 +56,7 @@ const fsnotifyDebounce = 50 * time.Millisecond
 // of baseDir. The handler is called for each valid event (typically
 // Store.HandleEvent). The pollInterval controls how often the fallback
 // polling loop scans for new files.
-func NewWatcher(baseDir string, handler func(ContainerEvent), pollInterval time.Duration) *Watcher {
+func NewWatcher(baseDir string, handler func(event.ContainerEvent), pollInterval time.Duration) *Watcher {
 	return &Watcher{
 		baseDir:      baseDir,
 		handler:      handler,
@@ -106,8 +109,7 @@ func (w *Watcher) Start(ctx context.Context) error {
 }
 
 // Shutdown stops the watcher gracefully, processing any remaining files.
-// The context parameter is unused — drain is handled via WaitGroup. The
-// signature matches the old Listener.Shutdown for drop-in compatibility.
+// The context parameter is unused — drain is handled via WaitGroup.
 func (w *Watcher) Shutdown(_ context.Context) error {
 	if w.cancel != nil {
 		w.cancel()
@@ -200,17 +202,17 @@ func (w *Watcher) fsnotifyLoop(ctx context.Context) {
 			timer.Stop()
 			return
 
-		case event, ok := <-w.fsWatcher.Events:
+		case fsEvent, ok := <-w.fsWatcher.Events:
 			if !ok {
 				return
 			}
 
-			if event.Op&(fsnotify.Create|fsnotify.Rename) != 0 {
-				dir := filepath.Dir(event.Name)
+			if fsEvent.Op&(fsnotify.Create|fsnotify.Rename) != 0 {
+				dir := filepath.Dir(fsEvent.Name)
 
 				// New subdirectory under baseDir — start watching its events/ dir.
 				if dir == w.baseDir {
-					eventDir := filepath.Join(event.Name, "events")
+					eventDir := filepath.Join(fsEvent.Name, "events")
 					if info, err := os.Stat(eventDir); err == nil && info.IsDir() {
 						if watchErr := w.fsWatcher.Add(eventDir); watchErr == nil {
 							pendingDirs[eventDir] = struct{}{}
@@ -220,7 +222,7 @@ func (w *Watcher) fsnotifyLoop(ctx context.Context) {
 				}
 
 				// New .json file in an events directory.
-				if strings.HasSuffix(event.Name, ".json") && !strings.HasPrefix(filepath.Base(event.Name), ".") {
+				if strings.HasSuffix(fsEvent.Name, ".json") && !strings.HasPrefix(filepath.Base(fsEvent.Name), ".") {
 					pendingDirs[dir] = struct{}{}
 					// Drain the timer before resetting to avoid spurious ticks.
 					if !timer.Stop() {
@@ -343,14 +345,14 @@ func (w *Watcher) processFile(path string) {
 		return
 	}
 
-	var event ContainerEvent
-	if err := json.Unmarshal(data, &event); err != nil {
+	var ev event.ContainerEvent
+	if err := json.Unmarshal(data, &ev); err != nil {
 		slog.Warn("invalid JSON in event file", "path", path, "err", err)
 		_ = os.Remove(path)
 		return
 	}
 
-	if event.Type == "" || event.ContainerName == "" {
+	if ev.Type == "" || ev.ContainerName == "" {
 		slog.Warn("event file missing required fields", "path", path)
 		_ = os.Remove(path)
 		return
@@ -358,18 +360,18 @@ func (w *Watcher) processFile(path string) {
 
 	// Use the timestamp from the event payload (set by the container).
 	// Fall back to current time if not provided.
-	if event.Timestamp.IsZero() {
-		event.Timestamp = time.Now()
+	if ev.Timestamp.IsZero() {
+		ev.Timestamp = time.Now()
 	}
 
 	slog.Debug("event received",
-		"type", event.Type,
-		"container", event.ContainerName,
-		"worktree", event.WorktreeID,
+		"type", ev.Type,
+		"container", ev.ContainerName,
+		"worktree", ev.WorktreeID,
 	)
 
-	event.Source = SourceEventDir
-	w.handler(event)
+	ev.Source = event.SourceEventDir
+	w.handler(ev)
 
 	if err := os.Remove(path); err != nil {
 		slog.Warn("failed to delete processed event file", "path", path, "err", err)

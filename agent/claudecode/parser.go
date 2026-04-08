@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/thesimonho/warden/agent"
+	"github.com/thesimonho/warden/event"
 )
 
 // Parser implements agent.SessionParser for Claude Code session JSONL files.
@@ -68,7 +69,7 @@ func (p *Parser) ParseLine(line []byte) []agent.ParsedEvent {
 		p.toolNames = make(map[string]string)
 
 		sessionStart := agent.ParsedEvent{
-			Type:      agent.EventSessionStart,
+			Type:      event.EventSessionStart,
 			SessionID: entry.SessionID,
 			Timestamp: entry.Timestamp,
 		}
@@ -159,7 +160,7 @@ func parseQueueOperation(entry SessionEntry) []agent.ParsedEvent {
 		return nil
 	}
 	return []agent.ParsedEvent{{
-		Type:         agent.EventUserPrompt,
+		Type:         event.EventUserPrompt,
 		SessionID:    entry.SessionID,
 		Timestamp:    entry.Timestamp,
 		Prompt:       agent.TruncateString(formatted.Text, agent.MaxPromptLength),
@@ -190,7 +191,7 @@ func (p *Parser) parseAssistant(entry SessionEntry) []agent.ParsedEvent {
 		p.cumulativeTokens.CacheWriteTokens += msg.Usage.CacheCreationInputTokens
 
 		events = append(events, agent.ParsedEvent{
-			Type:             agent.EventTokenUpdate,
+			Type:             event.EventTokenUpdate,
 			SessionID:        entry.SessionID,
 			Timestamp:        entry.Timestamp,
 			Model:            p.lastModel,
@@ -206,7 +207,7 @@ func (p *Parser) parseAssistant(entry SessionEntry) []agent.ParsedEvent {
 				p.toolNames[block.ID] = block.Name
 			}
 			events = append(events, agent.ParsedEvent{
-				Type:      agent.EventToolUse,
+				Type:      event.EventToolUse,
 				SessionID: entry.SessionID,
 				Timestamp: entry.Timestamp,
 				Model:     p.lastModel,
@@ -219,7 +220,7 @@ func (p *Parser) parseAssistant(entry SessionEntry) []agent.ParsedEvent {
 	// Emit turn complete when the model stops.
 	if msg.StopReason == "end_turn" {
 		events = append(events, agent.ParsedEvent{
-			Type:      agent.EventTurnComplete,
+			Type:      event.EventTurnComplete,
 			SessionID: entry.SessionID,
 			Timestamp: entry.Timestamp,
 			Model:     p.lastModel,
@@ -249,7 +250,7 @@ func (p *Parser) parseUser(entry SessionEntry) []agent.ParsedEvent {
 	}
 
 	return []agent.ParsedEvent{{
-		Type:         agent.EventUserPrompt,
+		Type:         event.EventUserPrompt,
 		SessionID:    entry.SessionID,
 		Timestamp:    entry.Timestamp,
 		Prompt:       agent.TruncateString(formatted.Text, agent.MaxPromptLength),
@@ -270,7 +271,7 @@ func (p *Parser) parseToolResults(entry SessionEntry) []agent.ParsedEvent {
 		toolName := p.toolNames[block.ToolUseID]
 		delete(p.toolNames, block.ToolUseID)
 		events = append(events, agent.ParsedEvent{
-			Type:         agent.EventToolUseFailure,
+			Type:         event.EventToolUseFailure,
 			SessionID:    entry.SessionID,
 			Timestamp:    entry.Timestamp,
 			ToolName:     toolName,
@@ -286,28 +287,28 @@ func (p *Parser) parseSystem(entry SessionEntry) []agent.ParsedEvent {
 	switch entry.Subtype {
 	case "turn_duration":
 		return []agent.ParsedEvent{{
-			Type:       agent.EventTurnDuration,
+			Type:       event.EventTurnDuration,
 			SessionID:  entry.SessionID,
 			Timestamp:  entry.Timestamp,
 			DurationMs: entry.DurationMs,
 		}}
 	case "api_error":
 		return []agent.ParsedEvent{{
-			Type:         agent.EventStopFailure,
+			Type:         event.EventStopFailure,
 			SessionID:    entry.SessionID,
 			Timestamp:    entry.Timestamp,
 			ErrorContent: agent.TruncateString(entry.Content, agent.MaxToolInputLength),
 		}}
 	case "agents_killed":
 		return []agent.ParsedEvent{{
-			Type:      agent.EventSubagentStop,
+			Type:      event.EventSubagentStop,
 			SessionID: entry.SessionID,
 			Timestamp: entry.Timestamp,
 			Content:   entry.Content,
 		}}
 	case "api_metrics":
 		return []agent.ParsedEvent{{
-			Type:               agent.EventApiMetrics,
+			Type:               event.EventApiMetrics,
 			SessionID:          entry.SessionID,
 			Timestamp:          entry.Timestamp,
 			TTFTMs:             entry.TTFTMs,
@@ -315,7 +316,7 @@ func (p *Parser) parseSystem(entry SessionEntry) []agent.ParsedEvent {
 		}}
 	case "permission_retry":
 		return []agent.ParsedEvent{{
-			Type:      agent.EventPermissionGrant,
+			Type:      event.EventPermissionGrant,
 			SessionID: entry.SessionID,
 			Timestamp: entry.Timestamp,
 			Commands:  entry.Commands,
@@ -323,7 +324,7 @@ func (p *Parser) parseSystem(entry SessionEntry) []agent.ParsedEvent {
 		}}
 	case "compact_boundary", "microcompact_boundary":
 		event := agent.ParsedEvent{
-			Type:      agent.EventContextCompact,
+			Type:      event.EventContextCompact,
 			SessionID: entry.SessionID,
 			Timestamp: entry.Timestamp,
 			Content:   entry.Content,
@@ -337,7 +338,7 @@ func (p *Parser) parseSystem(entry SessionEntry) []agent.ParsedEvent {
 		"bridge_status", "local_command", "informational",
 		"scheduled_task_fire":
 		return []agent.ParsedEvent{{
-			Type:      agent.EventSystemInfo,
+			Type:      event.EventSystemInfo,
 			SessionID: entry.SessionID,
 			Timestamp: entry.Timestamp,
 			Subtype:   entry.Subtype,

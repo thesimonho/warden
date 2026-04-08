@@ -4,6 +4,8 @@ import (
 	"log/slog"
 	"sync"
 	"time"
+
+	"github.com/thesimonho/warden/event"
 )
 
 // clientBufferSize is the per-client event channel buffer.
@@ -20,7 +22,7 @@ const heartbeatInterval = 15 * time.Second
 // dropped rather than blocking.
 type Broker struct {
 	mu      sync.RWMutex
-	clients map[chan SSEEvent]struct{}
+	clients map[chan event.SSEEvent]struct{}
 	done    chan struct{}
 }
 
@@ -28,7 +30,7 @@ type Broker struct {
 // The heartbeat goroutine runs until Shutdown is called.
 func NewBroker() *Broker {
 	b := &Broker{
-		clients: make(map[chan SSEEvent]struct{}),
+		clients: make(map[chan event.SSEEvent]struct{}),
 		done:    make(chan struct{}),
 	}
 	go b.heartbeatLoop()
@@ -38,8 +40,8 @@ func NewBroker() *Broker {
 // Subscribe registers a new SSE client and returns its event channel
 // and an unsubscribe function. The caller must call unsubscribe when
 // the client disconnects.
-func (b *Broker) Subscribe() (<-chan SSEEvent, func()) {
-	ch := make(chan SSEEvent, clientBufferSize)
+func (b *Broker) Subscribe() (<-chan event.SSEEvent, func()) {
+	ch := make(chan event.SSEEvent, clientBufferSize)
 
 	b.mu.Lock()
 	b.clients[ch] = struct{}{}
@@ -59,15 +61,15 @@ func (b *Broker) Subscribe() (<-chan SSEEvent, func()) {
 
 // Broadcast sends an event to all connected clients.
 // Slow clients have events dropped to avoid blocking.
-func (b *Broker) Broadcast(event SSEEvent) {
+func (b *Broker) Broadcast(evt event.SSEEvent) {
 	b.mu.RLock()
 	defer b.mu.RUnlock()
 
 	for ch := range b.clients {
 		select {
-		case ch <- event:
+		case ch <- evt:
 		default:
-			slog.Debug("dropping SSE event for slow client", "event", event.Event)
+			slog.Debug("dropping SSE event for slow client", "event", evt.Event)
 		}
 	}
 }
@@ -103,8 +105,8 @@ func (b *Broker) heartbeatLoop() {
 		case <-b.done:
 			return
 		case <-ticker.C:
-			b.Broadcast(SSEEvent{
-				Event: SSEHeartbeat,
+			b.Broadcast(event.SSEEvent{
+				Event: event.SSEHeartbeat,
 				Data:  []byte("{}"),
 			})
 		}
