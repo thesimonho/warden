@@ -159,6 +159,10 @@ func (m *mockEngineClient) ContainerStartupHealth(_ context.Context, _ string) (
 	return &engine.ContainerHealth{}, nil
 }
 
+func (m *mockEngineClient) RemoveVolume(_ context.Context, _ string) error {
+	return nil
+}
+
 // testDB returns a fresh in-memory SQLite store for tests.
 func testDB(t *testing.T) *db.Store {
 	t.Helper()

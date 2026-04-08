@@ -8,10 +8,15 @@ import (
 )
 
 // buildBindMounts constructs the bind mount strings for container creation.
-// The project directory is mounted at containerWorkspaceDir (typically
-// /home/warden/<name>). Additional mounts are appended with optional :ro suffix.
+// For local projects, the host directory is mounted at containerWorkspaceDir
+// (typically /home/warden/<name>). For remote projects, projectPath is empty
+// and the workspace mount is skipped. Additional mounts are appended with
+// optional :ro suffix.
 func buildBindMounts(projectPath, containerWorkspaceDir string, mounts []api.Mount) ([]string, error) {
-	binds := []string{fmt.Sprintf("%s:%s", projectPath, containerWorkspaceDir)}
+	var binds []string
+	if projectPath != "" {
+		binds = append(binds, fmt.Sprintf("%s:%s", projectPath, containerWorkspaceDir))
+	}
 
 	for _, m := range mounts {
 		if !filepath.IsAbs(m.HostPath) {

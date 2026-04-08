@@ -1,4 +1,4 @@
-import type { AgentType, Mount, NetworkMode } from '@/lib/types'
+import type { AgentType, Mount, NetworkMode, ProjectSource } from '@/lib/types'
 import type { DefaultMount } from '@/lib/api'
 
 /** Identifies each step of the project config form. */
@@ -42,7 +42,14 @@ export interface ProjectConfigFormProps {
 export interface ProjectConfigFormData {
   name: string
   image: string
+  /** Host directory path (local projects only). */
   projectPath: string
+  /** Git repository URL to clone (remote projects only). */
+  cloneURL?: string
+  /** Whether the project uses a local directory or remote clone. */
+  source: ProjectSource
+  /** Whether the remote workspace is ephemeral (lost on container recreate). */
+  temporary?: boolean
   agentType: AgentType
   envVars?: Record<string, string>
   mounts?: Mount[]

@@ -115,6 +115,17 @@ func (s *Service) DeleteContainer(ctx context.Context, projectID, agentType stri
 	// Clean up the event directory for this container.
 	s.docker.CleanupEventDir(containerName)
 
+	// Clean up the workspace volume for remote non-temporary projects.
+	// Fire-and-forget — volume removal can be slow and failure is non-fatal.
+	if project.CloneURL != "" && !project.Temporary {
+		volumeName := engine.WorkspaceVolumeName(containerName)
+		go func() {
+			if err := s.docker.RemoveVolume(context.Background(), volumeName); err != nil {
+				slog.Warn("failed to remove workspace volume", "volume", volumeName, "err", err)
+			}
+		}()
+	}
+
 	// Stop lifecycle watchers for the deleted container.
 	s.StopSessionWatcher(project.ProjectID, project.AgentType)
 	if s.eventWatcher != nil {
@@ -342,7 +353,11 @@ func needsRecreation(project *db.ProjectRow, req api.CreateContainerRequest) boo
 	if req.Image != "" && req.Image != project.Image {
 		return true
 	}
-	if req.ProjectPath != project.HostPath {
+	if req.CloneURL != "" {
+		if req.CloneURL != project.CloneURL {
+			return true
+		}
+	} else if req.ProjectPath != project.HostPath {
 		return true
 	}
 	if normalizeAgentType(string(req.AgentType)) != normalizeAgentType(project.AgentType) {
@@ -513,9 +528,9 @@ func (s *Service) ValidateContainer(ctx context.Context, projectID, agentType st
 
 // projectRowFromRequest converts a CreateContainerRequest to a ProjectRow
 // for database persistence. Computes the deterministic ProjectID from the
-// host path.
+// host path (local) or clone URL (remote).
 func projectRowFromRequest(req api.CreateContainerRequest) (db.ProjectRow, error) {
-	projectID, err := engine.ProjectID(req.ProjectPath)
+	projectID, err := engine.ResolveProjectID(req.ProjectPath, req.CloneURL)
 	if err != nil {
 		return db.ProjectRow{}, fmt.Errorf("computing project ID: %w", err)
 	}
@@ -526,6 +541,8 @@ func projectRowFromRequest(req api.CreateContainerRequest) (db.ProjectRow, error
 		AddedAt:         time.Now().UTC(),
 		Image:           req.Image,
 		HostPath:        req.ProjectPath,
+		CloneURL:        req.CloneURL,
+		Temporary:       req.Temporary,
 		AgentType:       normalizeAgentType(string(req.AgentType)),
 		SkipPermissions: req.SkipPermissions,
 		NetworkMode:     string(req.NetworkMode),
@@ -568,6 +585,8 @@ func reconstructRequestFromRow(project *db.ProjectRow, update api.CreateContaine
 		Name:               update.Name,
 		Image:              project.Image,
 		ProjectPath:        project.HostPath,
+		CloneURL:           project.CloneURL,
+		Temporary:          project.Temporary,
 		AgentType:          constants.AgentType(project.AgentType),
 		SkipPermissions:    update.SkipPermissions,
 		NetworkMode:        api.NetworkMode(project.NetworkMode),

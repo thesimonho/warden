@@ -38,7 +38,7 @@ The container image is pulled automatically from `ghcr.io/thesimonho/warden` on 
 
 When creating a project, the first field is the **agent type** — choose between Claude Code and Codex. Each project is locked to one agent at creation time.
 
-Fill in the project name and host path, configure environment variables and other settings, then create. Warden pulls the container image (if needed) and starts the project.
+Fill in the project name and either a **host path** (local directory) or a **clone URL** (remote git repository), configure environment variables and other settings, then create. Warden pulls the container image (if needed) and starts the project. Remote projects clone the repository inside the container on first boot.
 
 The **Runtimes** section lets you select language runtimes to install in the container (Python, Go, Rust, Ruby, Lua). Warden auto-detects which runtimes your project needs by scanning for marker files like `go.mod` or `pyproject.toml`. Node.js is always included (required for MCP servers). Each runtime also adds its package registry domains to the network allowlist when using restricted mode.
 

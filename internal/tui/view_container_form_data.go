@@ -18,10 +18,22 @@ func (v *ContainerFormView) submit() tea.Cmd {
 		v.err = fmt.Errorf("container name is required")
 		return nil
 	}
+
+	isRemote := v.source == sourceRemote
 	path := v.inputs[inputPath].Value()
-	if path == "" {
-		v.err = fmt.Errorf("project path is required")
-		return nil
+	cloneURL := v.inputs[inputCloneURL].Value()
+	if isRemote {
+		if cloneURL == "" {
+			v.err = fmt.Errorf("clone URL is required")
+			return nil
+		}
+		path = "" // remote projects have no host path
+	} else {
+		if path == "" {
+			v.err = fmt.Errorf("project path is required")
+			return nil
+		}
+		cloneURL = "" // local projects have no clone URL
 	}
 
 	var domains []string
@@ -55,6 +67,8 @@ func (v *ContainerFormView) submit() tea.Cmd {
 	req := api.CreateContainerRequest{
 		Name:            name,
 		ProjectPath:     path,
+		CloneURL:        cloneURL,
+		Temporary:       isRemote && v.temporary,
 		Image:           v.inputs[inputImage].Value(),
 		AgentType:       agentTypes[v.agentType],
 		NetworkMode:     api.NetworkMode(networkModes[v.network]),

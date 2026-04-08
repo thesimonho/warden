@@ -99,6 +99,9 @@ export function isWorktreeAlive(worktree: { state: WorktreeState }): boolean {
   return worktree.state !== 'stopped'
 }
 
+/** Indicates whether a project uses a local host directory or remote git clone. */
+export type ProjectSource = 'local' | 'remote'
+
 /** Represents a project managed by the dashboard. */
 export interface Project {
   /** Stable 12-char hex hash identifying this project. */
@@ -106,8 +109,14 @@ export interface Project {
   /** Docker container ID (present when a container exists). */
   id: string
   name: string
-  /** Absolute path on the host for the project directory. */
+  /** Absolute path on the host for the project directory (local projects only). */
   hostPath: string
+  /** Git repository URL to clone (remote projects only). */
+  cloneURL?: string
+  /** Whether this is a local or remote project. */
+  source: ProjectSource
+  /** True when a remote project's workspace is ephemeral (lost on container recreate). */
+  temporary?: boolean
   /** The CLI agent type running in this project. */
   agentType: AgentType
   type: string
@@ -308,6 +317,10 @@ export interface CreateContainerRequest {
   name: string
   image: string
   projectPath: string
+  /** Git repository URL to clone (remote projects). */
+  cloneURL?: string
+  /** Whether the remote workspace is ephemeral. */
+  temporary?: boolean
   /** CLI agent type (defaults to "claude-code" if omitted). */
   agentType?: AgentType
   envVars?: Record<string, string>
@@ -334,6 +347,10 @@ export interface ContainerConfig {
   name: string
   image: string
   projectPath: string
+  /** Git repository URL (remote projects only). */
+  cloneURL?: string
+  /** Whether the remote workspace is ephemeral. */
+  temporary?: boolean
   /** CLI agent type running in this project. */
   agentType: AgentType
   envVars?: Record<string, string>

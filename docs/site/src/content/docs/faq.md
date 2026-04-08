@@ -46,7 +46,7 @@ Warden supports [Claude Code](https://docs.anthropic.com/en/docs/agents-and-tool
 
 ## Can I use both agents in the same project?
 
-No. Each project is locked to one agent type at creation time. If you want to run both Claude Code and Codex against the same repository, create two separate projects pointing at the same host path with different agent types.
+No. Each project is locked to one agent type at creation time. If you want to run both Claude Code and Codex against the same repository, create two separate projects pointing at the same host path (or clone URL) with different agent types.
 
 ## Why is cost estimated for some projects?
 

@@ -257,15 +257,27 @@ components:
             AgentType selects the CLI agent to run (e.g. "claude-code", "codex").
             Defaults to "claude-code" if omitted.
           type: string
+        cloneURL:
+          description: |-
+            CloneURL is the git repository URL to clone inside the container.
+            Required for remote projects; must be empty when ProjectPath is set.
+          type: string
         container:
           $ref: '#/components/schemas/api.CreateContainerRequest'
         name:
           description: Name is an optional container name override.
           type: string
         projectPath:
-          description: ProjectPath is the absolute host directory to register as a
-            project.
+          description: |-
+            ProjectPath is the absolute host directory to register as a project.
+            Required for local projects; must be empty when CloneURL is set.
           type: string
+        temporary:
+          description: |-
+            Temporary is true when a remote project's workspace should be
+            ephemeral (container layer only, lost on recreate). Ignored for
+            local projects.
+          type: boolean
       type: object
     api.AddProjectResponse:
       properties:
@@ -481,6 +493,9 @@ components:
             type: string
           type: array
           uniqueItems: false
+        cloneURL:
+          description: CloneURL is the git repository URL (remote projects only).
+          type: string
         costBudget:
           description: CostBudget is the per-project cost limit in USD (0 = use global
             default).
@@ -522,6 +537,9 @@ components:
         projectPath:
           type: string
         skipPermissions:
+          type: boolean
+        temporary:
+          description: Temporary is true when a remote project's workspace is ephemeral.
           type: boolean
       type: object
     api.ContainerResult:
@@ -572,6 +590,10 @@ components:
             type: string
           type: array
           uniqueItems: false
+        cloneURL:
+          description: CloneURL is the git repository URL to clone inside the container
+            (remote projects).
+          type: string
         costBudget:
           description: CostBudget is the per-project cost limit in USD (0 = use global
             default).
@@ -619,6 +641,9 @@ components:
           description: |-
             SkipPermissions controls whether terminals skip permission prompts.
             Stored as a Docker label on the container.
+          type: boolean
+        temporary:
+          description: Temporary is true when a remote project's workspace is ephemeral.
           type: boolean
       type: object
     api.CreateWorktreeRequest:
@@ -806,6 +831,10 @@ components:
             type: string
           type: array
           uniqueItems: false
+        cloneURL:
+          description: CloneURL is the git repository URL to clone (remote projects
+            only).
+          type: string
         costBudget:
           description: CostBudget is the per-project cost limit in USD (0 = use global
             default).
@@ -824,7 +853,8 @@ components:
             with this project.
           type: boolean
         hostPath:
-          description: HostPath is the absolute host directory mounted into the container.
+          description: HostPath is the absolute host directory mounted into the container
+            (local projects only).
           type: string
         id:
           description: ID is the Docker container ID (empty when no container exists).
@@ -859,12 +889,14 @@ components:
           type: string
         projectId:
           description: ProjectID is the deterministic project identifier (sha256 of
-            host path, 12 hex chars).
+            host path or clone URL, 12 hex chars).
           type: string
         skipPermissions:
           description: SkipPermissions indicates whether terminals should skip permission
             prompts.
           type: boolean
+        source:
+          $ref: '#/components/schemas/api.ProjectSource'
         sshPort:
           type: string
         state:
@@ -874,6 +906,10 @@ components:
         status:
           description: Status is the Docker container status string (e.g. "Up 2 hours").
           type: string
+        temporary:
+          description: Temporary is true when a remote project's workspace is ephemeral
+            (lost on container recreate).
+          type: boolean
         totalCost:
           description: TotalCost is the aggregate cost across all worktrees in USD.
           type: number
@@ -901,6 +937,16 @@ components:
           description: ProjectID is the deterministic project identifier.
           type: string
       type: object
+    api.ProjectSource:
+      description: Source indicates whether the project is local (host mount) or remote
+        (git clone).
+      enum:
+      - local
+      - remote
+      type: string
+      x-enum-varnames:
+      - ProjectSourceLocal
+      - ProjectSourceRemote
     api.ProjectTemplate:
       description: Template holds project template values loaded from .warden.json,
         if present.

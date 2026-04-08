@@ -41,8 +41,8 @@ func (rt *routes) handleCreateContainer(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	if req.ProjectPath == "" {
-		writeError(w, ErrCodeRequiredField, "project path is required", http.StatusBadRequest)
+	if msg := validateProjectSource(req.ProjectPath, req.CloneURL); msg != "" {
+		writeError(w, ErrCodeInvalidBody, msg, http.StatusBadRequest)
 		return
 	}
 
@@ -196,8 +196,8 @@ func (rt *routes) handleUpdateContainer(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	if req.ProjectPath == "" {
-		writeError(w, ErrCodeRequiredField, "project path is required", http.StatusBadRequest)
+	if msg := validateProjectSource(req.ProjectPath, req.CloneURL); msg != "" {
+		writeError(w, ErrCodeInvalidBody, msg, http.StatusBadRequest)
 		return
 	}
 

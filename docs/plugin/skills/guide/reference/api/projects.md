@@ -43,6 +43,10 @@ Returns all configured projects enriched with live container state, Claude statu
 
   `string`
 
+- **`cloneURL`**
+
+  `string` — CloneURL is the git repository URL to clone (remote projects only).
+
 - **`costBudget`**
 
   `number` — CostBudget is the per-project cost limit in USD (0 = use global default).
@@ -65,7 +69,7 @@ Returns all configured projects enriched with live container state, Claude statu
 
 - **`hostPath`**
 
-  `string` — HostPath is the absolute host directory mounted into the container.
+  `string` — HostPath is the absolute host directory mounted into the container (local projects only).
 
 - **`id`**
 
@@ -109,11 +113,15 @@ Returns all configured projects enriched with live container state, Claude statu
 
 - **`projectId`**
 
-  `string` — ProjectID is the deterministic project identifier (sha256 of host path, 12 hex chars).
+  `string` — ProjectID is the deterministic project identifier (sha256 of host path or clone URL, 12 hex chars).
 
 - **`skipPermissions`**
 
   `boolean` — SkipPermissions indicates whether terminals should skip permission prompts.
+
+- **`source`**
+
+  `string`, possible values: `"local", "remote"` — Source indicates whether the project is local (host mount) or remote (git clone).
 
 - **`sshPort`**
 
@@ -126,6 +134,10 @@ Returns all configured projects enriched with live container state, Claude statu
 - **`status`**
 
   `string` — Status is the Docker container status string (e.g. "Up 2 hours").
+
+- **`temporary`**
+
+  `boolean` — Temporary is true when a remote project's workspace is ephemeral (lost on container recreate).
 
 - **`totalCost`**
 
@@ -151,6 +163,7 @@ Returns all configured projects enriched with live container state, Claude statu
     "allowedDomains": [
       ""
     ],
+    "cloneURL": "",
     "costBudget": 1,
     "createdAt": 1,
     "forwardedPorts": [
@@ -170,9 +183,11 @@ Returns all configured projects enriched with live container state, Claude statu
     "os": "",
     "projectId": "",
     "skipPermissions": true,
+    "source": "local",
     "sshPort": "",
     "state": "",
     "status": "",
+    "temporary": true,
     "totalCost": 1,
     "type": "",
     "workspaceDir": ""
@@ -201,6 +216,10 @@ Registers a host directory as a Warden project. Optionally creates a container i
 
   `string` — AgentType selects the CLI agent to run (e.g. "claude-code", "codex"). Defaults to "claude-code" if omitted.
 
+- **`cloneURL`**
+
+  `string` — CloneURL is the git repository URL to clone inside the container. Required for remote projects; must be empty when ProjectPath is set.
+
 - **`container`**
 
   `object` — Container holds optional container configuration. When provided, a container is created as part of the same request.
@@ -216,6 +235,10 @@ Registers a host directory as a Warden project. Optionally creates a container i
     **Items:**
 
     `string`
+
+  - **`cloneURL`**
+
+    `string` — CloneURL is the git repository URL to clone inside the container (remote projects).
 
   - **`costBudget`**
 
@@ -287,13 +310,21 @@ Registers a host directory as a Warden project. Optionally creates a container i
 
     `boolean` — SkipPermissions controls whether terminals skip permission prompts. Stored as a Docker label on the container.
 
+  - **`temporary`**
+
+    `boolean` — Temporary is true when a remote project's workspace is ephemeral.
+
 - **`name`**
 
   `string` — Name is an optional container name override.
 
 - **`projectPath`**
 
-  `string` — ProjectPath is the absolute host directory to register as a project.
+  `string` — ProjectPath is the absolute host directory to register as a project. Required for local projects; must be empty when CloneURL is set.
+
+- **`temporary`**
+
+  `boolean` — Temporary is true when a remote project's workspace should be ephemeral (container layer only, lost on recreate). Ignored for local projects.
 
 **Example:**
 
@@ -460,6 +491,10 @@ Returns a single project enriched with live container state, Claude status, work
 
   `string`
 
+- **`cloneURL`**
+
+  `string` — CloneURL is the git repository URL to clone (remote projects only).
+
 - **`costBudget`**
 
   `number` — CostBudget is the per-project cost limit in USD (0 = use global default).
@@ -482,7 +517,7 @@ Returns a single project enriched with live container state, Claude status, work
 
 - **`hostPath`**
 
-  `string` — HostPath is the absolute host directory mounted into the container.
+  `string` — HostPath is the absolute host directory mounted into the container (local projects only).
 
 - **`id`**
 
@@ -526,11 +561,15 @@ Returns a single project enriched with live container state, Claude status, work
 
 - **`projectId`**
 
-  `string` — ProjectID is the deterministic project identifier (sha256 of host path, 12 hex chars).
+  `string` — ProjectID is the deterministic project identifier (sha256 of host path or clone URL, 12 hex chars).
 
 - **`skipPermissions`**
 
   `boolean` — SkipPermissions indicates whether terminals should skip permission prompts.
+
+- **`source`**
+
+  `string`, possible values: `"local", "remote"` — Source indicates whether the project is local (host mount) or remote (git clone).
 
 - **`sshPort`**
 
@@ -543,6 +582,10 @@ Returns a single project enriched with live container state, Claude status, work
 - **`status`**
 
   `string` — Status is the Docker container status string (e.g. "Up 2 hours").
+
+- **`temporary`**
+
+  `boolean` — Temporary is true when a remote project's workspace is ephemeral (lost on container recreate).
 
 - **`totalCost`**
 
@@ -567,6 +610,7 @@ Returns a single project enriched with live container state, Claude status, work
   "allowedDomains": [
     ""
   ],
+  "cloneURL": "",
   "costBudget": 1,
   "createdAt": 1,
   "forwardedPorts": [
@@ -586,9 +630,11 @@ Returns a single project enriched with live container state, Claude status, work
   "os": "",
   "projectId": "",
   "skipPermissions": true,
+  "source": "local",
   "sshPort": "",
   "state": "",
   "status": "",
+  "temporary": true,
   "totalCost": 1,
   "type": "",
   "workspaceDir": ""

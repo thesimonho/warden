@@ -1,6 +1,6 @@
 # Projects
 
-A **project** is a host directory registered with Warden for running an AI coding agent in an isolated container. Projects are the top-level unit of organization -- every container, worktree, terminal, cost record, and audit event belongs to a project.
+A **project** is a workspace (local host directory or remote git repository) registered with Warden for running an AI coding agent in an isolated container. Projects are the top-level unit of organization -- every container, worktree, terminal, cost record, and audit event belongs to a project.
 
 This page covers project identity, lifecycle, and common integration patterns using the HTTP API. See [api/projects.md](./api/projects.md) for full request/response field definitions.
 
@@ -8,10 +8,10 @@ This page covers project identity, lifecycle, and common integration patterns us
 
 A project is uniquely identified by a **compound primary key**: `(projectID, agentType)`.
 
-- **`projectID`** is a deterministic 12-character hex string computed from the SHA-256 of the resolved absolute host path. The same directory always produces the same ID, regardless of symlinks or trailing slashes.
+- **`projectID`** is a deterministic 12-character hex string computed from the SHA-256 of the resolved absolute host path (local projects) or normalized clone URL (remote projects). The same directory or URL always produces the same ID, regardless of symlinks, trailing slashes, or `.git` suffixes.
 - **`agentType`** is either `"claude-code"` or `"codex"`.
 
-This compound key means the same directory can have two independent projects -- one for each agent type -- each with its own container, cost history, and audit trail.
+This compound key means the same directory (or repository) can have two independent projects -- one for each agent type -- each with its own container, cost history, and audit trail.
 
 All scoped API routes use the pattern:
 
@@ -25,6 +25,8 @@ Adding a project is a **two-step flow**: register the project, then create its c
 
 ### Step 1: Register the project
 
+**Local project** (bind-mount a host directory):
+
 ```bash
 curl -s -X POST http://localhost:8090/api/v1/projects \
   -H "Content-Type: application/json" \
@@ -33,6 +35,19 @@ curl -s -X POST http://localhost:8090/api/v1/projects \
     "name": "my-app"
   }'
 ```
+
+**Remote project** (clone a git repository):
+
+```bash
+curl -s -X POST http://localhost:8090/api/v1/projects \
+  -H "Content-Type: application/json" \
+  -d '{
+    "cloneURL": "https://github.com/org/my-app.git",
+    "name": "my-app"
+  }'
+```
+
+Set `"temporary": true` to make the workspace ephemeral (lost on container recreate). Otherwise, the cloned workspace is stored in a Docker volume.
 
 The response includes the computed `projectId` and `agentType`:
 
@@ -45,7 +60,7 @@ The response includes the computed `projectId` and `agentType`:
 }
 ```
 
-**Idempotent behavior:** Adding the same host path again returns the existing project rather than creating a duplicate. The `agentType` is determined by the server's configured agent type (set via the `WARDEN_AGENT_TYPE` environment variable, defaults to `claude-code`).
+**Idempotent behavior:** Adding the same host path or clone URL again returns the existing project rather than creating a duplicate. The `agentType` is determined by the server's configured agent type (set via the `WARDEN_AGENT_TYPE` environment variable, defaults to `claude-code`).
 
 ### Step 2: Create the container
 

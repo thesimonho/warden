@@ -65,6 +65,17 @@ export TERM="xterm-256color"
 } > /home/warden/.docker_env
 
 # -------------------------------------------------------------------
+# Remote mode: clone the repo into the workspace directory. Runs once
+# — skipped if the workspace already contains a git repo (volume
+# persists across restart/recreate, or container layer still intact).
+# -------------------------------------------------------------------
+if [ -n "${WARDEN_CLONE_URL:-}" ] && [ ! -d "${WORKSPACE_DIR}/.git" ]; then
+  mkdir -p "${WORKSPACE_DIR}"
+  echo "[warden] Cloning ${WARDEN_CLONE_URL} into ${WORKSPACE_DIR}..."
+  git clone "${WARDEN_CLONE_URL}" "${WORKSPACE_DIR}"
+fi
+
+# -------------------------------------------------------------------
 # Git: include host gitconfig (user.name, user.email, etc.) and mark
 # workspace paths as safe. The host file is mounted read-only at
 # /home/warden/.gitconfig.host; we include it via git's [include] so

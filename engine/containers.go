@@ -26,6 +26,24 @@ const defaultPidsLimit = int64(512)
 // defaultImage is the container image used when none is specified.
 const defaultImage = "ghcr.io/thesimonho/warden:latest"
 
+// defaultWardenUID and defaultWardenGID are the UID/GID of the warden user
+// inside the container (created by install-user.sh). Used as fallback when
+// there is no host path to stat (remote projects).
+const (
+	defaultWardenUID uint32 = 1000
+	defaultWardenGID uint32 = 1000
+)
+
+// workspaceVolumePrefix is the naming prefix for Docker volumes that persist
+// remote project workspaces across container recreation.
+const workspaceVolumePrefix = "warden-workspace-"
+
+// WorkspaceVolumeName returns the Docker volume name for a remote project's
+// persistent workspace.
+func WorkspaceVolumeName(containerName string) string {
+	return workspaceVolumePrefix + containerName
+}
+
 // containerEventDir is the in-container path where event files are written.
 const containerEventDir = "/var/warden/events"
 
@@ -77,19 +95,25 @@ func (ec *EngineClient) CreateContainer(ctx context.Context, req api.CreateConta
 	if req.Name == "" {
 		return "", fmt.Errorf("container name is required")
 	}
-	if req.ProjectPath == "" {
-		return "", fmt.Errorf("project path is required")
-	}
-	if !filepath.IsAbs(req.ProjectPath) {
-		return "", fmt.Errorf("project path must be absolute: %s", req.ProjectPath)
-	}
 
-	// Stat the project path early to fail fast before expensive operations
-	// like image pulls. The entrypoint uses the host UID/GID to match
-	// file ownership via usermod before exec-ing gosu.
-	hostUID, hostGID, err := hostOwner(req.ProjectPath)
-	if err != nil {
-		return "", fmt.Errorf("stat project path for UID/GID: %w", err)
+	// Determine host UID/GID. Local projects stat the host path for
+	// ownership matching; remote projects use the warden user defaults.
+	var hostUID, hostGID uint32
+	if req.CloneURL != "" {
+		// Remote project — no host path to stat.
+		hostUID, hostGID = defaultWardenUID, defaultWardenGID
+	} else {
+		if req.ProjectPath == "" {
+			return "", fmt.Errorf("project path is required when no clone URL is provided")
+		}
+		if !filepath.IsAbs(req.ProjectPath) {
+			return "", fmt.Errorf("project path must be absolute: %s", req.ProjectPath)
+		}
+		var err error
+		hostUID, hostGID, err = hostOwner(req.ProjectPath)
+		if err != nil {
+			return "", fmt.Errorf("stat project path for UID/GID: %w", err)
+		}
 	}
 
 	if err := ec.checkNameAvailable(ctx, req.Name); err != nil {
@@ -133,16 +157,22 @@ func (ec *EngineClient) CreateContainer(ctx context.Context, req api.CreateConta
 	// Pass container name and project ID so hook scripts can identify
 	// this container and its stable project identity in event payloads.
 	envList = append(envList, fmt.Sprintf("WARDEN_CONTAINER_NAME=%s", req.Name))
-	if projectID, err := ProjectID(req.ProjectPath); err == nil {
+	if projectID, err := ResolveProjectID(req.ProjectPath, req.CloneURL); err == nil {
 		envList = append(envList, fmt.Sprintf("WARDEN_PROJECT_ID=%s", projectID))
+	}
+	if req.CloneURL != "" {
+		envList = append(envList, fmt.Sprintf("WARDEN_CLONE_URL=%s", req.CloneURL))
 	}
 
 	// Pass the host UID/GID so the entrypoint can match file ownership
-	// without probing bind mounts at runtime.
-	envList = append(envList,
-		fmt.Sprintf("WARDEN_HOST_UID=%d", hostUID),
-		fmt.Sprintf("WARDEN_HOST_GID=%d", hostGID),
-	)
+	// without probing bind mounts at runtime. Omitted for remote projects
+	// (the entrypoint's existing guard handles absent env vars).
+	if req.CloneURL == "" {
+		envList = append(envList,
+			fmt.Sprintf("WARDEN_HOST_UID=%d", hostUID),
+			fmt.Sprintf("WARDEN_HOST_GID=%d", hostGID),
+		)
+	}
 
 	// Set the agent type so container scripts know which CLI to launch.
 	// The service layer defaults this to agent.DefaultAgentType before calling.
@@ -242,6 +272,17 @@ func (ec *EngineClient) CreateContainer(ctx context.Context, req api.CreateConta
 		{Type: mount.TypeVolume, Source: cacheVolumeName, Target: cacheVolumeTarget},
 	}
 
+	// For remote (non-temporary) projects, persist the cloned workspace
+	// in a named Docker volume so it survives container recreation.
+	if req.CloneURL != "" && !req.Temporary {
+		volumeName := WorkspaceVolumeName(req.Name)
+		hostConfig.Mounts = append(hostConfig.Mounts, mount.Mount{
+			Type:   mount.TypeVolume,
+			Source: volumeName,
+			Target: containerWSDir,
+		})
+	}
+
 	resp, err := ec.api.ContainerCreate(ctx, containerConfig, hostConfig, nil, nil, req.Name)
 	if err != nil {
 		return "", fmt.Errorf("creating container %q: %w", req.Name, err)
@@ -316,6 +357,9 @@ func (ec *EngineClient) InspectContainer(ctx context.Context, id string) (*api.C
 		cfg.AgentType = agent.DefaultType
 	}
 
+	// Recover clone URL for remote projects.
+	cfg.CloneURL = envValue(info.Config.Env, "WARDEN_CLONE_URL")
+
 	// Determine the workspace mount path from env vars.
 	wsDir := envValue(info.Config.Env, "WARDEN_WORKSPACE_DIR")
 	// Fallback for legacy/discovered containers.
@@ -349,8 +393,13 @@ func (ec *EngineClient) InspectContainer(ctx context.Context, id string) (*api.C
 	}
 
 	// Fallback: check Mounts field for legacy/discovered containers.
+	// Skip volume mounts — for remote projects the workspace is a Docker
+	// volume whose Source is a volume name, not a host path.
 	if cfg.ProjectPath == "" {
 		for _, m := range info.Mounts {
+			if m.Type == "volume" {
+				continue
+			}
 			if m.Destination == wsDir || m.Destination == "/project" {
 				cfg.ProjectPath = m.Source
 			} else {
@@ -606,4 +655,10 @@ func (ec *EngineClient) runEphemeralInstall(ctx context.Context, img, agentType 
 		return ctx.Err()
 	}
 	return nil
+}
+
+// RemoveVolume removes a Docker named volume. Used to clean up workspace
+// volumes for remote projects when their container is deleted.
+func (ec *EngineClient) RemoveVolume(ctx context.Context, name string) error {
+	return ec.api.VolumeRemove(ctx, name, false)
 }

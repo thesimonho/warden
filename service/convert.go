@@ -10,11 +10,18 @@ import (
 // contract type — if the HTTP response needs to diverge from the domain
 // model, change this function.
 func projectResponseFromEngine(p engine.Project) api.ProjectResponse {
+	source := api.ProjectSourceLocal
+	if p.CloneURL != "" {
+		source = api.ProjectSourceRemote
+	}
 	return api.ProjectResponse{
 		ProjectID:           p.ProjectID,
 		ID:                  p.ID,
 		Name:                p.Name,
 		HostPath:            p.HostPath,
+		CloneURL:            p.CloneURL,
+		Source:              source,
+		Temporary:           p.Temporary,
 		HasContainer:        p.HasContainer,
 		Type:                p.Type,
 		Image:               p.Image,

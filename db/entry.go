@@ -83,8 +83,12 @@ type ProjectRow struct {
 	ProjectID string
 	// Name is the user-chosen display label / Docker container name.
 	Name string
-	// HostPath is the absolute host directory mounted into the container.
+	// HostPath is the absolute host directory mounted into the container (local projects only).
 	HostPath string
+	// CloneURL is the git repository URL to clone (remote projects only).
+	CloneURL string
+	// Temporary is true when a remote project's workspace is ephemeral.
+	Temporary bool
 	// AddedAt is when the project was added to Warden.
 	AddedAt time.Time
 	// Image is the container image name.
