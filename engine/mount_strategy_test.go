@@ -3,6 +3,8 @@ package engine
 import (
 	"testing"
 
+	"github.com/docker/docker/api/types/mount"
+
 	"github.com/thesimonho/warden/api"
 )
 
@@ -67,6 +69,37 @@ func TestBuildBindMounts(t *testing.T) {
 		}
 		if len(binds) != 1 {
 			t.Fatalf("expected 1 bind, got %d", len(binds))
+		}
+	})
+}
+
+func TestBuildSocketMounts(t *testing.T) {
+	t.Run("nil input returns nil", func(t *testing.T) {
+		result := buildSocketMounts(nil)
+		if result != nil {
+			t.Fatalf("expected nil, got %d mounts", len(result))
+		}
+	})
+
+	t.Run("converts to structured bind mounts", func(t *testing.T) {
+		mounts := []api.Mount{
+			{HostPath: "/run/host-services/ssh-auth.sock", ContainerPath: "/run/ssh-agent.sock", ReadOnly: true},
+		}
+		result := buildSocketMounts(mounts)
+		if len(result) != 1 {
+			t.Fatalf("expected 1 mount, got %d", len(result))
+		}
+		if result[0].Type != mount.TypeBind {
+			t.Errorf("expected TypeBind, got %s", result[0].Type)
+		}
+		if result[0].Source != "/run/host-services/ssh-auth.sock" {
+			t.Errorf("expected proxy source, got %s", result[0].Source)
+		}
+		if result[0].Target != "/run/ssh-agent.sock" {
+			t.Errorf("expected container target, got %s", result[0].Target)
+		}
+		if !result[0].ReadOnly {
+			t.Error("expected read-only")
 		}
 	})
 }

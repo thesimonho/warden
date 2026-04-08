@@ -347,8 +347,14 @@ func (s *Service) ResolveAccessItemsForContainer(req *api.CreateContainerRequest
 				switch inj.Type {
 				case access.InjectionEnvVar:
 					req.EnvVars[inj.Key] = inj.Value
-				case access.InjectionMountFile, access.InjectionMountSocket:
+				case access.InjectionMountFile:
 					req.Mounts = append(req.Mounts, api.Mount{
+						HostPath:      inj.Value,
+						ContainerPath: inj.Key,
+						ReadOnly:      inj.ReadOnly,
+					})
+				case access.InjectionMountSocket:
+					req.SocketMounts = append(req.SocketMounts, api.Mount{
 						HostPath:      inj.Value,
 						ContainerPath: inj.Key,
 						ReadOnly:      inj.ReadOnly,

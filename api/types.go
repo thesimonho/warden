@@ -695,6 +695,10 @@ type CreateContainerRequest struct {
 	EnvVars   map[string]string   `json:"envVars,omitempty"`
 	// Mounts is a list of additional bind mounts from host into the container.
 	Mounts []Mount `json:"mounts,omitempty"`
+	// SocketMounts are Unix domain socket mounts set internally by the
+	// access item pipeline. Not exposed in the HTTP API. These use the
+	// Docker structured mount API instead of legacy Binds strings.
+	SocketMounts []Mount `json:"-"`
 	// SkipPermissions controls whether terminals skip permission prompts.
 	// Stored as a Docker label on the container.
 	SkipPermissions bool `json:"skipPermissions,omitempty"`

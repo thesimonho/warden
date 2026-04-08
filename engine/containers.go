@@ -216,6 +216,7 @@ func (ec *EngineClient) CreateContainer(ctx context.Context, req api.CreateConta
 	}
 
 	binds, err := buildBindMounts(req.ProjectPath, containerWSDir, resolvedMounts)
+	socketMounts := buildSocketMounts(req.SocketMounts)
 	if err != nil {
 		return "", err
 	}
@@ -284,7 +285,23 @@ func (ec *EngineClient) CreateContainer(ctx context.Context, req api.CreateConta
 		})
 	}
 
+	// Append socket mounts (e.g. SSH agent) as structured bind mounts.
+	// These use the Docker mount API instead of legacy Binds strings to
+	// avoid the daemon trying to mkdir the host socket path.
+	hostConfig.Mounts = append(hostConfig.Mounts, socketMounts...)
+
 	resp, err := ec.api.ContainerCreate(ctx, containerConfig, hostConfig, nil, nil, req.Name)
+	if err != nil && len(socketMounts) > 0 && isMountError(err) {
+		// Socket mounts can fail on some Docker runtimes (e.g. Colima,
+		// OrbStack on macOS) where the proxy path doesn't exist. Retry
+		// without them — SSH still works via mounted key files.
+		// This is a pre-creation validation failure so no container was
+		// created and no cleanup is needed before retrying.
+		slog.Warn("container creation failed with socket mounts, retrying without them",
+			"container", req.Name, "error", err)
+		hostConfig.Mounts = hostConfig.Mounts[:len(hostConfig.Mounts)-len(socketMounts)]
+		resp, err = ec.api.ContainerCreate(ctx, containerConfig, hostConfig, nil, nil, req.Name)
+	}
 	if err != nil {
 		return "", fmt.Errorf("creating container %q: %w", req.Name, err)
 	}
@@ -375,50 +392,9 @@ func (ec *EngineClient) InspectContainer(ctx context.Context, id string) (*api.C
 		wsDir = ContainerWorkspaceDir(cfg.Name)
 	}
 
-	// Parse binds for project path and additional mounts.
-	if info.HostConfig != nil {
-		for _, bind := range info.HostConfig.Binds {
-			parts := strings.SplitN(bind, ":", 2)
-			if len(parts) != 2 {
-				continue
-			}
-			hostPath := parts[0]
-			remainder := parts[1]
-			// Remainder may include :ro suffix
-			containerPath, suffix, _ := strings.Cut(remainder, ":")
-			readOnly := suffix == "ro"
-
-			if containerPath == wsDir || containerPath == "/project" {
-				cfg.ProjectPath = hostPath
-			} else {
-				cfg.Mounts = append(cfg.Mounts, api.Mount{
-					HostPath:      hostPath,
-					ContainerPath: containerPath,
-					ReadOnly:      readOnly,
-				})
-			}
-		}
-	}
-
-	// Fallback: check Mounts field for legacy/discovered containers.
-	// Skip volume mounts — for remote projects the workspace is a Docker
-	// volume whose Source is a volume name, not a host path.
-	if cfg.ProjectPath == "" {
-		for _, m := range info.Mounts {
-			if m.Type == "volume" {
-				continue
-			}
-			if m.Destination == wsDir || m.Destination == "/project" {
-				cfg.ProjectPath = m.Source
-			} else {
-				cfg.Mounts = append(cfg.Mounts, api.Mount{
-					HostPath:      m.Source,
-					ContainerPath: m.Destination,
-					ReadOnly:      !m.RW,
-				})
-			}
-		}
-	}
+	parsed := parseMountsFromInspect(info, wsDir)
+	cfg.ProjectPath = parsed.ProjectPath
+	cfg.Mounts = parsed.Mounts
 
 	// Parse env vars, filtering out system-injected and warden-internal ones
 	systemEnvPrefixes := []string{"PATH=", "HOME=", "HOSTNAME=", "TERM=", "WARDEN_"}

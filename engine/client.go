@@ -257,44 +257,18 @@ func (ec *EngineClient) resolveWorkspaceDir(ctx context.Context, containerID str
 	}
 
 	// Fallback for discovered/legacy containers: find the workspace bind mount.
-	// Check for /home/warden/<name> pattern first, then /project.
-	// Checks HostConfig.Binds first, then falls back to Mounts for legacy containers.
 	name := strings.TrimPrefix(info.Name, "/")
 	expectedPath := ContainerWorkspaceDir(name)
 
-	if info.HostConfig != nil {
-		for _, bind := range info.HostConfig.Binds {
-			parts := strings.SplitN(bind, ":", 2)
-			if len(parts) < 2 {
-				continue
-			}
-			containerPath, _, _ := strings.Cut(parts[1], ":")
-			if containerPath == expectedPath {
-				return expectedPath
-			}
-		}
-		for _, bind := range info.HostConfig.Binds {
-			parts := strings.SplitN(bind, ":", 2)
-			if len(parts) < 2 {
-				continue
-			}
-			containerPath, _, _ := strings.Cut(parts[1], ":")
-			if containerPath == "/project" {
-				return "/project"
-			}
-		}
+	parsed := parseMountsFromInspect(info, expectedPath)
+	if parsed.ProjectPath != "" {
+		return expectedPath
 	}
 
-	// Fallback: check Mounts field for legacy/discovered containers.
-	for _, m := range info.Mounts {
-		if m.Destination == expectedPath {
-			return expectedPath
-		}
-	}
-	for _, m := range info.Mounts {
-		if m.Destination == "/project" {
-			return "/project"
-		}
+	// Try /project as a last resort (very old containers).
+	parsed = parseMountsFromInspect(info, "/project")
+	if parsed.ProjectPath != "" {
+		return "/project"
 	}
 
 	return "/project"
@@ -649,48 +623,9 @@ func (ec *EngineClient) validateMountSources(ctx context.Context, id string, ori
 		return fmt.Errorf("inspecting container for mount validation: %w", err)
 	}
 
-	// Parse current binds into mounts for comparison.
-	// Skip Warden-managed mounts (workspace dir, event dir) — these are
-	// created fresh by Warden and should not be compared against the
-	// user-configured original mounts stored in the DB.
 	wsDir := envValue(info.Config.Env, "WARDEN_WORKSPACE_DIR")
-	isWardenManaged := func(containerPath string) bool {
-		return containerPath == wsDir || containerPath == containerEventDir
-	}
-
-	var currentMounts []api.Mount
-	if info.HostConfig != nil {
-		for _, bind := range info.HostConfig.Binds {
-			parts := strings.SplitN(bind, ":", 2)
-			if len(parts) != 2 {
-				continue
-			}
-			hostPath := parts[0]
-			remainder := parts[1]
-			containerPath, _, _ := strings.Cut(remainder, ":")
-
-			if isWardenManaged(containerPath) {
-				continue
-			}
-			currentMounts = append(currentMounts, api.Mount{
-				HostPath:      hostPath,
-				ContainerPath: containerPath,
-			})
-		}
-	}
-
-	// Fallback: check Mounts field for legacy/discovered containers.
-	if len(currentMounts) == 0 {
-		for _, m := range info.Mounts {
-			if isWardenManaged(m.Destination) {
-				continue
-			}
-			currentMounts = append(currentMounts, api.Mount{
-				HostPath:      m.Source,
-				ContainerPath: m.Destination,
-			})
-		}
-	}
+	parsed := parseMountsFromInspect(info, wsDir)
+	currentMounts := parsed.Mounts
 
 	stalePaths := DetectStaleMounts(originalMounts, currentMounts)
 	if len(stalePaths) == 0 {
