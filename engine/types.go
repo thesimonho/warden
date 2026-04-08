@@ -168,10 +168,12 @@ type Client interface {
 	// StopProject gracefully stops the container with the given ID.
 	StopProject(ctx context.Context, id string) error
 
-	// RestartProject restarts the container with the given ID.
-	// originalMounts are the pre-symlink-resolution mount specs from the DB,
-	// used to detect stale bind mounts before restarting.
-	RestartProject(ctx context.Context, id string, originalMounts []api.Mount) error
+	// RestartProject restarts the container with the given ID and re-applies
+	// network isolation if needed. originalMounts are the pre-symlink-resolution
+	// mount specs from the DB, used to detect stale bind mounts before restarting.
+	// networkMode and allowedDomains are read from the DB so that network
+	// isolation can be re-applied after the container restarts.
+	RestartProject(ctx context.Context, id string, originalMounts []api.Mount, networkMode string, allowedDomains []string) error
 
 	// CreateContainer creates and starts a new project container.
 	CreateContainer(ctx context.Context, req api.CreateContainerRequest) (string, error)
@@ -193,8 +195,13 @@ type Client interface {
 
 	// ReloadAllowedDomains re-runs the network isolation script inside a
 	// running container to update the allowed domain list without recreation.
-	// Runs as root via docker exec with env var overrides.
+	// Uses privileged docker exec since the container lacks NET_ADMIN.
 	ReloadAllowedDomains(ctx context.Context, containerID string, domains []string) error
+
+	// ApplyNetworkIsolation runs the network isolation script via privileged
+	// docker exec. Used after container start/restart to set up iptables
+	// without granting NET_ADMIN to the container.
+	ApplyNetworkIsolation(ctx context.Context, containerID, mode string, domains []string) error
 
 	// RecreateContainer replaces a stopped container with a new one using updated config.
 	// Returns the new container ID.

@@ -126,7 +126,15 @@ This is safe inside a Warden container — `0.0.0.0` means "all interfaces insid
 Port forwarding only handles HTTP and WebSocket traffic. For non-HTTP protocols (gRPC, raw TCP), the container's services are not accessible from the host.
 :::
 
+## Tamper-Proof Isolation
+
+Network isolation is enforced from outside the container using Docker's privileged exec mechanism. The container itself does not have the `NET_ADMIN` capability, which means:
+
+- Users cannot disable network rules using `iptables` — even with `sudo`, the command fails with `EPERM` because the capability bounding set does not include `NET_ADMIN`.
+- The `dnsmasq` DNS resolver runs as root and cannot be killed by the warden user.
+- Package installation via `sudo apt-get install` works normally — sudo has access to standard capabilities (file ownership, process management) but not network administration.
+
 ## Limitations
 
 - **Domain IPs are resolved dynamically**, but if a domain's IP changes and DNS caching hasn't refreshed, there may be a brief interruption. Editing the allowed domains list triggers a full re-resolution; otherwise restart the container.
-- **Network mode changes** (e.g. `full` → `restricted`) still require container recreation since they involve different iptables rule sets and capabilities.
+- **Network mode changes** (e.g. `full` → `restricted`) still require container recreation since they involve different iptables rule sets.

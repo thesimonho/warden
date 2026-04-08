@@ -146,66 +146,6 @@ clean-e2e:
 
 # ── Packaging ────────────────────────────────────────────────────────────────
 
-# Generate all platform icons from icon.svg (square) and copy logo.svg (wide)
-generate-icons:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    ICON="icon.svg"
-    LOGO="logo.svg"
-    for f in "${ICON}" "${LOGO}"; do
-        if [ ! -f "${f}" ]; then
-            echo "Missing ${f}" >&2
-            exit 1
-        fi
-    done
-    # Rasterize square icon SVG to a high-res intermediate PNG for crisp downscaling.
-    # Uses a solid white background so the icon is readable on all platforms.
-    magick -density 384 -background white "${ICON}" -flatten -resize 1024x1024 /tmp/warden-icon-1024.png
-    HI="/tmp/warden-icon-1024.png"
-    # Linux — multi-size PNGs for hicolor icon theme (AppImage, .desktop)
-    # The 512px copy at packaging/linux/warden.png is kept for nfpm and
-    # backward compatibility; the sized variants go into icons/ for the
-    # AppImage's hicolor theme so desktop environments don't have to
-    # downscale from 512 (which produces blurry taskbar/panel icons).
-    for size in 16 32 48 64 128 256 512; do
-        mkdir -p "packaging/linux/icons/${size}x${size}"
-        magick "${HI}" -resize "${size}x${size}" "packaging/linux/icons/${size}x${size}/warden.png"
-    done
-    magick "${HI}" -resize 512x512 packaging/linux/warden.png
-    # Tray icon — 256px copy for go:embed (symlinks not supported).
-    # Kept in sync by this recipe; source of truth is packaging/linux/icons/.
-    cp "packaging/linux/icons/256x256/warden.png" cmd/warden-tray/icon.png
-    # Windows — multi-size .ico
-    magick "${HI}" \
-        \( -clone 0 -resize 16x16 \) \
-        \( -clone 0 -resize 32x32 \) \
-        \( -clone 0 -resize 48x48 \) \
-        \( -clone 0 -resize 64x64 \) \
-        \( -clone 0 -resize 128x128 \) \
-        \( -clone 0 -resize 256x256 \) \
-        -delete 0 packaging/windows/warden.ico
-    # macOS — iconset (converted to .icns by bundle.sh on macOS)
-    mkdir -p packaging/macos/warden.iconset
-    for pair in "16x16:icon_16x16" "32x32:icon_16x16@2x" "32x32:icon_32x32" \
-                "64x64:icon_32x32@2x" "128x128:icon_128x128" "256x256:icon_128x128@2x" \
-                "256x256:icon_256x256" "512x512:icon_256x256@2x" "512x512:icon_512x512" \
-                "1024x1024:icon_512x512@2x"; do
-        size="${pair%%:*}"
-        name="${pair#*:}"
-        magick "${HI}" -resize "${size}" "packaging/macos/warden.iconset/${name}.png"
-    done
-    # Web — favicon and PWA icons (served from web/public/)
-    mkdir -p web/public
-    magick "${HI}" -resize 32x32 web/public/favicon.ico
-    magick "${HI}" -resize 180x180 web/public/apple-touch-icon.png
-    magick "${HI}" -resize 192x192 web/public/favicon-192.png
-    magick "${HI}" -resize 512x512 web/public/favicon-512.png
-    # Copy SVGs for direct use in web UI (transparent, theme-adapted via CSS)
-    cp "${ICON}" web/public/icon.svg
-    cp "${LOGO}" web/public/logo.svg
-    rm -f "${HI}"
-    echo "Generated icons for Linux, Windows, macOS, and web"
-
 # ── Documentation ─────────────────────────────────────────────────────────────
 
 [private]

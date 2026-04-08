@@ -2,47 +2,41 @@ package engine
 
 import (
 	"testing"
-
-	"github.com/thesimonho/warden/api"
 )
 
 const testSeccompValue = "/tmp/test-seccomp.json"
 
-func TestBuildSecurityConfig_FullMode(t *testing.T) {
-	capDrop, capAdd, secOpts := buildSecurityConfig(api.NetworkModeFull, testSeccompValue)
+func TestBuildSecurityConfig_Capabilities(t *testing.T) {
+	capDrop, capAdd, _ := buildSecurityConfig(testSeccompValue)
 
 	assertContains(t, capDrop, "ALL", "capDrop")
-	assertNotContains(t, capAdd, "NET_ADMIN", "capAdd")
 	assertHasBaseCapabilities(t, capAdd)
-	assertHasSecurityOpts(t, secOpts)
-}
 
-func TestBuildSecurityConfig_RestrictedMode(t *testing.T) {
-	capDrop, capAdd, secOpts := buildSecurityConfig(api.NetworkModeRestricted, testSeccompValue)
-
-	assertContains(t, capDrop, "ALL", "capDrop")
-	assertContains(t, capAdd, "NET_ADMIN", "capAdd")
-	assertHasBaseCapabilities(t, capAdd)
-	assertHasSecurityOpts(t, secOpts)
-}
-
-func TestBuildSecurityConfig_NoneMode(t *testing.T) {
-	capDrop, capAdd, secOpts := buildSecurityConfig(api.NetworkModeNone, testSeccompValue)
-
-	assertContains(t, capDrop, "ALL", "capDrop")
-	assertContains(t, capAdd, "NET_ADMIN", "capAdd")
-	assertHasBaseCapabilities(t, capAdd)
-	assertHasSecurityOpts(t, secOpts)
-}
-
-func TestBuildSecurityConfig_DropsUnnecessaryCaps(t *testing.T) {
-	_, capAdd, _ := buildSecurityConfig(api.NetworkModeFull, testSeccompValue)
-
-	// These capabilities from Docker's default set should NOT be re-added.
-	// AUDIT_WRITE was removed when the entrypoint switched from su (PAM) to gosu.
-	shouldNotHave := []string{"SETPCAP", "MKNOD", "SETFCAP", "AUDIT_WRITE"}
+	// These capabilities must NOT be present. NET_ADMIN is applied
+	// externally via privileged docker exec. Others are unnecessary
+	// for a coding agent container.
+	shouldNotHave := []string{"SETPCAP", "MKNOD", "SETFCAP", "AUDIT_WRITE", "NET_ADMIN"}
 	for _, cap := range shouldNotHave {
 		assertNotContains(t, capAdd, cap, "capAdd")
+	}
+}
+
+func TestBuildSecurityConfig_SecurityOpts(t *testing.T) {
+	_, _, secOpts := buildSecurityConfig(testSeccompValue)
+
+	// no-new-privileges must NOT be present (removed to enable sudo).
+	assertNotContains(t, secOpts, "no-new-privileges", "securityOpts")
+
+	want := "seccomp=" + testSeccompValue
+	hasSeccomp := false
+	for _, opt := range secOpts {
+		if opt == want {
+			hasSeccomp = true
+			break
+		}
+	}
+	if !hasSeccomp {
+		t.Errorf("securityOpts missing seccomp value, got %v", secOpts)
 	}
 }
 
@@ -73,23 +67,5 @@ func assertHasBaseCapabilities(t *testing.T, capAdd []string) {
 	t.Helper()
 	for _, cap := range baseCapabilities {
 		assertContains(t, capAdd, cap, "capAdd")
-	}
-}
-
-// assertHasSecurityOpts verifies both no-new-privileges and seccomp are present.
-func assertHasSecurityOpts(t *testing.T, secOpts []string) {
-	t.Helper()
-	assertContains(t, secOpts, "no-new-privileges", "securityOpts")
-
-	want := "seccomp=" + testSeccompValue
-	hasSeccomp := false
-	for _, opt := range secOpts {
-		if opt == want {
-			hasSeccomp = true
-			break
-		}
-	}
-	if !hasSeccomp {
-		t.Errorf("securityOpts missing seccomp value, got %v", secOpts)
 	}
 }

@@ -9,7 +9,7 @@ container/scripts/
   install-user.sh               # warden user, workspace dirs, .profile env forwarding
   install-warden.sh             # Copy scripts to /usr/local/bin/, create /project
   shared/                       # Agent-agnostic scripts
-    entrypoint.sh               # Root-phase: UID remapping, agent CLI install, iptables, exec gosu
+    entrypoint.sh               # Root-phase: UID remapping, agent CLI install, exec gosu
     install-agent.sh            # Agent CLI install (Claude binary / Codex npm) with version pinning
     install-runtimes.sh         # Language runtime install (Python, Go, Rust, Ruby, Lua)
     user-entrypoint.sh          # User-phase (PID 1): env forwarding, git config, heartbeat
