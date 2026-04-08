@@ -1,5 +1,23 @@
 # Changelog
 
+## [1.10.0](https://github.com/thesimonho/warden/compare/v1.9.1...v1.10.0) (2026-04-08)
+
+
+### Features
+
+* add support for remote git repository projects ([#168](https://github.com/thesimonho/warden/issues/168)) ([b33ae40](https://github.com/thesimonho/warden/commit/b33ae40bf5e59ed6b86d2476b671767cf56930f8))
+
+
+### Bug Fixes
+
+* automate icon generation and improve tray icon rendering ([#172](https://github.com/thesimonho/warden/issues/172)) ([8bc8574](https://github.com/thesimonho/warden/commit/8bc8574f097f6f9abc63673b9e6d3adcdb9f04d4))
+* enable terminal copy via OSC 52 clipboard forwarding ([#167](https://github.com/thesimonho/warden/issues/167)) ([5e99ade](https://github.com/thesimonho/warden/commit/5e99ade5aac1bd5dba7c28acea1a2080d2c73302)), closes [#165](https://github.com/thesimonho/warden/issues/165)
+* fall back to fresh session when auto-resume fails ([#161](https://github.com/thesimonho/warden/issues/161)) ([d92eda5](https://github.com/thesimonho/warden/commit/d92eda57ff99a509ca46d93fcb9e104b97bc4f6a))
+* focus terminal after xterm attaches to DOM ([#166](https://github.com/thesimonho/warden/issues/166)) ([098f4c4](https://github.com/thesimonho/warden/commit/098f4c46db85f52e012be2cf6f7000eea4f89858)), closes [#163](https://github.com/thesimonho/warden/issues/163)
+* move network isolation to privileged docker exec ([#169](https://github.com/thesimonho/warden/issues/169)) ([b0ca88d](https://github.com/thesimonho/warden/commit/b0ca88d5d3efc3b711bf67b7623e518462c4e6bd))
+* project source UI and network isolation sequencing ([#174](https://github.com/thesimonho/warden/issues/174)) ([4aab3c6](https://github.com/thesimonho/warden/commit/4aab3c6f951497bfa60663f75f19c155acdc2cdc))
+* update icon generation workflow to run on pull requests ([#173](https://github.com/thesimonho/warden/issues/173)) ([9f126fd](https://github.com/thesimonho/warden/commit/9f126fdc2891359dda4eb3caf0d9852b84b160ed))
+
 ## [1.9.1](https://github.com/thesimonho/warden/compare/v1.9.0...v1.9.1) (2026-04-07)
 
 
