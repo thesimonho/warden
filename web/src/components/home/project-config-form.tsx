@@ -496,7 +496,7 @@ export default function ProjectConfigForm({
   const isValid = useMemo(
     () => validate() === null,
     // eslint-disable-next-line react-hooks/exhaustive-deps -- validate is not memoized; listing its captured fields explicitly
-    [name, projectPath, image, networkMode, allowedDomains],
+    [name, source, projectPath, cloneURL, image, networkMode, allowedDomains],
   )
   const displayError = error ?? externalError
 
