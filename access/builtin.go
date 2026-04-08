@@ -83,24 +83,7 @@ func BuiltInSSH() Item {
 					},
 				},
 			},
-			{
-				Label: "SSH Agent",
-				Sources: []Source{
-					{Type: SourceSocketPath, Value: "$SSH_AUTH_SOCK"},
-				},
-				Injections: []Injection{
-					{
-						Type:     InjectionMountSocket,
-						Key:      containerSSHAgentPath,
-						ReadOnly: true,
-					},
-					{
-						Type:  InjectionEnvVar,
-						Key:   "SSH_AUTH_SOCK",
-						Value: containerSSHAgentPath,
-					},
-				},
-			},
+			sshAgentCredential(),
 		},
 	}
 }

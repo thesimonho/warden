@@ -49,14 +49,42 @@ func IsStaleMountsError(err error) bool {
 // This detects ANY divergence — deleted targets, changed symlink targets,
 // new symlinks, or removed symlinks — not just missing files.
 func DetectStaleMounts(original, current []api.Mount) []string {
-	fresh, err := resolveSymlinksForMounts(original)
+	// Filter out socket mounts — they use Docker runtime-specific paths
+	// (e.g. Docker Desktop's /run/host-services/ssh-auth.sock) that are
+	// not subject to symlink staleness and may differ between the stored
+	// original and what Docker reports at inspect time.
+	//
+	// Build the socket set from original mounts (which have IsSocket from
+	// the DB), then filter both sides by container path. We can't rely on
+	// IsSocket in current mounts because isSocketPath() fails for
+	// VM-internal paths that don't exist on the host.
+	socketPaths := make(map[string]bool)
+	for _, m := range original {
+		if m.IsSocket {
+			socketPaths[m.ContainerPath] = true
+		}
+	}
+	var filteredOriginal []api.Mount
+	for _, m := range original {
+		if !socketPaths[m.ContainerPath] {
+			filteredOriginal = append(filteredOriginal, m)
+		}
+	}
+	var filteredCurrent []api.Mount
+	for _, m := range current {
+		if !socketPaths[m.ContainerPath] {
+			filteredCurrent = append(filteredCurrent, m)
+		}
+	}
+
+	fresh, err := resolveSymlinksForMounts(filteredOriginal)
 	if err != nil {
 		return nil
 	}
 
 	// Index both sets by container path.
 	freshMap := mountHostIndex(fresh)
-	currentMap := mountHostIndex(current)
+	currentMap := mountHostIndex(filteredCurrent)
 
 	var stale []string
 

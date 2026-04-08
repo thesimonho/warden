@@ -678,6 +678,11 @@ type Mount struct {
 	ContainerPath string `json:"containerPath"`
 	// ReadOnly mounts the path as read-only inside the container.
 	ReadOnly bool `json:"readOnly"`
+	// IsSocket indicates the host path is a Unix domain socket rather
+	// than a regular file or directory. Socket mounts use the Docker
+	// structured mount API to avoid the daemon trying to mkdir the
+	// host path, which fails on macOS with Docker Desktop.
+	IsSocket bool `json:"isSocket,omitempty"`
 }
 
 // CreateContainerRequest is the JSON body for creating a new project container.

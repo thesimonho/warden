@@ -352,6 +352,7 @@ func (s *Service) ResolveAccessItemsForContainer(req *api.CreateContainerRequest
 						HostPath:      inj.Value,
 						ContainerPath: inj.Key,
 						ReadOnly:      inj.ReadOnly,
+						IsSocket:      inj.Type == access.InjectionMountSocket,
 					})
 				}
 			}
