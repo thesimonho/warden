@@ -197,6 +197,7 @@ func (s *Service) InspectContainer(ctx context.Context, projectID, agentType str
 	} else {
 		cfg.Mounts = nil
 	}
+	cfg.Temporary = project.Temporary
 	cfg.CostBudget = project.CostBudget
 	if project.EnabledAccessItems != "" {
 		cfg.EnabledAccessItems = splitCSV(project.EnabledAccessItems)
