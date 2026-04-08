@@ -1,15 +1,23 @@
 name: Generate Icons
 on:
-  push:
+  pull_request:
     branches: [main]
     paths:
       - "icon.svg"
       - "logo.svg"
+      - ".github/workflows/icons.yml"
+      - "packaging/generate-icons.sh"
+concurrency:
+  group: icons-${{ github.head_ref }}
+  cancel-in-progress: true
 permissions:
   contents: write
 jobs:
   generate:
     runs-on: ubuntu-latest
+    # Prevent infinite retrigger: the bot's push fires pull_request:synchronize,
+    # which re-matches the path filter (full PR diff). Skip when triggered by a bot.
+    if: ${{ !endsWith(github.triggering_actor, '[bot]') }}
     steps:
       - uses: actions/create-github-app-token@v3
         id: app-token
