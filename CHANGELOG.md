@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.10.1](https://github.com/thesimonho/warden/compare/v1.10.0...v1.10.1) (2026-04-08)
+
+
+### Bug Fixes
+
+* tray icon theme detection and attention indicator ([#177](https://github.com/thesimonho/warden/issues/177)) ([48f2b8c](https://github.com/thesimonho/warden/commit/48f2b8c83b46948e3c71b494e832919bbb26e324))
+
 ## [1.10.0](https://github.com/thesimonho/warden/compare/v1.9.1...v1.10.0) (2026-04-08)
 
 
