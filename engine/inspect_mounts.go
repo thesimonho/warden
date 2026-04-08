@@ -83,7 +83,6 @@ func parseMountsFromInspect(info container.InspectResponse, workspaceDir string)
 				HostPath:      m.Source,
 				ContainerPath: m.Destination,
 				ReadOnly:      !m.RW,
-				IsSocket:      isSocketPath(m.Source),
 			})
 		}
 	}

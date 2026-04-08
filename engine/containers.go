@@ -215,7 +215,8 @@ func (ec *EngineClient) CreateContainer(ctx context.Context, req api.CreateConta
 		return "", fmt.Errorf("resolving symlinks in mounts: %w", err)
 	}
 
-	binds, socketMounts, err := buildMounts(req.ProjectPath, containerWSDir, resolvedMounts)
+	binds, err := buildBindMounts(req.ProjectPath, containerWSDir, resolvedMounts)
+	socketMounts := buildSocketMounts(req.SocketMounts)
 	if err != nil {
 		return "", err
 	}

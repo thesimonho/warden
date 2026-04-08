@@ -678,12 +678,6 @@ type Mount struct {
 	ContainerPath string `json:"containerPath"`
 	// ReadOnly mounts the path as read-only inside the container.
 	ReadOnly bool `json:"readOnly"`
-	// IsSocket indicates the host path is a Unix domain socket rather
-	// than a regular file or directory. Socket mounts use the Docker
-	// structured mount API to avoid the daemon trying to mkdir the
-	// host path, which fails on macOS with Docker Desktop.
-	// Internal — set automatically by the access item pipeline.
-	IsSocket bool `json:"isSocket,omitempty" swaggerignore:"true"`
 }
 
 // CreateContainerRequest is the JSON body for creating a new project container.
@@ -701,6 +695,10 @@ type CreateContainerRequest struct {
 	EnvVars   map[string]string   `json:"envVars,omitempty"`
 	// Mounts is a list of additional bind mounts from host into the container.
 	Mounts []Mount `json:"mounts,omitempty"`
+	// SocketMounts are Unix domain socket mounts set internally by the
+	// access item pipeline. Not exposed in the HTTP API. These use the
+	// Docker structured mount API instead of legacy Binds strings.
+	SocketMounts []Mount `json:"-"`
 	// SkipPermissions controls whether terminals skip permission prompts.
 	// Stored as a Docker label on the container.
 	SkipPermissions bool `json:"skipPermissions,omitempty"`

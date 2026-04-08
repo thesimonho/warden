@@ -2,7 +2,6 @@ package engine
 
 import (
 	"fmt"
-	"os"
 	"path/filepath"
 	"strings"
 
@@ -11,38 +10,24 @@ import (
 	"github.com/thesimonho/warden/api"
 )
 
-// buildMounts partitions the given mounts into legacy bind strings (for
-// regular file/directory mounts) and structured Docker mounts (for Unix
-// domain sockets). Socket mounts use the structured mount.Mount API
-// because Docker's legacy Binds format auto-creates missing host paths
-// as directories, which fails for sockets on macOS with Docker Desktop.
-//
+// buildBindMounts constructs the bind mount strings for container creation.
 // For local projects, the host directory is mounted at containerWorkspaceDir
 // (typically /home/warden/<name>). For remote projects, projectPath is empty
-// and the workspace mount is skipped.
-func buildMounts(projectPath, containerWorkspaceDir string, mounts []api.Mount) (binds []string, structured []mount.Mount, err error) {
+// and the workspace mount is skipped. Additional mounts are appended with
+// optional :ro suffix.
+func buildBindMounts(projectPath, containerWorkspaceDir string, mounts []api.Mount) ([]string, error) {
+	var binds []string
 	if projectPath != "" {
 		binds = append(binds, fmt.Sprintf("%s:%s", projectPath, containerWorkspaceDir))
 	}
 
 	for _, m := range mounts {
 		if !filepath.IsAbs(m.HostPath) {
-			return nil, nil, fmt.Errorf("mount host path must be absolute: %s", m.HostPath)
+			return nil, fmt.Errorf("mount host path must be absolute: %s", m.HostPath)
 		}
 		if !filepath.IsAbs(m.ContainerPath) {
-			return nil, nil, fmt.Errorf("mount container path must be absolute: %s", m.ContainerPath)
+			return nil, fmt.Errorf("mount container path must be absolute: %s", m.ContainerPath)
 		}
-
-		if m.IsSocket {
-			structured = append(structured, mount.Mount{
-				Type:     mount.TypeBind,
-				Source:   m.HostPath,
-				Target:   m.ContainerPath,
-				ReadOnly: m.ReadOnly,
-			})
-			continue
-		}
-
 		bind := fmt.Sprintf("%s:%s", m.HostPath, m.ContainerPath)
 		if m.ReadOnly {
 			bind += ":ro"
@@ -50,17 +35,27 @@ func buildMounts(projectPath, containerWorkspaceDir string, mounts []api.Mount) 
 		binds = append(binds, bind)
 	}
 
-	return binds, structured, nil
+	return binds, nil
 }
 
-// isSocketPath reports whether the given host path is a Unix domain socket.
-// Used when reconstructing mount metadata from Docker inspect data.
-func isSocketPath(path string) bool {
-	fi, err := os.Stat(path)
-	if err != nil {
-		return false
+// buildSocketMounts converts socket mounts (e.g. SSH agent) into Docker
+// structured mount.Mount entries. These use the Docker mount API instead
+// of legacy Binds strings because Binds auto-creates missing host paths
+// as directories, which fails for sockets on macOS with Docker Desktop.
+func buildSocketMounts(mounts []api.Mount) []mount.Mount {
+	if len(mounts) == 0 {
+		return nil
 	}
-	return fi.Mode().Type()&os.ModeSocket != 0
+	result := make([]mount.Mount, 0, len(mounts))
+	for _, m := range mounts {
+		result = append(result, mount.Mount{
+			Type:     mount.TypeBind,
+			Source:   m.HostPath,
+			Target:   m.ContainerPath,
+			ReadOnly: m.ReadOnly,
+		})
+	}
+	return result
 }
 
 // isMountError reports whether a Docker API error is related to a bind mount

@@ -28,12 +28,6 @@ func resolveSymlinksForMounts(mounts []api.Mount) ([]api.Mount, error) {
 	result := make([]api.Mount, 0, len(mounts))
 
 	for _, m := range mounts {
-		// Socket mounts (e.g. SSH agent) are not files or directories —
-		// skip symlink resolution and pass them through as-is.
-		if m.IsSocket {
-			result = append(result, m)
-			continue
-		}
 		resolved, err := resolveMount(m)
 		if err != nil {
 			return nil, err
