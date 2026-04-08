@@ -87,6 +87,10 @@ func (m *mockEngineClient) ReloadAllowedDomains(_ context.Context, _ string, _ [
 	return nil
 }
 
+func (m *mockEngineClient) WaitForInstalls(_ context.Context, _ string) error {
+	return nil
+}
+
 func (m *mockEngineClient) ApplyNetworkIsolation(_ context.Context, _, _ string, _ []string) error {
 	return nil
 }

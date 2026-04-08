@@ -301,8 +301,8 @@ func (ec *EngineClient) resolveWorkspaceDir(ctx context.Context, containerID str
 }
 
 // checkIsGitRepo checks whether the workspace is a git repository inside the container.
-// The result is cached per container ID since this value is effectively static for
-// the lifetime of a running container.
+// Only positive results are cached — a negative result may become positive after
+// a remote project's git clone completes in the user-entrypoint.
 func (ec *EngineClient) checkIsGitRepo(ctx context.Context, containerID string) bool {
 	if cached, ok := ec.gitRepoCache.Load(containerID); ok {
 		return cached.(bool)
@@ -318,9 +318,11 @@ func (ec *EngineClient) checkIsGitRepo(ctx context.Context, containerID string) 
 		return false
 	}
 
-	result := strings.TrimSpace(output) == "true"
-	ec.gitRepoCache.Store(containerID, result)
-	return result
+	isGit := strings.TrimSpace(output) == "true"
+	if isGit {
+		ec.gitRepoCache.Store(containerID, true)
+	}
+	return isGit
 }
 
 // envValue extracts the value of a KEY=value pair from an env slice.
@@ -611,8 +613,17 @@ func (ec *EngineClient) RestartProject(ctx context.Context, id string, originalM
 	}
 
 	// Re-apply network isolation after restart. Iptables rules are lost
-	// when the container stops, so they must be re-established.
+	// when the container stops, so they must be re-established. Wait for
+	// installs to complete first — the entrypoint needs unrestricted
+	// network for agent CLI and runtime downloads, and the previous
+	// dnsmasq instance needs time to fully exit.
 	if networkMode != "" && api.NetworkMode(networkMode) != api.NetworkModeFull {
+		installCtx, installCancel := context.WithTimeout(ctx, 5*time.Minute)
+		if err := ec.WaitForInstalls(installCtx, id); err != nil {
+			slog.Warn("timed out waiting for installs on restart, applying network isolation anyway",
+				"id", id, "err", err)
+		}
+		installCancel()
 		if err := ec.ApplyNetworkIsolation(ctx, id, networkMode, allowedDomains); err != nil {
 			return fmt.Errorf("re-applying network isolation after restart: %w", err)
 		}

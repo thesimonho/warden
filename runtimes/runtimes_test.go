@@ -160,6 +160,22 @@ func TestDomainsByRuntime(t *testing.T) {
 	}
 }
 
+func TestSystemDomains(t *testing.T) {
+	t.Parallel()
+	domains := SystemDomains()
+	if len(domains) == 0 {
+		t.Fatal("expected at least one system domain")
+	}
+
+	has := make(map[string]bool)
+	for _, d := range domains {
+		has[d] = true
+	}
+	if !has["storage.googleapis.com"] {
+		t.Error("expected storage.googleapis.com for Claude CLI downloads")
+	}
+}
+
 func TestIsValidID(t *testing.T) {
 	t.Parallel()
 	if !IsValidID("node") {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/thesimonho/warden/api"
 	"github.com/thesimonho/warden/db"
@@ -325,6 +326,130 @@ func TestNeedsRecreation(t *testing.T) {
 				t.Errorf("needsRecreation() = %v, want %v", got, tt.expect)
 			}
 		})
+	}
+}
+
+func TestMergeRuntimeDomains_IncludesSystemDomains(t *testing.T) {
+	t.Parallel()
+
+	req := api.CreateContainerRequest{
+		NetworkMode: api.NetworkModeRestricted,
+		AllowedDomains: []string{"example.com"},
+	}
+	mergeRuntimeDomains(&req)
+
+	has := make(map[string]bool)
+	for _, d := range req.AllowedDomains {
+		has[d] = true
+	}
+	if !has["storage.googleapis.com"] {
+		t.Error("expected storage.googleapis.com (system domain) in merged domains")
+	}
+	if !has["example.com"] {
+		t.Error("expected user domain example.com to be preserved")
+	}
+}
+
+func TestMergeRuntimeDomains_SkipsForFullMode(t *testing.T) {
+	t.Parallel()
+
+	req := api.CreateContainerRequest{
+		NetworkMode:    api.NetworkModeFull,
+		AllowedDomains: []string{"example.com"},
+	}
+	mergeRuntimeDomains(&req)
+
+	if len(req.AllowedDomains) != 1 {
+		t.Errorf("expected 1 domain for full mode, got %d: %v", len(req.AllowedDomains), req.AllowedDomains)
+	}
+}
+
+func TestMergeRuntimeDomains_IncludesRuntimeAndSystemDomains(t *testing.T) {
+	t.Parallel()
+
+	req := api.CreateContainerRequest{
+		NetworkMode:     api.NetworkModeRestricted,
+		AllowedDomains:  []string{"example.com"},
+		EnabledRuntimes: []string{"python"},
+	}
+	mergeRuntimeDomains(&req)
+
+	has := make(map[string]bool)
+	for _, d := range req.AllowedDomains {
+		has[d] = true
+	}
+	if !has["storage.googleapis.com"] {
+		t.Error("expected system domain storage.googleapis.com")
+	}
+	if !has["pypi.org"] {
+		t.Error("expected python runtime domain pypi.org")
+	}
+	if !has["example.com"] {
+		t.Error("expected user domain example.com to be preserved")
+	}
+}
+
+func TestHandleContainerStart_SkipsRecentlyCreated(t *testing.T) {
+	t.Parallel()
+
+	database := testDB(t)
+	svc := New(ServiceDeps{DockerAvailable: true, Engine: &mockEngine{}, DB: database})
+
+	// Insert a project with restricted network mode.
+	row := &db.ProjectRow{
+		ProjectID:     "proj-1",
+		ContainerID:   "abc123def456",
+		ContainerName: "my-project",
+		Name:          "my-project",
+		HostPath:      "/test/my-project",
+		NetworkMode:   "restricted",
+		AllowedDomains: "example.com",
+	}
+	insertTestProject(t, database, row)
+
+	// Mark as recently created with 12-char ID (as CreateContainer does).
+	svc.recentlyCreated.Store("abc123def456", true)
+
+	// Docker events provide full 64-char IDs — HandleContainerStart
+	// must truncate before lookup.
+	fullID := "abc123def456789abcdef0123456789abcdef0123456789abcdef0123456789ab"
+	svc.HandleContainerStart(fullID, "my-project")
+
+	// The entry should be consumed (deleted).
+	if _, loaded := svc.recentlyCreated.Load("abc123def456"); loaded {
+		t.Error("expected recentlyCreated entry to be consumed after HandleContainerStart")
+	}
+}
+
+func TestHandleContainerStart_AppliesOnRestart(t *testing.T) {
+	t.Parallel()
+
+	database := testDB(t)
+	mock := &mockEngine{}
+	svc := New(ServiceDeps{DockerAvailable: true, Engine: mock, DB: database})
+
+	// Insert a project with restricted network mode.
+	row := &db.ProjectRow{
+		ProjectID:     "proj-1",
+		ContainerID:   "abc123def456",
+		ContainerName: "my-project",
+		Name:          "my-project",
+		HostPath:      "/test/my-project",
+		NetworkMode:   "restricted",
+		AllowedDomains: "example.com",
+	}
+	insertTestProject(t, database, row)
+
+	// Do NOT mark as recently created — simulates a Docker auto-restart.
+	// HandleContainerStart spawns a goroutine for the isolation work.
+	svc.HandleContainerStart("abc123def456", "my-project")
+
+	// Wait for the goroutine to complete (mock WaitForInstalls returns immediately).
+	time.Sleep(100 * time.Millisecond)
+
+	// Should have called ApplyNetworkIsolation on the mock.
+	if !mock.networkIsolationApplied {
+		t.Error("expected ApplyNetworkIsolation to be called on restart")
 	}
 }
 

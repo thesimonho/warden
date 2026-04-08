@@ -465,7 +465,18 @@ func (s *Service) RestartProject(
 		}
 	}
 
-	if err := s.docker.RestartProject(ctx, project.ContainerID, originalMounts, project.NetworkMode, splitCSV(project.AllowedDomains)); err != nil {
+	// Merge system and runtime domains for the restart isolation pass.
+	domains := splitCSV(project.AllowedDomains)
+	if api.NetworkMode(project.NetworkMode) == api.NetworkModeRestricted {
+		domains = buildEffectiveDomains(domains, splitCSV(project.EnabledRuntimes))
+	}
+
+	// Mark as recently restarted so HandleContainerStart (Docker events
+	// watcher) skips redundant network isolation — RestartProject already
+	// waits for installs and applies it.
+	s.recentlyCreated.Store(project.ContainerID, true)
+
+	if err := s.docker.RestartProject(ctx, project.ContainerID, originalMounts, project.NetworkMode, domains); err != nil {
 		var staleErr *engine.StaleMountsError
 		if errors.As(err, &staleErr) {
 			s.audit.Write(db.Entry{

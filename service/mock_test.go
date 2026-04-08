@@ -39,9 +39,10 @@ type mockEngine struct {
 	validateMissing    []string
 	validateErr        error
 	// Call tracking for assertions.
-	killedWorktrees  []string
-	stopCalled       bool
-	lastWorktreeName string
+	killedWorktrees          []string
+	stopCalled               bool
+	lastWorktreeName         string
+	networkIsolationApplied  bool
 }
 
 func (m *mockEngine) ListProjects(_ context.Context, _ []string) ([]engine.Project, error) {
@@ -83,7 +84,12 @@ func (m *mockEngine) ReloadAllowedDomains(_ context.Context, _ string, _ []strin
 	return m.reloadDomainsErr
 }
 
+func (m *mockEngine) WaitForInstalls(_ context.Context, _ string) error {
+	return nil
+}
+
 func (m *mockEngine) ApplyNetworkIsolation(_ context.Context, _, _ string, _ []string) error {
+	m.networkIsolationApplied = true
 	return nil
 }
 

@@ -21,7 +21,7 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/componen
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { serverPort } from '@/lib/api-core'
-import { abbreviateHomePath, cn } from '@/lib/utils'
+import { abbreviateHomePath, shortenCloneURL, cn } from '@/lib/utils'
 import StatusBadge from '@/components/home/status-badge'
 import AgentStatusIndicator from '@/components/home/agent-status-indicator'
 import { LinkPortChip } from '@/components/home/port-chip'
@@ -99,7 +99,7 @@ export default function ProjectCard({
           {project.cloneURL ? (
             <span className="text-muted-foreground flex items-center gap-1 text-sm">
               <GitBranch className="h-3 w-3 shrink-0" />
-              <span className="truncate">{project.cloneURL}</span>
+              <span className="truncate">{shortenCloneURL(project.cloneURL)}</span>
             </span>
           ) : project.hostPath ? (
             <span className="text-muted-foreground flex items-center gap-1 text-sm">
@@ -224,8 +224,8 @@ export default function ProjectCard({
         <div className="flex flex-wrap justify-between gap-x-3 gap-y-1 pt-1">
           {project.cloneURL ? (
             <span className="text-muted-foreground flex items-center gap-1 text-sm">
-              <GitBranch className="h-3 w-3 shrink-0" />
-              <span className="max-w-48 truncate">{project.cloneURL}</span>
+              <GitBranch className="h-4 w-4 shrink-0" />
+              <span className="truncate">{shortenCloneURL(project.cloneURL)}</span>
             </span>
           ) : project.mountedDir ? (
             <span className="text-muted-foreground flex items-center gap-1 text-sm">
@@ -242,7 +242,7 @@ export default function ProjectCard({
             <Tooltip>
               <TooltipTrigger asChild>
                 <span className="text-warning flex items-center gap-1 text-sm">
-                  <ShieldCheck className="h-3 w-3 shrink-0" />
+                  <ShieldCheck className="h-4 w-4 shrink-0" />
                   Restricted
                 </span>
               </TooltipTrigger>
@@ -253,7 +253,7 @@ export default function ProjectCard({
             <Tooltip>
               <TooltipTrigger asChild>
                 <span className="text-error flex items-center gap-1 text-sm">
-                  <ShieldOff className="h-3 w-3 shrink-0" />
+                  <ShieldOff className="h-4 w-4 shrink-0" />
                   No Network
                 </span>
               </TooltipTrigger>

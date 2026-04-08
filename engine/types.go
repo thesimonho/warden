@@ -177,6 +177,10 @@ type Client interface {
 	// Uses privileged docker exec since the container lacks NET_ADMIN.
 	ReloadAllowedDomains(ctx context.Context, containerID string, domains []string) error
 
+	// WaitForInstalls polls for the install-complete marker written by the
+	// container entrypoint after agent CLI and runtime installs finish.
+	WaitForInstalls(ctx context.Context, containerID string) error
+
 	// ApplyNetworkIsolation runs the network isolation script via privileged
 	// docker exec. Used after container start/restart to set up iptables
 	// without granting NET_ADMIN to the container.

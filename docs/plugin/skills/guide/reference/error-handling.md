@@ -33,7 +33,7 @@ Every error response has the same shape:
 | `BUDGET_EXCEEDED` | 403 | Cost budget exceeded, action blocked | Container restart blocked because `budgetActionPreventStart` is enabled and the project is over budget |
 | `NAME_TAKEN` | 409 | Name collision | Project or container name already in use by another resource |
 | `STALE_MOUNTS` | 409 | Mount sources have moved or been deleted | One or more bind mount source paths no longer exist on the host |
-| `NOT_CONFIGURED` | 503 | Container runtime not available | Docker or Podman is not running or not found on the system |
+| `NOT_CONFIGURED` | 503 | Container runtime not available | Docker is not running or not found on the system |
 | `INTERNAL` | 500 | Unexpected server error | Catch-all for unclassified errors. Check server logs for details. |
 
 ## Error handling patterns

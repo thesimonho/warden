@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Info } from 'lucide-react'
+import { FolderOpen, GitBranch, Info } from 'lucide-react'
 import { toast } from 'sonner'
 import type {
   AccessItemResponse,
@@ -33,6 +33,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { AgentIcon } from '@/components/ui/agent-icons'
 import DirectoryBrowser from '@/components/ui/directory-browser'
@@ -650,54 +651,52 @@ export default function ProjectConfigForm({
 
             <FormField
               label="Project Source"
-              description="Local mounts a host directory. Remote clones a git repository."
+              description={
+                source === 'local'
+                  ? 'Host directory to bind-mount into the container.'
+                  : 'Git repository URL to clone inside the container.'
+              }
+              required
             >
-              <Select
-                value={source}
-                onValueChange={(v) => setSource(v as ProjectSource)}
-                disabled={isSubmitting || isEditMode}
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="local">Local</SelectItem>
-                  <SelectItem value="remote">Remote</SelectItem>
-                </SelectContent>
-              </Select>
-            </FormField>
-
-            {source === 'local' ? (
-              <FormField
-                label="Project Directory"
-                description="Host directory to bind-mount into the container."
-                required
-              >
-                <DirectoryBrowser
-                  value={projectPath}
-                  onChange={(newPath) => {
-                    if (newPath === projectPath) return
-                    setProjectPath(newPath)
+              <div className="flex items-stretch gap-2">
+                <ToggleGroup
+                  type="single"
+                  variant="outline"
+                  value={source}
+                  onValueChange={(v) => {
+                    if (v) setSource(v as ProjectSource)
                   }}
                   disabled={isSubmitting || isEditMode}
-                  defaultPath={homeDir}
-                />
-              </FormField>
-            ) : (
-              <>
-                <FormField
-                  label="Clone URL"
-                  description="Git repository URL to clone inside the container."
-                  required
                 >
+                  <ToggleGroupItem value="local" aria-label="Local directory">
+                    <FolderOpen className="size-4" />
+                  </ToggleGroupItem>
+                  <ToggleGroupItem value="remote" aria-label="Remote repository">
+                    <GitBranch className="size-4" />
+                  </ToggleGroupItem>
+                </ToggleGroup>
+                {source === 'local' ? (
+                  <DirectoryBrowser
+                    value={projectPath}
+                    onChange={(newPath) => {
+                      if (newPath === projectPath) return
+                      setProjectPath(newPath)
+                    }}
+                    disabled={isSubmitting || isEditMode}
+                    defaultPath={homeDir}
+                  />
+                ) : (
                   <Input
+                    className="flex-1"
                     placeholder="https://github.com/org/repo.git"
                     value={cloneURL}
                     onChange={(e) => setCloneURL(e.target.value)}
                     disabled={isSubmitting || isEditMode}
                   />
-                </FormField>
-                <div className="flex items-center gap-2">
+                )}
+              </div>
+              {source === 'remote' && (
+                <div className="mt-2 flex items-center gap-2">
                   <Checkbox
                     id="temporary"
                     checked={temporary}
@@ -708,8 +707,8 @@ export default function ProjectConfigForm({
                     Temporary — workspace is lost when the container is recreated
                   </label>
                 </div>
-              </>
-            )}
+              )}
+            </FormField>
 
             <FormField
               label="Project Budget"

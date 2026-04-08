@@ -88,6 +88,12 @@ type Service struct {
 	// Cleared when a JSONL cost event arrives for the project.
 	costFallbackNegCache   map[db.ProjectAgentKey]time.Time
 	costFallbackNegCacheMu sync.RWMutex
+
+	// recentlyCreated tracks container IDs that were just created by
+	// CreateContainer. HandleContainerStart skips these to avoid
+	// double-applying network isolation (CreateContainer already
+	// waits for installs and applies it).
+	recentlyCreated sync.Map
 }
 
 // New creates a Service with the given dependencies. The lifecycle

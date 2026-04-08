@@ -22,16 +22,7 @@ WARDEN_USER="warden"
 # server writes this marker after applying network isolation via
 # privileged docker exec. Clearing it ensures the user-entrypoint
 # blocks until isolation is confirmed on every container start.
-rm -f /tmp/warden-network-ready
-
-# -------------------------------------------------------------------
-# Podman with --userns=keep-id runs the entrypoint as the mapped host
-# user (non-root). No privilege drop needed — skip straight to the
-# user entrypoint.
-# -------------------------------------------------------------------
-if [ "$(id -u)" != "0" ]; then
-  exec /usr/local/bin/user-entrypoint.sh
-fi
+rm -f /tmp/warden-network-ready /tmp/warden-installs-done
 
 # -------------------------------------------------------------------
 # Match warden user's UID/GID to the host user that owns the project
@@ -68,6 +59,16 @@ fi
 chown -R "${WARDEN_USER}:${WARDEN_USER}" "/home/${WARDEN_USER}/.ssh" 2>/dev/null || true
 
 # -------------------------------------------------------------------
+# Remote projects: fix workspace volume ownership. Docker creates
+# volume mount points as root. The warden user needs write access for
+# git clone, .warden directory creation, and agent operations.
+# -------------------------------------------------------------------
+WORKSPACE_DIR="${WARDEN_WORKSPACE_DIR:-/project}"
+if [ -n "${WARDEN_CLONE_URL:-}" ] && [ -d "$WORKSPACE_DIR" ]; then
+  chown "${WARDEN_USER}:${WARDEN_USER}" "$WORKSPACE_DIR" 2>/dev/null || true
+fi
+
+# -------------------------------------------------------------------
 # Agent CLI installation — install the selected agent's CLI from the
 # cached volume. Runs before network isolation since the download
 # needs unrestricted network access on first install.
@@ -76,9 +77,6 @@ if [ -n "${WARDEN_AGENT_TYPE:-}" ] && [ -x /usr/local/bin/install-agent.sh ]; th
   /usr/local/bin/install-agent.sh || echo "[warden] warning: agent CLI installation failed"
 fi
 
-# Network isolation: applied by the Go server via docker exec --privileged
-# after container start (keeps NET_ADMIN out of the container's bounding set).
-
 # -------------------------------------------------------------------
 # Runtime installation — install user-selected language runtimes.
 # Runs as root since apt-get and system-level installs require it.
@@ -86,6 +84,11 @@ fi
 if [ -n "${WARDEN_ENABLED_RUNTIMES:-}" ] && [ -x /usr/local/bin/install-runtimes.sh ]; then
   /usr/local/bin/install-runtimes.sh || echo "[warden] warning: runtime installation failed"
 fi
+
+# Signal that privileged installs are complete. The Go server waits for
+# this marker before applying network isolation via docker exec, so
+# agent CLI and runtime downloads finish with unrestricted network access.
+touch /tmp/warden-installs-done
 
 # -------------------------------------------------------------------
 # Drop privileges permanently. gosu replaces this process (exec) so

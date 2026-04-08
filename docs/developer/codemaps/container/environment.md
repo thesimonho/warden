@@ -29,14 +29,20 @@ This ensures all vars passed via `docker run -e` are available in terminal sessi
 
 **Key environment variables set by Warden:**
 
-- `WARDEN_HOST_UID` / `WARDEN_HOST_GID` — host user's UID/GID for UID remapping via `usermod`/`groupmod`
+- `WARDEN_HOST_UID` / `WARDEN_HOST_GID` — host user's UID/GID for UID remapping via `usermod`/`groupmod` (local projects). For remote projects, defaults are used.
 - `WARDEN_WORKSPACE_DIR` — container-side workspace path (e.g. `/home/warden/my-project`). Shell scripts use `${WARDEN_WORKSPACE_DIR:-/project}` for backward compatibility.
-- `WARDEN_PROJECT_ID` — deterministic 12-char hex identifier (SHA-256 of resolved absolute host path). Used by event-posting scripts to tag events with project identity.
+- `WARDEN_CLONE_URL` — git clone URL for remote projects (optional). When set, entrypoint.sh clones this into the workspace volume instead of bind-mounting.
+- `WARDEN_PROJECT_ID` — deterministic 12-char hex identifier (SHA-256 of resolved absolute host path or normalized clone URL). Used by event-posting scripts to tag events with project identity.
 - `WARDEN_EVENT_DIR` — bind-mounted event directory path (`/var/warden/events`)
 - `WARDEN_AGENT_TYPE` — agent type (`claude-code` or `codex`). Controls which CLI launches in `create-terminal.sh` and which parser/provider the engine uses.
 - `WARDEN_NETWORK_MODE` — network isolation mode (`full`/`restricted`/`none`)
 - `WARDEN_ALLOWED_DOMAINS` — comma-separated domain list for `restricted` mode (optional)
 - `WARDEN_ENABLED_RUNTIMES` — comma-separated list of enabled runtime IDs (e.g. `node,python,go`). Consumed by `install-runtimes.sh` during container startup to install language toolchains.
+- `WARDEN_CLAUDE_VERSION` / `WARDEN_CODEX_VERSION` — pinned agent CLI versions from `agent/versions.go`, used by `install-agent.sh`
+
+## Install Marker
+
+The entrypoint writes `/tmp/warden-installs-done` after agent CLI and language runtime installs complete. The Go server (`WaitForInstalls()`) polls this marker before applying network isolation via iptables, ensuring downloads can succeed even when restricted network mode is active. For full network mode containers, this polling is skipped (network isolation doesn't apply).
 
 ## Storage
 
