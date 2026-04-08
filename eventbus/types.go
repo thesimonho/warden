@@ -11,7 +11,42 @@ import (
 	"github.com/thesimonho/warden/engine"
 )
 
+// EventSource identifies how an event entered the pipeline.
+type EventSource string
+
+const (
+	// SourceEventDir means the event was written by a container script
+	// to the bind-mounted event directory and detected by the file watcher.
+	SourceEventDir EventSource = "event_dir"
+	// SourceJSONL means the event was parsed from an agent's JSONL session
+	// file by the host-side session watcher.
+	SourceJSONL EventSource = "jsonl"
+	// SourceBackend means the event was created by the Go backend itself
+	// (e.g. synthetic terminal_connected/disconnected from service layer).
+	SourceBackend EventSource = "backend"
+)
+
 // ContainerEventType identifies the kind of event from a container.
+//
+// Event source partitioning (see docs/developer/events.md for the authoritative catalog):
+//
+// JSONL-only (parsed from agent session files):
+//
+//	session_start, session_end, cost_update, turn_complete, turn_duration,
+//	api_metrics, context_compact, system_info, permission_grant
+//
+// Event-dir only (written by container scripts):
+//
+//	heartbeat, terminal_connected, terminal_disconnected, process_killed,
+//	session_exit, runtime_installing, runtime_installed, agent_installing,
+//	agent_installed, network_blocked, container_error
+//
+// Either source (hooks for real-time, JSONL for completeness):
+//
+//	attention, attention_clear, needs_answer, tool_use, tool_use_failure,
+//	user_prompt, permission_request, elicitation, elicitation_result,
+//	stop_failure, config_change, instructions_loaded, task_completed,
+//	subagent_start, subagent_stop
 type ContainerEventType string
 
 const (
@@ -105,10 +140,14 @@ type ContainerEvent struct {
 	Data json.RawMessage `json:"data,omitempty"`
 	// Timestamp is when the event was created (set by the container hook script).
 	Timestamp time.Time `json:"timestamp"`
+	// Source identifies how this event entered the pipeline (event_dir, jsonl,
+	// or backend). Not serialized to JSON — internal routing metadata.
+	Source EventSource `json:"-"`
 	// SourceLine is the raw JSONL line bytes for dedup hashing.
-	// Only set for events sourced from JSONL session files.
+	// Only set for JSONL-sourced events; used by audit dedup.
 	SourceLine []byte `json:"-"`
 	// SourceIndex disambiguates multiple events parsed from the same JSONL line.
+	// Only meaningful when SourceLine is set.
 	SourceIndex int `json:"-"`
 }
 

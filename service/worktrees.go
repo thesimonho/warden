@@ -144,6 +144,7 @@ func (s *Service) ConnectTerminal(ctx context.Context, projectID, agentType, wor
 			AgentType:     project.AgentType,
 			WorktreeID:    worktreeID,
 			Timestamp:     time.Now(),
+			Source:        eventbus.SourceBackend,
 		})
 	}
 
@@ -184,6 +185,7 @@ func (s *Service) DisconnectTerminal(ctx context.Context, projectID, agentType, 
 			AgentType:     project.AgentType,
 			WorktreeID:    worktreeID,
 			Timestamp:     time.Now(),
+			Source:        eventbus.SourceBackend,
 		})
 	}
 
@@ -415,6 +417,7 @@ func (s *Service) NotifyTerminalDisconnected(_ context.Context, project *db.Proj
 			AgentType:     project.AgentType,
 			WorktreeID:    worktreeID,
 			Timestamp:     time.Now(),
+			Source:        eventbus.SourceBackend,
 		})
 	}
 }

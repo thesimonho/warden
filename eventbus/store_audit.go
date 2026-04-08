@@ -144,8 +144,10 @@ func (s *Store) writeToAuditLog(writer *db.AuditWriter, event ContainerEvent) {
 		Data:          event.Data,
 	}
 
-	// Compute content hash for JSONL-sourced event dedup.
-	if len(event.SourceLine) > 0 {
+	// Compute content hash for JSONL-sourced event dedup. Only JSONL events
+	// carry SourceLine bytes; event-dir and backend events are inherently
+	// unique (one file per event, one call per action).
+	if event.Source == SourceJSONL && len(event.SourceLine) > 0 {
 		h := fnv.New64a()
 		h.Write(event.SourceLine)
 		h.Write([]byte(strconv.Itoa(event.SourceIndex)))

@@ -33,6 +33,7 @@ func SessionEventToContainerEvent(event agent.ParsedEvent, ctx SessionContext) *
 		AgentType:     ctx.AgentType,
 		WorktreeID:    ctx.WorktreeID,
 		Timestamp:     parseTimestamp(event.Timestamp),
+		Source:        eventbus.SourceJSONL,
 		SourceLine:    event.SourceLine,
 		SourceIndex:   event.SourceIndex,
 	}

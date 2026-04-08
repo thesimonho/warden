@@ -59,17 +59,51 @@ This ensures all vars passed via `docker run -e` are available in terminal sessi
   <worktree-id>/                       # git worktree checkout (created by Codex or other agents)
 ```
 
-## Event Bus Communication
+## Container-Host Event Contract
 
-Terminal lifecycle events and hook events are pushed to the host via file-based delivery. Containers write JSON event files to a bind-mounted directory (`WARDEN_EVENT_DIR=/var/warden/events`). The host watches this directory using fsnotify (fast path) + polling every 2s (reliable fallback):
+Events flow from container to host through two independent channels. Both converge at `eventbus.Store.HandleEvent()`, producing the same `ContainerEvent` type. The `EventSource` field on `ContainerEvent` identifies which channel produced each event (see `eventbus/types.go`).
 
+### Channel 1: Event directory (supplementary, real-time)
+
+Container scripts write JSON files to a bind-mounted directory (`WARDEN_EVENT_DIR=/var/warden/events`). The host watches using fsnotify (fast path) + polling every 2s (reliable fallback). Each file is one `ContainerEvent` JSON object, processed then deleted.
+
+**Contract:**
+- Files must be valid JSON matching the `ContainerEvent` schema
+- Files must be written atomically (write to temp, rename)
+- The `containerName`, `projectId`, `agentType`, and `worktreeId` fields must be set from `WARDEN_*` env vars
+- The watcher enforces a safety valve: 50,000 files maximum
+
+**Events from this channel:**
 - `terminal_connected` — tmux session created, terminal ready
 - `terminal_disconnected` — terminal viewer disconnected, tmux session continues
 - `process_killed` — all processes for a worktree terminated
-- `session_exit` — Claude Code exited (includes exit code)
+- `session_exit` — agent exited (includes exit code)
 - `heartbeat` — periodic liveness signal (every 10s)
+- `attention`, `attention_clear`, `needs_answer` — real-time attention state from Claude Code hooks
+- Runtime/agent installation progress events
 
-The backend liveness checker monitors heartbeats and marks containers stale after 30s of silence. The watcher enforces a safety valve: 50,000 files maximum.
+The backend liveness checker monitors heartbeats and marks containers stale after 30s of silence.
+
+### Channel 2: JSONL session files (primary)
+
+Agents write JSONL session files to well-known paths inside the container. The host tails these files via `watcher.FileTailer` with offset tracking (persisted across server restarts). Agent-specific parsers convert raw JSONL lines to `agent.ParsedEvent`, then `service.SessionEventToContainerEvent()` bridges them to `ContainerEvent`.
+
+**Contract:**
+- Claude Code writes to `~/.claude/projects/<sanitized-path>/`
+- Codex writes to `~/.codex/sessions/YYYY/MM/DD/`
+- Files are append-only JSONL (one JSON object per line)
+- The host discovers new files by polling every 2s
+- JSONL events carry `SourceLine` bytes for content-based audit dedup
+
+**Events from this channel:** session lifecycle, tool use, cost/tokens, user prompts, turn completion, API metrics, context compaction, system info. See `docs/developer/events.md` for the full catalog.
+
+### Channel 3: Backend-generated (synthetic)
+
+The Go backend itself creates `ContainerEvent` values for lifecycle transitions that originate from user actions rather than container scripts (e.g. `ConnectTerminal` and `DisconnectTerminal` in the service layer). These have `Source: SourceBackend`.
+
+### Direction
+
+JSONL is the **primary** data source. Hook events are **supplementary** and transitional — they exist because some data (attention state, terminal lifecycle) is not yet available in agent JSONL. As agents add this data to JSONL, the corresponding hook events can be removed. See `docs/developer/events.md` for the migration status of each event.
 
 ## Ports
 

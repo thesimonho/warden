@@ -92,6 +92,8 @@ This is intentional — agent responses are conversational glue between tool cal
 
 JSONL is the **primary** data source for all event types: session lifecycle, tool use, cost, prompts, and turn completion. Claude Code hooks are a **supplementary** channel used only for attention/notification state (permission prompts, idle state, elicitation dialogs). Codex does not support hooks — attention tracking for Codex is a known upstream gap.
 
+The `EventSource` field on `ContainerEvent` (in `eventbus/types.go`) explicitly tags each event with its origin: `SourceJSONL`, `SourceEventDir`, or `SourceBackend`. JSONL-sourced events also carry `SourceLine` bytes used for content-based audit dedup (see `store_audit.go`).
+
 | Data                            | Source                                   |
 | ------------------------------- | ---------------------------------------- |
 | Session lifecycle               | JSONL                                    |

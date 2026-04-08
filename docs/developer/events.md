@@ -6,6 +6,8 @@ The goal is to eventually move entirely over to JSONL.
 
 Each audit event has a source: JSONL parser (Go backend tails session files), hook (container shell script writes to event dir), or backend (Go service writes directly). Codex has no hooks — everything comes from JSONL or backend.
 
+The `EventSource` type in `eventbus/types.go` codifies these three sources as `SourceJSONL`, `SourceEventDir`, and `SourceBackend`. Every `ContainerEvent` is tagged with its source at creation time. The source partitioning doc comment on `ContainerEventType` summarizes which events come from which channel.
+
 ## Events from JSONL parser
 
 | Event                | Claude source                                       | Codex source                                                                               | Audit category |
