@@ -79,7 +79,12 @@ func TestDetectStaleMounts_SymlinkTargetChanged(t *testing.T) {
 }
 
 func TestDetectStaleMounts_SymlinkTargetDeleted(t *testing.T) {
-	// The resolved symlink target is deleted entirely (e.g. garbage collected).
+	// The resolved symlink target is deleted entirely (e.g. nix store
+	// garbage collected). The container still has the old mount pointing
+	// to the deleted path, but the symlink on the host is also broken.
+	// Since the broken state matches between host and container, there's
+	// no benefit to blocking the restart — the fresh resolution simply
+	// skips the broken symlink.
 
 	externalDir := t.TempDir()
 	writeFile(t, filepath.Join(externalDir, "settings.json"), `{}`)
@@ -103,9 +108,12 @@ func TestDetectStaleMounts_SymlinkTargetDeleted(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	// The broken symlink is skipped during fresh resolution. The container
+	// has an orphaned mount pointing to the deleted path, but this doesn't
+	// block restart — the host has the same broken symlink.
 	stale := DetectStaleMounts(original, creationResolved)
-	if len(stale) == 0 {
-		t.Fatal("expected stale mounts after target deletion, got none")
+	if len(stale) != 0 {
+		t.Errorf("expected no stale mounts when target is deleted (broken state matches host), got: %v", stale)
 	}
 }
 
@@ -303,6 +311,36 @@ func TestIsStaleMountsError(t *testing.T) {
 		}
 	} else {
 		t.Error("expected errors.As to extract StaleMountsError")
+	}
+}
+
+func TestDetectStaleMounts_ExtraMountsInCurrentIgnored(t *testing.T) {
+	// Extra mounts in the container that aren't derived from original_mounts
+	// (e.g. socket mounts, cache volumes) should NOT be flagged as stale.
+	// This is a regression test for a bug where the SSH agent socket mount
+	// was always flagged because it's tracked separately from original_mounts.
+
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "settings.json"), `{"hooks":{}}`)
+
+	original := []api.Mount{{HostPath: dir, ContainerPath: "/home/warden/.claude"}}
+
+	// Resolve once (simulates container creation).
+	current, err := resolveSymlinksForMounts(original)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Append extra mounts that exist in the container but not in original_mounts.
+	// These simulate socket mounts and other non-tracked bind mounts.
+	current = append(current,
+		api.Mount{HostPath: "/run/user/1000/ssh-agent.socket", ContainerPath: "/run/ssh-agent.sock"},
+		api.Mount{HostPath: "/some/cache", ContainerPath: "/cache"},
+	)
+
+	stale := DetectStaleMounts(original, current)
+	if len(stale) != 0 {
+		t.Errorf("expected no stale mounts when extra mounts exist in container, got: %v", stale)
 	}
 }
 
