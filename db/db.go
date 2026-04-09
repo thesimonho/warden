@@ -137,10 +137,10 @@ func openDB(path string) (*sql.DB, error) {
 
 	// Additive column migrations — ALTER TABLE ADD COLUMN is idempotent
 	// when the column already exists (the error is harmlessly ignored).
-	db.Exec("ALTER TABLE projects ADD COLUMN enabled_runtimes TEXT NOT NULL DEFAULT 'node'")  //nolint:errcheck
-	db.Exec("ALTER TABLE projects ADD COLUMN forwarded_ports TEXT NOT NULL DEFAULT ''") //nolint:errcheck
-	db.Exec("ALTER TABLE projects ADD COLUMN clone_url TEXT NOT NULL DEFAULT ''")             //nolint:errcheck
-	db.Exec("ALTER TABLE projects ADD COLUMN temporary INTEGER NOT NULL DEFAULT 0")           //nolint:errcheck
+	db.Exec("ALTER TABLE projects ADD COLUMN enabled_runtimes TEXT NOT NULL DEFAULT 'node'") //nolint:errcheck
+	db.Exec("ALTER TABLE projects ADD COLUMN forwarded_ports TEXT NOT NULL DEFAULT ''")      //nolint:errcheck
+	db.Exec("ALTER TABLE projects ADD COLUMN clone_url TEXT NOT NULL DEFAULT ''")            //nolint:errcheck
+	db.Exec("ALTER TABLE projects ADD COLUMN temporary INTEGER NOT NULL DEFAULT 0")          //nolint:errcheck
 
 	return db, nil
 }

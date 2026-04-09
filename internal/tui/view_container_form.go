@@ -41,8 +41,8 @@ const (
 	genAgentType = iota
 	genName
 	genSource
-	genPath     // visible when source == "local"
-	genCloneURL // visible when source == "remote"
+	genPath      // visible when source == "local"
+	genCloneURL  // visible when source == "remote"
 	genTemporary // visible when source == "remote"
 	genSkipPerms
 	genBudget

@@ -333,7 +333,7 @@ func TestMergeRuntimeDomains_IncludesSystemDomains(t *testing.T) {
 	t.Parallel()
 
 	req := api.CreateContainerRequest{
-		NetworkMode: api.NetworkModeRestricted,
+		NetworkMode:    api.NetworkModeRestricted,
 		AllowedDomains: []string{"example.com"},
 	}
 	mergeRuntimeDomains(&req)
@@ -397,12 +397,12 @@ func TestHandleContainerStart_SkipsRecentlyCreated(t *testing.T) {
 
 	// Insert a project with restricted network mode.
 	row := &db.ProjectRow{
-		ProjectID:     "proj-1",
-		ContainerID:   "abc123def456",
-		ContainerName: "my-project",
-		Name:          "my-project",
-		HostPath:      "/test/my-project",
-		NetworkMode:   "restricted",
+		ProjectID:      "proj-1",
+		ContainerID:    "abc123def456",
+		ContainerName:  "my-project",
+		Name:           "my-project",
+		HostPath:       "/test/my-project",
+		NetworkMode:    "restricted",
 		AllowedDomains: "example.com",
 	}
 	insertTestProject(t, database, row)
@@ -430,12 +430,12 @@ func TestHandleContainerStart_AppliesOnRestart(t *testing.T) {
 
 	// Insert a project with restricted network mode.
 	row := &db.ProjectRow{
-		ProjectID:     "proj-1",
-		ContainerID:   "abc123def456",
-		ContainerName: "my-project",
-		Name:          "my-project",
-		HostPath:      "/test/my-project",
-		NetworkMode:   "restricted",
+		ProjectID:      "proj-1",
+		ContainerID:    "abc123def456",
+		ContainerName:  "my-project",
+		Name:           "my-project",
+		HostPath:       "/test/my-project",
+		NetworkMode:    "restricted",
 		AllowedDomains: "example.com",
 	}
 	insertTestProject(t, database, row)

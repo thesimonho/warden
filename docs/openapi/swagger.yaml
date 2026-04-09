@@ -1587,7 +1587,7 @@ paths:
     post:
       description: |-
         Restores a built-in access item to its default configuration by removing
-        any DB override. Only works for built-in items (git, ssh).
+        any DB override. Only works for built-in items (git, ssh, gpg).
       parameters:
       - description: Built-in access item ID
         in: path

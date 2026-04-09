@@ -7,11 +7,18 @@ import "github.com/thesimonho/warden/constants"
 const (
 	BuiltInIDGit = "git"
 	BuiltInIDSSH = "ssh"
+	BuiltInIDGPG = "gpg"
 )
 
 // containerSSHAgentPath is the fixed path where the host's SSH agent
 // socket is mounted inside the container.
 const containerSSHAgentPath = "/run/ssh-agent.sock"
+
+// containerGPGAgentPath is the fixed path where the host's GPG agent
+// socket is mounted inside the container. Placed at the default gpg
+// socket location (~/.gnupg/S.gpg-agent) so gpg finds it automatically
+// without needing env var overrides or extra configuration.
+const containerGPGAgentPath = constants.ContainerHomeDir + "/.gnupg/S.gpg-agent"
 
 // BuiltInGit returns the built-in Git access item. It mounts the host's
 // .gitconfig (read-only) so git commands inside the container use the
@@ -88,11 +95,28 @@ func BuiltInSSH() Item {
 	}
 }
 
+// BuiltInGPG returns the built-in GPG access item. It forwards the
+// host's gpg-agent socket so git commit signing (-S) works inside the
+// container without copying private keys.
+func BuiltInGPG() Item {
+	return Item{
+		ID:          BuiltInIDGPG,
+		Label:       "GPG",
+		Description: "Forwards the gpg-agent socket so commit signing works without copying private keys.",
+		Method:      MethodTransport,
+		BuiltIn:     true,
+		Credentials: []Credential{
+			gpgAgentCredential(),
+		},
+	}
+}
+
 // BuiltInItems returns all built-in access items.
 func BuiltInItems() []Item {
 	return []Item{
 		BuiltInGit(),
 		BuiltInSSH(),
+		BuiltInGPG(),
 	}
 }
 
@@ -108,5 +132,5 @@ func BuiltInItemByID(id string) *Item {
 
 // IsBuiltInID reports whether the given ID belongs to a built-in access item.
 func IsBuiltInID(id string) bool {
-	return id == BuiltInIDGit || id == BuiltInIDSSH
+	return BuiltInItemByID(id) != nil
 }

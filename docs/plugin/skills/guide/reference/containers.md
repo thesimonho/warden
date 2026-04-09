@@ -36,7 +36,7 @@ curl -s -X POST http://localhost:8090/api/v1/projects/a1b2c3d4e5f6/claude-code/c
       }
     ],
     "enabledRuntimes": ["node", "python", "go"],
-    "enabledAccessItems": ["git", "ssh"],
+    "enabledAccessItems": ["git", "ssh", "gpg"],
     "forwardedPorts": [5173, 3000],
     "costBudget": 50.00,
     "skipPermissions": false
@@ -63,13 +63,13 @@ Defaults to `ghcr.io/thesimonho/warden:latest` -- an Ubuntu 24.04 image with Cla
 
 Key-value pairs injected into the container. Common variables:
 
-| Variable | Purpose |
-|---|---|
+| Variable            | Purpose                                                    |
+| ------------------- | ---------------------------------------------------------- |
 | `ANTHROPIC_API_KEY` | Required for Claude Code (unless using subscription login) |
-| `OPENAI_API_KEY` | Required for Codex (unless using subscription login) |
-| `GITHUB_TOKEN` | GitHub API access |
-| `GIT_AUTHOR_NAME` | Override git commit author name |
-| `GIT_AUTHOR_EMAIL` | Override git commit author email |
+| `OPENAI_API_KEY`    | Required for Codex (unless using subscription login)       |
+| `GITHUB_TOKEN`      | GitHub API access                                          |
+| `GIT_AUTHOR_NAME`   | Override git commit author name                            |
+| `GIT_AUTHOR_EMAIL`  | Override git commit author email                           |
 
 Environment variables persist across container restarts.
 
@@ -89,11 +89,11 @@ The agent config directory (`~/.claude` for Claude Code, `~/.codex` for Codex) i
 
 Controls outbound network access:
 
-| Mode | Behavior |
-|---|---|
-| `"full"` | Unrestricted outbound access |
+| Mode           | Behavior                                                    |
+| -------------- | ----------------------------------------------------------- |
+| `"full"`       | Unrestricted outbound access                                |
 | `"restricted"` | Only `allowedDomains` are reachable (enforced via iptables) |
-| `"none"` | Fully air-gapped, no network access |
+| `"none"`       | Fully air-gapped, no network access                         |
 
 When using `restricted` mode, populate `allowedDomains` with the domains the agent needs. Each enabled runtime automatically adds its package registry domains (e.g., `registry.npmjs.org` for Node.js).
 
@@ -101,14 +101,14 @@ When using `restricted` mode, populate `allowedDomains` with the domains the age
 
 Language runtimes installable in the container. Each runtime installs the base toolchain and opens the minimum network surface for its package registry.
 
-| Runtime ID | Language | Always enabled |
-|---|---|---|
-| `node` | Node.js | Yes (required for MCP servers) |
-| `python` | Python | No |
-| `go` | Go | No |
-| `rust` | Rust | No |
-| `ruby` | Ruby | No |
-| `lua` | Lua | No |
+| Runtime ID | Language | Always enabled                 |
+| ---------- | -------- | ------------------------------ |
+| `node`     | Node.js  | Yes (required for MCP servers) |
+| `python`   | Python   | No                             |
+| `go`       | Go       | No                             |
+| `rust`     | Rust     | No                             |
+| `ruby`     | Ruby     | No                             |
+| `lua`      | Lua      | No                             |
 
 Runtimes are auto-detected from project marker files (e.g., `go.mod` for Go, `pyproject.toml` for Python). The defaults endpoint returns detection results so you can pre-select them.
 
@@ -122,7 +122,7 @@ When `true`, the agent starts in fully autonomous mode (`--dangerously-skip-perm
 
 ### Access items
 
-IDs of access items to enable (e.g., `["git", "ssh"]`). Access items resolve credentials from the host and inject them into the container at creation time. See the access items documentation for available items.
+IDs of access items to enable (e.g., `["git", "ssh", "gpg"]`). Access items resolve credentials from the host and inject them into the container at creation time. See the access items documentation for available items.
 
 ## Updating a container
 
@@ -198,9 +198,13 @@ curl -s http://localhost:8090/api/v1/projects/a1b2c3d4e5f6/claude-code/container
   "image": "ghcr.io/thesimonho/warden:latest",
   "networkMode": "restricted",
   "allowedDomains": ["api.anthropic.com", "github.com"],
-  "envVars": {"GIT_AUTHOR_NAME": "Jane Dev"},
+  "envVars": { "GIT_AUTHOR_NAME": "Jane Dev" },
   "mounts": [
-    {"hostPath": "/home/user/.claude", "containerPath": "/home/warden/.claude", "readOnly": false}
+    {
+      "hostPath": "/home/user/.claude",
+      "containerPath": "/home/warden/.claude",
+      "readOnly": false
+    }
   ],
   "enabledRuntimes": ["node", "python"],
   "enabledAccessItems": ["git"],
@@ -266,15 +270,15 @@ fi
 All error responses follow the same shape:
 
 ```json
-{"error": "human-readable message", "code": "ERROR_CODE"}
+{ "error": "human-readable message", "code": "ERROR_CODE" }
 ```
 
 Key error codes for container operations:
 
-| HTTP Status | Error Code | Meaning |
-|---|---|---|
-| 400 | (varies) | Invalid request body or missing required fields |
-| 404 | (varies) | Project or container not found |
-| 409 | `STALE_MOUNTS` | Bind mount host paths no longer exist (on restart) |
-| 409 | (varies) | Container name already in use (on create) |
-| 403 | `BUDGET_EXCEEDED` | Cost budget exceeded with `preventStart` enabled (on restart) |
+| HTTP Status | Error Code        | Meaning                                                       |
+| ----------- | ----------------- | ------------------------------------------------------------- |
+| 400         | (varies)          | Invalid request body or missing required fields               |
+| 404         | (varies)          | Project or container not found                                |
+| 409         | `STALE_MOUNTS`    | Bind mount host paths no longer exist (on restart)            |
+| 409         | (varies)          | Container name already in use (on create)                     |
+| 403         | `BUDGET_EXCEEDED` | Cost budget exceeded with `preventStart` enabled (on restart) |

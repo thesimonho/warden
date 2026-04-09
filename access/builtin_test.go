@@ -61,6 +61,11 @@ func TestBuiltInItemByID(t *testing.T) {
 		t.Fatal("expected to find ssh built-in")
 	}
 
+	gpg := BuiltInItemByID(BuiltInIDGPG)
+	if gpg == nil {
+		t.Fatal("expected to find gpg built-in")
+	}
+
 	unknown := BuiltInItemByID("nonexistent")
 	if unknown != nil {
 		t.Error("expected nil for unknown ID")
@@ -73,6 +78,9 @@ func TestIsBuiltInID(t *testing.T) {
 	}
 	if !IsBuiltInID(BuiltInIDSSH) {
 		t.Error("expected ssh to be built-in")
+	}
+	if !IsBuiltInID(BuiltInIDGPG) {
+		t.Error("expected gpg to be built-in")
 	}
 	if IsBuiltInID("custom") {
 		t.Error("expected custom to not be built-in")
@@ -98,6 +106,22 @@ func TestBuiltInGit_CredentialStructure(t *testing.T) {
 	}
 	if len(cred.Injections) != 1 || cred.Injections[0].Type != InjectionMountFile {
 		t.Error("expected single mount_file injection")
+	}
+}
+
+func TestBuiltInGPG_CredentialStructure(t *testing.T) {
+	gpg := BuiltInGPG()
+
+	if len(gpg.Credentials) != 1 {
+		t.Fatalf("expected 1 credential (agent), got %d", len(gpg.Credentials))
+	}
+
+	agent := gpg.Credentials[0]
+	if agent.Label != "GPG Agent" {
+		t.Errorf("expected GPG Agent label, got %q", agent.Label)
+	}
+	if agent.Transform != nil {
+		t.Error("expected no transform on GPG agent credential")
 	}
 }
 

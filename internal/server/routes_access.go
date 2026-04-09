@@ -157,7 +157,7 @@ func (rt *routes) handleDeleteAccessItem(w http.ResponseWriter, r *http.Request)
 //
 //	@Summary		Reset access item
 //	@Description	Restores a built-in access item to its default configuration by removing
-//	@Description	any DB override. Only works for built-in items (git, ssh).
+//	@Description	any DB override. Only works for built-in items (git, ssh, gpg).
 //	@Tags			access
 //	@Param			id	path		string	true	"Built-in access item ID"
 //	@Success		200	{object}	access.Item
