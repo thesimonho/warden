@@ -23,7 +23,7 @@ import { test, expect } from '@playwright/test'
  */
 
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..')
-const BUILD_DIR = '/tmp/warden-e2e-devcontainer-feature'
+const BUILD_DIR = `${process.env.HOME ?? '/tmp'}/.cache/warden-e2e-devcontainer-feature`
 
 /** Warden binaries that must be present in a working container. */
 const REQUIRED_BINARIES = [

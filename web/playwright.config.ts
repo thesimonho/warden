@@ -46,7 +46,7 @@ async function resolveServer(): Promise<{
     baseURL: 'http://localhost:8090',
     webServer: {
       command:
-        'just build-web && WARDEN_DB_DIR=/tmp/warden-e2e-db WARDEN_LOG_LEVEL=warn WARDEN_NO_OPEN=1 go run ./cmd/warden-desktop',
+        'just build-web && WARDEN_DB_DIR="${HOME}/.cache/warden-e2e-db" WARDEN_LOG_LEVEL=warn WARDEN_NO_OPEN=1 go run ./cmd/warden-desktop',
       cwd: '..',
       url: 'http://localhost:8090/api/v1/health',
       reuseExistingServer: false,

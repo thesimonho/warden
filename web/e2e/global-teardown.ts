@@ -12,7 +12,8 @@ import { fetchProjects, removeTestProject } from './helpers/api'
  */
 
 /** E2E database directory — matches the path in playwright.config.ts webServer. */
-const E2E_DB_DIR = '/tmp/warden-e2e-db'
+const cacheDir = process.env.HOME ? `${process.env.HOME}/.cache` : '/tmp'
+const E2E_DB_DIR = `${cacheDir}/warden-e2e-db`
 
 export default async function globalTeardown() {
   /* Clean up test workspace. */

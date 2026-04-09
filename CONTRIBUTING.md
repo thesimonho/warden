@@ -35,14 +35,14 @@ Open `http://localhost:5173` (Vite proxies `/api/*` to Go on `:8090`).
 
 ### Database isolation
 
-The dev server uses a separate database (`/tmp/warden-dev/warden.db`) so development and testing don't interfere with your production Warden data at `~/.config/warden/`. E2E tests use their own database at `/tmp/warden-e2e-db/`.
+The dev server uses a separate database (`~/.cache/warden-dev/warden.db`) so development and testing don't interfere with your production Warden data at `~/.config/warden/`. E2E tests use their own database at `~/.cache/warden-e2e-db/`.
 
-| Environment                   | DB location           | Port            |
-| ----------------------------- | --------------------- | --------------- |
-| Production (`warden-desktop`) | `~/.config/warden/`   | `:8090`         |
-| Development (`just dev`)      | `/tmp/warden-dev/`    | `:8090`         |
-| E2E tests (standalone)        | `/tmp/warden-e2e-db/` | `:8090`         |
-| E2E tests (piggybacking)      | Same as dev server    | Dev server port |
+| Environment                   | DB location                | Port            |
+| ----------------------------- | -------------------------- | --------------- |
+| Production (`warden-desktop`) | `~/.config/warden/`        | `:8090`         |
+| Development (`just dev`)      | `~/.cache/warden-dev/`     | `:8090`         |
+| E2E tests (standalone)        | `~/.cache/warden-e2e-db/`  | `:8090`         |
+| E2E tests (piggybacking)      | Same as dev server         | Dev server port |
 
 Note: dev and production both use `:8090`, so they cannot run simultaneously. If you need to use Warden as a user, stop the dev server first.
 
