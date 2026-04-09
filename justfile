@@ -24,7 +24,7 @@ clean:
 
 [private]
 dev-api:
-    WARDEN_DB_DIR=/tmp/warden-dev WARDEN_NO_OPEN=1 go run ./cmd/warden-desktop
+    WARDEN_DB_DIR="${HOME}/.cache/warden-dev" WARDEN_NO_OPEN=1 go run ./cmd/warden-desktop
 
 [private]
 dev-web:
@@ -141,7 +141,7 @@ clean-e2e:
         docker ps -a --filter "name=warden-e2e-" --format '{{{{.Names}}' | \
             xargs -r docker rm -f 2>/dev/null
     fi
-    rm -rf /tmp/warden-e2e-workspace /tmp/warden-e2e-db
+    rm -rf "${HOME}/.cache/warden-e2e-workspace" "${HOME}/.cache/warden-e2e-db"
     echo "E2E cleanup complete"
 
 # ── Packaging ────────────────────────────────────────────────────────────────

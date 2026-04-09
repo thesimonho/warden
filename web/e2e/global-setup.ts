@@ -6,8 +6,11 @@ import { getBaseURL, fetchProjects, removeTestProject } from './helpers/api'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
+/** Base directory for E2E temp files. Falls back to /tmp if HOME is not set (CI). */
+export const E2E_CACHE_DIR = process.env.HOME ? `${process.env.HOME}/.cache` : '/tmp'
+
 /** Workspace directory used by all E2E test containers. */
-export const TEST_WORKSPACE = '/tmp/warden-e2e-workspace'
+export const TEST_WORKSPACE = `${E2E_CACHE_DIR}/warden-e2e-workspace`
 
 /** Image tag for E2E test containers, built from local source. */
 export const E2E_IMAGE = 'warden-e2e:local'

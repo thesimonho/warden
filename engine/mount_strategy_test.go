@@ -1,6 +1,8 @@
 package engine
 
 import (
+	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/docker/docker/api/types/mount"
@@ -102,4 +104,85 @@ func TestBuildSocketMounts(t *testing.T) {
 			t.Error("expected read-write (connect() requires write permission on Unix sockets)")
 		}
 	})
+}
+
+func TestIsFileSharingError(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		msg  string
+		want bool
+	}{
+		{
+			name: "Docker Desktop file sharing error",
+			msg:  `mounts denied: The path /nix/store/fb27361rphjqimgzb32ac1r4vys91zy5-hm_gitconfig is not shared from the host and is not known to Docker`,
+			want: true,
+		},
+		{
+			name: "unrelated mount error",
+			msg:  `mount source path does not exist: /nonexistent`,
+			want: false,
+		},
+		{
+			name: "empty error",
+			msg:  "",
+			want: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			err := fmt.Errorf("%s", tt.msg)
+			if got := isFileSharingError(err); got != tt.want {
+				t.Errorf("isFileSharingError() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestFileSharingHint(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name        string
+		msg         string
+		wantEmpty   bool
+		wantContain []string
+	}{
+		{
+			name:        "nix store path",
+			msg:         `mounts denied: The path /nix/store/fb27361rphjqimgzb32ac1r4vys91zy5-hm_gitconfig is not shared from the host and is not known to Docker`,
+			wantContain: []string{"/nix/store/fb27361", `"/nix"`},
+		},
+		{
+			name:        "other unshared path",
+			msg:         `mounts denied: The path /opt/custom/config is not shared from the host and is not known to Docker`,
+			wantContain: []string{"/opt/custom/config", `"/opt"`},
+		},
+		{
+			name:      "non-file-sharing error",
+			msg:       `mount source path does not exist: /nonexistent`,
+			wantEmpty: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			hint := fileSharingHint(fmt.Errorf("%s", tt.msg))
+			if tt.wantEmpty {
+				if hint != "" {
+					t.Errorf("expected empty hint, got %q", hint)
+				}
+				return
+			}
+			for _, s := range tt.wantContain {
+				if !strings.Contains(hint, s) {
+					t.Errorf("hint %q should contain %q", hint, s)
+				}
+			}
+		})
+	}
 }

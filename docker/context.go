@@ -1,8 +1,10 @@
 package docker
 
 import (
+	"context"
 	"os/exec"
 	"strings"
+	"time"
 )
 
 // contextSocketPath returns the Docker socket path from the active Docker
@@ -10,8 +12,11 @@ import (
 // the current context endpoint, which respects `docker context use` and the
 // DOCKER_CONTEXT environment variable.
 func contextSocketPath() string {
-	out, err := exec.Command(
-		"docker", "context", "inspect", "--format", "{{.Endpoints.docker.Host}}",
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	out, err := exec.CommandContext(ctx, "docker", "context", "inspect",
+		"--format", "{{.Endpoints.docker.Host}}",
 	).Output()
 	if err != nil {
 		return ""

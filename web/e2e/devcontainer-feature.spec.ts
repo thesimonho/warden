@@ -23,7 +23,10 @@ import { test, expect } from '@playwright/test'
  */
 
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..')
-const BUILD_DIR = '/tmp/warden-e2e-devcontainer-feature'
+
+// Import would create a circular dep with global-setup, so inline the same logic.
+const E2E_CACHE_DIR = process.env.HOME ? `${process.env.HOME}/.cache` : '/tmp'
+const BUILD_DIR = `${E2E_CACHE_DIR}/warden-e2e-devcontainer-feature`
 
 /** Warden binaries that must be present in a working container. */
 const REQUIRED_BINARIES = [

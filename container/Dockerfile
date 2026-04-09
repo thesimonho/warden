@@ -18,7 +18,7 @@
 # ---- builder: fetch gosu ----
 FROM ubuntu:24.04 AS builder
 
-ARG GOSU_VERSION=1.17
+ARG GOSU_VERSION=1.19
 
 RUN apt-get update \
   && apt-get install -y --no-install-recommends \
