@@ -43,11 +43,13 @@ func IsStaleMountsError(err error) bool {
 
 // DetectStaleMounts re-resolves the original (pre-resolution) mount specs
 // and compares the result with the container's current resolved mounts.
-// Returns a list of container paths where the current mount differs from
-// what a fresh resolution would produce.
+// Returns a list of container paths where the fresh resolution differs from
+// what the container currently has.
 //
-// This detects ANY divergence — deleted targets, changed symlink targets,
-// new symlinks, or removed symlinks — not just missing files.
+// Only mount paths produced by the fresh resolution are checked. Extra
+// mounts in the container that aren't derived from the original specs
+// (e.g. socket mounts, cache volumes) are ignored — they aren't tracked
+// in original_mounts and shouldn't trigger stale mount detection.
 func DetectStaleMounts(original, current []api.Mount) []string {
 	fresh, err := resolveSymlinksForMounts(original)
 	if err != nil {
@@ -60,17 +62,11 @@ func DetectStaleMounts(original, current []api.Mount) []string {
 
 	var stale []string
 
-	// Current mounts that no longer match a fresh resolution.
-	for containerPath, currentHost := range currentMap {
-		freshHost, exists := freshMap[containerPath]
+	// Check each freshly-resolved mount against what the container has.
+	// Catches: changed symlink targets, new symlinks, removed symlinks.
+	for containerPath, freshHost := range freshMap {
+		currentHost, exists := currentMap[containerPath]
 		if !exists || freshHost != currentHost {
-			stale = append(stale, containerPath)
-		}
-	}
-
-	// Fresh mounts that don't exist in current (new symlinks appeared).
-	for containerPath := range freshMap {
-		if _, exists := currentMap[containerPath]; !exists {
 			stale = append(stale, containerPath)
 		}
 	}
