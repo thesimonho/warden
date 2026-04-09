@@ -24,7 +24,7 @@ clean:
 
 [private]
 dev-api:
-    WARDEN_DB_DIR=/tmp/warden-dev WARDEN_NO_OPEN=1 go run ./cmd/warden-desktop
+    WARDEN_DB_DIR="${HOME}/.cache/warden-dev" WARDEN_NO_OPEN=1 go run ./cmd/warden-desktop
 
 [private]
 dev-web:
