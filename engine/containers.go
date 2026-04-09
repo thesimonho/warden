@@ -303,6 +303,9 @@ func (ec *EngineClient) CreateContainer(ctx context.Context, req api.CreateConta
 		resp, err = ec.api.ContainerCreate(ctx, containerConfig, hostConfig, nil, nil, req.Name)
 	}
 	if err != nil {
+		if hint := fileSharingHint(err); hint != "" {
+			return "", fmt.Errorf("creating container %q: %s", req.Name, hint)
+		}
 		return "", fmt.Errorf("creating container %q: %w", req.Name, err)
 	}
 
@@ -310,6 +313,9 @@ func (ec *EngineClient) CreateContainer(ctx context.Context, req api.CreateConta
 		// Remove the created-but-not-started container so it doesn't block
 		// future attempts with an ErrNameTaken error.
 		_ = ec.api.ContainerRemove(ctx, resp.ID, container.RemoveOptions{Force: true})
+		if hint := fileSharingHint(err); hint != "" {
+			return "", fmt.Errorf("starting container %q: %s", req.Name, hint)
+		}
 		return "", fmt.Errorf("starting container %q: %w", req.Name, err)
 	}
 
