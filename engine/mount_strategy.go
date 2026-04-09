@@ -82,10 +82,10 @@ func isFileSharingError(err error) bool {
 // file sharing error and returns a user-friendly message. Returns empty
 // string if the error doesn't match.
 func fileSharingHint(err error) string {
-	msg := err.Error()
 	if !isFileSharingError(err) {
 		return ""
 	}
+	msg := err.Error()
 
 	// Extract the path from "The path /nix/store/... is not shared from the host".
 	prefix := "The path "

@@ -1,6 +1,6 @@
 import { execSync } from 'child_process'
 import { rmSync, existsSync } from 'fs'
-import { TEST_WORKSPACE } from './global-setup'
+import { E2E_CACHE_DIR, TEST_WORKSPACE } from './global-setup'
 import { fetchProjects, removeTestProject } from './helpers/api'
 
 /**
@@ -12,8 +12,7 @@ import { fetchProjects, removeTestProject } from './helpers/api'
  */
 
 /** E2E database directory — matches the path in playwright.config.ts webServer. */
-const cacheDir = process.env.HOME ? `${process.env.HOME}/.cache` : '/tmp'
-const E2E_DB_DIR = `${cacheDir}/warden-e2e-db`
+const E2E_DB_DIR = `${E2E_CACHE_DIR}/warden-e2e-db`
 
 export default async function globalTeardown() {
   /* Clean up test workspace. */
