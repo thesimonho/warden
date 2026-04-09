@@ -15,10 +15,10 @@ set -euo pipefail
 # -------------------------------------------------------------------
 
 apt-get update
+apt-get upgrade -y
 apt-get install -y --no-install-recommends \
   git \
   curl \
-  wget \
   jq \
   ca-certificates \
   bash \
@@ -43,7 +43,7 @@ apt-get install -y --no-install-recommends \
 # devcontainer feature path.
 # -------------------------------------------------------------------
 if [ ! -f /usr/local/bin/gosu ]; then
-  GOSU_VERSION="${GOSU_VERSION:-1.17}"
+  GOSU_VERSION="${GOSU_VERSION:-1.19}"
   arch="$(dpkg --print-architecture)"
   curl -fsSL -o /usr/local/bin/gosu \
     "https://github.com/tianon/gosu/releases/download/${GOSU_VERSION}/gosu-${arch}"
@@ -51,15 +51,18 @@ if [ ! -f /usr/local/bin/gosu ]; then
 fi
 
 # -------------------------------------------------------------------
-# GitHub CLI
+# GitHub CLI — installed from official release binary (not the apt
+# repo) to avoid shipping a Go stdlib compiled with Go 1.18.
 # -------------------------------------------------------------------
-if [ ! -f /usr/bin/gh ]; then
-  curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
-    | dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg
-  echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" \
-    | tee /etc/apt/sources.list.d/github-cli.list > /dev/null
-  apt-get update
-  apt-get install -y --no-install-recommends gh
+if ! command -v gh >/dev/null 2>&1; then
+  GH_VERSION="$(curl -fsSL https://api.github.com/repos/cli/cli/releases/latest | jq -r '.tag_name | ltrimstr("v")')"
+  arch="$(dpkg --print-architecture)"
+  curl -fsSL -o /tmp/gh.tar.gz \
+    "https://github.com/cli/cli/releases/download/v${GH_VERSION}/gh_${GH_VERSION}_linux_${arch}.tar.gz"
+  tar -xzf /tmp/gh.tar.gz -C /tmp
+  mv "/tmp/gh_${GH_VERSION}_linux_${arch}/bin/gh" /usr/local/bin/gh
+  chmod +x /usr/local/bin/gh
+  rm -rf /tmp/gh.tar.gz "/tmp/gh_${GH_VERSION}_linux_${arch}"
 fi
 
 # -------------------------------------------------------------------
