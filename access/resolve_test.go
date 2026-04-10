@@ -1,6 +1,7 @@
 package access
 
 import (
+	"net"
 	"os"
 	"path/filepath"
 	"testing"
@@ -498,6 +499,202 @@ func TestResolve_WithCustomEnvResolver(t *testing.T) {
 	}
 	if cred.Injections[0].Value != "secret-from-shell" {
 		t.Errorf("expected 'secret-from-shell', got %q", cred.Injections[0].Value)
+	}
+}
+
+func TestDetect_SocketSource_LiveSocket(t *testing.T) {
+	dir := t.TempDir()
+	sockPath := filepath.Join(dir, "agent.sock")
+
+	ln, err := net.Listen("unix", sockPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer ln.Close() //nolint:errcheck
+
+	item := Item{
+		ID:    "test",
+		Label: "Test",
+		Credentials: []Credential{
+			{
+				Label:   "Agent",
+				Sources: []Source{{Type: SourceSocketPath, Value: sockPath}},
+			},
+		},
+	}
+
+	result := Detect(item, nil)
+	if !result.Available {
+		t.Fatal("expected live socket to be detected as available")
+	}
+}
+
+// createStaleSocket creates a real Unix socket file on disk with no active
+// listener. Uses SetUnlinkOnClose(false) to retain the file after the
+// listener closes on platforms that would otherwise remove it.
+func createStaleSocket(t *testing.T, path string) {
+	t.Helper()
+	ln, err := net.Listen("unix", path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ln.(*net.UnixListener).SetUnlinkOnClose(false)
+	_ = ln.Close()
+	fi, statErr := os.Stat(path)
+	if statErr != nil {
+		t.Fatalf("stale socket file should still exist: %v", statErr)
+	}
+	if fi.Mode().Type() != os.ModeSocket {
+		t.Fatalf("expected socket type, got %v", fi.Mode().Type())
+	}
+}
+
+func TestDetect_SocketSource_StaleSocket(t *testing.T) {
+	dir := t.TempDir()
+	sockPath := filepath.Join(dir, "stale.sock")
+	createStaleSocket(t, sockPath)
+
+	item := Item{
+		ID:    "test",
+		Label: "Test",
+		Credentials: []Credential{
+			{
+				Label:   "Agent",
+				Sources: []Source{{Type: SourceSocketPath, Value: sockPath}},
+			},
+		},
+	}
+
+	result := Detect(item, nil)
+	if result.Available {
+		t.Fatal("expected stale socket to be detected as unavailable")
+	}
+}
+
+func TestResolve_SocketSource_LiveSocket(t *testing.T) {
+	dir := t.TempDir()
+	sockPath := filepath.Join(dir, "agent.sock")
+
+	ln, err := net.Listen("unix", sockPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer ln.Close() //nolint:errcheck
+
+	item := Item{
+		ID:     "test",
+		Label:  "Test",
+		Method: MethodTransport,
+		Credentials: []Credential{
+			{
+				Label:   "Agent",
+				Sources: []Source{{Type: SourceSocketPath, Value: sockPath}},
+				Injections: []Injection{
+					{Type: InjectionMountSocket, Key: "/run/agent.sock"},
+				},
+			},
+		},
+	}
+
+	result, err := Resolve(item, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	cred := result.Credentials[0]
+	if !cred.Resolved {
+		t.Fatal("expected credential to be resolved for live socket")
+	}
+	if cred.Injections[0].Value != sockPath {
+		t.Errorf("expected %s, got %s", sockPath, cred.Injections[0].Value)
+	}
+}
+
+func TestResolve_SocketSource_StaleSocket(t *testing.T) {
+	dir := t.TempDir()
+	sockPath := filepath.Join(dir, "stale.sock")
+	createStaleSocket(t, sockPath)
+
+	item := Item{
+		ID:     "test",
+		Label:  "Test",
+		Method: MethodTransport,
+		Credentials: []Credential{
+			{
+				Label:   "Agent",
+				Sources: []Source{{Type: SourceSocketPath, Value: sockPath}},
+				Injections: []Injection{
+					{Type: InjectionMountSocket, Key: "/run/agent.sock"},
+				},
+			},
+		},
+	}
+
+	result, err := Resolve(item, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	cred := result.Credentials[0]
+	if cred.Resolved {
+		t.Fatal("expected stale socket credential to be unresolved")
+	}
+}
+
+func TestDetect_SocketSource_SymlinkToLiveSocket(t *testing.T) {
+	dir := t.TempDir()
+	realSockPath := filepath.Join(dir, "real.sock")
+	symlinkPath := filepath.Join(dir, "link.sock")
+
+	ln, err := net.Listen("unix", realSockPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer ln.Close() //nolint:errcheck
+
+	if err := os.Symlink(realSockPath, symlinkPath); err != nil {
+		t.Fatal(err)
+	}
+
+	item := Item{
+		ID:    "test",
+		Label: "Test",
+		Credentials: []Credential{
+			{
+				Label:   "Agent",
+				Sources: []Source{{Type: SourceSocketPath, Value: symlinkPath}},
+			},
+		},
+	}
+
+	result := Detect(item, nil)
+	if !result.Available {
+		t.Fatal("expected symlink to live socket to be detected as available")
+	}
+}
+
+func TestDetect_SocketSource_SymlinkToNonexistent(t *testing.T) {
+	dir := t.TempDir()
+	symlinkPath := filepath.Join(dir, "broken.sock")
+
+	if err := os.Symlink("/nonexistent/socket.sock", symlinkPath); err != nil {
+		t.Fatal(err)
+	}
+
+	item := Item{
+		ID:    "test",
+		Label: "Test",
+		Credentials: []Credential{
+			{
+				Label:   "Agent",
+				Sources: []Source{{Type: SourceSocketPath, Value: symlinkPath}},
+			},
+		},
+	}
+
+	result := Detect(item, nil)
+	if result.Available {
+		t.Fatal("expected broken symlink to be detected as unavailable")
 	}
 }
 

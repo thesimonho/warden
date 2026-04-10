@@ -1089,6 +1089,14 @@ components:
         available:
           description: Available indicates whether the Docker API socket is reachable.
           type: boolean
+        isDesktop:
+          description: |-
+            IsDesktop indicates whether the Docker runtime is Docker Desktop
+            (as opposed to native Docker Engine, Colima, OrbStack, etc.).
+            Detected via the OperatingSystem field from the Docker API info
+            endpoint, which returns "Docker Desktop" for all Docker Desktop
+            installations regardless of host OS.
+          type: boolean
         name:
           description: Name is the runtime identifier ("docker").
           type: string

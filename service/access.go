@@ -10,6 +10,7 @@ import (
 	"github.com/thesimonho/warden/access"
 	"github.com/thesimonho/warden/api"
 	"github.com/thesimonho/warden/db"
+	"github.com/thesimonho/warden/docker"
 )
 
 // ListAccessItems returns all access items (built-in + user-created)
@@ -364,7 +365,39 @@ func (s *Service) ResolveAccessItemsForContainer(req *api.CreateContainerRequest
 		}
 	}
 
+	if s.dockerDesktop {
+		s.rewriteSocketMountsForDesktop(req)
+	}
+
 	return nil
+}
+
+// rewriteSocketMountsForDesktop rewrites socket mount sources to use
+// Docker Desktop's VM-internal proxies. Docker Desktop runs a Linux VM
+// on all platforms — host Unix sockets cannot be bind-mounted through
+// the VM's filesystem layer. Docker Desktop provides a built-in SSH
+// agent proxy at a well-known path inside the VM.
+//
+// GPG does not have a Docker Desktop proxy. When GPG socket mounts are
+// present, a warning is logged — the mount will be attempted and may
+// fail (handled by the per-item retry in the engine layer).
+func (s *Service) rewriteSocketMountsForDesktop(req *api.CreateContainerRequest) {
+	for i := range req.SocketMounts {
+		m := &req.SocketMounts[i]
+		switch m.ContainerPath {
+		case access.ContainerSSHAgentPath:
+			slog.Info("Docker Desktop detected: SSH agent mount rewritten to VM proxy",
+				"original", m.HostPath,
+				"proxy", docker.DesktopSSHAgentProxy,
+			)
+			m.HostPath = docker.DesktopSSHAgentProxy
+		case access.ContainerGPGAgentPath:
+			slog.Warn("Docker Desktop does not proxy GPG agent sockets — mount may fail",
+				"source", m.HostPath,
+				"hint", "if GPG signing fails, add the socket path to Docker Desktop → Settings → Resources → File Sharing",
+			)
+		}
+	}
 }
 
 // getAccessItemsByIDs returns access items for the given IDs, looking up

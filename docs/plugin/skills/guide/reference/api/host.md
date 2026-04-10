@@ -308,6 +308,10 @@ Detects and returns available container runtimes with their socket paths and API
 
   `boolean` — Available indicates whether the Docker API socket is reachable.
 
+- **`isDesktop`**
+
+  `boolean` — IsDesktop indicates whether the Docker runtime is Docker Desktop (as opposed to native Docker Engine, Colima, OrbStack, etc.). Detected via the OperatingSystem field from the Docker API info endpoint, which returns "Docker Desktop" for all Docker Desktop installations regardless of host OS.
+
 - **`name`**
 
   `string` — Name is the runtime identifier ("docker").
@@ -325,6 +329,7 @@ Detects and returns available container runtimes with their socket paths and API
 ```json
 {
   "available": true,
+  "isDesktop": true,
   "name": "",
   "socketPath": "",
   "version": ""

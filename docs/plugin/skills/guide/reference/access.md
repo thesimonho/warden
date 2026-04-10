@@ -45,7 +45,7 @@ The `readOnly` field controls whether file mounts are read-only (recommended for
 
 ### Detection vs resolution
 
-**Detection** checks whether a credential's source exists on the host without reading its value. This is fast and non-destructive -- used to show availability status in the UI and API responses. The `GET /api/v1/access` response includes per-credential detection results.
+**Detection** checks whether a credential's source exists on the host without reading its value. This is fast and non-destructive -- used to show availability status in the UI and API responses. The `GET /api/v1/access` response includes per-credential detection results. For socket sources (SSH agent, GPG agent), detection probes for a live listener -- stale or dead sockets are rejected early with a clear error instead of silently failing at container start.
 
 **Resolution** reads actual values from sources and prepares injections. This happens at container creation time, immediately before the container starts. The `POST /api/v1/access/resolve` endpoint lets you test resolution without creating a container.
 
@@ -75,14 +75,18 @@ Forwards SSH config, known_hosts, and the SSH agent socket so git-over-SSH and S
 
 Private keys never enter the container. Signing requests are forwarded to the host's SSH agent via the socket.
 
+On Docker Desktop (macOS and Linux), SSH agent forwarding works automatically. Warden auto-detects Docker Desktop at startup and uses Docker's built-in SSH agent proxy -- no manual file sharing configuration needed.
+
 ### GPG (`id: "gpg"`)
 
 Forwards the host's gpg-agent socket so git commit signing (`-S`) and GPG operations work inside the container without copying private keys.
 
-- Finds the gpg-agent socket via platform-specific discovery (Linux: `gpgconf --list-dir agent-socket`, macOS: `$GNUPGHOME` or `~/.gnupg/S.gpg-agent`)
+- Finds the gpg-agent socket via two source paths tried in order: `$XDG_RUNTIME_DIR/gnupg/S.gpg-agent` (systemd-managed) and `~/.gnupg/S.gpg-agent` (traditional). Stale sockets (no live listener) are skipped during detection.
 - Mounts the socket at `/home/warden/.gnupg/S.gpg-agent` (the default gpg socket location, so gpg finds it automatically)
 
 Private keys never enter the container. Signing requests are forwarded to the host's gpg-agent via the socket.
+
+GPG works reliably on Linux. On Docker Desktop (macOS), the socket mount requires manual file sharing configuration in Docker Desktop settings -- Docker Desktop does not provide a built-in GPG agent proxy like it does for SSH. Warden logs a warning when GPG forwarding is attempted on Docker Desktop without the necessary file sharing. On Windows, GPG uses Assuan pipes instead of Unix sockets, so this item is not available.
 
 ## Custom items
 

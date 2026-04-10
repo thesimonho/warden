@@ -13,12 +13,25 @@ import (
 // Name is the identifier for the Docker container runtime.
 const Name = "docker"
 
+// DesktopSSHAgentProxy is the VM-internal path where Docker Desktop
+// proxies the host's SSH agent. This path exists inside Docker Desktop's
+// Linux VM on all platforms (macOS, Linux, Windows) and is always
+// available when Docker Desktop is running. It does not go through
+// the VM's filesystem layer, bypassing socket mount failures.
+const DesktopSSHAgentProxy = "/run/host-services/ssh-auth.sock"
+
 // Info describes the detected Docker runtime status.
 type Info struct {
 	// Name is the runtime identifier ("docker").
 	Name string `json:"name"`
 	// Available indicates whether the Docker API socket is reachable.
 	Available bool `json:"available"`
+	// IsDesktop indicates whether the Docker runtime is Docker Desktop
+	// (as opposed to native Docker Engine, Colima, OrbStack, etc.).
+	// Detected via the OperatingSystem field from the Docker API info
+	// endpoint, which returns "Docker Desktop" for all Docker Desktop
+	// installations regardless of host OS.
+	IsDesktop bool `json:"isDesktop"`
 	// SocketPath is the filesystem path to the Docker API socket.
 	SocketPath string `json:"socketPath"`
 	// Version is Docker's reported API version, if available.
@@ -44,23 +57,31 @@ func SocketHost(socketPath string) string {
 }
 
 // probeSocket attempts to connect to the Docker API at the given socket path
-// and returns the API version if successful.
-func probeSocket(ctx context.Context, socketPath string) (string, error) {
+// and returns the API version and whether the runtime is Docker Desktop.
+func probeSocket(ctx context.Context, socketPath string) (version string, isDesktop bool, err error) {
 	cli, err := client.NewClientWithOpts(
 		client.WithHost(SocketHost(socketPath)),
 		client.WithAPIVersionNegotiation(),
 	)
 	if err != nil {
-		return "", fmt.Errorf("creating client for %s: %w", socketPath, err)
+		return "", false, fmt.Errorf("creating client for %s: %w", socketPath, err)
 	}
 	defer cli.Close() //nolint:errcheck
 
-	ping, err := cli.Ping(ctx)
-	if err != nil {
-		return "", fmt.Errorf("pinging %s: %w", socketPath, err)
+	ping, pingErr := cli.Ping(ctx)
+	if pingErr != nil {
+		return "", false, fmt.Errorf("pinging %s: %w", socketPath, pingErr)
 	}
 
-	return ping.APIVersion, nil
+	// Check OperatingSystem to detect Docker Desktop. This is reliable
+	// across all platforms — Docker Desktop always reports "Docker Desktop"
+	// regardless of host OS.
+	info, infoErr := cli.Info(ctx)
+	if infoErr == nil {
+		isDesktop = strings.HasPrefix(info.OperatingSystem, "Docker Desktop")
+	}
+
+	return ping.APIVersion, isDesktop, nil
 }
 
 // probeBinary checks whether the docker binary is installed and returns its
@@ -86,11 +107,12 @@ func Detect(ctx context.Context) Info {
 	info := Info{Name: Name}
 
 	for _, socketPath := range socketCandidates() {
-		version, err := probeSocket(ctx, socketPath)
+		ver, desktop, err := probeSocket(ctx, socketPath)
 		if err == nil {
 			info.Available = true
 			info.SocketPath = socketPath
-			info.Version = version
+			info.Version = ver
+			info.IsDesktop = desktop
 			return info
 		}
 	}
@@ -104,8 +126,3 @@ func Detect(ctx context.Context) Info {
 	return info
 }
 
-// SocketPath returns the first reachable Docker socket path,
-// or an empty string if no socket is found (allowing fallback to client.FromEnv).
-func SocketPath(ctx context.Context) string {
-	return Detect(ctx).SocketPath
-}

@@ -10,15 +10,17 @@ const (
 	BuiltInIDGPG = "gpg"
 )
 
-// containerSSHAgentPath is the fixed path where the host's SSH agent
-// socket is mounted inside the container.
-const containerSSHAgentPath = "/run/ssh-agent.sock"
+// ContainerSSHAgentPath is the fixed path where the host's SSH agent
+// socket is mounted inside the container. Exported so the service layer
+// can identify SSH socket mounts when applying Docker Desktop overrides.
+const ContainerSSHAgentPath = "/run/ssh-agent.sock"
 
-// containerGPGAgentPath is the fixed path where the host's GPG agent
+// ContainerGPGAgentPath is the fixed path where the host's GPG agent
 // socket is mounted inside the container. Placed at the default gpg
 // socket location (~/.gnupg/S.gpg-agent) so gpg finds it automatically
-// without needing env var overrides or extra configuration.
-const containerGPGAgentPath = constants.ContainerHomeDir + "/.gnupg/S.gpg-agent"
+// without needing env var overrides or extra configuration. Exported so
+// the service layer can identify GPG socket mounts for Docker Desktop warnings.
+const ContainerGPGAgentPath = constants.ContainerHomeDir + "/.gnupg/S.gpg-agent"
 
 // BuiltInGit returns the built-in Git access item. It mounts the host's
 // .gitconfig (read-only) so git commands inside the container use the
@@ -102,7 +104,7 @@ func BuiltInGPG() Item {
 	return Item{
 		ID:          BuiltInIDGPG,
 		Label:       "GPG",
-		Description: "Forwards the gpg-agent socket so commit signing works without copying private keys.",
+		Description: "Forwards the gpg-agent socket so commit signing works without copying private keys. Requires native Docker on Linux; Docker Desktop needs manual file sharing.",
 		Method:      MethodTransport,
 		BuiltIn:     true,
 		Credentials: []Credential{

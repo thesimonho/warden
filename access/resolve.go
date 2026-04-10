@@ -3,11 +3,13 @@ package access
 import (
 	"bytes"
 	"fmt"
+	"net"
 	"os"
 	"os/exec"
 	"regexp"
 	"strings"
 	"sync"
+	"time"
 )
 
 // defaultEnvResolver is used when nil is passed to Resolve or Detect.
@@ -149,6 +151,9 @@ func trySource(src Source, env EnvResolver) (desc string, value string, ok bool)
 		if err != nil || fi.Mode().Type() != os.ModeSocket {
 			return "", "", false
 		}
+		if !probeSocket(path) {
+			return "", "", false
+		}
 		return fmt.Sprintf("socket %s", src.Value), path, true
 
 	case SourceCommand:
@@ -180,7 +185,7 @@ func detectSource(src Source, env EnvResolver) (string, bool) {
 		}
 	case SourceSocketPath:
 		path := env.ExpandEnv(src.Value)
-		if fi, err := os.Stat(path); err == nil && fi.Mode().Type() == os.ModeSocket {
+		if fi, err := os.Stat(path); err == nil && fi.Mode().Type() == os.ModeSocket && probeSocket(path) {
 			return fmt.Sprintf("socket %s", src.Value), true
 		}
 	case SourceCommand:
@@ -240,6 +245,24 @@ func buildInjection(inj Injection, resolvedValue string) ResolvedInjection {
 		Value:    value,
 		ReadOnly: inj.ReadOnly,
 	}
+}
+
+// socketProbeTimeout is the maximum time to wait when verifying a Unix
+// socket has a live listener. Kept short since these are local sockets.
+const socketProbeTimeout = 500 * time.Millisecond
+
+// probeSocket attempts a TCP-less connection to a Unix domain socket to
+// verify it has a live listener. Stale sockets (process exited, systemd
+// unit stopped) remain on disk as regular socket files but have no
+// listener — os.Stat passes but the mount will fail at container
+// creation time. A quick dial catches this early.
+func probeSocket(path string) bool {
+	conn, err := net.DialTimeout("unix", path, socketProbeTimeout)
+	if err != nil {
+		return false
+	}
+	_ = conn.Close()
+	return true
 }
 
 // expandHome replaces a leading ~ with the user's home directory.

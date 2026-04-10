@@ -67,6 +67,10 @@ type Warden struct {
 	// API server and database are still functional.
 	DockerAvailable bool
 
+	// DockerDesktop indicates whether the Docker runtime is Docker Desktop.
+	// Exposed so frontends can display runtime-specific guidance.
+	DockerDesktop bool
+
 	livenessCancel context.CancelFunc
 	closeOnce      sync.Once
 }
@@ -97,26 +101,37 @@ func New(opts Options) (*Warden, error) {
 	agentRegistry.Register(agent.ClaudeCode, claudecode.NewProvider())
 	agentRegistry.Register(agent.Codex, codex.NewProvider())
 
-	socketPath := docker.SocketPath(context.Background())
-	engineClient, err := engine.NewClient(socketPath, agentRegistry)
+	// Detect Docker once — determines socket path, availability, and
+	// whether the runtime is Docker Desktop (VM-based).
+	dockerInfo := docker.Detect(context.Background())
+
+	engineClient, err := engine.NewClient(dockerInfo.SocketPath, agentRegistry)
 	if err != nil {
 		_ = database.Close()
 		return nil, err
 	}
 	engineClient.SetSeccompProfile(seccomp.ProfileJSON())
 
-	// Check whether Docker is actually reachable. The Docker SDK client
-	// is lazy — creation succeeds even without a daemon. An explicit ping
-	// determines whether container operations will work.
-	dockerAvailable := true
-	pingCtx, pingCancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer pingCancel()
-	if err := engineClient.Ping(pingCtx); err != nil {
-		dockerAvailable = false
+	// Verify the engine client can reach the daemon. docker.Detect()
+	// used a separate client — this confirms the engine's own connection.
+	dockerAvailable := dockerInfo.Available
+	if dockerAvailable {
+		pingCtx, pingCancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer pingCancel()
+		if pingErr := engineClient.Ping(pingCtx); pingErr != nil {
+			dockerAvailable = false
+			slog.Warn("Docker is not available — container operations are disabled",
+				"err", pingErr,
+				"install", "https://docs.docker.com/get-docker/",
+			)
+		}
+	} else {
 		slog.Warn("Docker is not available — container operations are disabled",
-			"err", err,
 			"install", "https://docs.docker.com/get-docker/",
 		)
+	}
+	if dockerInfo.IsDesktop {
+		slog.Info("Docker Desktop detected — socket mounts will use VM proxies")
 	}
 
 	auditModeStr := database.GetSetting("auditLogMode", "")
@@ -174,6 +189,7 @@ func New(opts Options) (*Warden, error) {
 		EventHandler:    store.HandleEvent,
 		HomeDir:         homeDir,
 		DockerAvailable: dockerAvailable,
+		IsDockerDesktop: dockerInfo.IsDesktop,
 		EnvResolver:     shellEnv,
 	})
 
@@ -191,6 +207,7 @@ func New(opts Options) (*Warden, error) {
 		Engine:          engineClient,
 		Watcher:         watcher,
 		DockerAvailable: dockerAvailable,
+		DockerDesktop:   dockerInfo.IsDesktop,
 		livenessCancel:  livenessCancel,
 	}
 

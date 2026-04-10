@@ -1,14 +1,15 @@
-//go:build linux
+//go:build !windows
 
 package access
 
 import "testing"
 
-func TestGPGAgentCredential_Linux(t *testing.T) {
+func TestGPGAgentCredential(t *testing.T) {
 	cred := gpgAgentCredential()
 
+	// Two sources: XDG runtime dir (systemd) and HOME fallback (traditional/Homebrew).
 	if len(cred.Sources) != 2 {
-		t.Fatalf("expected 2 sources (XDG + HOME fallback), got %d", len(cred.Sources))
+		t.Fatalf("expected 2 sources, got %d", len(cred.Sources))
 	}
 	if cred.Sources[0].Type != SourceSocketPath {
 		t.Errorf("expected socket source, got %s", cred.Sources[0].Type)
@@ -25,12 +26,11 @@ func TestGPGAgentCredential_Linux(t *testing.T) {
 	if mountInj.Type != InjectionMountSocket {
 		t.Errorf("expected mount_socket injection, got %s", mountInj.Type)
 	}
-	if mountInj.Key != containerGPGAgentPath {
-		t.Errorf("expected container target %q, got %q", containerGPGAgentPath, mountInj.Key)
+	if mountInj.Key != ContainerGPGAgentPath {
+		t.Errorf("expected container target %q, got %q", ContainerGPGAgentPath, mountInj.Key)
 	}
-	// On Linux, mount source is not overridden — uses the resolved
-	// socket path directly.
+	// No mount source override — Docker Desktop does not proxy GPG.
 	if mountInj.Value != "" {
-		t.Errorf("expected no mount source override on Linux, got %q", mountInj.Value)
+		t.Errorf("expected no mount source override, got %q", mountInj.Value)
 	}
 }
