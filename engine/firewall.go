@@ -17,9 +17,10 @@ import (
 const bridgeFirewallChain = "WARDEN-BRIDGE"
 
 // firewallImage is the container image used for host-network iptables
-// operations. The default Warden image already has iptables installed
-// (used for in-container network isolation).
-const firewallImage = defaultImage
+// operations. Alpine is used instead of the Warden image so the
+// firewall works before the Warden image is built or pulled (e.g.
+// first run, CI environments).
+const firewallImage = "alpine"
 
 // SetupBridgeFirewall creates the WARDEN-BRIDGE iptables chain on the
 // host and adds a jump rule from INPUT. Idempotent — safe to call on
@@ -124,23 +125,32 @@ func (ec *EngineClient) TeardownBridgeFirewall(ctx context.Context) error {
 	)
 
 	if err := ec.runHostIptables(ctx, script); err != nil {
-		slog.Warn("failed to tear down bridge firewall chain", "err", err)
+		// Debug, not Warn — teardown runs during shutdown when the slog
+		// composite handler may try to write to an already-closed audit
+		// DB. Failures here are expected (image not pulled, chain doesn't
+		// exist) and harmless.
+		slog.Debug("failed to tear down bridge firewall chain", "err", err)
 		return nil
 	}
 
-	slog.Info("bridge firewall chain removed")
+	slog.Debug("bridge firewall chain removed")
 	return nil
 }
 
-// runHostIptables runs a shell command inside a short-lived container
-// with host networking and NET_ADMIN capability. This modifies the
-// HOST's iptables rules (not the container's).
+// runHostIptables runs a shell command inside a short-lived Alpine
+// container with host networking and NET_ADMIN capability. This
+// modifies the HOST's iptables rules (not the container's). The
+// iptables package is installed on each invocation (~1s overhead)
+// since each call uses a fresh container.
 func (ec *EngineClient) runHostIptables(ctx context.Context, shellCmd string) error {
+	// Prepend iptables install — Alpine doesn't include it by default.
+	fullCmd := "apk add --no-cache iptables >/dev/null 2>&1 && " + shellCmd
+
 	resp, err := ec.api.ContainerCreate(ctx,
 		&container.Config{
 			Image:      firewallImage,
 			Entrypoint: []string{"sh"},
-			Cmd:        []string{"-c", shellCmd},
+			Cmd:        []string{"-c", fullCmd},
 		},
 		&container.HostConfig{
 			AutoRemove:  true,
