@@ -59,6 +59,8 @@ func resolveMount(m api.Mount) ([]api.Mount, error) {
 		resolved, err := filepath.EvalSymlinks(m.HostPath)
 		if err != nil {
 			// Broken or circular symlink — pass through as-is.
+			slog.Warn("mount symlink target unresolvable, passing through without resolution",
+				"path", m.HostPath, "error", err)
 			return []api.Mount{m}, nil
 		}
 
@@ -137,7 +139,11 @@ func walkForExternalSymlinks(parent api.Mount) ([]api.Mount, error) {
 		// Resolve the symlink chain.
 		resolved, err := filepath.EvalSymlinks(path)
 		if err != nil {
-			// Broken or circular symlink — skip gracefully.
+			// Broken or circular symlink — the overlay mount that would
+			// protect this symlink from the entrypoint's cp cannot be
+			// created. Log so the failure is visible in diagnostics.
+			slog.Warn("symlink target unresolvable, overlay mount will be missing",
+				"path", path, "error", err)
 			return nil
 		}
 
