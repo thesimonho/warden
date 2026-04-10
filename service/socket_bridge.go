@@ -117,8 +117,11 @@ func (s *Service) stopAllSocketBridges() {
 	}
 }
 
-// proxy connects a TCP client to the host Unix socket and copies data
-// bidirectionally until either side closes.
+// proxy connects a TCP client to the host socket and copies data
+// bidirectionally. When one direction's copy finishes (EOF or error),
+// it half-closes the write side of the opposite connection so the
+// other goroutine's Read unblocks promptly. Without half-close, proxy
+// goroutines would hang until the connection is closed externally.
 func (b *socketBridge) proxy(tcpConn net.Conn) {
 	defer func() { _ = tcpConn.Close() }()
 
@@ -136,12 +139,26 @@ func (b *socketBridge) proxy(tcpConn net.Conn) {
 	go func() {
 		defer copyWg.Done()
 		_, _ = io.Copy(hostConn, tcpConn)
+		closeWrite(hostConn)
 	}()
 
 	go func() {
 		defer copyWg.Done()
 		_, _ = io.Copy(tcpConn, hostConn)
+		closeWrite(tcpConn)
 	}()
 
 	copyWg.Wait()
+}
+
+// closeWrite performs a half-close on connections that support it
+// (TCP and Unix sockets). This signals EOF to the reader on the
+// other end without tearing down the full connection.
+func closeWrite(c net.Conn) {
+	type writeCloser interface {
+		CloseWrite() error
+	}
+	if wc, ok := c.(writeCloser); ok {
+		_ = wc.CloseWrite()
+	}
 }

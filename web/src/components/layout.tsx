@@ -30,6 +30,8 @@ export default function Layout() {
   const { preference, setPreference, resolvedTheme } = useTheme()
   // Status-only — Layout owns the server_stopped overlay.
   const sseStatus = useEventSource({})
+  // useRef (not localStorage): this toast should fire on every server
+  // restart within the same browser session, not persist across reloads.
   const prevSseStatus = useRef(sseStatus)
 
   // Show a persistent toast when the server restarts while containers are

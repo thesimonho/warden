@@ -9,6 +9,8 @@
 // the recipes that describe how to obtain and inject them.
 package access
 
+import "time"
+
 // SourceType describes where a credential value lives on the host.
 type SourceType string
 
@@ -26,6 +28,10 @@ const (
 	// to verify it has a listener.
 	SourceNamedPipe SourceType = "named_pipe"
 )
+
+// ProbeTimeout is the maximum time to wait when verifying a host socket
+// or named pipe has a live listener. Kept short since these are local.
+const ProbeTimeout = 500 * time.Millisecond
 
 // InjectionType describes how a resolved credential is delivered into
 // the container.

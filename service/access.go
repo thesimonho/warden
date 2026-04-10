@@ -384,7 +384,7 @@ func (s *Service) startSocketBridges(req *api.CreateContainerRequest) []*socketB
 	}
 
 	var bridges []*socketBridge
-	for i, spec := range req.SocketBridges {
+	for _, spec := range req.SocketBridges {
 		bridge, err := startSocketBridge(s.bridgeIP, spec.HostPath, spec.ContainerPath)
 		if err != nil {
 			slog.Warn("failed to start socket bridge, skipping",
@@ -398,7 +398,7 @@ func (s *Service) startSocketBridges(req *api.CreateContainerRequest) []*socketB
 		// Each env var tells the entrypoint: PORT:CONTAINER_PATH.
 		// The entrypoint starts socat to forward from the container socket
 		// to host.docker.internal:PORT.
-		envKey := fmt.Sprintf("WARDEN_BRIDGE_%d", i)
+		envKey := fmt.Sprintf("WARDEN_BRIDGE_%d", len(bridges)-1)
 		req.EnvVars[envKey] = fmt.Sprintf("%d:%s", bridge.Port(), spec.ContainerPath)
 	}
 

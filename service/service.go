@@ -15,6 +15,7 @@ import (
 	"github.com/thesimonho/warden/access"
 	"github.com/thesimonho/warden/agent"
 	"github.com/thesimonho/warden/db"
+	"github.com/thesimonho/warden/docker"
 	"github.com/thesimonho/warden/engine"
 	"github.com/thesimonho/warden/event"
 	"github.com/thesimonho/warden/eventbus"
@@ -46,6 +47,10 @@ type ServiceDeps struct {
 	// detection and resolution. When nil, a default ProcessEnvResolver
 	// is used (direct os.LookupEnv delegation).
 	EnvResolver access.EnvResolver
+
+	// DockerInfo caches the Docker runtime info detected at startup.
+	// Used by ListRuntimes to avoid re-detecting on every API call.
+	DockerInfo docker.Info
 
 	// BridgeIP is the host IP reachable from containers via
 	// host.docker.internal. Used as the listen address for socket
@@ -81,6 +86,9 @@ type Service struct {
 	// dockerAvailable indicates whether Docker was reachable at startup.
 	// When false, container-mutating operations return ErrDockerUnavailable.
 	dockerAvailable bool
+
+	// dockerInfo caches the Docker runtime info from startup.
+	dockerInfo docker.Info
 
 	// bridgeIP is the host IP reachable from containers. Bridge TCP
 	// listeners bind to this address so containers can connect via
@@ -136,6 +144,7 @@ func New(deps ServiceDeps) *Service {
 		workingDir:              wd,
 		envResolver:             envResolver,
 		dockerAvailable:         deps.DockerAvailable,
+		dockerInfo:              deps.DockerInfo,
 		bridgeIP:                deps.BridgeIP,
 		socketBridges:          make(map[string][]*socketBridge),
 		sessionWatchers:         make(map[db.ProjectAgentKey]*agent.SessionWatcher),

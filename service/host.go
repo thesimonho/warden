@@ -213,7 +213,7 @@ func (s *Service) RevealInFileManager(path string) error {
 	return nil
 }
 
-// ListRuntimes returns available container runtimes.
-func (s *Service) ListRuntimes(ctx context.Context) docker.Info {
-	return docker.Detect(ctx)
+// ListRuntimes returns the Docker runtime info cached at startup.
+func (s *Service) ListRuntimes(_ context.Context) docker.Info {
+	return s.dockerInfo
 }

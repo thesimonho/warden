@@ -9,7 +9,6 @@ import (
 	"regexp"
 	"strings"
 	"sync"
-	"time"
 )
 
 // defaultEnvResolver is used when nil is passed to Resolve or Detect.
@@ -257,17 +256,13 @@ func buildInjection(inj Injection, resolvedValue string) ResolvedInjection {
 	}
 }
 
-// socketProbeTimeout is the maximum time to wait when verifying a Unix
-// socket has a live listener. Kept short since these are local sockets.
-const socketProbeTimeout = 500 * time.Millisecond
-
 // probeSocket attempts a TCP-less connection to a Unix domain socket to
 // verify it has a live listener. Stale sockets (process exited, systemd
 // unit stopped) remain on disk as regular socket files but have no
 // listener — os.Stat passes but the mount will fail at container
 // creation time. A quick dial catches this early.
 func probeSocket(path string) bool {
-	conn, err := net.DialTimeout("unix", path, socketProbeTimeout)
+	conn, err := net.DialTimeout("unix", path, ProbeTimeout)
 	if err != nil {
 		return false
 	}
