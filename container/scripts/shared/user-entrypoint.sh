@@ -134,6 +134,34 @@ for config_dir in /home/warden/.claude /home/warden/.codex; do
 done
 
 # -------------------------------------------------------------------
+# Socket bridges: connect to host agent sockets via TCP bridge.
+#
+# Warden proxies host Unix sockets (SSH agent, GPG agent) through a
+# TCP bridge on the host side. Each WARDEN_BRIDGE_* env var contains
+# PORT:CONTAINER_PATH. socat creates a Unix socket at CONTAINER_PATH
+# that forwards to host.docker.internal:PORT, where Warden's TCP proxy
+# connects it to the actual host socket.
+#
+# This works identically on native Docker and Docker Desktop — no
+# direct socket mounts needed.
+# -------------------------------------------------------------------
+for var in $(env | grep '^WARDEN_BRIDGE_' | sort); do
+  value="${var#*=}"
+  port="${value%%:*}"
+  container_path="${value#*:}"
+  if [ -n "$port" ] && [ -n "$container_path" ]; then
+    parent_dir=$(dirname "$container_path")
+    mkdir -p "$parent_dir"
+    chmod 700 "$parent_dir"
+    rm -f "$container_path"
+    nohup socat \
+      "UNIX-LISTEN:${container_path},fork,mode=600" \
+      "TCP:host.docker.internal:${port}" \
+      >/dev/null 2>&1 &
+  fi
+done
+
+# -------------------------------------------------------------------
 # Terminal tracking directory — ephemeral, reset on every startup.
 # Each worktree with an active terminal gets a subdirectory containing
 # its port number and attention state. Stale entries are harmless and
