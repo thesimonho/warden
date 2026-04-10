@@ -54,6 +54,11 @@ import { Card, CardGrid } from "@astrojs/starlight/components";
 		runtimes (Python, Go, Rust, Ruby, Lua) are auto-detected and open only the
 		required package registry domains.
 	</Card>
+	<Card title="Credential passthrough" icon="approve-check-circle">
+		Share Git config, SSH agent, GPG signing, and custom credentials with
+		containers without storing secrets. SSH and GPG agent forwarding works
+		across all platforms and Docker runtimes via built-in TCP bridge proxies.
+	</Card>
 	<Card title="Real-time agent status" icon="information">
 		Idle, working, needs permission, needs input, needs answer — across every
 		agent at a glance. Per-project cost tracking with configurable budget
