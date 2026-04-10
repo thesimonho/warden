@@ -118,17 +118,23 @@ fi
 # because the target directory (/nix/store/...) is read-only and
 # temp file creation is blocked.
 #
-# Fix: replace symlinks with copies of their content. The Docker
-# bind mount already resolves the symlink target (verified via
-# /proc/mounts), but atomic writes need a writable parent directory.
-# Copying dereferences the symlink so writes go to the container's
-# writable layer. Host config changes require container recreation.
+# The Go server's symlink resolver normally adds a file overlay mount
+# that hides these symlinks, so they never appear here. If a symlink
+# IS visible, the overlay mount is missing — and replacing it with
+# cp --remove-destination would write through the directory bind mount
+# to the host, destroying the original managed symlink. Only
+# dereference when the target's parent directory is writable.
 # -------------------------------------------------------------------
 for config_dir in /home/warden/.claude /home/warden/.codex; do
   [ -d "$config_dir" ] || continue
   find "$config_dir" -maxdepth 1 -type l 2>/dev/null | while IFS= read -r link; do
     target=$(readlink -f "$link" 2>/dev/null) || continue
     [ -f "$target" ] || continue
+    target_dir=$(dirname "$target")
+    if [ ! -w "$target_dir" ]; then
+      echo "[warden] warning: skipping symlink dereference for $(basename "$link") — target is in read-only directory $target_dir (overlay mount may be missing)" >&2
+      continue
+    fi
     cp --remove-destination "$target" "$link" 2>/dev/null || true
   done
 done
