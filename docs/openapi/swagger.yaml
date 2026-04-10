@@ -187,12 +187,14 @@ components:
       - file
       - socket
       - command
+      - named_pipe
       type: string
       x-enum-varnames:
       - SourceEnvVar
       - SourceFilePath
       - SourceSocketPath
       - SourceCommand
+      - SourceNamedPipe
     access.Transform:
       description: Transform is an optional processing step applied to the resolved
         value.
@@ -1089,6 +1091,14 @@ components:
         available:
           description: Available indicates whether the Docker API socket is reachable.
           type: boolean
+        bridgeIP:
+          description: |-
+            BridgeIP is the host IP address reachable from containers via
+            host.docker.internal. On Docker Desktop this is 127.0.0.1 (the
+            VM's NAT forwards to host loopback). On native Docker it's the
+            bridge network gateway (e.g. 172.17.0.1). Used as the listen
+            address for socket bridge TCP proxies.
+          type: string
         isDesktop:
           description: |-
             IsDesktop indicates whether the Docker runtime is Docker Desktop

@@ -67,7 +67,7 @@ Returns all access items (built-in + user-created) enriched with per-credential 
 
       - **`type`**
 
-        `string`, possible values: `"env", "file", "socket", "command"` — Type is the kind of host source.
+        `string`, possible values: `"env", "file", "socket", "command", "named_pipe"` — Type is the kind of host source.
 
       - **`value`**
 
@@ -245,7 +245,7 @@ Creates a new user-defined access item with the given label, description, and cr
 
     - **`type`**
 
-      `string`, possible values: `"env", "file", "socket", "command"` — Type is the kind of host source.
+      `string`, possible values: `"env", "file", "socket", "command", "named_pipe"` — Type is the kind of host source.
 
     - **`value`**
 
@@ -327,7 +327,7 @@ Creates a new user-defined access item with the given label, description, and cr
 
     - **`type`**
 
-      `string`, possible values: `"env", "file", "socket", "command"` — Type is the kind of host source.
+      `string`, possible values: `"env", "file", "socket", "command", "named_pipe"` — Type is the kind of host source.
 
     - **`value`**
 
@@ -476,7 +476,7 @@ Returns a single access item with detection status. For built-in items, returns 
 
     - **`type`**
 
-      `string`, possible values: `"env", "file", "socket", "command"` — Type is the kind of host source.
+      `string`, possible values: `"env", "file", "socket", "command", "named_pipe"` — Type is the kind of host source.
 
     - **`value`**
 
@@ -651,7 +651,7 @@ Updates an access item. For built-in items, saves a customized copy to the DB (o
 
     - **`type`**
 
-      `string`, possible values: `"env", "file", "socket", "command"` — Type is the kind of host source.
+      `string`, possible values: `"env", "file", "socket", "command", "named_pipe"` — Type is the kind of host source.
 
     - **`value`**
 
@@ -733,7 +733,7 @@ Updates an access item. For built-in items, saves a customized copy to the DB (o
 
     - **`type`**
 
-      `string`, possible values: `"env", "file", "socket", "command"` — Type is the kind of host source.
+      `string`, possible values: `"env", "file", "socket", "command", "named_pipe"` — Type is the kind of host source.
 
     - **`value`**
 
@@ -867,7 +867,7 @@ Restores a built-in access item to its default configuration by removing any DB 
 
     - **`type`**
 
-      `string`, possible values: `"env", "file", "socket", "command"` — Type is the kind of host source.
+      `string`, possible values: `"env", "file", "socket", "command", "named_pipe"` — Type is the kind of host source.
 
     - **`value`**
 
@@ -1006,7 +1006,7 @@ Resolves the given access items by checking host sources and computing the injec
 
       - **`type`**
 
-        `string`, possible values: `"env", "file", "socket", "command"` — Type is the kind of host source.
+        `string`, possible values: `"env", "file", "socket", "command", "named_pipe"` — Type is the kind of host source.
 
       - **`value`**
 

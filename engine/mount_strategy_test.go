@@ -5,8 +5,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/docker/docker/api/types/mount"
-
 	"github.com/thesimonho/warden/api"
 )
 
@@ -71,82 +69,6 @@ func TestBuildBindMounts(t *testing.T) {
 		}
 		if len(binds) != 1 {
 			t.Fatalf("expected 1 bind, got %d", len(binds))
-		}
-	})
-}
-
-func TestBuildSocketMounts(t *testing.T) {
-	t.Run("nil input returns nil", func(t *testing.T) {
-		result := buildSocketMounts(nil)
-		if result != nil {
-			t.Fatalf("expected nil, got %d mounts", len(result))
-		}
-	})
-
-	t.Run("converts to structured bind mounts", func(t *testing.T) {
-		mounts := []api.Mount{
-			{HostPath: "/run/host-services/ssh-auth.sock", ContainerPath: "/run/ssh-agent.sock"},
-		}
-		result := buildSocketMounts(mounts)
-		if len(result) != 1 {
-			t.Fatalf("expected 1 mount, got %d", len(result))
-		}
-		if result[0].Type != mount.TypeBind {
-			t.Errorf("expected TypeBind, got %s", result[0].Type)
-		}
-		if result[0].Source != "/run/host-services/ssh-auth.sock" {
-			t.Errorf("expected proxy source, got %s", result[0].Source)
-		}
-		if result[0].Target != "/run/ssh-agent.sock" {
-			t.Errorf("expected container target, got %s", result[0].Target)
-		}
-		if result[0].ReadOnly {
-			t.Error("expected read-write (connect() requires write permission on Unix sockets)")
-		}
-	})
-}
-
-func TestFindFailingMount(t *testing.T) {
-	t.Parallel()
-
-	mounts := []mount.Mount{
-		{Type: mount.TypeBind, Source: "/run/user/1000/gnupg/S.gpg-agent", Target: "/home/warden/.gnupg/S.gpg-agent"},
-		{Type: mount.TypeBind, Source: "/run/user/1000/ssh-agent.socket", Target: "/run/ssh-agent.sock"},
-	}
-
-	t.Run("matches first mount", func(t *testing.T) {
-		t.Parallel()
-		err := fmt.Errorf("invalid mount config for type \"bind\": bind source path does not exist: /run/user/1000/gnupg/S.gpg-agent")
-		idx := findFailingMount(err, mounts)
-		if idx != 0 {
-			t.Errorf("expected index 0, got %d", idx)
-		}
-	})
-
-	t.Run("matches second mount", func(t *testing.T) {
-		t.Parallel()
-		err := fmt.Errorf("invalid mount config for type \"bind\": bind source path does not exist: /run/user/1000/ssh-agent.socket")
-		idx := findFailingMount(err, mounts)
-		if idx != 1 {
-			t.Errorf("expected index 1, got %d", idx)
-		}
-	})
-
-	t.Run("no match returns -1", func(t *testing.T) {
-		t.Parallel()
-		err := fmt.Errorf("some other mount error")
-		idx := findFailingMount(err, mounts)
-		if idx != -1 {
-			t.Errorf("expected -1, got %d", idx)
-		}
-	})
-
-	t.Run("empty mounts returns -1", func(t *testing.T) {
-		t.Parallel()
-		err := fmt.Errorf("bind source path does not exist: /run/user/1000/ssh-agent.socket")
-		idx := findFailingMount(err, nil)
-		if idx != -1 {
-			t.Errorf("expected -1, got %d", idx)
 		}
 	})
 }

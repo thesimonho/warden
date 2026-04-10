@@ -64,6 +64,7 @@ const SOURCE_TYPE_LABELS: Record<AccessSourceType, string> = {
   env: 'Env Var',
   file: 'File',
   socket: 'Socket',
+  named_pipe: 'Named Pipe',
   command: 'Command',
 }
 

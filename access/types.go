@@ -9,6 +9,8 @@
 // the recipes that describe how to obtain and inject them.
 package access
 
+import "time"
+
 // SourceType describes where a credential value lives on the host.
 type SourceType string
 
@@ -21,7 +23,15 @@ const (
 	SourceSocketPath SourceType = "socket"
 	// SourceCommand runs a host command and captures stdout.
 	SourceCommand SourceType = "command"
+	// SourceNamedPipe references a Windows named pipe on the host
+	// (e.g. \\.\pipe\openssh-ssh-agent). Detection dials the pipe
+	// to verify it has a listener.
+	SourceNamedPipe SourceType = "named_pipe"
 )
+
+// ProbeTimeout is the maximum time to wait when verifying a host socket
+// or named pipe has a live listener. Kept short since these are local.
+const ProbeTimeout = 500 * time.Millisecond
 
 // InjectionType describes how a resolved credential is delivered into
 // the container.
@@ -32,8 +42,9 @@ const (
 	InjectionEnvVar InjectionType = "env"
 	// InjectionMountFile bind-mounts a host file into the container.
 	InjectionMountFile InjectionType = "mount_file"
-	// InjectionMountSocket bind-mounts a Unix domain socket into the
-	// container.
+	// InjectionMountSocket signals that a Unix domain socket should be
+	// forwarded into the container. The service layer bridges the host
+	// socket via a TCP proxy; socat in the container recreates it.
 	InjectionMountSocket InjectionType = "mount_socket"
 )
 
@@ -44,7 +55,7 @@ type Method string
 
 const (
 	// MethodTransport extracts a credential on the host and injects it
-	// directly into the container (env var, bind mount, or socket mount).
+	// directly into the container (env var, bind mount, or socket bridge).
 	MethodTransport Method = "transport"
 )
 

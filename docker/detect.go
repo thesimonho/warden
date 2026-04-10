@@ -7,18 +7,12 @@ import (
 	"os/exec"
 	"strings"
 
+	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/client"
 )
 
 // Name is the identifier for the Docker container runtime.
 const Name = "docker"
-
-// DesktopSSHAgentProxy is the VM-internal path where Docker Desktop
-// proxies the host's SSH agent. This path exists inside Docker Desktop's
-// Linux VM on all platforms (macOS, Linux, Windows) and is always
-// available when Docker Desktop is running. It does not go through
-// the VM's filesystem layer, bypassing socket mount failures.
-const DesktopSSHAgentProxy = "/run/host-services/ssh-auth.sock"
 
 // Info describes the detected Docker runtime status.
 type Info struct {
@@ -36,6 +30,12 @@ type Info struct {
 	SocketPath string `json:"socketPath"`
 	// Version is Docker's reported API version, if available.
 	Version string `json:"version,omitempty"`
+	// BridgeIP is the host IP address reachable from containers via
+	// host.docker.internal. On Docker Desktop this is 127.0.0.1 (the
+	// VM's NAT forwards to host loopback). On native Docker it's the
+	// bridge network gateway (e.g. 172.17.0.1). Used as the listen
+	// address for socket bridge TCP proxies.
+	BridgeIP string `json:"bridgeIP,omitempty"`
 }
 
 // socketCandidates returns platform-specific Docker socket paths (build-tagged).
@@ -56,32 +56,68 @@ func SocketHost(socketPath string) string {
 	return "unix://" + socketPath
 }
 
+// probeResult holds the outcome of a Docker socket probe.
+type probeResult struct {
+	Version   string
+	IsDesktop bool
+	BridgeIP  string
+}
+
 // probeSocket attempts to connect to the Docker API at the given socket path
-// and returns the API version and whether the runtime is Docker Desktop.
-func probeSocket(ctx context.Context, socketPath string) (version string, isDesktop bool, err error) {
+// and returns runtime details including version, Desktop detection, and the
+// bridge network gateway IP.
+func probeSocket(ctx context.Context, socketPath string) (probeResult, error) {
 	cli, err := client.NewClientWithOpts(
 		client.WithHost(SocketHost(socketPath)),
 		client.WithAPIVersionNegotiation(),
 	)
 	if err != nil {
-		return "", false, fmt.Errorf("creating client for %s: %w", socketPath, err)
+		return probeResult{}, fmt.Errorf("creating client for %s: %w", socketPath, err)
 	}
 	defer cli.Close() //nolint:errcheck
 
 	ping, pingErr := cli.Ping(ctx)
 	if pingErr != nil {
-		return "", false, fmt.Errorf("pinging %s: %w", socketPath, pingErr)
+		return probeResult{}, fmt.Errorf("pinging %s: %w", socketPath, pingErr)
 	}
+
+	result := probeResult{Version: ping.APIVersion}
 
 	// Check OperatingSystem to detect Docker Desktop. This is reliable
 	// across all platforms — Docker Desktop always reports "Docker Desktop"
 	// regardless of host OS.
 	info, infoErr := cli.Info(ctx)
 	if infoErr == nil {
-		isDesktop = strings.HasPrefix(info.OperatingSystem, "Docker Desktop")
+		result.IsDesktop = strings.HasPrefix(info.OperatingSystem, "Docker Desktop")
 	}
 
-	return ping.APIVersion, isDesktop, nil
+	// Determine the host IP reachable from containers. On Docker Desktop
+	// the VM's NAT forwards host.docker.internal to 127.0.0.1. On native
+	// Docker, containers reach the host via the bridge network gateway.
+	if result.IsDesktop {
+		result.BridgeIP = "127.0.0.1"
+	} else {
+		result.BridgeIP = detectBridgeGateway(ctx, cli)
+	}
+
+	return result, nil
+}
+
+// detectBridgeGateway queries the Docker "bridge" network for its gateway IP.
+// Falls back to 172.17.0.1 (the Docker default) if the query fails.
+func detectBridgeGateway(ctx context.Context, cli *client.Client) string {
+	const fallbackGateway = "172.17.0.1"
+
+	network, err := cli.NetworkInspect(ctx, "bridge", network.InspectOptions{})
+	if err != nil {
+		return fallbackGateway
+	}
+	for _, cfg := range network.IPAM.Config {
+		if cfg.Gateway != "" {
+			return cfg.Gateway
+		}
+	}
+	return fallbackGateway
 }
 
 // probeBinary checks whether the docker binary is installed and returns its
@@ -107,12 +143,13 @@ func Detect(ctx context.Context) Info {
 	info := Info{Name: Name}
 
 	for _, socketPath := range socketCandidates() {
-		ver, desktop, err := probeSocket(ctx, socketPath)
+		result, err := probeSocket(ctx, socketPath)
 		if err == nil {
 			info.Available = true
 			info.SocketPath = socketPath
-			info.Version = ver
-			info.IsDesktop = desktop
+			info.Version = result.Version
+			info.IsDesktop = result.IsDesktop
+			info.BridgeIP = result.BridgeIP
 			return info
 		}
 	}

@@ -15,6 +15,7 @@ import (
 	"github.com/thesimonho/warden/access"
 	"github.com/thesimonho/warden/agent"
 	"github.com/thesimonho/warden/db"
+	"github.com/thesimonho/warden/docker"
 	"github.com/thesimonho/warden/engine"
 	"github.com/thesimonho/warden/event"
 	"github.com/thesimonho/warden/eventbus"
@@ -47,10 +48,14 @@ type ServiceDeps struct {
 	// is used (direct os.LookupEnv delegation).
 	EnvResolver access.EnvResolver
 
-	// IsDockerDesktop indicates the Docker runtime is Docker Desktop
-	// (VM-based). When true, socket mounts are rewritten to use Docker
-	// Desktop's built-in proxies instead of direct host socket paths.
-	IsDockerDesktop bool
+	// DockerInfo caches the Docker runtime info detected at startup.
+	// Used by ListRuntimes to avoid re-detecting on every API call.
+	DockerInfo docker.Info
+
+	// BridgeIP is the host IP reachable from containers via
+	// host.docker.internal. Used as the listen address for socket
+	// bridge TCP proxies (SSH/GPG agent forwarding).
+	BridgeIP string
 }
 
 // Service provides business logic for all Warden operations. It is
@@ -82,9 +87,20 @@ type Service struct {
 	// When false, container-mutating operations return ErrDockerUnavailable.
 	dockerAvailable bool
 
-	// dockerDesktop indicates the Docker runtime is Docker Desktop.
-	// Used to rewrite socket mount sources to Docker Desktop proxies.
-	dockerDesktop bool
+	// dockerInfo caches the Docker runtime info from startup.
+	dockerInfo docker.Info
+
+	// bridgeIP is the host IP reachable from containers. Bridge TCP
+	// listeners bind to this address so containers can connect via
+	// host.docker.internal.
+	bridgeIP string
+
+	// socketBridges tracks active TCP→Unix socket bridges keyed by
+	// container name. Each bridge proxies TCP connections to a host
+	// Unix socket so containers can reach host agents (SSH, GPG)
+	// via host.docker.internal.
+	socketBridges   map[string][]*socketBridge
+	socketBridgesMu sync.Mutex
 
 	// Session watcher state — one watcher per project+agent, keyed by compound key.
 	sessionWatchers         map[db.ProjectAgentKey]*agent.SessionWatcher
@@ -128,7 +144,9 @@ func New(deps ServiceDeps) *Service {
 		workingDir:              wd,
 		envResolver:             envResolver,
 		dockerAvailable:         deps.DockerAvailable,
-		dockerDesktop:         deps.IsDockerDesktop,
+		dockerInfo:              deps.DockerInfo,
+		bridgeIP:                deps.BridgeIP,
+		socketBridges:          make(map[string][]*socketBridge),
 		sessionWatchers:         make(map[db.ProjectAgentKey]*agent.SessionWatcher),
 		sessionWatcherCooldowns: make(map[db.ProjectAgentKey]time.Time),
 		costFallbackNegCache:    make(map[db.ProjectAgentKey]time.Time),

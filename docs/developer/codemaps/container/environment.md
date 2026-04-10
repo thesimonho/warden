@@ -39,6 +39,7 @@ This ensures all vars passed via `docker run -e` are available in terminal sessi
 - `WARDEN_ALLOWED_DOMAINS` — comma-separated domain list for `restricted` mode (optional)
 - `WARDEN_ENABLED_RUNTIMES` — comma-separated list of enabled runtime IDs (e.g. `node,python,go`). Consumed by `install-runtimes.sh` during container startup to install language toolchains.
 - `WARDEN_CLAUDE_VERSION` / `WARDEN_CODEX_VERSION` — pinned agent CLI versions from `agent/versions.go`, used by `install-agent.sh`
+- `WARDEN_BRIDGE_0`, `WARDEN_BRIDGE_1`, ... — socket bridge specs (format `PORT:CONTAINER_PATH`). Set by the service layer's `startSocketBridges()`. The user-entrypoint starts socat processes that create Unix sockets at `CONTAINER_PATH` and forward connections to `host.docker.internal:PORT`, where Warden's TCP proxy connects to the actual host socket. Used for SSH/GPG agent forwarding.
 
 ## Install Marker
 

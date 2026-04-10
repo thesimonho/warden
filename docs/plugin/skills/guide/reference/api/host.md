@@ -308,6 +308,10 @@ Detects and returns available container runtimes with their socket paths and API
 
   `boolean` — Available indicates whether the Docker API socket is reachable.
 
+- **`bridgeIP`**
+
+  `string` — BridgeIP is the host IP address reachable from containers via host.docker.internal. On Docker Desktop this is 127.0.0.1 (the VM's NAT forwards to host loopback). On native Docker it's the bridge network gateway (e.g. 172.17.0.1). Used as the listen address for socket bridge TCP proxies.
+
 - **`isDesktop`**
 
   `boolean` — IsDesktop indicates whether the Docker runtime is Docker Desktop (as opposed to native Docker Engine, Colima, OrbStack, etc.). Detected via the OperatingSystem field from the Docker API info endpoint, which returns "Docker Desktop" for all Docker Desktop installations regardless of host OS.
@@ -329,6 +333,7 @@ Detects and returns available container runtimes with their socket paths and API
 ```json
 {
   "available": true,
+  "bridgeIP": "",
   "isDesktop": true,
   "name": "",
   "socketPath": "",

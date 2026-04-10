@@ -131,7 +131,7 @@ func New(opts Options) (*Warden, error) {
 		)
 	}
 	if dockerInfo.IsDesktop {
-		slog.Info("Docker Desktop detected — socket mounts will use VM proxies")
+		slog.Info("Docker Desktop detected — socket bridges will bind to 127.0.0.1")
 	}
 
 	auditModeStr := database.GetSetting("auditLogMode", "")
@@ -189,7 +189,8 @@ func New(opts Options) (*Warden, error) {
 		EventHandler:    store.HandleEvent,
 		HomeDir:         homeDir,
 		DockerAvailable: dockerAvailable,
-		IsDockerDesktop: dockerInfo.IsDesktop,
+		DockerInfo:      dockerInfo,
+		BridgeIP:        dockerInfo.BridgeIP,
 		EnvResolver:     shellEnv,
 	})
 

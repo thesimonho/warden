@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, Outlet } from 'react-router-dom'
 import { toast, Toaster } from 'sonner'
 import { Box, KeyRound, Settings, ShieldCheck } from 'lucide-react'
@@ -30,6 +30,25 @@ export default function Layout() {
   const { preference, setPreference, resolvedTheme } = useTheme()
   // Status-only — Layout owns the server_stopped overlay.
   const sseStatus = useEventSource({})
+  // useRef (not localStorage): this toast should fire on every server
+  // restart within the same browser session, not persist across reloads.
+  const prevSseStatus = useRef(sseStatus)
+
+  // Show a persistent toast when the server restarts while containers are
+  // running. Socket bridges (SSH/GPG agent forwarding) use ephemeral TCP
+  // ports that are lost on server restart — containers need to be recreated
+  // to re-establish them.
+  useEffect(() => {
+    const wasDown = prevSseStatus.current === 'server_stopped' || prevSseStatus.current === 'closed'
+    if (wasDown && sseStatus === 'open') {
+      toast.warning('Server restarted — recreate containers to restore SSH/GPG agent forwarding', {
+        duration: Infinity,
+        dismissible: true,
+      })
+    }
+    prevSseStatus.current = sseStatus
+  }, [sseStatus])
+
   const [settings, setSettings] = useState<DashboardSettings>(loadSettings)
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
   const [auditLogMode, setAuditLogMode] = useState<AuditLogMode>('off')

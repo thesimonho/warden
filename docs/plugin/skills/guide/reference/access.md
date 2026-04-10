@@ -24,14 +24,15 @@ Each credential has one or more **sources** (tried in order; first detected wins
 
 ### Source types
 
-| Type      | Value field contains      | Use case                            |
-| --------- | ------------------------- | ----------------------------------- |
-| `env`     | Environment variable name | Tokens and API keys in your shell   |
-| `file`    | Absolute file path        | Config files, certificates          |
-| `socket`  | Socket path (or env var)  | SSH agent, Docker socket            |
-| `command` | Shell command string      | Tokens in keychains, dynamic values |
+| Type          | Value field contains        | Use case                            |
+| ------------- | --------------------------- | ----------------------------------- |
+| `env`         | Environment variable name   | Tokens and API keys in your shell   |
+| `file`        | Absolute file path          | Config files, certificates          |
+| `socket`      | Socket path (or env var)    | SSH agent, Docker socket            |
+| `named_pipe`  | Windows named pipe path     | SSH agent on Windows                |
+| `command`     | Shell command string        | Tokens in keychains, dynamic values |
 
-Sources are tried in declaration order. The first one where the value is detected on the host is used. Remaining sources are skipped.
+Sources are tried in declaration order. The first one where the value is detected on the host is used. Remaining sources are skipped. The `named_pipe` type is only available on Windows -- it is used by the built-in SSH item to detect the OpenSSH agent named pipe (`\\.\pipe\openssh-ssh-agent`).
 
 ### Injection types
 
@@ -45,7 +46,7 @@ The `readOnly` field controls whether file mounts are read-only (recommended for
 
 ### Detection vs resolution
 
-**Detection** checks whether a credential's source exists on the host without reading its value. This is fast and non-destructive -- used to show availability status in the UI and API responses. The `GET /api/v1/access` response includes per-credential detection results. For socket sources (SSH agent, GPG agent), detection probes for a live listener -- stale or dead sockets are rejected early with a clear error instead of silently failing at container start.
+**Detection** checks whether a credential's source exists on the host without reading its value. This is fast and non-destructive -- used to show availability status in the UI and API responses. The `GET /api/v1/access` response includes per-credential detection results. For socket sources (SSH agent, GPG agent), detection probes for a live listener -- stale or dead sockets are rejected early with a clear error instead of silently failing at container start. For named pipe sources (SSH agent on Windows), detection probes the pipe for connectivity.
 
 **Resolution** reads actual values from sources and prepares injections. This happens at container creation time, immediately before the container starts. The `POST /api/v1/access/resolve` endpoint lets you test resolution without creating a container.
 
@@ -71,22 +72,20 @@ Forwards SSH config, known_hosts, and the SSH agent socket so git-over-SSH and S
 
 - Mounts `~/.ssh/config` read-only (filtered to remove `IdentitiesOnly` directives that would block the forwarded agent)
 - Mounts `~/.ssh/known_hosts` read-write (so new hosts can be added)
-- Forwards `$SSH_AUTH_SOCK` as a socket mount
+- Forwards the SSH agent via a TCP bridge: on Linux/macOS, the source is the `$SSH_AUTH_SOCK` Unix socket; on Windows, the source is the OpenSSH named pipe (`\\.\pipe\openssh-ssh-agent`)
 
-Private keys never enter the container. Signing requests are forwarded to the host's SSH agent via the socket.
+Private keys never enter the container. Signing requests are forwarded to the host's SSH agent via the bridge.
 
-On Docker Desktop (macOS and Linux), SSH agent forwarding works automatically. Warden auto-detects Docker Desktop at startup and uses Docker's built-in SSH agent proxy -- no manual file sharing configuration needed.
+Warden bridges the host SSH agent into the container via a TCP proxy -- the host socket (or named pipe on Windows) is never bind-mounted directly. The host side listens on a TCP port and proxies connections to the local socket or pipe. The container side runs a socat process that creates a Unix socket and forwards to the host's TCP port via `host.docker.internal`. This works identically on native Docker and Docker Desktop across all platforms, including Windows.
 
 ### GPG (`id: "gpg"`)
 
 Forwards the host's gpg-agent socket so git commit signing (`-S`) and GPG operations work inside the container without copying private keys.
 
 - Finds the gpg-agent socket via two source paths tried in order: `$XDG_RUNTIME_DIR/gnupg/S.gpg-agent` (systemd-managed) and `~/.gnupg/S.gpg-agent` (traditional). Stale sockets (no live listener) are skipped during detection.
-- Mounts the socket at `/home/warden/.gnupg/S.gpg-agent` (the default gpg socket location, so gpg finds it automatically)
+- Bridges the socket into the container at `/home/warden/.gnupg/S.gpg-agent` via TCP proxy (the default gpg socket location, so gpg finds it automatically)
 
-Private keys never enter the container. Signing requests are forwarded to the host's gpg-agent via the socket.
-
-GPG works reliably on Linux. On Docker Desktop (macOS), the socket mount requires manual file sharing configuration in Docker Desktop settings -- Docker Desktop does not provide a built-in GPG agent proxy like it does for SSH. Warden logs a warning when GPG forwarding is attempted on Docker Desktop without the necessary file sharing. On Windows, GPG uses Assuan pipes instead of Unix sockets, so this item is not available.
+Private keys never enter the container. Signing requests are forwarded to the host's gpg-agent via the bridge. Like SSH, the TCP bridge approach means GPG forwarding works identically on native Docker and Docker Desktop (Linux and macOS). On Windows, GPG uses Assuan pipes instead of Unix sockets, so this item is not available.
 
 ## Custom items
 
