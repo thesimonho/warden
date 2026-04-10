@@ -13,7 +13,9 @@ const (
 // ContainerSSHAgentPath is the fixed path where the SSH agent socket
 // appears inside the container. The entrypoint's socat process creates
 // this socket and forwards connections to the host via the TCP bridge.
-const ContainerSSHAgentPath = "/run/ssh-agent.sock"
+// Placed under the warden user's home directory so the entrypoint can
+// create it without root permissions.
+const ContainerSSHAgentPath = constants.ContainerHomeDir + "/.ssh/agent.sock"
 
 // ContainerGPGAgentPath is the fixed path where the GPG agent socket
 // appears inside the container. Placed at the default gpg socket

@@ -334,7 +334,7 @@ func TestDetectStaleMounts_ExtraMountsInCurrentIgnored(t *testing.T) {
 	// Append extra mounts that exist in the container but not in original_mounts.
 	// These simulate socket mounts and other non-tracked bind mounts.
 	current = append(current,
-		api.Mount{HostPath: "/run/user/1000/ssh-agent.socket", ContainerPath: "/run/ssh-agent.sock"},
+		api.Mount{HostPath: "/run/user/1000/ssh-agent.socket", ContainerPath: "/home/warden/.ssh/agent.sock"},
 		api.Mount{HostPath: "/some/cache", ContainerPath: "/cache"},
 	)
 

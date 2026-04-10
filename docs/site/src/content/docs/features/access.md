@@ -193,7 +193,7 @@ When you create or restart a container with Access Items enabled:
 
 If your AI coding agent runs with sandbox restrictions (e.g., Claude Code's sandbox mode), the sandbox must allow access to the container-local resources that Access Items create. For example:
 
-- **SSH** requires the sandbox to permit connections to the `$SSH_AUTH_SOCK` Unix socket (points to `/run/ssh-agent.sock` inside the container) and outbound access to SSH hosts (e.g., `ssh.github.com`)
+- **SSH** requires the sandbox to permit connections to the `$SSH_AUTH_SOCK` Unix socket (points to `~/.ssh/agent.sock` inside the container) and outbound access to SSH hosts (e.g., `ssh.github.com`)
 - **GPG** requires the sandbox to permit access to the gpg-agent Unix socket at `/home/warden/.gnupg/S.gpg-agent`
 
 Check your sandbox configuration first. If socket access or network calls fail despite Access Items showing as detected, the issue is likely somewhere in your sandbox settings.

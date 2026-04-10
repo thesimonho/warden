@@ -60,13 +60,10 @@ chown -R "${WARDEN_USER}:${WARDEN_USER}" "/home/${WARDEN_USER}/.ssh" 2>/dev/null
 
 # -------------------------------------------------------------------
 # Fix ownership of the SSH agent socket. Docker Desktop's proxy socket
-# at /run/host-services/ssh-auth.sock is mounted as root:root 660,
-# which the unprivileged warden user cannot connect to. chown it
-# before dropping privileges so ssh-agent forwarding works.
+# SSH agent socket chown is no longer needed — the socket bridge
+# creates sockets via socat in the user entrypoint under ~/.ssh/,
+# which the warden user already owns.
 # -------------------------------------------------------------------
-if [ -S "/run/ssh-agent.sock" ]; then
-  chown "${WARDEN_USER}:${WARDEN_USER}" "/run/ssh-agent.sock" 2>/dev/null || true
-fi
 
 # -------------------------------------------------------------------
 # Remote projects: fix workspace volume ownership. Docker creates
