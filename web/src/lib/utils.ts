@@ -16,9 +16,12 @@ export function shortenCloneURL(url: string): string {
   return match ? match[1] : url
 }
 
-/** Abbreviates /home/<user> and /Users/<user> prefixes to ~ for display. */
+/**
+ * Abbreviates /home/<user> and /Users/<user> prefixes to ~ for display.
+ * Also handles Docker Desktop's /host_mnt prefix (e.g. /host_mnt/home/simon/...).
+ */
 export function abbreviateHomePath(path: string): string {
-  return path.replace(/^\/(?:home|Users)\/[^/]+/, '~')
+  return path.replace(/^(?:\/host_mnt)?\/(?:home|Users)\/[^/]+/, '~')
 }
 
 /**

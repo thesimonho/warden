@@ -362,6 +362,9 @@ if [ "$MODE" = "restricted" ]; then
   echo "[warden] network isolation: restricted/dynamic via dnsmasq ($(echo "$ALLOWED_DOMAINS" | tr ',' ' '))"
   # Smoke test runs only on first run — the IS_RELOAD branch exits above.
   verify_firewall
+  # Flush xt_recent so the block logger doesn't report IPs from the
+  # setup phase (smoke test probe, transient blocks during ipset seeding).
+  echo / > /proc/net/xt_recent/warden_blocked 2>/dev/null || true
   touch /tmp/warden-network-ready
   exit 0
 fi

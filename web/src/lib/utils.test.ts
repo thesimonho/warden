@@ -1,8 +1,28 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { relativeTime } from '@/lib/utils'
+import { abbreviateHomePath, relativeTime } from '@/lib/utils'
 
 const FIXED_NOW = new Date('2024-06-15T12:00:00Z')
 const FIXED_NOW_SECONDS = Math.floor(FIXED_NOW.getTime() / 1000)
+
+describe('abbreviateHomePath', () => {
+  it('abbreviates /home/<user> to ~', () => {
+    expect(abbreviateHomePath('/home/simon/Projects/warden')).toBe('~/Projects/warden')
+  })
+
+  it('abbreviates /Users/<user> to ~', () => {
+    expect(abbreviateHomePath('/Users/simon/Projects/warden')).toBe('~/Projects/warden')
+  })
+
+  it('strips Docker Desktop /host_mnt prefix before abbreviating', () => {
+    expect(abbreviateHomePath('/host_mnt/home/simon/Projects/warden')).toBe('~/Projects/warden')
+    expect(abbreviateHomePath('/host_mnt/Users/simon/Projects/warden')).toBe('~/Projects/warden')
+  })
+
+  it('leaves other paths unchanged', () => {
+    expect(abbreviateHomePath('/var/lib/data')).toBe('/var/lib/data')
+    expect(abbreviateHomePath('/host_mnt/var/lib/data')).toBe('/host_mnt/var/lib/data')
+  })
+})
 
 describe('relativeTime', () => {
   beforeEach(() => {

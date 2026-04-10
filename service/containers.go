@@ -64,8 +64,14 @@ func (s *Service) CreateContainer(ctx context.Context, req api.CreateContainerRe
 		}
 	}
 
+	// Mark as recently created BEFORE starting the container so the
+	// Docker events watcher (HandleContainerStart) skips it. The start
+	// event fires inside CreateContainer, before it returns.
+	s.recentlyCreated.Store(req.Name, true)
+
 	containerID, err := s.docker.CreateContainer(ctx, req)
 	if err != nil {
+		s.recentlyCreated.Delete(req.Name)
 		for _, b := range bridges {
 			s.stopBridge(b)
 		}
@@ -84,10 +90,6 @@ func (s *Service) CreateContainer(ctx context.Context, req api.CreateContainerRe
 	// Socat creates Unix sockets at the expected paths and forwards
 	// connections to the host TCP bridge via host.docker.internal.
 	s.execSocatBridges(ctx, containerID, bridges)
-
-	// Mark as recently created so HandleContainerStart (fired by the
-	// Docker events watcher) skips redundant network isolation.
-	s.recentlyCreated.Store(containerID, true)
 
 	// Store the Docker container ID/name on the project row.
 	row.ContainerID = containerID
@@ -360,8 +362,14 @@ func (s *Service) recreateContainer(ctx context.Context, project *db.ProjectRow,
 		s.store.RemoveContainer(oldContainerName)
 	}
 
+	// Mark as recently created BEFORE starting the container so the
+	// Docker events watcher (HandleContainerStart) skips it. The start
+	// event fires inside RecreateContainer, before it returns.
+	s.recentlyCreated.Store(req.Name, true)
+
 	newID, err := s.docker.RecreateContainer(ctx, project.ContainerID, req)
 	if err != nil {
+		s.recentlyCreated.Delete(req.Name)
 		// Stop the new bridges we just started — the container wasn't created.
 		for _, b := range bridges {
 			s.stopBridge(b)
@@ -378,9 +386,6 @@ func (s *Service) recreateContainer(ctx context.Context, project *db.ProjectRow,
 
 	// Exec socat into the new container for each bridge.
 	s.execSocatBridges(ctx, newID, bridges)
-
-	// Mark as recently created so HandleContainerStart skips it.
-	s.recentlyCreated.Store(newID, true)
 
 	// Update DB row with new config and container ID.
 	row.ContainerID = newID
@@ -664,10 +669,13 @@ func reconstructRequestFromRow(project *db.ProjectRow, update api.CreateContaine
 // The actual work runs in a separate goroutine to avoid blocking the
 // events stream while waiting for installs.
 func (s *Service) HandleContainerStart(containerID, containerName string) {
-	// Skip containers just created by CreateContainer/RestartProject —
-	// they already wait for installs and apply network isolation.
-	// Truncate to 12 chars to match the format stored by those paths
-	// (Docker events provide the full 64-char ID).
+	// Skip containers just created by CreateContainer/RecreateContainer/
+	// RestartProject — they already handle network isolation and bridges.
+	// Check both container name (set before creation) and truncated ID
+	// (set after creation for RestartProject which reuses the same ID).
+	if _, created := s.recentlyCreated.LoadAndDelete(containerName); created {
+		return
+	}
 	shortID := containerID
 	if len(shortID) > 12 {
 		shortID = shortID[:12]

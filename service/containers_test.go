@@ -421,6 +421,37 @@ func TestHandleContainerStart_SkipsRecentlyCreated(t *testing.T) {
 	}
 }
 
+func TestHandleContainerStart_SkipsRecentlyCreatedByName(t *testing.T) {
+	t.Parallel()
+
+	database := testDB(t)
+	svc := New(ServiceDeps{DockerAvailable: true, Engine: &mockEngine{}, DB: database})
+
+	// Insert a project with restricted network mode.
+	row := &db.ProjectRow{
+		ProjectID:      "proj-1",
+		ContainerID:    "abc123def456",
+		ContainerName:  "my-project",
+		Name:           "my-project",
+		HostPath:       "/test/my-project",
+		NetworkMode:    "restricted",
+		AllowedDomains: "example.com",
+	}
+	insertTestProject(t, database, row)
+
+	// Mark as recently created by name (as CreateContainer/recreateContainer
+	// does before starting the container).
+	svc.recentlyCreated.Store("my-project", true)
+
+	// HandleContainerStart should skip because the name matches.
+	svc.HandleContainerStart("newid1234567", "my-project")
+
+	// The name entry should be consumed (deleted).
+	if _, loaded := svc.recentlyCreated.Load("my-project"); loaded {
+		t.Error("expected recentlyCreated name entry to be consumed after HandleContainerStart")
+	}
+}
+
 func TestHandleContainerStart_AppliesOnRestart(t *testing.T) {
 	t.Parallel()
 
