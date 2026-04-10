@@ -250,6 +250,12 @@ export function useTerminal({
 
     ws.addEventListener('close', () => {
       if (isDisposedRef.current) return
+      // Ignore close events from stale WebSockets. During React Strict Mode
+      // double-mount, WS1 is closed by detach() but its close event fires
+      // AFTER mount 2 resets isDisposedRef and creates WS2. Without this
+      // guard, WS1's close handler would schedule a phantom reconnect (WS3),
+      // resulting in two active connections feeding the same terminal.
+      if (wsRef.current !== ws) return
 
       setStatus('disconnected')
 
@@ -390,6 +396,9 @@ export function useTerminal({
 
     isDisposedRef.current = false
     reconnectAttemptRef.current = 0
+    // Reset autoFocus for each effect run. The previous run may have consumed
+    // it, but a re-created terminal (e.g. isActive flipped) needs fresh focus.
+    autoFocusRef.current = autoFocus
     const container = containerRef.current
 
     // Local flag scoped to this effect invocation. Unlike isDisposedRef
