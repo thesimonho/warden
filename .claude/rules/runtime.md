@@ -15,9 +15,9 @@ Warden uses Docker as its container runtime. The engine client talks to the Dock
 
 How it's structured:
 
-- **`docker/`** — detects the Docker daemon by probing socket paths. Platform-specific socket candidates are in build-tagged files (`sockets_linux.go`, `sockets_darwin.go`, `sockets_windows.go`).
+- **`docker/`** — detects the Docker daemon by probing socket paths, identifies Docker Desktop vs native Docker, and resolves the bridge gateway IP for socket bridge proxies. Platform-specific socket candidates are in build-tagged files (`sockets_linux.go`, `sockets_darwin.go`, `sockets_windows.go`).
 - **`engine/`** — the container engine client. Handles Docker and Windows named pipes. All containers get a bind mount for the event directory at `/var/warden/events` so container scripts can write events to the shared mount.
-- **Container scripts** (`container/scripts/`) — the entrypoint uses the gosu pattern (root for privileged setup, then `exec gosu warden` to drop privileges permanently). Use `WARDEN_EVENT_DIR` env var (set by Warden) to write events to the bind-mounted directory.
+- **Container scripts** (`container/scripts/`) — the entrypoint uses the gosu pattern (root for privileged setup, then `exec gosu warden` to drop privileges permanently). Use `WARDEN_EVENT_DIR` env var (set by Warden) to write events to the bind-mounted directory. The user-phase entrypoint reads `WARDEN_BRIDGE_*` env vars and starts `socat` processes that create Unix sockets in the container and forward connections to the host via `host.docker.internal` (TCP bridge for SSH/GPG agent forwarding).
 
 ## Platform support
 

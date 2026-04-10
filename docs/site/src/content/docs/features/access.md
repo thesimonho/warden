@@ -36,12 +36,13 @@ Sources are tried in order — the first one detected wins. If none are detected
 
 ### Source Types
 
-| Source      | Example          | Use case                               |
-| ----------- | ---------------- | -------------------------------------- |
-| **Env var** | `GITHUB_TOKEN`   | Tokens, API keys already in your shell |
-| **File**    | `~/.gitconfig`   | Config files, certificates             |
-| **Socket**  | `$SSH_AUTH_SOCK` | SSH agent socket                       |
-| **Command** | `gh auth token`  | Tokens in keychains, dynamic values    |
+| Source          | Example                             | Use case                               |
+| --------------- | ----------------------------------- | -------------------------------------- |
+| **Env var**     | `GITHUB_TOKEN`                      | Tokens, API keys already in your shell |
+| **File**        | `~/.gitconfig`                      | Config files, certificates             |
+| **Socket**      | `$SSH_AUTH_SOCK`                    | SSH agent socket                       |
+| **Named pipe**  | `\\.\pipe\openssh-ssh-agent`        | SSH agent on Windows                   |
+| **Command**     | `gh auth token`                     | Tokens in keychains, dynamic values    |
 
 ### Injection Types
 
@@ -53,7 +54,7 @@ Sources are tried in order — the first one detected wins. If none are detected
 
 ### Detection vs Resolution
 
-**Detection** checks if a credential's source exists on the host _without reading its value_. This is fast and safe — used to show availability status before container creation. For socket sources (SSH agent, GPG agent), detection probes for a live listener — stale or dead sockets are rejected early with a clear error instead of silently failing at container start.
+**Detection** checks if a credential's source exists on the host _without reading its value_. This is fast and safe — used to show availability status before container creation. For socket sources (SSH agent, GPG agent), detection probes for a live listener — stale or dead sockets are rejected early with a clear error instead of silently failing at container start. For named pipe sources (SSH agent on Windows), detection probes the pipe for connectivity.
 
 **Resolution** actually reads the values and prepares injections. This happens at container creation time, right before the container starts.
 
@@ -85,7 +86,7 @@ Forwards SSH config, known_hosts, and the SSH agent socket so git-over-SSH and S
 
 - Mounts `~/.ssh/config` read-only (filtered to remove `IdentitiesOnly` directives that would block the forwarded agent)
 - Mounts `~/.ssh/known_hosts` (read-write, so new hosts can be added)
-- Forwards the SSH agent socket from `$SSH_AUTH_SOCK` and sets the env var inside the container
+- Forwards the SSH agent via a TCP bridge: on Linux/macOS, the source is `$SSH_AUTH_SOCK`; on Windows, the source is the OpenSSH named pipe (`\\.\pipe\openssh-ssh-agent`)
 
 **When to enable:** Whenever you need git-over-SSH (`git clone git@github.com:...`) or direct SSH access to other machines.
 
@@ -94,7 +95,7 @@ SSH agent forwarding is the secure way to use SSH keys in containers. The privat
 :::
 
 :::note[How it works]
-Warden bridges the host SSH agent socket into the container via a TCP proxy — the host socket is never bind-mounted directly. This works identically on native Docker and Docker Desktop across all platforms. No manual configuration needed.
+Warden bridges the host SSH agent into the container via a TCP proxy — the host socket (or named pipe on Windows) is never bind-mounted directly. This works identically on native Docker and Docker Desktop across all platforms, including Windows. No manual configuration needed.
 :::
 
 ### GPG
@@ -109,7 +110,7 @@ Forwards the host's gpg-agent socket so GPG commit signing (`git commit -S`) wor
 **When to enable:** Whenever you sign git commits or tags with a GPG key.
 
 :::note[How it works]
-Like SSH, Warden bridges the host GPG agent socket into the container via a TCP proxy. This works identically on native Docker and Docker Desktop across all platforms. No manual configuration needed.
+Like SSH, Warden bridges the host GPG agent socket into the container via a TCP proxy. This works identically on native Docker and Docker Desktop (Linux and macOS). No manual configuration needed.
 :::
 
 :::caution[Windows]
@@ -190,12 +191,12 @@ When you create or restart a container with Access Items enabled:
 
 ## Sandbox Mode
 
-If your AI coding agent runs with sandbox restrictions (e.g., Claude Code's sandbox mode), the sandbox must allow access to the host resources that Access Items depend on. For example:
+If your AI coding agent runs with sandbox restrictions (e.g., Claude Code's sandbox mode), the sandbox must allow access to the container-local resources that Access Items create. For example:
 
-- **SSH** requires the sandbox to permit connections to the `$SSH_AUTH_SOCK` Unix socket and outbound access to SSH hosts (e.g., `ssh.github.com`)
-- **GPG** requires the sandbox to permit access to the gpg-agent Unix socket (typically under `$XDG_RUNTIME_DIR/gnupg/` or `~/.gnupg/`)
+- **SSH** requires the sandbox to permit connections to the `$SSH_AUTH_SOCK` Unix socket (points to `/run/ssh-agent.sock` inside the container) and outbound access to SSH hosts (e.g., `ssh.github.com`)
+- **GPG** requires the sandbox to permit access to the gpg-agent Unix socket at `/home/warden/.gnupg/S.gpg-agent`
 
-Check your sandbox configuration first. If socket forwarding or network access fails despite Access Items showing as detected, the issue is likely somewhere in your sandbox settings.
+Check your sandbox configuration first. If socket access or network calls fail despite Access Items showing as detected, the issue is likely somewhere in your sandbox settings.
 
 ## Testing Access Items
 

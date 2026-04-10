@@ -39,7 +39,7 @@ Agent CLIs (Claude Code, Codex) are **not baked into the image**. They are insta
 
 ### Sub-Script Responsibilities
 
-- **install-system-deps.sh** — apt packages (git, curl, jq, iptables, etc.), GitHub CLI, Node.js LTS. Fetches gosu when pre-built binaries aren't available (devcontainer path). Cleans up apt lists.
+- **install-system-deps.sh** — apt packages (git, curl, jq, iptables, socat, etc.), GitHub CLI, Node.js LTS. Fetches gosu when pre-built binaries aren't available (devcontainer path). Cleans up apt lists.
 - **install-user.sh** — creates `warden` user (prefers UID 1000), sets up `~/.local/bin`, creates workspace and agent config directories (`~/.claude`, `~/.codex`), configures `.profile` env forwarding.
 - **install-warden.sh** — copies runtime scripts from `shared/`, `claude/`, `codex/` to `/usr/local/bin/`, calls `install-clipboard-shim.sh` to set up the xclip wrapper. Detects directory layout (subdirectories for Dockerfile, flat for devcontainer). Creates `/project` workspace.
 

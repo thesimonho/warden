@@ -42,8 +42,9 @@ const (
 	InjectionEnvVar InjectionType = "env"
 	// InjectionMountFile bind-mounts a host file into the container.
 	InjectionMountFile InjectionType = "mount_file"
-	// InjectionMountSocket bind-mounts a Unix domain socket into the
-	// container.
+	// InjectionMountSocket signals that a Unix domain socket should be
+	// forwarded into the container. The service layer bridges the host
+	// socket via a TCP proxy; socat in the container recreates it.
 	InjectionMountSocket InjectionType = "mount_socket"
 )
 
@@ -54,7 +55,7 @@ type Method string
 
 const (
 	// MethodTransport extracts a credential on the host and injects it
-	// directly into the container (env var, bind mount, or socket mount).
+	// directly into the container (env var, bind mount, or socket bridge).
 	MethodTransport Method = "transport"
 )
 

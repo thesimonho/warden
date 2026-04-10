@@ -10,16 +10,15 @@ const (
 	BuiltInIDGPG = "gpg"
 )
 
-// ContainerSSHAgentPath is the fixed path where the host's SSH agent
-// socket is mounted inside the container. Exported so the service layer
-// can identify SSH socket mounts when applying Docker Desktop overrides.
+// ContainerSSHAgentPath is the fixed path where the SSH agent socket
+// appears inside the container. The entrypoint's socat process creates
+// this socket and forwards connections to the host via the TCP bridge.
 const ContainerSSHAgentPath = "/run/ssh-agent.sock"
 
-// ContainerGPGAgentPath is the fixed path where the host's GPG agent
-// socket is mounted inside the container. Placed at the default gpg
-// socket location (~/.gnupg/S.gpg-agent) so gpg finds it automatically
-// without needing env var overrides or extra configuration. Exported so
-// the service layer can identify GPG socket mounts for Docker Desktop warnings.
+// ContainerGPGAgentPath is the fixed path where the GPG agent socket
+// appears inside the container. Placed at the default gpg socket
+// location (~/.gnupg/S.gpg-agent) so gpg finds it automatically
+// without needing env var overrides or extra configuration.
 const ContainerGPGAgentPath = constants.ContainerHomeDir + "/.gnupg/S.gpg-agent"
 
 // BuiltInGit returns the built-in Git access item. It mounts the host's
