@@ -3,6 +3,7 @@ package tui
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"charm.land/bubbles/v2/textinput"
 	tea "charm.land/bubbletea/v2"
@@ -438,6 +439,11 @@ func (v *ContainerFormView) activateNetworkField() (View, tea.Cmd) {
 	switch v.fieldCursor {
 	case netNetwork:
 		v.network = (v.network + 1) % len(networkModes)
+		// When switching to restricted with no domains, populate defaults
+		// from the template or server-provided list for the current agent.
+		if networkModes[v.network] == "restricted" && strings.TrimSpace(v.domains.Value()) == "" {
+			v.populateDefaultDomains()
+		}
 	case netDomains:
 		v.editing = true
 		return v, v.domains.Focus()
