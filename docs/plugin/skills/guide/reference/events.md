@@ -8,12 +8,13 @@ SSE is the primary mechanism for receiving real-time updates. The server sends a
 
 However, SSE does not eliminate polling entirely. Some state is best obtained by periodic polling of `GET /api/v1/projects`:
 
-- **Container state changes** (stop, crash, external restart) may not always produce SSE events immediately
 - **Cost data captures** are asynchronous — cost totals on project objects may update between SSE events
 - **Codex attention state** is unavailable via SSE (Codex does not support hooks — see below)
 - **Container recreation** causes a brief gap in SSE events while the session watcher restarts
 
-A reasonable pattern: connect SSE for real-time attention/worktree updates, poll projects every 10-30 seconds for container state and cost totals.
+Container lifecycle changes (create, start, stop, delete) are delivered via the `container_state_changed` event, so polling for container state is no longer necessary.
+
+A reasonable pattern: connect SSE for real-time attention/worktree/container updates, poll projects every 30 seconds for cost totals.
 
 On reconnect, there is no event replay — SSE connections start fresh. After reconnecting, poll `GET /api/v1/projects` once to get the current state of all projects, then let the SSE stream handle subsequent updates.
 
@@ -36,17 +37,17 @@ Sent when a worktree's terminal or attention state changes. This is the most fre
 
 **Payload fields:**
 
-| Field              | Type    | Description                                                                                                     |
-| ------------------ | ------- | --------------------------------------------------------------------------------------------------------------- |
-| `projectId`        | string  | The 12-char hex project identifier.                                                                             |
-| `agentType`        | string  | `"claude-code"` or `"codex"`.                                                                                   |
-| `containerName`    | string  | Docker container name.                                                                                          |
-| `worktreeId`       | string  | The worktree identifier (e.g. `"main"`, `"feature-x"`).                                                        |
-| `state`            | string  | Worktree state: `"connected"`, `"shell"`, `"background"`, or `"stopped"`.                                       |
-| `needsInput`       | boolean | `true` when the agent is waiting for user attention.                                                            |
-| `notificationType` | string  | Why attention is needed: `"permission_prompt"`, `"idle_prompt"`, `"elicitation_dialog"`, or `"auth_success"`.    |
-| `sessionActive`    | boolean | `true` when an agent process is running in this worktree.                                                       |
-| `exitCode`         | number  | The agent's exit code (only meaningful when `state` is `"shell"`).                                              |
+| Field              | Type    | Description                                                                                                   |
+| ------------------ | ------- | ------------------------------------------------------------------------------------------------------------- |
+| `projectId`        | string  | The 12-char hex project identifier.                                                                           |
+| `agentType`        | string  | `"claude-code"` or `"codex"`.                                                                                 |
+| `containerName`    | string  | Docker container name.                                                                                        |
+| `worktreeId`       | string  | The worktree identifier (e.g. `"main"`, `"feature-x"`).                                                       |
+| `state`            | string  | Worktree state: `"connected"`, `"shell"`, `"background"`, or `"stopped"`.                                     |
+| `needsInput`       | boolean | `true` when the agent is waiting for user attention.                                                          |
+| `notificationType` | string  | Why attention is needed: `"permission_prompt"`, `"idle_prompt"`, `"elicitation_dialog"`, or `"auth_success"`. |
+| `sessionActive`    | boolean | `true` when an agent process is running in this worktree.                                                     |
+| `exitCode`         | number  | The agent's exit code (only meaningful when `state` is `"shell"`).                                            |
 
 ### `project_state`
 
@@ -54,15 +55,15 @@ Sent when project-level aggregated state changes. Carries cost and the highest-p
 
 **Payload fields:**
 
-| Field              | Type    | Description                                                                                                  |
-| ------------------ | ------- | ------------------------------------------------------------------------------------------------------------ |
-| `projectId`        | string  | The 12-char hex project identifier.                                                                          |
-| `agentType`        | string  | `"claude-code"` or `"codex"`.                                                                                |
-| `containerName`    | string  | Docker container name.                                                                                       |
-| `totalCost`        | number  | Cumulative cost in USD across all worktrees.                                                                 |
-| `messageCount`     | number  | Total messages across all worktrees.                                                                         |
-| `needsInput`       | boolean | `true` if any worktree in this project needs attention.                                                      |
-| `notificationType` | string  | Highest-priority notification type across all worktrees (same values as `worktree_state`).                   |
+| Field              | Type    | Description                                                                                |
+| ------------------ | ------- | ------------------------------------------------------------------------------------------ |
+| `projectId`        | string  | The 12-char hex project identifier.                                                        |
+| `agentType`        | string  | `"claude-code"` or `"codex"`.                                                              |
+| `containerName`    | string  | Docker container name.                                                                     |
+| `totalCost`        | number  | Cumulative cost in USD across all worktrees.                                               |
+| `messageCount`     | number  | Total messages across all worktrees.                                                       |
+| `needsInput`       | boolean | `true` if any worktree in this project needs attention.                                    |
+| `notificationType` | string  | Highest-priority notification type across all worktrees (same values as `worktree_state`). |
 
 ### `worktree_list_changed`
 
@@ -70,11 +71,11 @@ Sent when a worktree is created, removed, or cleaned up. Clients should refresh 
 
 **Payload fields:**
 
-| Field           | Type   | Description                        |
-| --------------- | ------ | ---------------------------------- |
-| `projectId`     | string | The 12-char hex project identifier.|
-| `agentType`     | string | `"claude-code"` or `"codex"`.      |
-| `containerName` | string | Docker container name.             |
+| Field           | Type   | Description                         |
+| --------------- | ------ | ----------------------------------- |
+| `projectId`     | string | The 12-char hex project identifier. |
+| `agentType`     | string | `"claude-code"` or `"codex"`.       |
+| `containerName` | string | Docker container name.              |
 
 ### `budget_exceeded`
 
@@ -82,13 +83,13 @@ Sent when a project's cumulative cost crosses its configured budget threshold.
 
 **Payload fields:**
 
-| Field           | Type   | Description                            |
-| --------------- | ------ | -------------------------------------- |
-| `projectId`     | string | The 12-char hex project identifier.    |
-| `agentType`     | string | `"claude-code"` or `"codex"`.          |
-| `containerName` | string | Docker container name.                 |
-| `totalCost`     | number | Current cumulative cost in USD.        |
-| `budget`        | number | The configured budget limit in USD.    |
+| Field           | Type   | Description                         |
+| --------------- | ------ | ----------------------------------- |
+| `projectId`     | string | The 12-char hex project identifier. |
+| `agentType`     | string | `"claude-code"` or `"codex"`.       |
+| `containerName` | string | Docker container name.              |
+| `totalCost`     | number | Current cumulative cost in USD.     |
+| `budget`        | number | The configured budget limit in USD. |
 
 ### `budget_container_stopped`
 
@@ -98,9 +99,9 @@ Sent after a container is stopped due to budget enforcement. Frontends should re
 
 Same as `budget_exceeded`, plus:
 
-| Field         | Type   | Description                                        |
-| ------------- | ------ | -------------------------------------------------- |
-| `containerId` | string | Docker container ID of the stopped container.      |
+| Field         | Type   | Description                                   |
+| ------------- | ------ | --------------------------------------------- |
+| `containerId` | string | Docker container ID of the stopped container. |
 
 ### `runtime_status`
 
@@ -115,7 +116,7 @@ Sent when a language runtime installation starts or completes inside a container
 | `containerName` | string | Docker container name.                                 |
 | `phase`         | string | Installation phase (e.g. installing, installed).       |
 | `runtimeId`     | string | Runtime identifier (e.g. `"python"`, `"go"`).          |
-| `runtimeLabel`  | string | Human-readable runtime name (e.g. `"Python"`, `"Go"`).|
+| `runtimeLabel`  | string | Human-readable runtime name (e.g. `"Python"`, `"Go"`). |
 
 ### `agent_status`
 
@@ -123,13 +124,26 @@ Sent when an agent CLI installation or update starts or completes inside a conta
 
 **Payload fields:**
 
-| Field           | Type   | Description                                        |
-| --------------- | ------ | -------------------------------------------------- |
-| `projectId`     | string | The 12-char hex project identifier.                |
-| `agentType`     | string | `"claude-code"` or `"codex"`.                      |
-| `containerName` | string | Docker container name.                             |
-| `phase`         | string | Installation phase (e.g. installing, installed).   |
-| `version`       | string | Agent CLI version string.                          |
+| Field           | Type   | Description                                      |
+| --------------- | ------ | ------------------------------------------------ |
+| `projectId`     | string | The 12-char hex project identifier.              |
+| `agentType`     | string | `"claude-code"` or `"codex"`.                    |
+| `containerName` | string | Docker container name.                           |
+| `phase`         | string | Installation phase (e.g. installing, installed). |
+| `version`       | string | Agent CLI version string.                        |
+
+### `container_state_changed`
+
+Sent when a container is created, started, stopped, or deleted. Use this to track container lifecycle without polling.
+
+**Payload fields:**
+
+| Field           | Type   | Description                                                           |
+| --------------- | ------ | --------------------------------------------------------------------- |
+| `projectId`     | string | The 12-char hex project identifier.                                   |
+| `agentType`     | string | `"claude-code"` or `"codex"`.                                         |
+| `containerName` | string | Docker container name.                                                |
+| `action`        | string | What happened: `"created"`, `"started"`, `"stopped"`, or `"deleted"`. |
 
 ### `heartbeat`
 
@@ -188,17 +202,23 @@ const events = new EventSource("http://localhost:8090/api/v1/events");
 
 events.addEventListener("worktree_state", (e) => {
   const data = JSON.parse(e.data);
-  console.log(`Worktree ${data.worktreeId}: state=${data.state}, needsInput=${data.needsInput}`);
+  console.log(
+    `Worktree ${data.worktreeId}: state=${data.state}, needsInput=${data.needsInput}`,
+  );
 });
 
 events.addEventListener("project_state", (e) => {
   const data = JSON.parse(e.data);
-  console.log(`Project ${data.projectId}: cost=$${data.totalCost}, messages=${data.messageCount}`);
+  console.log(
+    `Project ${data.projectId}: cost=$${data.totalCost}, messages=${data.messageCount}`,
+  );
 });
 
 events.addEventListener("budget_exceeded", (e) => {
   const data = JSON.parse(e.data);
-  console.log(`Budget exceeded for ${data.projectId}: $${data.totalCost} / $${data.budget}`);
+  console.log(
+    `Budget exceeded for ${data.projectId}: $${data.totalCost} / $${data.budget}`,
+  );
 });
 
 events.addEventListener("server_shutdown", () => {

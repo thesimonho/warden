@@ -6,7 +6,6 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { Info, Loader2, Settings as SettingsIcon } from 'lucide-react'
 import { Separator } from '@/components/ui/separator'
-import { type Settings } from '@/lib/settings'
 import { fetchSettings, updateSettings } from '@/lib/api'
 import type { AuditLogMode } from '@/lib/types'
 
@@ -14,31 +13,24 @@ import type { AuditLogMode } from '@/lib/types'
 interface SettingsDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  settings: Settings
-  onSettingsChange: (settings: Settings) => void
   auditLogMode: AuditLogMode
   onAuditLogModeChange: (mode: AuditLogMode) => void
 }
 
 /**
- * Modal dialog for configuring dashboard preferences.
+ * Modal dialog for configuring server-side preferences.
  *
- * Changes are applied immediately and persisted to localStorage via
- * the onSettingsChange callback. Server-side settings (like audit mode)
- * are fetched and updated via the API.
- *
- * @param props.settings - Current settings values.
- * @param props.onSettingsChange - Called with updated settings on any change.
+ * All settings are fetched from and persisted to the server API.
+ * Notification settings control the system tray's desktop notifications.
  */
 export default function SettingsDialog({
   open,
   onOpenChange,
-  settings,
-  onSettingsChange,
   auditLogMode,
   onAuditLogModeChange,
 }: SettingsDialogProps) {
   const [isAuditLogModePending, setIsAuditLogModePending] = useState(false)
+  const [notificationsEnabled, setNotificationsEnabled] = useState(true)
   const [defaultBudget, setDefaultBudget] = useState('')
   const [budgetActions, setBudgetActions] = useState({
     budgetActionWarn: true,
@@ -51,6 +43,7 @@ export default function SettingsDialog({
   const loadServerData = useCallback(async () => {
     try {
       const serverSettings = await fetchSettings()
+      setNotificationsEnabled(serverSettings.notificationsEnabled)
       setDefaultBudget(
         serverSettings.defaultProjectBudget > 0 ? String(serverSettings.defaultProjectBudget) : '',
       )
@@ -71,14 +64,15 @@ export default function SettingsDialog({
     }
   }, [open, loadServerData])
 
-  /** Toggles notifications, requesting browser permission if enabling. */
+  /** Toggles desktop notifications via the server API. */
   const handleNotificationsToggle = async () => {
-    const enabling = !settings.notificationsEnabled
-    if (enabling && 'Notification' in window && Notification.permission === 'default') {
-      const permission = await Notification.requestPermission()
-      if (permission !== 'granted') return
+    const newValue = !notificationsEnabled
+    setNotificationsEnabled(newValue)
+    try {
+      await updateSettings({ notificationsEnabled: newValue })
+    } catch {
+      setNotificationsEnabled(!newValue)
     }
-    onSettingsChange({ ...settings, notificationsEnabled: enabling })
   }
 
   /** Cycles audit log mode: off → standard → detailed → off. */
@@ -106,11 +100,13 @@ export default function SettingsDialog({
 
         <div className="max-h-[70vh] space-y-6 overflow-y-auto py-2">
           <div className="space-y-2">
-            <p className="font-medium">Browser notifications</p>
-            <p className="text-muted-foreground text-sm">Get notified when agents need input.</p>
+            <p className="font-medium">Desktop notifications</p>
+            <p className="text-muted-foreground text-sm">
+              Get notified via the system tray when agents need input.
+            </p>
             <label className="flex cursor-pointer items-center gap-2">
               <Checkbox
-                checked={settings.notificationsEnabled}
+                checked={notificationsEnabled}
                 onCheckedChange={handleNotificationsToggle}
               />
               <span>Enable notifications</span>

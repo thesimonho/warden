@@ -289,6 +289,10 @@ type SettingsResponse struct {
 	DisconnectKey        string       `json:"disconnectKey"`
 	DefaultProjectBudget float64      `json:"defaultProjectBudget"`
 
+	// NotificationsEnabled controls whether the system tray sends desktop
+	// notifications when agents need attention.
+	NotificationsEnabled bool `json:"notificationsEnabled"`
+
 	// Budget enforcement actions — what happens when a project exceeds its budget.
 	BudgetActionWarn          bool `json:"budgetActionWarn"`
 	BudgetActionStopWorktrees bool `json:"budgetActionStopWorktrees"`
@@ -313,6 +317,8 @@ type UpdateSettingsRequest struct {
 	AuditLogMode         *AuditLogMode `json:"auditLogMode"`
 	DisconnectKey        *string       `json:"disconnectKey"`
 	DefaultProjectBudget *float64      `json:"defaultProjectBudget"`
+
+	NotificationsEnabled *bool `json:"notificationsEnabled"`
 
 	BudgetActionWarn          *bool `json:"budgetActionWarn"`
 	BudgetActionStopWorktrees *bool `json:"budgetActionStopWorktrees"`

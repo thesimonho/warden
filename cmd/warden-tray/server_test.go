@@ -64,26 +64,6 @@ func TestListProjects(t *testing.T) {
 	}
 }
 
-func TestRunningContainerCount(t *testing.T) {
-	projects := []project{
-		{State: "running"},
-		{State: "exited"},
-		{State: "running"},
-	}
-
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(projects) //nolint:errcheck
-	}))
-	defer srv.Close()
-
-	client := newServerClient(srv.URL)
-	count := client.runningContainerCount()
-	if count != 2 {
-		t.Errorf("expected 2 running, got %d", count)
-	}
-}
-
 func TestStopProject(t *testing.T) {
 	var gotPath string
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

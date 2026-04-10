@@ -1,10 +1,12 @@
 package main
 
 import (
+	"bufio"
 	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
+	"strings"
 	"time"
 )
 
@@ -17,8 +19,15 @@ const (
 	stopTimeout  = 35 * time.Second
 	healthPath   = "/api/v1/health"
 	projectsPath = "/api/v1/projects"
+	settingsPath = "/api/v1/settings"
+	eventsPath   = "/api/v1/events"
 	shutdownPath = "/api/v1/shutdown"
 	stateRunning = "running"
+	stateExited  = "exited"
+
+	// settingsRefreshInterval controls how often the tray re-reads
+	// the notificationsEnabled setting from the server.
+	settingsRefreshInterval = 60 * time.Second
 )
 
 // serverClient is a minimal HTTP client for the Warden API.
@@ -39,6 +48,11 @@ type project struct {
 	State            string `json:"state"`
 	NeedsInput       bool   `json:"needsInput"`
 	NotificationType string `json:"notificationType"`
+}
+
+// settingsResponse is the minimal subset of server settings the tray needs.
+type settingsResponse struct {
+	NotificationsEnabled bool `json:"notificationsEnabled"`
 }
 
 func newServerClient(baseURL string) *serverClient {
@@ -111,19 +125,19 @@ func (s *serverClient) listProjects() ([]project, error) {
 	return projects, nil
 }
 
-// runningContainerCount returns how many projects have a running container.
-func (s *serverClient) runningContainerCount() int {
-	projects, err := s.listProjects()
+// fetchNotificationsEnabled reads the server-side notification setting.
+func (s *serverClient) fetchNotificationsEnabled() (bool, error) {
+	resp, err := s.http.Get(s.baseURL + settingsPath) //nolint:noctx
 	if err != nil {
-		return 0
+		return false, err
 	}
-	var count int
-	for _, p := range projects {
-		if p.State == stateRunning {
-			count++
-		}
+	defer resp.Body.Close() //nolint:errcheck
+
+	var settings settingsResponse
+	if err := json.NewDecoder(resp.Body).Decode(&settings); err != nil {
+		return false, err
 	}
-	return count
+	return settings.NotificationsEnabled, nil
 }
 
 // stopProject stops a running project's container. Uses a longer
@@ -151,4 +165,108 @@ func (s *serverClient) shutdown() {
 		return
 	}
 	resp.Body.Close() //nolint:errcheck
+}
+
+// --- SSE Client ---
+
+// sseEvent is a parsed Server-Sent Event.
+type sseEvent struct {
+	Event string
+	Data  json.RawMessage
+}
+
+// projectStateData mirrors the SSE project_state payload.
+type projectStateData struct {
+	ProjectID        string `json:"projectId"`
+	AgentType        string `json:"agentType"`
+	ContainerName    string `json:"containerName"`
+	NeedsInput       bool   `json:"needsInput"`
+	NotificationType string `json:"notificationType,omitempty"`
+}
+
+// containerStateData mirrors the SSE container_state_changed payload.
+type containerStateData struct {
+	ProjectID     string `json:"projectId"`
+	AgentType     string `json:"agentType"`
+	ContainerName string `json:"containerName"`
+	Action        string `json:"action"`
+}
+
+// sseCallback receives parsed SSE events from the stream.
+type sseCallback func(evt sseEvent)
+
+// connectSSE opens an SSE connection to /api/v1/events and calls the
+// callback for each event. Blocks until the connection drops or the
+// done channel is closed. Returns an error on connection failure.
+func (s *serverClient) connectSSE(done <-chan struct{}, callback sseCallback) error {
+	req, err := http.NewRequest("GET", s.baseURL+eventsPath, nil) //nolint:noctx
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Accept", "text/event-stream")
+
+	// Use a separate client with no timeout — SSE connections are long-lived.
+	sseClient := &http.Client{Timeout: 0}
+	resp, err := sseClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close() //nolint:errcheck
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("SSE connect failed: %d", resp.StatusCode)
+	}
+
+	// Parse SSE stream in a goroutine so we can select on done.
+	events := make(chan sseEvent, 16)
+	errCh := make(chan error, 1)
+	go func() {
+		defer close(events)
+		scanner := bufio.NewScanner(resp.Body)
+		var currentEvent string
+		var dataLines []string
+
+		for scanner.Scan() {
+			line := scanner.Text()
+
+			if line == "" {
+				// Empty line = end of event.
+				if currentEvent != "" && len(dataLines) > 0 {
+					data := strings.Join(dataLines, "\n")
+					events <- sseEvent{
+						Event: currentEvent,
+						Data:  json.RawMessage(data),
+					}
+				}
+				currentEvent = ""
+				dataLines = nil
+				continue
+			}
+
+			if strings.HasPrefix(line, "event: ") {
+				currentEvent = strings.TrimPrefix(line, "event: ")
+			} else if strings.HasPrefix(line, "data: ") {
+				dataLines = append(dataLines, strings.TrimPrefix(line, "data: "))
+			}
+		}
+		errCh <- scanner.Err()
+	}()
+
+	for {
+		select {
+		case <-done:
+			return nil
+		case evt, ok := <-events:
+			if !ok {
+				// Stream ended — check for scanner error.
+				select {
+				case err := <-errCh:
+					return err
+				default:
+					return fmt.Errorf("SSE stream closed")
+				}
+			}
+			callback(evt)
+		}
+	}
 }

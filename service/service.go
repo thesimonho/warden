@@ -146,7 +146,7 @@ func New(deps ServiceDeps) *Service {
 		dockerAvailable:         deps.DockerAvailable,
 		dockerInfo:              deps.DockerInfo,
 		bridgeIP:                deps.BridgeIP,
-		socketBridges:          make(map[string][]*socketBridge),
+		socketBridges:           make(map[string][]*socketBridge),
 		sessionWatchers:         make(map[db.ProjectAgentKey]*agent.SessionWatcher),
 		sessionWatcherCooldowns: make(map[db.ProjectAgentKey]time.Time),
 		costFallbackNegCache:    make(map[db.ProjectAgentKey]time.Time),

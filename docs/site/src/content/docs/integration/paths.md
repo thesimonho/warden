@@ -11,14 +11,14 @@ Warden is designed to be integrated into your own applications. Start with the [
 
 Warden ships as four binaries that provide different integration levels:
 
-| Binary           | What it is                                              |
-| ---------------- | ------------------------------------------------------- |
-| `warden`         | Headless engine + API server (for developers)           |
-| `warden-desktop` | Engine + web UI + browser launch (for users)            |
-| `warden-tui`     | Engine + TUI (for terminal users)                       |
-| `warden-tray`    | System tray companion for `warden-desktop` (HTTP only)  |
+| Binary           | What it is                                                                   |
+| ---------------- | ---------------------------------------------------------------------------- |
+| `warden`         | Headless engine + API server (for developers)                                |
+| `warden-desktop` | Engine + web UI + browser launch (for users)                                 |
+| `warden-tui`     | Engine + TUI (for terminal users)                                            |
+| `warden-tray`    | System tray companion for `warden-desktop` with native desktop notifications |
 
-The first three binaries share the same engine. `warden-tray` is a separate companion that talks to `warden-desktop` over HTTP.
+The first three binaries share the same engine. `warden-tray` is a separate companion that connects to `warden-desktop` via SSE for real-time state updates and sends native desktop notifications when agents need attention.
 
 ## Key packages
 
@@ -102,11 +102,11 @@ See the [Go library guide](./examples/library.md) for the full API.
 
 ## When to use which
 
-| Approach                                | When to use                                        | What you ship                  |
-| --------------------------------------- | -------------------------------------------------- | ------------------------------ |
-| [HTTP API](./error-handling.md)           | Any language, simplest integration                 | `warden` binary + your app     |
-| [Go client](./examples/client.md)       | Go app, want typed API calls without managing HTTP | `warden` binary + your Go app  |
-| [Go library](./examples/library.md)     | Go app, want single-process deployment, no binary  | Your Go app (imports `warden`) |
+| Approach                            | When to use                                        | What you ship                  |
+| ----------------------------------- | -------------------------------------------------- | ------------------------------ |
+| [HTTP API](./error-handling.md)     | Any language, simplest integration                 | `warden` binary + your app     |
+| [Go client](./examples/client.md)   | Go app, want typed API calls without managing HTTP | `warden` binary + your Go app  |
+| [Go library](./examples/library.md) | Go app, want single-process deployment, no binary  | Your Go app (imports `warden`) |
 
 ## Reference implementations
 

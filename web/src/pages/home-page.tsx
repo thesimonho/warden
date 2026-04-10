@@ -13,7 +13,6 @@ import {
   TriangleAlert,
 } from 'lucide-react'
 import { toast } from 'sonner'
-import { useNotifications } from '@/hooks/use-notifications'
 import { useProjects } from '@/hooks/use-projects'
 import {
   ApiError,
@@ -42,9 +41,8 @@ import type { LayoutContext } from '@/components/layout'
 /** Home page displaying all managed project containers in a grid. */
 export default function HomePage() {
   const navigate = useNavigate()
-  const { settings, budgetActionPreventStart } = useOutletContext<LayoutContext>()
+  const { budgetActionPreventStart } = useOutletContext<LayoutContext>()
   const { projects, isLoading, isRefreshing, error, refetch, installStatuses } = useProjects()
-  useNotifications(projects, settings.notificationsEnabled)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [pendingStopIds, setPendingStopIds] = useState<Set<string>>(new Set())
   const [pendingRestartIds, setPendingRestartIds] = useState<Set<string>>(new Set())

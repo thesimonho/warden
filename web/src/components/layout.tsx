@@ -4,7 +4,6 @@ import { toast, Toaster } from 'sonner'
 import { Box, KeyRound, Settings, ShieldCheck } from 'lucide-react'
 import { useTheme } from '@/hooks/use-theme'
 import { useEventSource } from '@/hooks/use-event-source'
-import { loadSettings, saveSettings, type Settings as DashboardSettings } from '@/lib/settings'
 import { fetchSettings } from '@/lib/api'
 import ThemeToggle from '@/components/theme-toggle'
 import SettingsDialog from '@/components/settings-dialog'
@@ -15,7 +14,6 @@ import type { AuditLogMode } from '@/lib/types'
 
 /** Context passed to child routes via useOutletContext. */
 export interface LayoutContext {
-  settings: DashboardSettings
   /** Whether the "prevent restart" budget enforcement action is enabled. */
   budgetActionPreventStart: boolean
 }
@@ -23,15 +21,14 @@ export interface LayoutContext {
 /**
  * App shell layout with a branded sticky header and routed content area.
  *
- * Owns theme and settings state so the header controls stay in sync
- * without a separate context provider.
+ * Owns theme state so the header controls stay in sync without a separate
+ * context provider.
  */
 export default function Layout() {
   const { preference, setPreference, resolvedTheme } = useTheme()
   // Status-only — Layout owns the server_stopped overlay.
   const sseStatus = useEventSource({})
 
-  const [settings, setSettings] = useState<DashboardSettings>(loadSettings)
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
   const [auditLogMode, setAuditLogMode] = useState<AuditLogMode>('off')
   const [budgetActionPreventStart, setBudgetActionPreventStart] = useState(false)
@@ -68,9 +65,14 @@ export default function Layout() {
       .catch(() => {})
   }, [])
 
-  const handleSettingsChange = useCallback((updated: DashboardSettings) => {
-    setSettings(updated)
-    saveSettings(updated)
+  const handleSettingsClose = useCallback(() => {
+    // Refresh server settings that affect other pages.
+    fetchSettings()
+      .then((s) => {
+        setBudgetActionPreventStart(s.budgetActionPreventStart)
+        setAuditLogMode(s.auditLogMode)
+      })
+      .catch(() => {})
   }, [])
 
   return (
@@ -159,25 +161,15 @@ export default function Layout() {
         </div>
       </header>
       <main className="p-6">
-        <Outlet context={{ settings, budgetActionPreventStart } satisfies LayoutContext} />
+        <Outlet context={{ budgetActionPreventStart } satisfies LayoutContext} />
       </main>
 
       <SettingsDialog
         open={isSettingsOpen}
         onOpenChange={(open) => {
           setIsSettingsOpen(open)
-          if (!open) {
-            // Refresh server settings that affect other pages.
-            fetchSettings()
-              .then((s) => {
-                setBudgetActionPreventStart(s.budgetActionPreventStart)
-                setAuditLogMode(s.auditLogMode)
-              })
-              .catch(() => {})
-          }
+          if (!open) handleSettingsClose()
         }}
-        settings={settings}
-        onSettingsChange={handleSettingsChange}
         auditLogMode={auditLogMode}
         onAuditLogModeChange={setAuditLogMode}
       />

@@ -21,6 +21,7 @@ The response includes both configurable settings and read-only server informatio
   "workingDirectory": "/home/user",
   "auditLogMode": "off",
   "defaultProjectBudget": 0,
+  "notificationsEnabled": true,
   "budgetActionWarn": true,
   "budgetActionStopWorktrees": false,
   "budgetActionStopContainer": false,
@@ -33,13 +34,13 @@ The response includes both configurable settings and read-only server informatio
 
 These fields are informational and cannot be changed via the API:
 
-| Field | Description |
-|-------|-------------|
-| `version` | Server build version (e.g. `"v0.5.2"`, `"dev"`) |
-| `runtime` | Go runtime version |
-| `claudeCodeVersion` | Pinned Claude Code CLI version installed in containers |
-| `codexVersion` | Pinned Codex CLI version installed in containers |
-| `workingDirectory` | Server process working directory. Useful for development tooling that auto-creates projects. |
+| Field               | Description                                                                                  |
+| ------------------- | -------------------------------------------------------------------------------------------- |
+| `version`           | Server build version (e.g. `"v0.5.2"`, `"dev"`)                                              |
+| `runtime`           | Go runtime version                                                                           |
+| `claudeCodeVersion` | Pinned Claude Code CLI version installed in containers                                       |
+| `codexVersion`      | Pinned Codex CLI version installed in containers                                             |
+| `workingDirectory`  | Server process working directory. Useful for development tooling that auto-creates projects. |
 
 ## Updating settings
 
@@ -65,12 +66,13 @@ The response indicates whether a server restart is needed:
 
 Some settings changes take effect immediately; others require a server restart. The response always tells you:
 
-| Setting | Restart required? | Notes |
-|---------|-------------------|-------|
-| `auditLogMode` | No | Synced to all running containers immediately |
-| `defaultProjectBudget` | No | Applies on the next budget check |
-| `budgetAction*` | No | Applies on the next budget check |
-| `disconnectKey` | No | Applies to new terminal connections |
+| Setting                | Restart required? | Notes                                        |
+| ---------------------- | ----------------- | -------------------------------------------- |
+| `auditLogMode`         | No                | Synced to all running containers immediately |
+| `notificationsEnabled` | No                | Takes effect immediately                     |
+| `defaultProjectBudget` | No                | Applies on the next budget check             |
+| `budgetAction*`        | No                | Applies on the next budget check             |
+| `disconnectKey`        | No                | Applies to new terminal connections          |
 
 ## Available settings
 
@@ -114,13 +116,35 @@ curl -s -X PUT http://localhost:8090/api/v1/settings \
   }'
 ```
 
-| Setting | Type | Description |
-|---------|------|-------------|
-| `defaultProjectBudget` | number | Global budget default in USD. `0` disables budget enforcement for projects without a per-project budget. |
-| `budgetActionWarn` | boolean | Broadcast a warning SSE event and write an audit entry |
-| `budgetActionStopWorktrees` | boolean | Kill all worktree processes when budget is exceeded |
-| `budgetActionStopContainer` | boolean | Stop the container when budget is exceeded |
-| `budgetActionPreventStart` | boolean | Block container restarts for over-budget projects |
+| Setting                     | Type    | Description                                                                                              |
+| --------------------------- | ------- | -------------------------------------------------------------------------------------------------------- |
+| `defaultProjectBudget`      | number  | Global budget default in USD. `0` disables budget enforcement for projects without a per-project budget. |
+| `budgetActionWarn`          | boolean | Broadcast a warning SSE event and write an audit entry                                                   |
+| `budgetActionStopWorktrees` | boolean | Kill all worktree processes when budget is exceeded                                                      |
+| `budgetActionStopContainer` | boolean | Stop the container when budget is exceeded                                                               |
+| `budgetActionPreventStart`  | boolean | Block container restarts for over-budget projects                                                        |
+
+### Notifications
+
+Controls whether the system tray (`warden-tray`) sends native desktop notifications when agents need attention (permission prompts, idle state, elicitation dialogs). The tray subscribes to the SSE event stream and fires OS-native notifications based on attention state changes.
+
+```bash
+# Enable desktop notifications
+curl -s -X PUT http://localhost:8090/api/v1/settings \
+  -H "Content-Type: application/json" \
+  -d '{"notificationsEnabled": true}'
+
+# Disable desktop notifications
+curl -s -X PUT http://localhost:8090/api/v1/settings \
+  -H "Content-Type: application/json" \
+  -d '{"notificationsEnabled": false}'
+```
+
+| Setting                | Type    | Description                                                                                        |
+| ---------------------- | ------- | -------------------------------------------------------------------------------------------------- |
+| `notificationsEnabled` | boolean | When `true`, the system tray sends native desktop notifications for agent attention state changes. |
+
+This setting is stored server-side and read by the tray via the settings API. It takes effect immediately -- no restart required.
 
 ### Disconnect key
 

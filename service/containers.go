@@ -13,6 +13,7 @@ import (
 	"github.com/thesimonho/warden/constants"
 	"github.com/thesimonho/warden/db"
 	"github.com/thesimonho/warden/engine"
+	"github.com/thesimonho/warden/event"
 	"github.com/thesimonho/warden/runtimes"
 )
 
@@ -126,6 +127,14 @@ func (s *Service) CreateContainer(ctx context.Context, req api.CreateContainerRe
 		Data:          configData,
 	})
 
+	if s.store != nil {
+		s.store.BroadcastContainerStateChanged(event.ProjectRef{
+			ProjectID:     row.ProjectID,
+			AgentType:     row.AgentType,
+			ContainerName: req.Name,
+		}, event.ContainerActionCreated)
+	}
+
 	return &ContainerResult{ContainerID: containerID, Name: req.Name, ProjectID: row.ProjectID}, nil
 }
 
@@ -179,6 +188,14 @@ func (s *Service) DeleteContainer(ctx context.Context, projectID, agentType stri
 		Event:         "container_deleted",
 		Message:       fmt.Sprintf("container %q deleted", containerName),
 	})
+
+	if s.store != nil {
+		s.store.BroadcastContainerStateChanged(event.ProjectRef{
+			ProjectID:     project.ProjectID,
+			AgentType:     project.AgentType,
+			ContainerName: containerName,
+		}, event.ContainerActionDeleted)
+	}
 
 	return &ContainerResult{ContainerID: project.ContainerID, Name: containerName, ProjectID: project.ProjectID}, nil
 }

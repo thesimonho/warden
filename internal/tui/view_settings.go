@@ -27,7 +27,8 @@ type SettingsView struct {
 
 // settings menu items.
 const (
-	settingsItemAuditLogMode = iota
+	settingsItemNotificationsEnabled = iota
+	settingsItemAuditLogMode
 	settingsItemDisconnectKey
 	settingsItemDefaultBudget
 	settingsItemBudgetActionWarn
@@ -153,6 +154,15 @@ func (v *SettingsView) activateItem() (View, tea.Cmd) {
 	}
 
 	switch v.cursor {
+	case settingsItemNotificationsEnabled:
+		newVal := !v.settings.NotificationsEnabled
+		return v, func() tea.Msg {
+			_, err := v.client.UpdateSettings(context.Background(), api.UpdateSettingsRequest{
+				NotificationsEnabled: &newVal,
+			})
+			return OperationResultMsg{Operation: "toggle_notifications", Err: err}
+		}
+
 	case settingsItemAuditLogMode:
 		// Cycle audit log mode: off → standard → detailed → off.
 		modes := []api.AuditLogMode{api.AuditLogOff, api.AuditLogStandard, api.AuditLogDetailed}
@@ -267,8 +277,26 @@ func (v *SettingsView) Render(_, _ int) string {
 	s += Styles.Subtitle.Render("Settings") + "\n\n"
 
 	if v.settings != nil {
-		// Audit log mode.
+		// Desktop notifications toggle.
 		cursor := "  "
+		if v.cursor == settingsItemNotificationsEnabled {
+			cursor = "> "
+		}
+		notifCheckbox := "[ ]"
+		if v.settings.NotificationsEnabled {
+			notifCheckbox = "[x]"
+		}
+		line := cursor + notifCheckbox + " " + Styles.Bold.Render("Desktop Notifications")
+		if v.cursor == settingsItemNotificationsEnabled {
+			s += Styles.Bold.Render(line)
+		} else {
+			s += line
+		}
+		s += "\n"
+		s += "    " + Styles.Muted.Render("System tray notifications when agents need input") + "\n\n"
+
+		// Audit log mode.
+		cursor = "  "
 		if v.cursor == settingsItemAuditLogMode {
 			cursor = "> "
 		}
@@ -279,7 +307,7 @@ func (v *SettingsView) Render(_, _ int) string {
 		case api.AuditLogDetailed:
 			modeDisplay = Styles.Success.Render("detailed")
 		}
-		line := cursor + Styles.Bold.Render("Audit Log: ") + modeDisplay
+		line = cursor + Styles.Bold.Render("Audit Log: ") + modeDisplay
 		if v.cursor == settingsItemAuditLogMode {
 			s += Styles.Bold.Render(line)
 		} else {

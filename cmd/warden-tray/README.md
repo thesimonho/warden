@@ -17,15 +17,19 @@ remain CGo-free. Only this tray binary requires a C compiler.
 
 ## Architecture
 
-The tray is a standalone process that talks to `warden-desktop` over HTTP.
-It does not import any packages from the main Warden module — this keeps
-the CGo dependency fully isolated.
+The tray is a standalone process that connects to `warden-desktop` via SSE
+for real-time state updates (`project_state` and `container_state_changed`
+events). It sends native desktop notifications (macOS/Linux/Windows) when
+agents need attention (permission prompts, idle state, elicitation dialogs),
+controlled by the server-side `notificationsEnabled` setting. It does not
+import any packages from the main Warden module — this keeps the CGo
+dependency fully isolated.
 
 Environment variables:
 
-| Variable     | Default                  | Description         |
-| ------------ | ------------------------ | ------------------- |
-| `WARDEN_URL` | `http://127.0.0.1:8090` | Server base URL     |
+| Variable     | Default                 | Description     |
+| ------------ | ----------------------- | --------------- |
+| `WARDEN_URL` | `http://127.0.0.1:8090` | Server base URL |
 
 ## Dependencies
 
