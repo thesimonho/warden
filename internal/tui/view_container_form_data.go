@@ -305,6 +305,30 @@ func (v *ContainerFormView) applyTemplate(tmpl *api.ProjectTemplate, currentAgen
 	}
 }
 
+// populateDefaultDomains fills the domains field with defaults from the
+// project template or server-provided restricted domains for the current
+// agent type, merged with runtime-contributed domains. Called when the
+// user switches to restricted mode and the domains field is empty.
+func (v *ContainerFormView) populateDefaultDomains() {
+	currentAgent := agentTypes[v.agentType]
+
+	// Prefer template overrides when available.
+	if tmpl := v.defaults.Template; tmpl != nil && tmpl.NetworkMode == api.NetworkModeRestricted {
+		if override, ok := tmpl.Agents[string(currentAgent)]; ok && len(override.AllowedDomains) > 0 {
+			merged := mergeRuntimeDomainsForToggles(override.AllowedDomains, v.runtimeDefaults, v.runtimeToggles)
+			v.domains.SetValue(strings.Join(merged, "\n"))
+			return
+		}
+	}
+
+	// Fall back to server-provided defaults.
+	if v.restrictedDomains != nil {
+		baseDomains := v.restrictedDomains[string(currentAgent)]
+		merged := mergeRuntimeDomainsForToggles(baseDomains, v.runtimeDefaults, v.runtimeToggles)
+		v.domains.SetValue(strings.Join(merged, "\n"))
+	}
+}
+
 // mergeRuntimeDomainsForToggles appends runtime-contributed domains to a
 // base domain list, deduplicating entries. Mirrors the frontend's
 // mergeRuntimeDomains helper so both UIs show the same domain set.

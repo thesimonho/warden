@@ -853,7 +853,22 @@ export default function ProjectConfigForm({
                   type="button"
                   size="sm"
                   variant={networkMode === m ? 'secondary' : 'outline'}
-                  onClick={() => setNetworkMode(m)}
+                  onClick={() => {
+                    setNetworkMode(m)
+                    // When switching to restricted with no domains, populate
+                    // defaults from the template or server-provided list.
+                    if (m === 'restricted' && !allowedDomains.trim()) {
+                      const templateDomains = resolveTemplateDomains(templateRef.current, agentType)
+                      const baseDomains = templateDomains ?? [
+                        ...getRestrictedDomains(restrictedDomainsRef.current, agentType),
+                      ]
+                      setAllowedDomains(
+                        mergeRuntimeDomains(baseDomains, runtimeDefaults, runtimeToggles).join(
+                          '\n',
+                        ),
+                      )
+                    }
+                  }}
                   disabled={isSubmitting}
                   className="flex-1 capitalize"
                 >
