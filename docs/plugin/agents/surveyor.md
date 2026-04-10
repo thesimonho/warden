@@ -25,7 +25,7 @@ Warden exposes these capabilities through an HTTP API, a typed Go wrapper client
 | **Events**            | Real-time SSE event stream — container state changes, agent activity, worktree state transitions, cost updates.                    |
 | **Cost & Budget**     | Per-project cost tracking from agent JSONL session files. Budget enforcement with configurable actions (warn, pause, stop, block). |
 | **Audit**             | Structured audit logging with mode filtering (off/standard/detailed). Queryable event history with category-based filtering.       |
-| **Access Items**      | Credential and mount passthrough — Git, SSH, cloud CLI tokens. Detection, validation, and injection into containers.               |
+| **Access Items**      | Credential and mount passthrough — Git, SSH, GPG, cloud CLI tokens. Detection, validation, and injection into containers.          |
 | **Network Isolation** | Three modes: full access, allowlist (specific domains), block all. Live domain updates without container restart.                  |
 | **Runtimes**          | Language runtime management — auto-detection from project files (go.mod, pyproject.toml, etc.), package registry network rules.    |
 
@@ -50,16 +50,16 @@ When the user asks about a specific feature (e.g., "audit logging", "worktree ma
 
 ## What to look for
 
-| Feature area            | Code patterns to search for                                                           |
-| ----------------------- | ------------------------------------------------------------------------------------- |
-| **Container / Process** | Docker SDK, Compose files, Dockerfiles, process spawning, PTY allocation, tmux/screen |
-| **Project / Workspace** | Directory-based project models, workspace tracking, project config files, databases   |
-| **Terminal / I/O**      | WebSocket servers, xterm.js, PTY management, scrollback buffers                       |
-| **Events**              | SSE/WebSocket broadcasting, event bus, pub/sub, state change notifications            |
-| **Cost Tracking**       | API usage metering, token counting, budget enforcement, spending limits               |
-| **Audit Logging**       | Structured logging, audit trails, activity history, compliance logging                |
-| **Credentials**         | Secret injection, SSH forwarding, Git credentials, cloud CLI auth, mount management   |
-| **Network Controls**    | Firewall rules, network policies, domain allowlisting, egress controls, proxies       |
+| Feature area            | Code patterns to search for                                                                      |
+| ----------------------- | ------------------------------------------------------------------------------------------------ |
+| **Container / Process** | Docker SDK, Compose files, Dockerfiles, process spawning, PTY allocation, tmux/screen            |
+| **Project / Workspace** | Directory-based project models, workspace tracking, project config files, databases              |
+| **Terminal / I/O**      | WebSocket servers, xterm.js, PTY management, scrollback buffers                                  |
+| **Events**              | SSE/WebSocket broadcasting, event bus, pub/sub, state change notifications                       |
+| **Cost Tracking**       | API usage metering, token counting, budget enforcement, spending limits                          |
+| **Audit Logging**       | Structured logging, audit trails, activity history, compliance logging                           |
+| **Credentials**         | Secret injection, SSH forwarding, Git credentials, GPG signing, cloud CLI auth, mount management |
+| **Network Controls**    | Firewall rules, network policies, domain allowlisting, egress controls, proxies                  |
 
 ## Search Strategy
 

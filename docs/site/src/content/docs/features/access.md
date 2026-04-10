@@ -21,6 +21,7 @@ Examples:
 
 - **Git** — mounts `.gitconfig` so git commands use your identity
 - **SSH** — forwards config, known_hosts, and agent socket
+- **GPG** — forwards gpg-agent socket for commit signing
 - **GitHub CLI** — injects OAuth token as `GH_TOKEN`
 - **AWS CLI** — injects access keys and config file
 
@@ -44,11 +45,11 @@ Sources are tried in order — the first one detected wins. If none are detected
 
 ### Injection Types
 
-| Injection        | Example                                         | Use case                 |
-| ---------------- | ----------------------------------------------- | ------------------------ |
-| **Env var**      | `GH_TOKEN=ghp_xxx`                              | Tools that read env vars |
+| Injection        | Example                                            | Use case                 |
+| ---------------- | -------------------------------------------------- | ------------------------ |
+| **Env var**      | `GH_TOKEN=ghp_xxx`                                 | Tools that read env vars |
 | **File mount**   | Mount `~/.aws/config` → `/home/warden/.aws/config` | Config files             |
-| **Socket mount** | Mount SSH agent socket                          | SSH agent forwarding     |
+| **Socket mount** | Mount SSH agent socket                             | SSH agent forwarding     |
 
 ### Detection vs Resolution
 
@@ -58,7 +59,7 @@ Sources are tried in order — the first one detected wins. If none are detected
 
 ## Built-in Items
 
-Warden ships with two pre-configured Access Items. You can edit them to customize their behavior, and reset to defaults if needed.
+Warden ships with three pre-configured Access Items. You can edit them to customize their behavior, and reset to defaults if needed.
 
 ### Git
 
@@ -90,6 +91,25 @@ Forwards SSH config, known_hosts, and the SSH agent socket so git-over-SSH and S
 
 :::tip
 SSH agent forwarding is the secure way to use SSH keys in containers. The private key never enters the container — signing requests are forwarded to the host agent via the socket.
+:::
+
+### GPG
+
+Forwards the host's gpg-agent socket so GPG commit signing (`git commit -S`) works inside the container without copying private keys.
+
+**What it does:**
+
+- Finds the gpg-agent socket on the host (checks `$XDG_RUNTIME_DIR/gnupg/S.gpg-agent` and `~/.gnupg/S.gpg-agent`)
+- Mounts it at `/home/warden/.gnupg/S.gpg-agent` inside the container, where GPG finds it automatically
+
+**When to enable:** Whenever you sign git commits or tags with a GPG key.
+
+:::caution[Platform support]
+GPG agent forwarding works reliably on **Linux**. On **macOS**, detection works but the socket mount may fail depending on your Docker Desktop configuration (Docker Desktop does not provide a built-in GPG agent proxy like it does for SSH). On **Windows**, GPG uses Assuan pipes instead of Unix sockets, so this item is not available.
+:::
+
+:::tip
+Like SSH agent forwarding, GPG agent forwarding keeps your private key on the host. The container sends signing requests through the socket — the key never enters the container.
 :::
 
 ## Creating Custom Access Items
@@ -159,6 +179,15 @@ When you create or restart a container with Access Items enabled:
 4. **Injection** — The container starts with all resolved values in place.
 
 5. **No persistence** — Credentials exist only in the container's runtime environment. When the container stops, they're gone.
+
+## Sandbox Mode
+
+If your AI coding agent runs with sandbox restrictions (e.g., Claude Code's sandbox mode), the sandbox must allow access to the host resources that Access Items depend on. For example:
+
+- **SSH** requires the sandbox to permit connections to the `$SSH_AUTH_SOCK` Unix socket and outbound access to SSH hosts (e.g., `ssh.github.com`)
+- **GPG** requires the sandbox to permit access to the gpg-agent Unix socket (typically under `$XDG_RUNTIME_DIR/gnupg/` or `~/.gnupg/`)
+
+Check your sandbox configuration first. If socket forwarding or network access fails despite Access Items showing as detected, the issue is likely somewhere in your sandbox settings.
 
 ## Testing Access Items
 

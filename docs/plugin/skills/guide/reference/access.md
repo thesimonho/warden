@@ -24,22 +24,22 @@ Each credential has one or more **sources** (tried in order; first detected wins
 
 ### Source types
 
-| Type      | Value field contains       | Use case                                    |
-| --------- | -------------------------- | ------------------------------------------- |
-| `env`     | Environment variable name  | Tokens and API keys in your shell           |
-| `file`    | Absolute file path         | Config files, certificates                  |
-| `socket`  | Socket path (or env var)   | SSH agent, Docker socket                    |
-| `command` | Shell command string       | Tokens in keychains, dynamic values         |
+| Type      | Value field contains      | Use case                            |
+| --------- | ------------------------- | ----------------------------------- |
+| `env`     | Environment variable name | Tokens and API keys in your shell   |
+| `file`    | Absolute file path        | Config files, certificates          |
+| `socket`  | Socket path (or env var)  | SSH agent, Docker socket            |
+| `command` | Shell command string      | Tokens in keychains, dynamic values |
 
 Sources are tried in declaration order. The first one where the value is detected on the host is used. Remaining sources are skipped.
 
 ### Injection types
 
-| Type           | `key` field contains    | Use case                          |
-| -------------- | ----------------------- | --------------------------------- |
-| `env`          | Environment variable name | Tools that read env vars         |
-| `mount_file`   | Container file path     | Config files mounted read-only    |
-| `mount_socket` | Container socket path   | SSH agent forwarding, Docker socket |
+| Type           | `key` field contains      | Use case                            |
+| -------------- | ------------------------- | ----------------------------------- |
+| `env`          | Environment variable name | Tools that read env vars            |
+| `mount_file`   | Container file path       | Config files mounted read-only      |
+| `mount_socket` | Container socket path     | SSH agent forwarding, Docker socket |
 
 The `readOnly` field controls whether file mounts are read-only (recommended for sensitive files). The `value` field on an injection can provide a static override -- useful when the injection needs a fixed container-side path regardless of the resolved source value (e.g. `SSH_AUTH_SOCK` env var pointing to a well-known socket path).
 
@@ -53,7 +53,7 @@ The `readOnly` field controls whether file mounts are read-only (recommended for
 
 ## Built-in items
 
-Warden ships with two pre-configured Access Items that cover the most common needs. You can edit them to customize behavior and reset them to defaults if needed.
+Warden ships with three pre-configured Access Items that cover the most common needs. You can edit them to customize behavior and reset them to defaults if needed.
 
 ### Git (`id: "git"`)
 
@@ -75,9 +75,18 @@ Forwards SSH config, known_hosts, and the SSH agent socket so git-over-SSH and S
 
 Private keys never enter the container. Signing requests are forwarded to the host's SSH agent via the socket.
 
+### GPG (`id: "gpg"`)
+
+Forwards the host's gpg-agent socket so git commit signing (`-S`) and GPG operations work inside the container without copying private keys.
+
+- Finds the gpg-agent socket via platform-specific discovery (Linux: `gpgconf --list-dir agent-socket`, macOS: `$GNUPGHOME` or `~/.gnupg/S.gpg-agent`)
+- Mounts the socket at `/home/warden/.gnupg/S.gpg-agent` (the default gpg socket location, so gpg finds it automatically)
+
+Private keys never enter the container. Signing requests are forwarded to the host's gpg-agent via the socket.
+
 ## Custom items
 
-Create custom Access Items for any credential that needs to reach the container. Common examples: GitHub CLI tokens, AWS credentials, Docker registry auth, GPG keys.
+Create custom Access Items for any credential that needs to reach the container. Common examples: GitHub CLI tokens, AWS credentials, Docker registry auth.
 
 Each custom item gets a generated UUID as its `id`. Custom items can be freely created, updated, and deleted via the API. Built-in items cannot be deleted, only edited or reset.
 
@@ -191,7 +200,7 @@ Returns `204 No Content`. Built-in items cannot be deleted -- returns `400`.
 curl -X POST http://localhost:8090/api/v1/access/{id}/reset
 ```
 
-Removes any DB override and restores the built-in item's default configuration. Only works for built-in items (`git`, `ssh`).
+Removes any DB override and restores the built-in item's default configuration. Only works for built-in items (`git`, `ssh`, `gpg`).
 
 ### Test resolution (preview)
 
@@ -241,7 +250,12 @@ Response shows per-credential resolution results:
           "resolved": true,
           "sourceMatched": "file: /home/user/.ssh/config",
           "injections": [
-            {"type": "mount_file", "key": "/home/warden/.ssh/config", "value": "/home/user/.ssh/config", "readOnly": true}
+            {
+              "type": "mount_file",
+              "key": "/home/warden/.ssh/config",
+              "value": "/home/user/.ssh/config",
+              "readOnly": true
+            }
           ]
         },
         {
@@ -249,8 +263,16 @@ Response shows per-credential resolution results:
           "resolved": true,
           "sourceMatched": "socket: /tmp/ssh-agent.sock",
           "injections": [
-            {"type": "mount_socket", "key": "/home/warden/.ssh/agent.sock", "value": "/tmp/ssh-agent.sock"},
-            {"type": "env", "key": "SSH_AUTH_SOCK", "value": "/home/warden/.ssh/agent.sock"}
+            {
+              "type": "mount_socket",
+              "key": "/home/warden/.ssh/agent.sock",
+              "value": "/tmp/ssh-agent.sock"
+            },
+            {
+              "type": "env",
+              "key": "SSH_AUTH_SOCK",
+              "value": "/home/warden/.ssh/agent.sock"
+            }
           ]
         }
       ]
@@ -271,7 +293,7 @@ curl -X POST http://localhost:8090/api/v1/projects/{projectId}/{agentType}/conta
   -d '{
     "name": "my-project",
     "projectPath": "/home/user/my-project",
-    "enabledAccessItems": ["git", "ssh", "a1b2c3d4-..."]
+    "enabledAccessItems": ["git", "ssh", "gpg", "a1b2c3d4-..."]
   }'
 ```
 

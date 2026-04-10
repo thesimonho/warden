@@ -4,6 +4,9 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"reflect"
+	"sort"
+	"strings"
 	"testing"
 
 	"github.com/thesimonho/warden/api"
@@ -351,6 +354,177 @@ func TestReadProjectTemplateExported(t *testing.T) {
 			t.Error("expected error for relative path")
 		}
 	})
+}
+
+// --- Security tests: sensitive data exclusion ---
+
+func TestWriteProjectTemplate_ExcludesSensitiveFields(t *testing.T) {
+	t.Parallel()
+
+	t.Run("env vars excluded from written file", func(t *testing.T) {
+		t.Parallel()
+		dir := t.TempDir()
+
+		td := newTemplateData(api.CreateContainerRequest{
+			ProjectPath:     dir,
+			Image:           "test:latest",
+			AgentType:       constants.AgentClaudeCode,
+			NetworkMode:     api.NetworkModeFull,
+			EnvVars:         map[string]string{"API_KEY": "super-secret-value", "DB_PASSWORD": "hunter2"},
+			EnabledRuntimes: []string{"node"},
+		})
+
+		writeProjectTemplate(td)
+
+		raw, err := os.ReadFile(filepath.Join(dir, templateFileName))
+		if err != nil {
+			t.Fatalf("failed to read template: %v", err)
+		}
+		content := string(raw)
+
+		for _, needle := range []string{"super-secret-value", "hunter2", "API_KEY", "DB_PASSWORD", "envVar"} {
+			if strings.Contains(content, needle) {
+				t.Errorf("template file contains env var data %q:\n%s", needle, content)
+			}
+		}
+	})
+
+	t.Run("access item IDs excluded from written file", func(t *testing.T) {
+		t.Parallel()
+		dir := t.TempDir()
+
+		td := newTemplateData(api.CreateContainerRequest{
+			ProjectPath:        dir,
+			Image:              "test:latest",
+			AgentType:          constants.AgentClaudeCode,
+			NetworkMode:        api.NetworkModeFull,
+			EnabledAccessItems: []string{"ssh", "gpg", "custom-item-123"},
+			EnabledRuntimes:    []string{"node"},
+		})
+
+		writeProjectTemplate(td)
+
+		raw, err := os.ReadFile(filepath.Join(dir, templateFileName))
+		if err != nil {
+			t.Fatalf("failed to read template: %v", err)
+		}
+		content := string(raw)
+
+		for _, needle := range []string{"accessItem", "enabledAccessItems", "custom-item-123"} {
+			if strings.Contains(content, needle) {
+				t.Errorf("template file contains access item reference %q:\n%s", needle, content)
+			}
+		}
+	})
+
+	t.Run("mounts excluded from written file", func(t *testing.T) {
+		t.Parallel()
+		dir := t.TempDir()
+
+		td := newTemplateData(api.CreateContainerRequest{
+			ProjectPath:     dir,
+			Image:           "test:latest",
+			AgentType:       constants.AgentClaudeCode,
+			NetworkMode:     api.NetworkModeFull,
+			Mounts:          []api.Mount{{HostPath: "/home/user/.ssh", ContainerPath: "/root/.ssh"}},
+			EnabledRuntimes: []string{"node"},
+		})
+
+		writeProjectTemplate(td)
+
+		raw, err := os.ReadFile(filepath.Join(dir, templateFileName))
+		if err != nil {
+			t.Fatalf("failed to read template: %v", err)
+		}
+		content := string(raw)
+
+		for _, needle := range []string{"/home/user/.ssh", "/root/.ssh", "mount"} {
+			if strings.Contains(content, needle) {
+				t.Errorf("template file contains mount data %q:\n%s", needle, content)
+			}
+		}
+	})
+
+	t.Run("only allowed JSON keys appear in output", func(t *testing.T) {
+		t.Parallel()
+		dir := t.TempDir()
+
+		td := newTemplateData(api.CreateContainerRequest{
+			ProjectPath:        dir,
+			Image:              "custom:latest",
+			AgentType:          constants.AgentClaudeCode,
+			SkipPermissions:    true,
+			NetworkMode:        api.NetworkModeRestricted,
+			AllowedDomains:     []string{"*.example.com"},
+			CostBudget:         10.0,
+			EnabledRuntimes:    []string{"node", "python"},
+			ForwardedPorts:     []int{3000},
+			EnvVars:            map[string]string{"SECRET": "value"},
+			EnabledAccessItems: []string{"ssh"},
+			Mounts:             []api.Mount{{HostPath: "/a", ContainerPath: "/b"}},
+		})
+
+		writeProjectTemplate(td)
+
+		raw, err := os.ReadFile(filepath.Join(dir, templateFileName))
+		if err != nil {
+			t.Fatalf("failed to read template: %v", err)
+		}
+
+		var parsed map[string]json.RawMessage
+		if err := json.Unmarshal(raw, &parsed); err != nil {
+			t.Fatalf("template is not valid JSON: %v", err)
+		}
+
+		allowedKeys := map[string]bool{
+			"image": true, "skipPermissions": true, "networkMode": true,
+			"costBudget": true, "runtimes": true, "forwardedPorts": true, "agents": true,
+		}
+		for key := range parsed {
+			if !allowedKeys[key] {
+				t.Errorf("unexpected key %q in template file — may be leaking sensitive data", key)
+			}
+		}
+	})
+}
+
+// TestTemplateDataFieldAllowlist uses reflection to assert that templateData
+// only contains explicitly approved fields. If a developer adds a new field
+// to templateData, this test forces them to consciously approve it here.
+func TestTemplateDataFieldAllowlist(t *testing.T) {
+	t.Parallel()
+
+	// Approved fields that are safe to write to .warden.json.
+	// If you add a field to templateData, you MUST add it here after
+	// verifying it does not contain secrets, credentials, or tokens.
+	approvedFields := []string{
+		"ProjectPath",
+		"Image",
+		"AgentType",
+		"SkipPermissions",
+		"NetworkMode",
+		"CostBudget",
+		"Runtimes",
+		"AllowedDomains",
+		"ForwardedPorts",
+	}
+
+	typ := reflect.TypeOf(templateData{})
+	var actualFields []string
+	for i := range typ.NumField() {
+		actualFields = append(actualFields, typ.Field(i).Name)
+	}
+
+	sort.Strings(approvedFields)
+	sort.Strings(actualFields)
+
+	if !reflect.DeepEqual(approvedFields, actualFields) {
+		t.Errorf(
+			"templateData fields changed — review for credential leaks before updating the allowlist.\n"+
+				"approved: %v\nactual:   %v",
+			approvedFields, actualFields,
+		)
+	}
 }
 
 // writeJSON is a test helper that writes a ProjectTemplate to .warden.json.

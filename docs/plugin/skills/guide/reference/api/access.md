@@ -815,7 +815,7 @@ Updates an access item. For built-in items, saves a customized copy to the DB (o
 - **Path:** `/api/v1/access/{id}/reset`
 - **Tags:** access
 
-Restores a built-in access item to its default configuration by removing any DB override. Only works for built-in items (git, ssh).
+Restores a built-in access item to its default configuration by removing any DB override. Only works for built-in items (git, ssh, gpg).
 
 #### Responses
 

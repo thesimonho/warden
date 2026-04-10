@@ -39,10 +39,10 @@ type mockEngine struct {
 	validateMissing    []string
 	validateErr        error
 	// Call tracking for assertions.
-	killedWorktrees          []string
-	stopCalled               bool
-	lastWorktreeName         string
-	networkIsolationApplied  bool
+	killedWorktrees         []string
+	stopCalled              bool
+	lastWorktreeName        string
+	networkIsolationApplied bool
 }
 
 func (m *mockEngine) ListProjects(_ context.Context, _ []string) ([]engine.Project, error) {

@@ -1,0 +1,1 @@
+- [Documentation Locations](docs-locations.md) — Codemaps, references, site, plugin directories

@@ -112,7 +112,7 @@ Example web apps built up from core Warden features:
 - **Safe autonomous mode** — run `--dangerously-skip-permissions` without risking your host. The blast radius is one disposable container.
 - **Network access controls** — per-container policy: full access, restricted (domain allowlist), or air-gapped. Built-in reverse proxy for accessing dev servers inside containers.
 - **Language runtimes** — declare which runtimes a project needs (Python, Go, Rust, Ruby, Lua). Warden installs them and opens only the required network domains. Auto-detected from project marker files.
-- **Credential passthrough** — share Git, SSH, and custom credentials with containers automatically without storing them.
+- **Credential passthrough** — share Git, SSH, GPG, and custom credentials with containers automatically without storing them.
 
 ### Agent operations
 

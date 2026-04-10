@@ -58,6 +58,20 @@ func buildSocketMounts(mounts []api.Mount) []mount.Mount {
 	return result
 }
 
+// findFailingMount returns the index of the mount whose source path appears
+// in the Docker error message, or -1 if no match is found. Docker errors
+// typically include the path verbatim (e.g. "bind source path does not
+// exist: /run/user/1000/gnupg/S.gpg-agent").
+func findFailingMount(err error, mounts []mount.Mount) int {
+	msg := err.Error()
+	for i, m := range mounts {
+		if m.Source != "" && strings.Contains(msg, m.Source) {
+			return i
+		}
+	}
+	return -1
+}
+
 // isMountError reports whether a Docker API error is related to a bind mount
 // failure (e.g. source path doesn't exist or can't be stat'd). Used to narrow
 // the socket mount retry to mount-specific failures.
