@@ -93,8 +93,8 @@ Forwards SSH config, known_hosts, and the SSH agent socket so git-over-SSH and S
 SSH agent forwarding is the secure way to use SSH keys in containers. The private key never enters the container — signing requests are forwarded to the host agent via the socket.
 :::
 
-:::note[Docker Desktop]
-SSH agent forwarding works automatically on Docker Desktop (macOS and Linux). Warden auto-detects Docker Desktop at startup and uses Docker's built-in SSH agent proxy — no manual file sharing configuration needed.
+:::note[How it works]
+Warden bridges the host SSH agent socket into the container via a TCP proxy — the host socket is never bind-mounted directly. This works identically on native Docker and Docker Desktop across all platforms. No manual configuration needed.
 :::
 
 ### GPG
@@ -104,16 +104,16 @@ Forwards the host's gpg-agent socket so GPG commit signing (`git commit -S`) wor
 **What it does:**
 
 - Finds the gpg-agent socket on the host (tries `$XDG_RUNTIME_DIR/gnupg/S.gpg-agent` then `~/.gnupg/S.gpg-agent`; stale sockets with no live listener are skipped)
-- Mounts it at `/home/warden/.gnupg/S.gpg-agent` inside the container, where GPG finds it automatically
+- Bridges it into the container at `/home/warden/.gnupg/S.gpg-agent` via TCP proxy, where GPG finds it automatically
 
 **When to enable:** Whenever you sign git commits or tags with a GPG key.
 
-:::caution[Platform support]
-GPG agent forwarding works reliably on **native Docker Engine** (Linux), where the host socket is bind-mounted directly into the container.
+:::note[How it works]
+Like SSH, Warden bridges the host GPG agent socket into the container via a TCP proxy. This works identically on native Docker and Docker Desktop across all platforms. No manual configuration needed.
+:::
 
-On **Docker Desktop** (macOS or Linux), containers run inside a lightweight Linux VM rather than directly on the host. Host sockets can't be bind-mounted through the VM layer. For SSH, Docker Desktop provides a built-in proxy that Warden uses automatically — but no equivalent proxy exists for GPG. The socket mount will be attempted and may fail; Warden logs a warning and drops the failed mount so other access items still work. GPG commit signing is not supported on Docker Desktop.
-
-On **Windows**, GPG uses Assuan pipes instead of Unix sockets, so this item is not available.
+:::caution[Windows]
+On Windows, GPG uses Assuan pipes instead of Unix sockets, so this item is not available.
 :::
 
 :::tip

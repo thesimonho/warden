@@ -75,18 +75,16 @@ Forwards SSH config, known_hosts, and the SSH agent socket so git-over-SSH and S
 
 Private keys never enter the container. Signing requests are forwarded to the host's SSH agent via the socket.
 
-On Docker Desktop (macOS and Linux), SSH agent forwarding works automatically. Warden auto-detects Docker Desktop at startup and uses Docker's built-in SSH agent proxy -- no manual file sharing configuration needed.
+Warden bridges the host SSH agent socket into the container via a TCP proxy -- the host socket is never bind-mounted directly. This works identically on native Docker and Docker Desktop across all platforms.
 
 ### GPG (`id: "gpg"`)
 
 Forwards the host's gpg-agent socket so git commit signing (`-S`) and GPG operations work inside the container without copying private keys.
 
 - Finds the gpg-agent socket via two source paths tried in order: `$XDG_RUNTIME_DIR/gnupg/S.gpg-agent` (systemd-managed) and `~/.gnupg/S.gpg-agent` (traditional). Stale sockets (no live listener) are skipped during detection.
-- Mounts the socket at `/home/warden/.gnupg/S.gpg-agent` (the default gpg socket location, so gpg finds it automatically)
+- Bridges the socket into the container at `/home/warden/.gnupg/S.gpg-agent` via TCP proxy (the default gpg socket location, so gpg finds it automatically)
 
-Private keys never enter the container. Signing requests are forwarded to the host's gpg-agent via the socket.
-
-GPG works reliably on native Docker Engine (Linux). On Docker Desktop (macOS or Linux), GPG signing is not supported -- Docker Desktop does not provide a built-in GPG agent proxy like it does for SSH, and host sockets cannot be bind-mounted through the VM layer. Warden logs a warning and drops the failed mount so other access items still work. On Windows, GPG uses Assuan pipes instead of Unix sockets, so this item is not available.
+Private keys never enter the container. Signing requests are forwarded to the host's gpg-agent via the socket. Like SSH, the TCP bridge works identically on native Docker and Docker Desktop. On Windows, GPG uses Assuan pipes instead of Unix sockets, so this item is not available.
 
 ## Custom items
 
