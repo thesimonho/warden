@@ -53,7 +53,7 @@ Sources are tried in order — the first one detected wins. If none are detected
 
 ### Detection vs Resolution
 
-**Detection** checks if a credential's source exists on the host _without reading its value_. This is fast and safe — used to show availability status before container creation.
+**Detection** checks if a credential's source exists on the host _without reading its value_. This is fast and safe — used to show availability status before container creation. For socket sources (SSH agent, GPG agent), detection probes for a live listener — stale or dead sockets are rejected early with a clear error instead of silently failing at container start.
 
 **Resolution** actually reads the values and prepares injections. This happens at container creation time, right before the container starts.
 
@@ -93,19 +93,23 @@ Forwards SSH config, known_hosts, and the SSH agent socket so git-over-SSH and S
 SSH agent forwarding is the secure way to use SSH keys in containers. The private key never enters the container — signing requests are forwarded to the host agent via the socket.
 :::
 
+:::note[Docker Desktop]
+SSH agent forwarding works automatically on Docker Desktop (macOS and Linux). Warden auto-detects Docker Desktop at startup and uses Docker's built-in SSH agent proxy — no manual file sharing configuration needed.
+:::
+
 ### GPG
 
 Forwards the host's gpg-agent socket so GPG commit signing (`git commit -S`) works inside the container without copying private keys.
 
 **What it does:**
 
-- Finds the gpg-agent socket on the host (checks `$XDG_RUNTIME_DIR/gnupg/S.gpg-agent` and `~/.gnupg/S.gpg-agent`)
+- Finds the gpg-agent socket on the host (tries `$XDG_RUNTIME_DIR/gnupg/S.gpg-agent` then `~/.gnupg/S.gpg-agent`; stale sockets with no live listener are skipped)
 - Mounts it at `/home/warden/.gnupg/S.gpg-agent` inside the container, where GPG finds it automatically
 
 **When to enable:** Whenever you sign git commits or tags with a GPG key.
 
 :::caution[Platform support]
-GPG agent forwarding works reliably on **Linux**. On **macOS**, detection works but the socket mount may fail depending on your Docker Desktop configuration (Docker Desktop does not provide a built-in GPG agent proxy like it does for SSH). On **Windows**, GPG uses Assuan pipes instead of Unix sockets, so this item is not available.
+GPG agent forwarding works reliably on **native Docker Engine** (Linux). On **Docker Desktop** (macOS or Linux), the socket mount may fail because Docker Desktop does not provide a built-in GPG agent proxy (unlike SSH). Warden auto-detects Docker Desktop and logs a warning when GPG is enabled; failed socket mounts are dropped individually so other access items still work. On **Windows**, GPG uses Assuan pipes instead of Unix sockets, so this item is not available.
 :::
 
 :::tip
