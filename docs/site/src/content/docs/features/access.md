@@ -109,7 +109,11 @@ Forwards the host's gpg-agent socket so GPG commit signing (`git commit -S`) wor
 **When to enable:** Whenever you sign git commits or tags with a GPG key.
 
 :::caution[Platform support]
-GPG agent forwarding works reliably on **native Docker Engine** (Linux). On **Docker Desktop** (macOS or Linux), the socket mount may fail because Docker Desktop does not provide a built-in GPG agent proxy (unlike SSH). Warden auto-detects Docker Desktop and logs a warning when GPG is enabled; failed socket mounts are dropped individually so other access items still work. On **Windows**, GPG uses Assuan pipes instead of Unix sockets, so this item is not available.
+GPG agent forwarding works reliably on **native Docker Engine** (Linux), where the host socket is bind-mounted directly into the container.
+
+On **Docker Desktop** (macOS or Linux), containers run inside a lightweight Linux VM rather than directly on the host. Host sockets can't be bind-mounted through the VM layer. For SSH, Docker Desktop provides a built-in proxy that Warden uses automatically — but no equivalent proxy exists for GPG. The socket mount will be attempted and may fail; Warden logs a warning and drops the failed mount so other access items still work. You can make it work by adding the socket path to Docker Desktop → Settings → Resources → File Sharing.
+
+On **Windows**, GPG uses Assuan pipes instead of Unix sockets, so this item is not available.
 :::
 
 :::tip
