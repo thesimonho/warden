@@ -103,6 +103,8 @@ is_allowed_domain() {
 # Track which IPs we have already reported to avoid duplicate events.
 declare -A REPORTED_IPS
 declare -A DNS_MAP
+# Track retry attempts for IPs with unresolved domains.
+declare -A RETRY_COUNT
 # Container-level event — no specific worktree.
 WORKTREE_ID=""
 # Byte offset for incremental dnsmasq log parsing.
@@ -129,25 +131,49 @@ while true; do
     if [ "$current_size" -gt "$LOG_OFFSET" ]; then
       while read -r _ip _domain; do
         if [ -n "$_ip" ]; then DNS_MAP["$_ip"]="$_domain"; fi
-      done < <(tail -c +"$((LOG_OFFSET + 1))" "$DNSMASQ_LOG" | awk '/reply .* is [0-9]+\./{
-        for(i=1;i<=NF;i++){
-          if($i=="reply"){domain=$(i+1)}
-          if($i=="is" && $(i+1)~/^[0-9]+\./){print $(i+1), domain}
+      done < <(tail -c +"$((LOG_OFFSET + 1))" "$DNSMASQ_LOG" | awk '
+        # Forward DNS replies: "reply example.com is 93.184.216.34"
+        /reply .* is [0-9]+\./{
+          for(i=1;i<=NF;i++){
+            if($i=="reply"){domain=$(i+1)}
+            if($i=="is" && $(i+1)~/^[0-9]+\./){print $(i+1), domain}
+          }
         }
-      }')
+        # ipset additions: "ipset add warden_allowed 1.2.3.4 github.com"
+        # Covers IPs resolved by dnsmasq for allowed domains. When the
+        # ipset TTL expires and the connection gets transiently blocked,
+        # this mapping lets the false-positive filter skip the event.
+        /ipset add warden_allowed [0-9]+\./{
+          for(i=1;i<=NF;i++){
+            if($i=="warden_allowed" && $(i+1)~/^[0-9]+\./){print $(i+1), $(i+2)}
+          }
+        }
+      ')
       LOG_OFFSET=$current_size
     fi
   fi
 
-  # Process new blocked IPs.
+  # Process new blocked IPs. If domain resolution fails (dnsmasq log
+  # may not have the DNS reply yet), defer the IP to the next poll
+  # cycle instead of reporting without a domain.
   for ip in "${NEW_IPS[@]}"; do
-    REPORTED_IPS["$ip"]=1
-
     domain=$(resolve_domain "$ip")
 
     # Skip IPs that belong to allowed domains — these are transient
     # blocks from expired ipset entries, not real policy violations.
-    if is_allowed_domain "$domain"; then continue; fi
+    if is_allowed_domain "$domain"; then
+      REPORTED_IPS["$ip"]=1
+      continue
+    fi
+
+    # Defer IPs with no resolved domain — the dnsmasq log may not
+    # have the DNS reply yet. Retry on the next poll cycle.
+    if [ -z "$domain" ] && [ -f "$DNSMASQ_LOG" ] && [ "${RETRY_COUNT[$ip]:-0}" -lt 3 ]; then
+      RETRY_COUNT["$ip"]=$(( ${RETRY_COUNT[$ip]:-0} + 1 ))
+      continue
+    fi
+
+    REPORTED_IPS["$ip"]=1
 
     # Use jq for safe JSON construction (domain comes from DNS).
     data=$(jq -nc --arg ip "$ip" --arg domain "$domain" \
