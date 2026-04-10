@@ -116,7 +116,10 @@ case "$AGENT_TYPE" in
 
   *) # claude-code (default)
     # Build the fresh command (no resume flag).
-    AGENT_CMD_FRESH="claude"
+    # Always pass --allow-dangerously-skip-permissions so the user can
+    # toggle skip-permissions from their settings without the flag being
+    # blocked. The container itself is the security boundary.
+    AGENT_CMD_FRESH="claude --allow-dangerously-skip-permissions"
     if [ "$IS_GIT_REPO" = true ] && [ "$WORKTREE_ID" != "main" ]; then
       AGENT_CMD_FRESH="${AGENT_CMD_FRESH} --worktree '${WORKTREE_ID}'"
     fi
