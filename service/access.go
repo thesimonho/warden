@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
@@ -366,42 +367,25 @@ func (s *Service) ResolveAccessItemsForContainer(req *api.CreateContainerRequest
 	return nil
 }
 
-// startSocketBridges starts TCP bridge proxies for each socket bridge
-// spec on the request. Each bridge listens on the Docker bridge gateway
-// IP (reachable from containers via host.docker.internal) and proxies
-// connections to the host socket. The port is passed to the container
-// via WARDEN_BRIDGE_* env vars; the entrypoint uses socat to create
-// the application socket and forward to the bridge.
+// startSocketBridgesForSpecs starts TCP bridge proxies for each socket
+// bridge spec. Each bridge listens on the Docker bridge gateway IP and
+// proxies connections to the host socket. On native Docker, a per-port
+// iptables rule is added so containers can reach the listener through
+// firewalls with restrictive INPUT policies.
 //
-// Returns the bridges so the caller can track and stop them.
-func (s *Service) startSocketBridges(req *api.CreateContainerRequest) []*socketBridge {
-	if len(req.SocketBridges) == 0 || s.bridgeIP == "" {
+// The container-side socat is started separately via docker exec after
+// the container is running (see execSocatBridges).
+func (s *Service) startSocketBridgesForSpecs(ctx context.Context, specs []api.Mount) []*socketBridge {
+	if len(specs) == 0 || s.bridgeIP == "" {
 		return nil
 	}
 
-	if req.EnvVars == nil {
-		req.EnvVars = make(map[string]string)
-	}
-
 	var bridges []*socketBridge
-	for _, spec := range req.SocketBridges {
-		bridge, err := startSocketBridge(s.bridgeIP, spec.HostPath, spec.ContainerPath)
-		if err != nil {
-			slog.Warn("failed to start socket bridge, skipping",
-				"hostSocket", spec.HostPath,
-				"containerSocket", spec.ContainerPath,
-				"err", err,
-			)
-			continue
+	for _, spec := range specs {
+		if bridge := s.startBridgeWithFirewall(ctx, spec.HostPath, spec.ContainerPath); bridge != nil {
+			bridges = append(bridges, bridge)
 		}
-		bridges = append(bridges, bridge)
-		// Each env var tells the entrypoint: PORT:CONTAINER_PATH.
-		// The entrypoint starts socat to forward from the container socket
-		// to host.docker.internal:PORT.
-		envKey := fmt.Sprintf("WARDEN_BRIDGE_%d", len(bridges)-1)
-		req.EnvVars[envKey] = fmt.Sprintf("%d:%s", bridge.Port(), spec.ContainerPath)
 	}
-
 	return bridges
 }
 

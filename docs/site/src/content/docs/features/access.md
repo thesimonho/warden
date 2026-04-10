@@ -36,13 +36,13 @@ Sources are tried in order — the first one detected wins. If none are detected
 
 ### Source Types
 
-| Source          | Example                             | Use case                               |
-| --------------- | ----------------------------------- | -------------------------------------- |
-| **Env var**     | `GITHUB_TOKEN`                      | Tokens, API keys already in your shell |
-| **File**        | `~/.gitconfig`                      | Config files, certificates             |
-| **Socket**      | `$SSH_AUTH_SOCK`                    | SSH agent socket                       |
-| **Named pipe**  | `\\.\pipe\openssh-ssh-agent`        | SSH agent on Windows                   |
-| **Command**     | `gh auth token`                     | Tokens in keychains, dynamic values    |
+| Source         | Example                      | Use case                               |
+| -------------- | ---------------------------- | -------------------------------------- |
+| **Env var**    | `GITHUB_TOKEN`               | Tokens, API keys already in your shell |
+| **File**       | `~/.gitconfig`               | Config files, certificates             |
+| **Socket**     | `$SSH_AUTH_SOCK`             | SSH agent socket                       |
+| **Named pipe** | `\\.\pipe\openssh-ssh-agent` | SSH agent on Windows                   |
+| **Command**    | `gh auth token`              | Tokens in keychains, dynamic values    |
 
 ### Injection Types
 
@@ -96,6 +96,10 @@ SSH agent forwarding is the secure way to use SSH keys in containers. The privat
 
 :::note[How it works]
 Warden bridges the host SSH agent into the container via a TCP proxy — the host socket (or named pipe on Windows) is never bind-mounted directly. This works identically on native Docker and Docker Desktop across all platforms, including Windows. No manual configuration needed.
+
+On native Docker Linux, Warden automatically manages iptables firewall rules so the bridge works even with restrictive host firewalls (e.g., ufw or firewalld with an INPUT DROP policy). Rules are scoped to the bridge port and cleaned up when the bridge stops.
+
+Bridges are resilient to restarts. If the Warden server restarts, bridge proxies are automatically re-established for all running containers — no need to recreate them. If a container restarts, the socat forwarding process inside it is automatically re-exec'd.
 :::
 
 ### GPG
@@ -110,7 +114,7 @@ Forwards the host's gpg-agent socket so GPG commit signing (`git commit -S`) wor
 **When to enable:** Whenever you sign git commits or tags with a GPG key.
 
 :::note[How it works]
-Like SSH, Warden bridges the host GPG agent socket into the container via a TCP proxy. This works identically on native Docker and Docker Desktop (Linux and macOS). No manual configuration needed.
+Like SSH, Warden bridges the host GPG agent socket into the container via a TCP proxy. This works identically on native Docker and Docker Desktop (Linux and macOS). No manual configuration needed. Firewall rules and restart recovery work the same way as SSH — see the SSH section above for details.
 :::
 
 :::caution[Windows]

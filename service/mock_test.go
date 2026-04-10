@@ -43,6 +43,25 @@ type mockEngine struct {
 	stopCalled              bool
 	lastWorktreeName        string
 	networkIsolationApplied bool
+	// Bridge call tracking.
+	execSocatCalls              []execSocatCall
+	killSocatCalls              []string
+	allowBridgePortCalls        []allowBridgePortCall
+	addFirewallRuleCalls        []int
+	removeFirewallRuleCalls     []int
+	setupFirewallCalled         bool
+	teardownFirewallCalled      bool
+}
+
+type execSocatCall struct {
+	containerID   string
+	containerPath string
+	port          int
+}
+
+type allowBridgePortCall struct {
+	containerID string
+	port        int
 }
 
 func (m *mockEngine) ListProjects(_ context.Context, _ []string) ([]engine.Project, error) {
@@ -164,5 +183,45 @@ func (m *mockEngine) ContainerStartupHealth(_ context.Context, _ string) (*engin
 }
 
 func (m *mockEngine) RemoveVolume(_ context.Context, _ string) error {
+	return nil
+}
+
+func (m *mockEngine) AllowBridgePortInContainer(_ context.Context, containerID string, port int) error {
+	m.allowBridgePortCalls = append(m.allowBridgePortCalls, allowBridgePortCall{containerID, port})
+	return nil
+}
+
+func (m *mockEngine) ExecSocatBridge(_ context.Context, containerID, containerPath string, port int) error {
+	m.execSocatCalls = append(m.execSocatCalls, execSocatCall{containerID, containerPath, port})
+	return nil
+}
+
+func (m *mockEngine) KillSocatBridges(_ context.Context, containerID string) error {
+	m.killSocatCalls = append(m.killSocatCalls, containerID)
+	return nil
+}
+
+func (m *mockEngine) SetupBridgeFirewall(_ context.Context) error {
+	m.setupFirewallCalled = true
+	return nil
+}
+
+func (m *mockEngine) AddBridgeFirewallRule(_ context.Context, port int) error {
+	m.addFirewallRuleCalls = append(m.addFirewallRuleCalls, port)
+	return nil
+}
+
+func (m *mockEngine) AddBridgeFirewallRules(_ context.Context, ports []int) error {
+	m.addFirewallRuleCalls = append(m.addFirewallRuleCalls, ports...)
+	return nil
+}
+
+func (m *mockEngine) RemoveBridgeFirewallRule(_ context.Context, port int) error {
+	m.removeFirewallRuleCalls = append(m.removeFirewallRuleCalls, port)
+	return nil
+}
+
+func (m *mockEngine) TeardownBridgeFirewall(_ context.Context) error {
+	m.teardownFirewallCalled = true
 	return nil
 }

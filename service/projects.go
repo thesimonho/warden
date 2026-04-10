@@ -496,6 +496,26 @@ func (s *Service) RestartProject(
 	s.StopSessionWatcher(project.ProjectID, project.AgentType)
 	s.startProjectWatcher(project.ProjectID, containerName, project.AgentType)
 
+	// Re-exec socat bridges after restart. The TCP bridge listeners in
+	// the Go process survive, but socat inside the container was killed.
+	// Runs in a goroutine to avoid blocking the API response while
+	// waiting for installs to complete.
+	s.socketBridgesMu.Lock()
+	bridges := s.socketBridges[containerName]
+	s.socketBridgesMu.Unlock()
+	if len(bridges) > 0 {
+		go func() {
+			execCtx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+			defer cancel()
+			if err := s.docker.WaitForInstalls(execCtx, project.ContainerID); err != nil {
+				slog.Warn("timed out waiting for installs before socat re-exec",
+					"container", containerName, "err", err)
+			}
+			_ = s.docker.KillSocatBridges(execCtx, project.ContainerID)
+			s.execSocatBridges(execCtx, project.ContainerID, bridges)
+		}()
+	}
+
 	return &ProjectResult{
 		ProjectID:   project.ProjectID,
 		AgentType:   project.AgentType,

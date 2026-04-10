@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/thesimonho/warden/access"
 	"github.com/thesimonho/warden/api"
 	"github.com/thesimonho/warden/constants"
 	"github.com/thesimonho/warden/db"
@@ -40,8 +41,9 @@ func (s *Service) CreateContainer(ctx context.Context, req api.CreateContainerRe
 
 	// Start TCP bridges for socket-based access items (SSH/GPG agent).
 	// Bridges proxy TCP → host Unix socket so containers can reach host
-	// agents via host.docker.internal. Works on all Docker runtimes.
-	bridges := s.startSocketBridges(&req)
+	// agents via host.docker.internal. On native Docker, per-port iptables
+	// rules allow container traffic through restrictive host firewalls.
+	bridges := s.startSocketBridgesForSpecs(ctx, req.SocketBridges)
 
 	// Write template BEFORE mergeRuntimeDomains mutates req.AllowedDomains,
 	// so the file stores only user-specified domains (not runtime-contributed ones).
@@ -65,7 +67,7 @@ func (s *Service) CreateContainer(ctx context.Context, req api.CreateContainerRe
 	containerID, err := s.docker.CreateContainer(ctx, req)
 	if err != nil {
 		for _, b := range bridges {
-			b.Close()
+			s.stopBridge(b)
 		}
 		return nil, err
 	}
@@ -77,6 +79,11 @@ func (s *Service) CreateContainer(ctx context.Context, req api.CreateContainerRe
 		s.socketBridges[req.Name] = bridges
 		s.socketBridgesMu.Unlock()
 	}
+
+	// Start socat processes inside the container for each bridge.
+	// Socat creates Unix sockets at the expected paths and forwards
+	// connections to the host TCP bridge via host.docker.internal.
+	s.execSocatBridges(ctx, containerID, bridges)
 
 	// Mark as recently created so HandleContainerStart (fired by the
 	// Docker events watcher) skips redundant network isolation.
@@ -327,7 +334,7 @@ func (s *Service) recreateContainer(ctx context.Context, project *db.ProjectRow,
 	}
 
 	// Start TCP bridges for socket-based access items.
-	bridges := s.startSocketBridges(&req)
+	bridges := s.startSocketBridgesForSpecs(ctx, req.SocketBridges)
 
 	// Write template BEFORE mergeRuntimeDomains mutates req.AllowedDomains.
 	go writeProjectTemplate(newTemplateData(req))
@@ -357,7 +364,7 @@ func (s *Service) recreateContainer(ctx context.Context, project *db.ProjectRow,
 	if err != nil {
 		// Stop the new bridges we just started — the container wasn't created.
 		for _, b := range bridges {
-			b.Close()
+			s.stopBridge(b)
 		}
 		return nil, err
 	}
@@ -368,6 +375,9 @@ func (s *Service) recreateContainer(ctx context.Context, project *db.ProjectRow,
 		s.socketBridges[req.Name] = bridges
 		s.socketBridgesMu.Unlock()
 	}
+
+	// Exec socat into the new container for each bridge.
+	s.execSocatBridges(ctx, newID, bridges)
 
 	// Mark as recently created so HandleContainerStart skips it.
 	s.recentlyCreated.Store(newID, true)
@@ -648,11 +658,11 @@ func reconstructRequestFromRow(project *db.ProjectRow, update api.CreateContaine
 
 // HandleContainerStart is called when a Warden container emits a Docker
 // start event (including auto-restarts by the Docker daemon). Re-applies
-// network isolation if the project uses restricted or none mode.
+// network isolation and re-execs socat bridges as needed.
 //
 // Called synchronously from the Docker events watcher goroutine.
-// The actual isolation work runs in a separate goroutine to avoid
-// blocking the events stream while waiting for installs.
+// The actual work runs in a separate goroutine to avoid blocking the
+// events stream while waiting for installs.
 func (s *Service) HandleContainerStart(containerID, containerName string) {
 	// Skip containers just created by CreateContainer/RestartProject —
 	// they already wait for installs and apply network isolation.
@@ -671,8 +681,21 @@ func (s *Service) HandleContainerStart(containerID, containerName string) {
 		return
 	}
 
+	// Check for active socket bridges that need socat re-exec.
+	// On auto-restart, TCP bridge listeners in the Go process survive,
+	// but socat processes inside the container were killed.
+	// If bridges are NOT tracked (e.g. after StopProject cleared them),
+	// recreate them from the DB — same as server restart recovery.
+	s.socketBridgesMu.Lock()
+	bridges := s.socketBridges[containerName]
+	s.socketBridgesMu.Unlock()
+	hasBridges := len(bridges) > 0
+	hasAccessItems := project.EnabledAccessItems != ""
+
 	mode := api.NetworkMode(project.NetworkMode)
-	if mode == "" || mode == api.NetworkModeFull {
+	needsIsolation := mode != "" && mode != api.NetworkModeFull
+
+	if !needsIsolation && !hasBridges && !hasAccessItems {
 		return
 	}
 
@@ -691,25 +714,134 @@ func (s *Service) HandleContainerStart(containerID, containerName string) {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 		defer cancel()
 
-		if err := s.docker.WaitForInstalls(ctx, containerID); err != nil {
-			slog.Warn("timed out waiting for installs on auto-restart, applying network isolation anyway",
-				"container", containerName, "err", err)
-		}
-
-		if err := s.docker.ApplyNetworkIsolation(ctx, containerID, string(mode), domains); err != nil {
-			slog.Warn("failed to re-apply network isolation after container start",
+		// Re-exec socat bridges immediately — socat is in the base
+		// image and doesn't depend on agent CLI or runtime installs.
+		if hasBridges {
+			// Bridges still tracked in memory (container auto-restart).
+			// Just re-exec socat with the existing bridge ports.
+			_ = s.docker.KillSocatBridges(ctx, containerID)
+			s.execSocatBridges(ctx, containerID, bridges)
+			slog.Info("re-exec'd socat bridges after container restart",
 				"container", containerName,
-				"mode", mode,
-				"err", err,
+				"bridges", len(bridges),
 			)
-			return
+		} else if hasAccessItems {
+			// Bridges were lost (e.g. StopProject cleared them).
+			// Recreate from DB, same as server restart recovery.
+			s.refreshEnvResolver()
+			s.resumeBridgesForContainer(ctx, containerID, containerName)
 		}
 
-		slog.Info("re-applied network isolation after container start",
-			"container", containerName,
-			"mode", mode,
-		)
+		if needsIsolation {
+			if err := s.docker.WaitForInstalls(ctx, containerID); err != nil {
+				slog.Warn("timed out waiting for installs on auto-restart",
+					"container", containerName, "err", err)
+			}
+			if err := s.docker.ApplyNetworkIsolation(ctx, containerID, string(mode), domains); err != nil {
+				slog.Warn("failed to re-apply network isolation after container start",
+					"container", containerName,
+					"mode", mode,
+					"err", err,
+				)
+			} else {
+				slog.Info("re-applied network isolation after container start",
+					"container", containerName,
+					"mode", mode,
+				)
+			}
+		}
 	}()
+}
+
+// ResumeSocketBridges restarts TCP bridge proxies for all running
+// containers that have socket-based access items. Called at server
+// startup so SSH/GPG agent forwarding resumes without requiring a
+// container recreate.
+func (s *Service) ResumeSocketBridges(ctx context.Context) {
+	if !s.dockerAvailable || s.bridgeIP == "" {
+		return
+	}
+
+	projects, err := s.ListProjects(ctx)
+	if err != nil {
+		slog.Warn("failed to list projects for socket bridge resume", "err", err)
+		return
+	}
+
+	s.refreshEnvResolver()
+
+	for _, p := range projects {
+		if p.State != "running" {
+			continue
+		}
+		s.resumeBridgesForContainer(ctx, p.ID, p.Name)
+	}
+}
+
+// resumeBridgesForContainer resolves socket-based access items from the
+// DB and creates fresh TCP bridges + socat processes for a single
+// container. Used by ResumeSocketBridges (server restart) and
+// HandleContainerStart (when bridges were lost after StopProject).
+func (s *Service) resumeBridgesForContainer(ctx context.Context, containerID, containerName string) {
+	row, err := s.db.GetProjectByContainerName(containerName)
+	if err != nil || row == nil {
+		return
+	}
+
+	accessIDs := splitCSV(row.EnabledAccessItems)
+	if len(accessIDs) == 0 {
+		return
+	}
+
+	items, err := s.getAccessItemsByIDs(accessIDs)
+	if err != nil {
+		slog.Warn("failed to resolve access items for bridge resume",
+			"container", containerName, "err", err)
+		return
+	}
+
+	resp, err := s.resolveAccessItems(items)
+	if err != nil {
+		slog.Warn("failed to resolve access items for bridge resume",
+			"container", containerName, "err", err)
+		return
+	}
+
+	// Extract socket bridge specs from resolved items.
+	var socketSpecs []api.Mount
+	for _, resolved := range resp.Items {
+		for _, cred := range resolved.Credentials {
+			for _, inj := range cred.Injections {
+				if inj.Type == access.InjectionMountSocket {
+					socketSpecs = append(socketSpecs, api.Mount{
+						HostPath:      inj.Value,
+						ContainerPath: inj.Key,
+					})
+				}
+			}
+		}
+	}
+
+	if len(socketSpecs) == 0 {
+		return
+	}
+
+	bridges := s.startSocketBridgesForSpecs(ctx, socketSpecs)
+	if len(bridges) == 0 {
+		return
+	}
+
+	s.socketBridgesMu.Lock()
+	s.socketBridges[containerName] = bridges
+	s.socketBridgesMu.Unlock()
+
+	_ = s.docker.KillSocatBridges(ctx, containerID)
+	s.execSocatBridges(ctx, containerID, bridges)
+
+	slog.Info("resumed socket bridges for container",
+		"container", containerName,
+		"bridges", len(bridges),
+	)
 }
 
 // mergeRuntimeDomains adds runtime-contributed and system network domains

@@ -231,6 +231,39 @@ type Client interface {
 	// that are not tracked by git. Returns the list of removed worktree IDs.
 	CleanupOrphanedWorktrees(ctx context.Context, containerID string) ([]string, error)
 
+	// AllowBridgePortInContainer adds an iptables rule inside the container
+	// allowing outbound TCP to the gateway on the given port. Required for
+	// restricted/none network modes. No-op if iptables isn't set up.
+	AllowBridgePortInContainer(ctx context.Context, containerID string, port int) error
+
+	// ExecSocatBridge starts a socat process inside the container that
+	// creates a Unix socket and forwards connections to the host TCP bridge.
+	ExecSocatBridge(ctx context.Context, containerID, containerPath string, port int) error
+
+	// KillSocatBridges kills all socat bridge processes inside the container.
+	KillSocatBridges(ctx context.Context, containerID string) error
+
+	// SetupBridgeFirewall creates the iptables chain for bridge port rules.
+	// Idempotent — flushes stale rules from a previous server run. No-op on
+	// Docker Desktop.
+	SetupBridgeFirewall(ctx context.Context) error
+
+	// AddBridgeFirewallRule adds an iptables ACCEPT rule for a bridge port.
+	// No-op on Docker Desktop.
+	AddBridgeFirewallRule(ctx context.Context, port int) error
+
+	// AddBridgeFirewallRules adds iptables ACCEPT rules for multiple bridge
+	// ports in a single operation. No-op on Docker Desktop.
+	AddBridgeFirewallRules(ctx context.Context, ports []int) error
+
+	// RemoveBridgeFirewallRule removes the iptables ACCEPT rule for a bridge
+	// port. No-op on Docker Desktop.
+	RemoveBridgeFirewallRule(ctx context.Context, port int) error
+
+	// TeardownBridgeFirewall removes the iptables chain and all rules.
+	// Called on graceful shutdown. No-op on Docker Desktop.
+	TeardownBridgeFirewall(ctx context.Context) error
+
 	// ValidateInfrastructure checks whether a container has the required Warden
 	// terminal infrastructure installed (tmux, gosu, create-terminal.sh, etc).
 	// Returns true if all binaries are present, along with the list of missing items.
