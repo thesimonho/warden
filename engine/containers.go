@@ -285,21 +285,31 @@ func (ec *EngineClient) CreateContainer(ctx context.Context, req api.CreateConta
 		})
 	}
 
-	// Append socket mounts (e.g. SSH agent) as structured bind mounts.
-	// These use the Docker mount API instead of legacy Binds strings to
-	// avoid the daemon trying to mkdir the host socket path.
+	// Append socket mounts (e.g. SSH agent, GPG agent) as structured bind
+	// mounts. These use the Docker mount API instead of legacy Binds
+	// strings to avoid the daemon trying to mkdir the host socket path.
+	baseMountLen := len(hostConfig.Mounts)
 	hostConfig.Mounts = append(hostConfig.Mounts, socketMounts...)
 
 	resp, err := ec.api.ContainerCreate(ctx, containerConfig, hostConfig, nil, nil, req.Name)
-	if err != nil && len(socketMounts) > 0 && isMountError(err) {
-		// Socket mounts can fail on some Docker runtimes (e.g. Colima,
-		// OrbStack on macOS) where the proxy path doesn't exist. Retry
-		// without them — SSH still works via mounted key files.
-		// This is a pre-creation validation failure so no container was
-		// created and no cleanup is needed before retrying.
-		slog.Warn("container creation failed with socket mounts, retrying without them",
-			"container", req.Name, "error", err)
-		hostConfig.Mounts = hostConfig.Mounts[:len(hostConfig.Mounts)-len(socketMounts)]
+	for err != nil && len(hostConfig.Mounts) > baseMountLen && isMountError(err) {
+		// Socket mounts can fail when the source path doesn't exist
+		// (e.g. SSH agent not running, Docker runtime proxy missing).
+		// Remove only the failing mount and retry — other sockets may
+		// still be valid. This is a pre-creation validation failure so
+		// no container was created and no cleanup is needed.
+		failIdx := findFailingMount(err, hostConfig.Mounts[baseMountLen:])
+		if failIdx < 0 {
+			// Can't identify which mount failed — remove all sockets.
+			slog.Warn("container creation failed with socket mounts, retrying without them",
+				"container", req.Name, "error", err)
+			hostConfig.Mounts = hostConfig.Mounts[:baseMountLen]
+		} else {
+			failed := hostConfig.Mounts[baseMountLen+failIdx]
+			slog.Warn("socket mount failed, retrying without it",
+				"container", req.Name, "source", failed.Source, "target", failed.Target, "error", err)
+			hostConfig.Mounts = append(hostConfig.Mounts[:baseMountLen+failIdx], hostConfig.Mounts[baseMountLen+failIdx+1:]...)
+		}
 		resp, err = ec.api.ContainerCreate(ctx, containerConfig, hostConfig, nil, nil, req.Name)
 	}
 	if err != nil {

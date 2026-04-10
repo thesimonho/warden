@@ -106,6 +106,51 @@ func TestBuildSocketMounts(t *testing.T) {
 	})
 }
 
+func TestFindFailingMount(t *testing.T) {
+	t.Parallel()
+
+	mounts := []mount.Mount{
+		{Type: mount.TypeBind, Source: "/run/user/1000/gnupg/S.gpg-agent", Target: "/home/warden/.gnupg/S.gpg-agent"},
+		{Type: mount.TypeBind, Source: "/run/user/1000/ssh-agent.socket", Target: "/run/ssh-agent.sock"},
+	}
+
+	t.Run("matches first mount", func(t *testing.T) {
+		t.Parallel()
+		err := fmt.Errorf("invalid mount config for type \"bind\": bind source path does not exist: /run/user/1000/gnupg/S.gpg-agent")
+		idx := findFailingMount(err, mounts)
+		if idx != 0 {
+			t.Errorf("expected index 0, got %d", idx)
+		}
+	})
+
+	t.Run("matches second mount", func(t *testing.T) {
+		t.Parallel()
+		err := fmt.Errorf("invalid mount config for type \"bind\": bind source path does not exist: /run/user/1000/ssh-agent.socket")
+		idx := findFailingMount(err, mounts)
+		if idx != 1 {
+			t.Errorf("expected index 1, got %d", idx)
+		}
+	})
+
+	t.Run("no match returns -1", func(t *testing.T) {
+		t.Parallel()
+		err := fmt.Errorf("some other mount error")
+		idx := findFailingMount(err, mounts)
+		if idx != -1 {
+			t.Errorf("expected -1, got %d", idx)
+		}
+	})
+
+	t.Run("empty mounts returns -1", func(t *testing.T) {
+		t.Parallel()
+		err := fmt.Errorf("bind source path does not exist: /run/user/1000/ssh-agent.socket")
+		idx := findFailingMount(err, nil)
+		if idx != -1 {
+			t.Errorf("expected -1, got %d", idx)
+		}
+	})
+}
+
 func TestIsFileSharingError(t *testing.T) {
 	t.Parallel()
 
