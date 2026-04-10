@@ -86,7 +86,7 @@ Forwards the host's gpg-agent socket so git commit signing (`-S`) and GPG operat
 
 Private keys never enter the container. Signing requests are forwarded to the host's gpg-agent via the socket.
 
-GPG works reliably on Linux. On Docker Desktop (macOS), the socket mount requires manual file sharing configuration in Docker Desktop settings -- Docker Desktop does not provide a built-in GPG agent proxy like it does for SSH. Warden logs a warning when GPG forwarding is attempted on Docker Desktop without the necessary file sharing. On Windows, GPG uses Assuan pipes instead of Unix sockets, so this item is not available.
+GPG works reliably on native Docker Engine (Linux). On Docker Desktop (macOS or Linux), GPG signing is not supported -- Docker Desktop does not provide a built-in GPG agent proxy like it does for SSH, and host sockets cannot be bind-mounted through the VM layer. Warden logs a warning and drops the failed mount so other access items still work. On Windows, GPG uses Assuan pipes instead of Unix sockets, so this item is not available.
 
 ## Custom items
 

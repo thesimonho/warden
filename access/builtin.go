@@ -104,7 +104,7 @@ func BuiltInGPG() Item {
 	return Item{
 		ID:          BuiltInIDGPG,
 		Label:       "GPG",
-		Description: "Forwards the gpg-agent socket so commit signing works without copying private keys. Requires native Docker on Linux; Docker Desktop needs manual file sharing.",
+		Description: "Forwards the gpg-agent socket so commit signing works without copying private keys. Requires native Docker Engine on Linux; not supported on Docker Desktop.",
 		Method:      MethodTransport,
 		BuiltIn:     true,
 		Credentials: []Credential{

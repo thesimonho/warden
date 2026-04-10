@@ -13,13 +13,6 @@ import (
 // Name is the identifier for the Docker container runtime.
 const Name = "docker"
 
-// DesktopSSHAgentProxy is the VM-internal path where Docker Desktop
-// proxies the host's SSH agent. This path exists inside Docker Desktop's
-// Linux VM on all platforms (macOS, Linux, Windows) and is always
-// available when Docker Desktop is running. It does not go through
-// the VM's filesystem layer, bypassing socket mount failures.
-const DesktopSSHAgentProxy = "/run/host-services/ssh-auth.sock"
-
 // Info describes the detected Docker runtime status.
 type Info struct {
 	// Name is the runtime identifier ("docker").

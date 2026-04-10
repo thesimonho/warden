@@ -189,7 +189,6 @@ func New(opts Options) (*Warden, error) {
 		EventHandler:    store.HandleEvent,
 		HomeDir:         homeDir,
 		DockerAvailable: dockerAvailable,
-		IsDockerDesktop: dockerInfo.IsDesktop,
 		EnvResolver:     shellEnv,
 	})
 
