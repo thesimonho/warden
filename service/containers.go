@@ -38,6 +38,11 @@ func (s *Service) CreateContainer(ctx context.Context, req api.CreateContainerRe
 		return nil, fmt.Errorf("resolving access items: %w", err)
 	}
 
+	// Start TCP bridges for socket-based access items (SSH/GPG agent).
+	// Bridges proxy TCP → host Unix socket so containers can reach host
+	// agents via host.docker.internal. Works on all Docker runtimes.
+	bridges := s.startSocketBridges(&req)
+
 	// Write template BEFORE mergeRuntimeDomains mutates req.AllowedDomains,
 	// so the file stores only user-specified domains (not runtime-contributed ones).
 	go writeProjectTemplate(newTemplateData(req))
@@ -59,7 +64,16 @@ func (s *Service) CreateContainer(ctx context.Context, req api.CreateContainerRe
 
 	containerID, err := s.docker.CreateContainer(ctx, req)
 	if err != nil {
+		s.stopSocketBridges(req.Name)
 		return nil, err
+	}
+
+	// Track bridges so they can be stopped when the container is
+	// deleted, recreated, or Warden shuts down.
+	if len(bridges) > 0 {
+		s.socketBridgesMu.Lock()
+		s.socketBridges[req.Name] = bridges
+		s.socketBridgesMu.Unlock()
 	}
 
 	// Mark as recently created so HandleContainerStart (fired by the
@@ -115,6 +129,9 @@ func (s *Service) DeleteContainer(ctx context.Context, projectID, agentType stri
 	if err := s.docker.DeleteContainer(ctx, project.ContainerID); err != nil {
 		return nil, err
 	}
+
+	// Stop socket bridges for the deleted container.
+	s.stopSocketBridges(containerName)
 
 	// Clean up the event directory for this container.
 	s.docker.CleanupEventDir(containerName)
@@ -307,6 +324,9 @@ func (s *Service) recreateContainer(ctx context.Context, project *db.ProjectRow,
 		return nil, fmt.Errorf("resolving access items: %w", err)
 	}
 
+	// Start TCP bridges for socket-based access items.
+	bridges := s.startSocketBridges(&req)
+
 	// Write template BEFORE mergeRuntimeDomains mutates req.AllowedDomains.
 	go writeProjectTemplate(newTemplateData(req))
 
@@ -320,8 +340,9 @@ func (s *Service) recreateContainer(ctx context.Context, project *db.ProjectRow,
 		}
 	}
 
-	// Stop lifecycle watchers for the old container before recreation.
+	// Stop old bridges and lifecycle watchers before recreation.
 	oldContainerName := effectiveContainerName(project)
+	s.stopSocketBridges(oldContainerName)
 	s.StopSessionWatcher(project.ProjectID, project.AgentType)
 	if s.eventWatcher != nil {
 		s.eventWatcher.CleanupContainerDir(oldContainerName)
@@ -332,7 +353,18 @@ func (s *Service) recreateContainer(ctx context.Context, project *db.ProjectRow,
 
 	newID, err := s.docker.RecreateContainer(ctx, project.ContainerID, req)
 	if err != nil {
+		// Stop the new bridges we just started — the container wasn't created.
+		for _, b := range bridges {
+			b.Close()
+		}
 		return nil, err
+	}
+
+	// Track new bridges for the recreated container.
+	if len(bridges) > 0 {
+		s.socketBridgesMu.Lock()
+		s.socketBridges[req.Name] = bridges
+		s.socketBridgesMu.Unlock()
 	}
 
 	// Mark as recently created so HandleContainerStart skips it.

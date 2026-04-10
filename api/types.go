@@ -695,10 +695,12 @@ type CreateContainerRequest struct {
 	EnvVars   map[string]string   `json:"envVars,omitempty"`
 	// Mounts is a list of additional bind mounts from host into the container.
 	Mounts []Mount `json:"mounts,omitempty"`
-	// SocketMounts are Unix domain socket mounts set internally by the
-	// access item pipeline. Not exposed in the HTTP API. These use the
-	// Docker structured mount API instead of legacy Binds strings.
-	SocketMounts []Mount `json:"-"`
+	// SocketBridges lists sockets that need TCP bridge proxies. Set
+	// internally by the access item pipeline. Each entry's HostPath is
+	// the host Unix socket; ContainerPath is where socat creates it in
+	// the container. The service layer starts a TCP proxy per bridge and
+	// passes the port to the container via WARDEN_BRIDGE_* env vars.
+	SocketBridges []Mount `json:"-"`
 	// SkipPermissions controls whether terminals skip permission prompts.
 	// Stored as a Docker label on the container.
 	SkipPermissions bool `json:"skipPermissions,omitempty"`

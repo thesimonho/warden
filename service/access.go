@@ -10,7 +10,6 @@ import (
 	"github.com/thesimonho/warden/access"
 	"github.com/thesimonho/warden/api"
 	"github.com/thesimonho/warden/db"
-	"github.com/thesimonho/warden/docker"
 )
 
 // ListAccessItems returns all access items (built-in + user-created)
@@ -355,49 +354,54 @@ func (s *Service) ResolveAccessItemsForContainer(req *api.CreateContainerRequest
 						ReadOnly:      inj.ReadOnly,
 					})
 				case access.InjectionMountSocket:
-					req.SocketMounts = append(req.SocketMounts, api.Mount{
+					req.SocketBridges = append(req.SocketBridges, api.Mount{
 						HostPath:      inj.Value,
 						ContainerPath: inj.Key,
-						ReadOnly:      inj.ReadOnly,
 					})
 				}
 			}
 		}
 	}
 
-	if s.dockerDesktop {
-		s.rewriteSocketMountsForDesktop(req)
-	}
-
 	return nil
 }
 
-// rewriteSocketMountsForDesktop rewrites socket mount sources to use
-// Docker Desktop's VM-internal proxies. Docker Desktop runs a Linux VM
-// on all platforms — host Unix sockets cannot be bind-mounted through
-// the VM's filesystem layer. Docker Desktop provides a built-in SSH
-// agent proxy at a well-known path inside the VM.
+// startSocketBridges starts TCP→Unix bridge proxies for each socket
+// bridge spec on the request. Each bridge listens on an ephemeral port
+// and proxies connections to the host socket. The port is passed to the
+// container via WARDEN_BRIDGE_<NAME> env vars; the entrypoint uses
+// socat to create the corresponding Unix socket in the container.
 //
-// GPG does not have a Docker Desktop proxy. When GPG socket mounts are
-// present, a warning is logged — the mount will be attempted and may
-// fail (handled by the per-item retry in the engine layer).
-func (s *Service) rewriteSocketMountsForDesktop(req *api.CreateContainerRequest) {
-	for i := range req.SocketMounts {
-		m := &req.SocketMounts[i]
-		switch m.ContainerPath {
-		case access.ContainerSSHAgentPath:
-			slog.Info("Docker Desktop detected: SSH agent mount rewritten to VM proxy",
-				"original", m.HostPath,
-				"proxy", docker.DesktopSSHAgentProxy,
-			)
-			m.HostPath = docker.DesktopSSHAgentProxy
-		case access.ContainerGPGAgentPath:
-			slog.Warn("Docker Desktop does not proxy GPG agent sockets — mount may fail",
-				"source", m.HostPath,
-				"hint", "if GPG signing fails, add the socket path to Docker Desktop → Settings → Resources → File Sharing",
-			)
-		}
+// Returns the bridges so the caller can track and stop them.
+func (s *Service) startSocketBridges(req *api.CreateContainerRequest) []*socketBridge {
+	if len(req.SocketBridges) == 0 {
+		return nil
 	}
+
+	if req.EnvVars == nil {
+		req.EnvVars = make(map[string]string)
+	}
+
+	var bridges []*socketBridge
+	for _, spec := range req.SocketBridges {
+		bridge, err := startSocketBridge(spec.HostPath, spec.ContainerPath)
+		if err != nil {
+			slog.Warn("failed to start socket bridge, skipping",
+				"hostSocket", spec.HostPath,
+				"containerSocket", spec.ContainerPath,
+				"err", err,
+			)
+			continue
+		}
+		bridges = append(bridges, bridge)
+		// Pass bridge port to container as WARDEN_BRIDGE_<PORT>:<CONTAINER_PATH>.
+		// The entrypoint iterates all WARDEN_BRIDGE_* vars and starts socat
+		// for each one.
+		envKey := fmt.Sprintf("WARDEN_BRIDGE_%d", bridge.Port())
+		req.EnvVars[envKey] = fmt.Sprintf("%d:%s", bridge.Port(), spec.ContainerPath)
+	}
+
+	return bridges
 }
 
 // getAccessItemsByIDs returns access items for the given IDs, looking up

@@ -5,8 +5,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/docker/docker/api/types/mount"
-
 	"github.com/thesimonho/warden/api"
 )
 
@@ -36,50 +34,6 @@ func buildBindMounts(projectPath, containerWorkspaceDir string, mounts []api.Mou
 	}
 
 	return binds, nil
-}
-
-// buildSocketMounts converts socket mounts (e.g. SSH agent) into Docker
-// structured mount.Mount entries. These use the Docker mount API instead
-// of legacy Binds strings because Binds auto-creates missing host paths
-// as directories, which fails for sockets on macOS with Docker Desktop.
-func buildSocketMounts(mounts []api.Mount) []mount.Mount {
-	if len(mounts) == 0 {
-		return nil
-	}
-	result := make([]mount.Mount, 0, len(mounts))
-	for _, m := range mounts {
-		result = append(result, mount.Mount{
-			Type:     mount.TypeBind,
-			Source:   m.HostPath,
-			Target:   m.ContainerPath,
-			ReadOnly: m.ReadOnly,
-		})
-	}
-	return result
-}
-
-// findFailingMount returns the index of the mount whose source path appears
-// in the Docker error message, or -1 if no match is found. Docker errors
-// typically include the path verbatim (e.g. "bind source path does not
-// exist: /run/user/1000/gnupg/S.gpg-agent").
-func findFailingMount(err error, mounts []mount.Mount) int {
-	msg := err.Error()
-	for i, m := range mounts {
-		if m.Source != "" && strings.Contains(msg, m.Source) {
-			return i
-		}
-	}
-	return -1
-}
-
-// isMountError reports whether a Docker API error is related to a bind mount
-// failure (e.g. source path doesn't exist or can't be stat'd). Used to narrow
-// the socket mount retry to mount-specific failures.
-func isMountError(err error) bool {
-	msg := err.Error()
-	return strings.Contains(msg, "mount source") ||
-		strings.Contains(msg, "mount config") ||
-		strings.Contains(msg, "mount path")
 }
 
 // isFileSharingError reports whether a Docker API error is caused by a bind
