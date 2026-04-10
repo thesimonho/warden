@@ -46,6 +46,11 @@ type ServiceDeps struct {
 	// detection and resolution. When nil, a default ProcessEnvResolver
 	// is used (direct os.LookupEnv delegation).
 	EnvResolver access.EnvResolver
+
+	// IsDockerDesktop indicates the Docker runtime is Docker Desktop
+	// (VM-based). When true, socket mounts are rewritten to use Docker
+	// Desktop's built-in proxies instead of direct host socket paths.
+	IsDockerDesktop bool
 }
 
 // Service provides business logic for all Warden operations. It is
@@ -76,6 +81,10 @@ type Service struct {
 	// dockerAvailable indicates whether Docker was reachable at startup.
 	// When false, container-mutating operations return ErrDockerUnavailable.
 	dockerAvailable bool
+
+	// dockerDesktop indicates the Docker runtime is Docker Desktop.
+	// Used to rewrite socket mount sources to Docker Desktop proxies.
+	dockerDesktop bool
 
 	// Session watcher state — one watcher per project+agent, keyed by compound key.
 	sessionWatchers         map[db.ProjectAgentKey]*agent.SessionWatcher
@@ -119,6 +128,7 @@ func New(deps ServiceDeps) *Service {
 		workingDir:              wd,
 		envResolver:             envResolver,
 		dockerAvailable:         deps.DockerAvailable,
+		dockerDesktop:         deps.IsDockerDesktop,
 		sessionWatchers:         make(map[db.ProjectAgentKey]*agent.SessionWatcher),
 		sessionWatcherCooldowns: make(map[db.ProjectAgentKey]time.Time),
 		costFallbackNegCache:    make(map[db.ProjectAgentKey]time.Time),
