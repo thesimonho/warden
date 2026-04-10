@@ -1,6 +1,7 @@
 package service
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -54,9 +55,8 @@ func (b *socketBridge) Port() int {
 	return b.listener.Addr().(*net.TCPAddr).Port
 }
 
-// Close stops the bridge listener and waits for the accept loop to exit.
-// In-flight connections are not forcibly closed — they drain naturally
-// when either side closes.
+// Close stops the bridge listener and waits for the accept loop and all
+// in-flight proxy goroutines to finish.
 func (b *socketBridge) Close() {
 	_ = b.listener.Close()
 	b.wg.Wait()
@@ -73,9 +73,17 @@ func (b *socketBridge) acceptLoop() {
 	for {
 		conn, err := b.listener.Accept()
 		if err != nil {
-			return // listener closed
+			if !errors.Is(err, net.ErrClosed) {
+				slog.Warn("socket bridge accept error",
+					"hostSocket", b.hostPath, "err", err)
+			}
+			return
 		}
-		go b.proxy(conn)
+		b.wg.Add(1)
+		go func() {
+			defer b.wg.Done()
+			b.proxy(conn)
+		}()
 	}
 }
 
@@ -108,18 +116,28 @@ func (s *Service) stopAllSocketBridges() {
 // proxy connects a TCP client to the host Unix socket and copies data
 // bidirectionally until either side closes.
 func (b *socketBridge) proxy(tcpConn net.Conn) {
+	defer func() { _ = tcpConn.Close() }()
+
 	unixConn, err := net.Dial("unix", b.hostPath)
 	if err != nil {
 		slog.Debug("socket bridge: failed to connect to host socket",
 			"socket", b.hostPath, "err", err)
-		_ = tcpConn.Close()
 		return
 	}
+	defer func() { _ = unixConn.Close() }()
+
+	var copyWg sync.WaitGroup
+	copyWg.Add(2)
 
 	go func() {
+		defer copyWg.Done()
 		_, _ = io.Copy(unixConn, tcpConn)
-		_ = unixConn.Close()
 	}()
-	_, _ = io.Copy(tcpConn, unixConn)
-	_ = tcpConn.Close()
+
+	go func() {
+		defer copyWg.Done()
+		_, _ = io.Copy(tcpConn, unixConn)
+	}()
+
+	copyWg.Wait()
 }

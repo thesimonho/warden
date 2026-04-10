@@ -145,8 +145,7 @@ done
 # This works identically on native Docker and Docker Desktop — no
 # direct socket mounts needed.
 # -------------------------------------------------------------------
-for var in $(env | grep '^WARDEN_BRIDGE_' | sort); do
-  value="${var#*=}"
+env | grep '^WARDEN_BRIDGE_' | sort | while IFS='=' read -r _key value; do
   port="${value%%:*}"
   container_path="${value#*:}"
   if [ -n "$port" ] && [ -n "$container_path" ]; then

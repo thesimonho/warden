@@ -64,7 +64,9 @@ func (s *Service) CreateContainer(ctx context.Context, req api.CreateContainerRe
 
 	containerID, err := s.docker.CreateContainer(ctx, req)
 	if err != nil {
-		s.stopSocketBridges(req.Name)
+		for _, b := range bridges {
+			b.Close()
+		}
 		return nil, err
 	}
 
