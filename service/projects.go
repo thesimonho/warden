@@ -416,6 +416,7 @@ func (s *Service) StopProject(
 		return nil, err
 	}
 
+	s.stopSocketBridges(containerName)
 	s.StopSessionWatcher(project.ProjectID, project.AgentType)
 
 	return &ProjectResult{

@@ -14,6 +14,10 @@ import (
 // access items (SSH agent, GPG agent) into containers — this works
 // identically on native Docker and Docker Desktop across all platforms.
 //
+// The listener binds to the Docker bridge gateway IP (native Docker) or
+// 127.0.0.1 (Docker Desktop, where VM NAT handles forwarding). Containers
+// connect via host.docker.internal which resolves to the correct address.
+//
 // The container-side counterpart is a socat process started by the
 // entrypoint that creates a Unix socket and forwards to this TCP port
 // via host.docker.internal.
@@ -24,12 +28,12 @@ type socketBridge struct {
 	wg            sync.WaitGroup
 }
 
-// startSocketBridge starts a TCP listener on 127.0.0.1 (ephemeral port)
-// that proxies every accepted connection to the given host socket path.
-func startSocketBridge(hostPath, containerPath string) (*socketBridge, error) {
-	ln, err := net.Listen("tcp", "127.0.0.1:0")
+// startSocketBridge starts a TCP listener on the given bridge IP
+// (ephemeral port) that proxies connections to the host socket.
+func startSocketBridge(bridgeIP, hostPath, containerPath string) (*socketBridge, error) {
+	ln, err := net.Listen("tcp", bridgeIP+":0")
 	if err != nil {
-		return nil, fmt.Errorf("listening for socket bridge: %w", err)
+		return nil, fmt.Errorf("listening for socket bridge on %s: %w", bridgeIP, err)
 	}
 
 	b := &socketBridge{
@@ -42,7 +46,7 @@ func startSocketBridge(hostPath, containerPath string) (*socketBridge, error) {
 	go b.acceptLoop()
 
 	slog.Info("socket bridge started",
-		"port", b.Port(),
+		"listenAddr", ln.Addr().String(),
 		"hostSocket", hostPath,
 		"containerSocket", containerPath,
 	)
@@ -55,8 +59,8 @@ func (b *socketBridge) Port() int {
 	return b.listener.Addr().(*net.TCPAddr).Port
 }
 
-// Close stops the bridge listener and waits for the accept loop and all
-// in-flight proxy goroutines to finish.
+// Close stops the bridge listener and waits for all in-flight proxy
+// goroutines to finish.
 func (b *socketBridge) Close() {
 	_ = b.listener.Close()
 	b.wg.Wait()
@@ -66,7 +70,7 @@ func (b *socketBridge) Close() {
 	)
 }
 
-// acceptLoop accepts TCP connections and proxies each to the host socket.
+// acceptLoop accepts connections and proxies each to the host socket.
 func (b *socketBridge) acceptLoop() {
 	defer b.wg.Done()
 
@@ -118,25 +122,25 @@ func (s *Service) stopAllSocketBridges() {
 func (b *socketBridge) proxy(tcpConn net.Conn) {
 	defer func() { _ = tcpConn.Close() }()
 
-	unixConn, err := net.Dial("unix", b.hostPath)
+	hostConn, err := net.Dial("unix", b.hostPath)
 	if err != nil {
 		slog.Debug("socket bridge: failed to connect to host socket",
 			"socket", b.hostPath, "err", err)
 		return
 	}
-	defer func() { _ = unixConn.Close() }()
+	defer func() { _ = hostConn.Close() }()
 
 	var copyWg sync.WaitGroup
 	copyWg.Add(2)
 
 	go func() {
 		defer copyWg.Done()
-		_, _ = io.Copy(unixConn, tcpConn)
+		_, _ = io.Copy(hostConn, tcpConn)
 	}()
 
 	go func() {
 		defer copyWg.Done()
-		_, _ = io.Copy(tcpConn, unixConn)
+		_, _ = io.Copy(tcpConn, hostConn)
 	}()
 
 	copyWg.Wait()

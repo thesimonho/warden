@@ -366,15 +366,16 @@ func (s *Service) ResolveAccessItemsForContainer(req *api.CreateContainerRequest
 	return nil
 }
 
-// startSocketBridges starts TCP→Unix bridge proxies for each socket
-// bridge spec on the request. Each bridge listens on an ephemeral port
-// and proxies connections to the host socket. The port is passed to the
-// container via WARDEN_BRIDGE_<NAME> env vars; the entrypoint uses
-// socat to create the corresponding Unix socket in the container.
+// startSocketBridges starts TCP bridge proxies for each socket bridge
+// spec on the request. Each bridge listens on the Docker bridge gateway
+// IP (reachable from containers via host.docker.internal) and proxies
+// connections to the host socket. The port is passed to the container
+// via WARDEN_BRIDGE_* env vars; the entrypoint uses socat to create
+// the application socket and forward to the bridge.
 //
 // Returns the bridges so the caller can track and stop them.
 func (s *Service) startSocketBridges(req *api.CreateContainerRequest) []*socketBridge {
-	if len(req.SocketBridges) == 0 {
+	if len(req.SocketBridges) == 0 || s.bridgeIP == "" {
 		return nil
 	}
 
@@ -383,8 +384,8 @@ func (s *Service) startSocketBridges(req *api.CreateContainerRequest) []*socketB
 	}
 
 	var bridges []*socketBridge
-	for _, spec := range req.SocketBridges {
-		bridge, err := startSocketBridge(spec.HostPath, spec.ContainerPath)
+	for i, spec := range req.SocketBridges {
+		bridge, err := startSocketBridge(s.bridgeIP, spec.HostPath, spec.ContainerPath)
 		if err != nil {
 			slog.Warn("failed to start socket bridge, skipping",
 				"hostSocket", spec.HostPath,
@@ -394,10 +395,10 @@ func (s *Service) startSocketBridges(req *api.CreateContainerRequest) []*socketB
 			continue
 		}
 		bridges = append(bridges, bridge)
-		// Pass bridge port to container as WARDEN_BRIDGE_<PORT>:<CONTAINER_PATH>.
-		// The entrypoint iterates all WARDEN_BRIDGE_* vars and starts socat
-		// for each one.
-		envKey := fmt.Sprintf("WARDEN_BRIDGE_%d", bridge.Port())
+		// Each env var tells the entrypoint: PORT:CONTAINER_PATH.
+		// The entrypoint starts socat to forward from the container socket
+		// to host.docker.internal:PORT.
+		envKey := fmt.Sprintf("WARDEN_BRIDGE_%d", i)
 		req.EnvVars[envKey] = fmt.Sprintf("%d:%s", bridge.Port(), spec.ContainerPath)
 	}
 

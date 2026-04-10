@@ -189,6 +189,7 @@ func New(opts Options) (*Warden, error) {
 		EventHandler:    store.HandleEvent,
 		HomeDir:         homeDir,
 		DockerAvailable: dockerAvailable,
+		BridgeIP:        dockerInfo.BridgeIP,
 		EnvResolver:     shellEnv,
 	})
 

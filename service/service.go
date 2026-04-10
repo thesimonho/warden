@@ -46,6 +46,11 @@ type ServiceDeps struct {
 	// detection and resolution. When nil, a default ProcessEnvResolver
 	// is used (direct os.LookupEnv delegation).
 	EnvResolver access.EnvResolver
+
+	// BridgeIP is the host IP reachable from containers via
+	// host.docker.internal. Used as the listen address for socket
+	// bridge TCP proxies (SSH/GPG agent forwarding).
+	BridgeIP string
 }
 
 // Service provides business logic for all Warden operations. It is
@@ -76,6 +81,11 @@ type Service struct {
 	// dockerAvailable indicates whether Docker was reachable at startup.
 	// When false, container-mutating operations return ErrDockerUnavailable.
 	dockerAvailable bool
+
+	// bridgeIP is the host IP reachable from containers. Bridge TCP
+	// listeners bind to this address so containers can connect via
+	// host.docker.internal.
+	bridgeIP string
 
 	// socketBridges tracks active TCP→Unix socket bridges keyed by
 	// container name. Each bridge proxies TCP connections to a host
@@ -126,6 +136,7 @@ func New(deps ServiceDeps) *Service {
 		workingDir:              wd,
 		envResolver:             envResolver,
 		dockerAvailable:         deps.DockerAvailable,
+		bridgeIP:                deps.BridgeIP,
 		socketBridges:          make(map[string][]*socketBridge),
 		sessionWatchers:         make(map[db.ProjectAgentKey]*agent.SessionWatcher),
 		sessionWatcherCooldowns: make(map[db.ProjectAgentKey]time.Time),
