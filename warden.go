@@ -130,6 +130,7 @@ func New(opts Options) (*Warden, error) {
 			"install", "https://docs.docker.com/get-docker/",
 		)
 	}
+	engineClient.SetIsDesktop(dockerInfo.IsDesktop)
 	if dockerInfo.IsDesktop {
 		slog.Info("Docker Desktop detected — socket bridges will bind to 127.0.0.1")
 	}
@@ -213,9 +214,20 @@ func New(opts Options) (*Warden, error) {
 	}
 
 	if dockerAvailable {
+		// Set up the bridge firewall chain for socket bridge iptables
+		// rules. No-op on Docker Desktop. Flushes stale rules from a
+		// previous server run that didn't shut down cleanly.
+		if err := engineClient.SetupBridgeFirewall(context.Background()); err != nil {
+			slog.Warn("failed to set up bridge firewall chain (socket bridges may not work on restrictive firewalls)", "err", err)
+		}
+
 		// Start session watchers for already-running containers so JSONL
 		// event parsing resumes after a server restart.
 		svc.ResumeSessionWatchers(context.Background())
+
+		// Resume socket bridges for running containers so SSH/GPG agent
+		// forwarding recovers after a server restart.
+		svc.ResumeSocketBridges(context.Background())
 
 		// Pre-warm the CLI cache in the background so the first container
 		// create for each agent type is a cache hit (near-instant).

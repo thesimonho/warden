@@ -167,6 +167,38 @@ func (m *mockEngineClient) RemoveVolume(_ context.Context, _ string) error {
 	return nil
 }
 
+func (m *mockEngineClient) AllowBridgePortInContainer(_ context.Context, _ string, _ int) error {
+	return nil
+}
+
+func (m *mockEngineClient) ExecSocatBridge(_ context.Context, _, _ string, _ int) error {
+	return nil
+}
+
+func (m *mockEngineClient) KillSocatBridges(_ context.Context, _ string) error {
+	return nil
+}
+
+func (m *mockEngineClient) SetupBridgeFirewall(_ context.Context) error {
+	return nil
+}
+
+func (m *mockEngineClient) AddBridgeFirewallRule(_ context.Context, _ int) error {
+	return nil
+}
+
+func (m *mockEngineClient) AddBridgeFirewallRules(_ context.Context, _ []int) error {
+	return nil
+}
+
+func (m *mockEngineClient) RemoveBridgeFirewallRule(_ context.Context, _ int) error {
+	return nil
+}
+
+func (m *mockEngineClient) TeardownBridgeFirewall(_ context.Context) error {
+	return nil
+}
+
 // testDB returns a fresh in-memory SQLite store for tests.
 func testDB(t *testing.T) *db.Store {
 	t.Helper()

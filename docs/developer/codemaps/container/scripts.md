@@ -56,7 +56,7 @@ Accepts `<worktree-id> [--skip-permissions]`. Branches on `WARDEN_AGENT_TYPE` en
 
 ### user-entrypoint.sh
 
-User-phase (PID 1) entrypoint. Forwards environment variables, configures git, and starts the heartbeat background process. Starts socat socket bridges: iterates `WARDEN_BRIDGE_*` env vars (format `PORT:CONTAINER_PATH`), creates parent directories, and launches background `socat UNIX-LISTEN:...,fork TCP:host.docker.internal:PORT` processes to bridge TCP proxy connections to local Unix sockets (SSH agent, GPG agent). For remote projects: scans for orphaned terminal directories (from containers that were killed without cleanup) and writes exit_code markers so they can be auto-resumed on reconnect. For non-full network modes: starts `warden-network-block-logger.sh` to poll for blocked IPs and write audit events.
+User-phase (PID 1) entrypoint. Forwards environment variables, configures git, and starts the heartbeat background process. For remote projects: scans for orphaned terminal directories (from containers that were killed without cleanup) and writes exit_code markers so they can be auto-resumed on reconnect. For non-full network modes: starts `warden-network-block-logger.sh` to poll for blocked IPs and write audit events. Note: socat socket bridges for SSH/GPG agent forwarding are now managed by the Go server via `docker exec` (see `engine/bridge_exec.go` and `service/socket_bridge.go`) rather than being started from env vars in this script.
 
 ### create-terminal.sh
 

@@ -40,9 +40,17 @@ type EngineClient struct {
 	agentRegistry      *agent.Registry
 	eventBaseDir       string   // host-side base directory for event files
 	seccompProfileJSON string   // inline seccomp profile JSON for SecurityOpt
+	isDesktop          bool     // true when Docker Desktop is detected (skip host iptables)
 	gitRepoCache       sync.Map // containerID -> bool, cached per container lifetime
 	workspaceDirCache  sync.Map // containerID -> string, cached workspace dir
 	agentTypeCache     sync.Map // containerID -> string, cached agent type (immutable per container)
+}
+
+// SetIsDesktop marks whether the Docker runtime is Docker Desktop. When
+// true, host-side iptables operations are skipped (the VM's NAT handles
+// container-to-host forwarding).
+func (ec *EngineClient) SetIsDesktop(desktop bool) {
+	ec.isDesktop = desktop
 }
 
 // NewClient creates an EngineClient using the given socket path.
