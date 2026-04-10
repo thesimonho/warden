@@ -187,12 +187,14 @@ components:
       - file
       - socket
       - command
+      - named_pipe
       type: string
       x-enum-varnames:
       - SourceEnvVar
       - SourceFilePath
       - SourceSocketPath
       - SourceCommand
+      - SourceNamedPipe
     access.Transform:
       description: Transform is an optional processing step applied to the resolved
         value.
