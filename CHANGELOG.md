@@ -1,5 +1,28 @@
 # Changelog
 
+## [1.11.0](https://github.com/thesimonho/warden/compare/v1.10.2...v1.11.0) (2026-04-10)
+
+
+### Features
+
+* add GPG signing as built-in access item ([#189](https://github.com/thesimonho/warden/issues/189)) ([3299f39](https://github.com/thesimonho/warden/commit/3299f3974597e49a95d0ed56140186177516468f))
+* replace browser notifications with native desktop notifications ([#197](https://github.com/thesimonho/warden/issues/197)) ([a1f9462](https://github.com/thesimonho/warden/commit/a1f94629c863bf615da82ae32f6c7fcd5d092c3b))
+* TCP socket bridge for SSH/GPG agent forwarding ([#191](https://github.com/thesimonho/warden/issues/191)) ([db3d127](https://github.com/thesimonho/warden/commit/db3d127a43c9952c3fd1be0be5abf3a005b50f5f))
+
+
+### Bug Fixes
+
+* container image CVEs, Docker Desktop compat, file sharing hints ([#188](https://github.com/thesimonho/warden/issues/188)) ([d4aed68](https://github.com/thesimonho/warden/commit/d4aed6868f5ab46faafd11fd012ac1008c92cb10))
+* detect Docker Desktop and probe sockets for liveness ([#190](https://github.com/thesimonho/warden/issues/190)) ([0168fcb](https://github.com/thesimonho/warden/commit/0168fcb9f1d5ba88c9a6c89b8672b14c5fd37f3e))
+* JSON-encode container log tail in audit events ([#192](https://github.com/thesimonho/warden/issues/192)) ([6d53723](https://github.com/thesimonho/warden/commit/6d537236265938f075b350ddb888ecb709cce0a8))
+* network blocked domain resolution, Docker Desktop paths, recreation race ([#194](https://github.com/thesimonho/warden/issues/194)) ([890906b](https://github.com/thesimonho/warden/commit/890906bcf2c273b00701707922500ee104e331ed))
+* populate default domains when switching to restricted network mode ([#195](https://github.com/thesimonho/warden/issues/195)) ([0f8eede](https://github.com/thesimonho/warden/commit/0f8eede17a3d2ddfd71a6d54be39c3906a57a888))
+* prevent phantom WebSocket reconnect during Strict Mode double-mount ([#199](https://github.com/thesimonho/warden/issues/199)) ([8f89e25](https://github.com/thesimonho/warden/commit/8f89e25b2b39c2fcb0981c7fa11972275559274b))
+* protect host symlinks from entrypoint dereference ([#198](https://github.com/thesimonho/warden/issues/198)) ([59b09a7](https://github.com/thesimonho/warden/commit/59b09a763ba8b4ed2232fdb579342471b216d6b2))
+* reliable SSH/GPG agent forwarding across all Docker runtimes ([#193](https://github.com/thesimonho/warden/issues/193)) ([913a8c7](https://github.com/thesimonho/warden/commit/913a8c72a0c8fe77002bddf1c623b3dd515091a8))
+* SSH agent socket inaccessible inside containers ([#184](https://github.com/thesimonho/warden/issues/184)) ([ead14f9](https://github.com/thesimonho/warden/commit/ead14f98c1bd912a7396be87b532f1df76968a09))
+* stale mount detection and Docker context discovery ([#187](https://github.com/thesimonho/warden/issues/187)) ([d66f00b](https://github.com/thesimonho/warden/commit/d66f00bb0ab3bd78f84a62c1735cb68891c43322))
+
 ## [1.10.2](https://github.com/thesimonho/warden/compare/v1.10.1...v1.10.2) (2026-04-08)
 
 
