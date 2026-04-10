@@ -150,8 +150,13 @@ env | grep '^WARDEN_BRIDGE_' | sort | while IFS='=' read -r _key value; do
   container_path="${value#*:}"
   if [ -n "$port" ] && [ -n "$container_path" ]; then
     parent_dir=$(dirname "$container_path")
-    mkdir -p "$parent_dir"
-    chmod 700 "$parent_dir"
+    # Create the parent directory if it doesn't exist (e.g. ~/.gnupg).
+    # Skip chmod on pre-existing system directories like /run — the
+    # warden user can't change their permissions and doesn't need to.
+    if [ ! -d "$parent_dir" ]; then
+      mkdir -p "$parent_dir"
+      chmod 700 "$parent_dir"
+    fi
     rm -f "$container_path"
     nohup socat \
       "UNIX-LISTEN:${container_path},fork,mode=600" \
