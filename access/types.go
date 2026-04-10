@@ -21,6 +21,10 @@ const (
 	SourceSocketPath SourceType = "socket"
 	// SourceCommand runs a host command and captures stdout.
 	SourceCommand SourceType = "command"
+	// SourceNamedPipe references a Windows named pipe on the host
+	// (e.g. \\.\pipe\openssh-ssh-agent). Detection dials the pipe
+	// to verify it has a listener.
+	SourceNamedPipe SourceType = "named_pipe"
 )
 
 // InjectionType describes how a resolved credential is delivered into

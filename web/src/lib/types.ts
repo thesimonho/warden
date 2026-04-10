@@ -393,7 +393,7 @@ export interface RuntimeDefault {
 // --- Access System ---
 
 /** Source type for how to detect/read a credential on the host. */
-export type AccessSourceType = 'env' | 'file' | 'socket' | 'command'
+export type AccessSourceType = 'env' | 'file' | 'socket' | 'named_pipe' | 'command'
 
 /** Injection type for how to deliver a credential into the container. */
 export type AccessInjectionType = 'env' | 'mount_file' | 'mount_socket'

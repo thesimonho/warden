@@ -73,6 +73,7 @@ var sourceTypes = []access.SourceType{
 	access.SourceEnvVar,
 	access.SourceFilePath,
 	access.SourceSocketPath,
+	access.SourceNamedPipe,
 	access.SourceCommand,
 }
 
@@ -81,6 +82,7 @@ var sourceTypeLabels = map[access.SourceType]string{
 	access.SourceEnvVar:     "env",
 	access.SourceFilePath:   "file",
 	access.SourceSocketPath: "socket",
+	access.SourceNamedPipe:  "named_pipe",
 	access.SourceCommand:    "command",
 }
 

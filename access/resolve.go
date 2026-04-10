@@ -156,6 +156,12 @@ func trySource(src Source, env EnvResolver) (desc string, value string, ok bool)
 		}
 		return fmt.Sprintf("socket %s", src.Value), path, true
 
+	case SourceNamedPipe:
+		if !probeNamedPipe(src.Value) {
+			return "", "", false
+		}
+		return fmt.Sprintf("pipe %s", src.Value), src.Value, true
+
 	case SourceCommand:
 		name, args := parseCommand(src.Value)
 		cmd := exec.Command(name, args...)
@@ -187,6 +193,10 @@ func detectSource(src Source, env EnvResolver) (string, bool) {
 		path := env.ExpandEnv(src.Value)
 		if fi, err := os.Stat(path); err == nil && fi.Mode().Type() == os.ModeSocket && probeSocket(path) {
 			return fmt.Sprintf("socket %s", src.Value), true
+		}
+	case SourceNamedPipe:
+		if probeNamedPipe(src.Value) {
+			return fmt.Sprintf("pipe %s", src.Value), true
 		}
 	case SourceCommand:
 		name, args := parseCommand(src.Value)

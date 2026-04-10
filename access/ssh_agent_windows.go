@@ -2,16 +2,31 @@
 
 package access
 
+// sshAgentPipePath is the standard Windows named pipe for the OpenSSH
+// SSH agent service.
+const sshAgentPipePath = `\\.\pipe\openssh-ssh-agent`
+
 // sshAgentCredential returns the SSH Agent credential for Windows.
-// Windows uses named pipes (not Unix sockets) for the SSH agent, and
-// Docker Desktop on Windows does not support forwarding them into
-// Linux containers. The SSH access item still mounts config and
-// known_hosts — SSH works if the user has passwordless keys.
-// The credential is returned with no sources so it is never detected
-// as available, and the agent mount is cleanly skipped.
+// Detection probes the OpenSSH named pipe. The TCP socket bridge in
+// the service layer dials the named pipe on the host side, while the
+// container side uses socat via host.docker.internal — identical to
+// Unix platforms.
 func sshAgentCredential() Credential {
 	return Credential{
-		Label:   "SSH Agent",
-		Sources: []Source{},
+		Label: "SSH Agent",
+		Sources: []Source{
+			{Type: SourceNamedPipe, Value: sshAgentPipePath},
+		},
+		Injections: []Injection{
+			{
+				Type: InjectionMountSocket,
+				Key:  ContainerSSHAgentPath,
+			},
+			{
+				Type:  InjectionEnvVar,
+				Key:   "SSH_AUTH_SOCK",
+				Value: ContainerSSHAgentPath,
+			},
+		},
 	}
 }

@@ -122,7 +122,7 @@ func (s *Service) stopAllSocketBridges() {
 func (b *socketBridge) proxy(tcpConn net.Conn) {
 	defer func() { _ = tcpConn.Close() }()
 
-	hostConn, err := net.Dial("unix", b.hostPath)
+	hostConn, err := dialHost(b.hostPath)
 	if err != nil {
 		slog.Debug("socket bridge: failed to connect to host socket",
 			"socket", b.hostPath, "err", err)
