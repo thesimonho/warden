@@ -1371,6 +1371,11 @@ components:
           type: number
         disconnectKey:
           type: string
+        notificationsEnabled:
+          description: |-
+            NotificationsEnabled controls whether the system tray sends desktop
+            notifications when agents need attention.
+          type: boolean
         runtime:
           type: string
         version:
@@ -1398,6 +1403,8 @@ components:
           type: number
         disconnectKey:
           type: string
+        notificationsEnabled:
+          type: boolean
       type: object
     service.WorktreeResult:
       properties:

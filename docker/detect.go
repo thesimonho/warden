@@ -162,4 +162,3 @@ func Detect(ctx context.Context) Info {
 
 	return info
 }
-

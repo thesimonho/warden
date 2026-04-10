@@ -15,6 +15,7 @@ import (
 	"github.com/thesimonho/warden/constants"
 	"github.com/thesimonho/warden/db"
 	"github.com/thesimonho/warden/engine"
+	"github.com/thesimonho/warden/event"
 )
 
 // ListProjects returns all projects from the database, enriched with
@@ -419,6 +420,14 @@ func (s *Service) StopProject(
 	s.stopSocketBridges(containerName)
 	s.StopSessionWatcher(project.ProjectID, project.AgentType)
 
+	if s.store != nil {
+		s.store.BroadcastContainerStateChanged(event.ProjectRef{
+			ProjectID:     project.ProjectID,
+			AgentType:     project.AgentType,
+			ContainerName: containerName,
+		}, event.ContainerActionStopped)
+	}
+
 	return &ProjectResult{
 		ContainerID: project.ContainerID,
 		ProjectID:   project.ProjectID,
@@ -514,6 +523,14 @@ func (s *Service) RestartProject(
 			_ = s.docker.KillSocatBridges(execCtx, project.ContainerID)
 			s.execSocatBridges(execCtx, project.ContainerID, bridges)
 		}()
+	}
+
+	if s.store != nil {
+		s.store.BroadcastContainerStateChanged(event.ProjectRef{
+			ProjectID:     project.ProjectID,
+			AgentType:     project.AgentType,
+			ContainerName: containerName,
+		}, event.ContainerActionStarted)
 	}
 
 	return &ProjectResult{

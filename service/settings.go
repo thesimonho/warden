@@ -29,6 +29,8 @@ const (
 	settingDisconnectKey        = "disconnectKey"
 	settingDefaultProjectBudget = "defaultProjectBudget"
 
+	settingNotificationsEnabled = "notificationsEnabled"
+
 	settingBudgetActionWarn          = "budgetActionWarn"
 	settingBudgetActionStopWorktrees = "budgetActionStopWorktrees"
 	settingBudgetActionStopContainer = "budgetActionStopContainer"
@@ -42,6 +44,8 @@ func (s *Service) GetSettings() SettingsResponse {
 		AuditLogMode:         api.AuditLogMode(s.db.GetSetting(settingAuditLogMode, string(api.AuditLogOff))),
 		DisconnectKey:        s.db.GetSetting(settingDisconnectKey, engine.DefaultDisconnectKey),
 		DefaultProjectBudget: parseFloat(s.db.GetSetting(settingDefaultProjectBudget, "0")),
+
+		NotificationsEnabled: s.db.GetSetting(settingNotificationsEnabled, "true") == "true",
 
 		BudgetActionWarn:          s.db.GetSetting(settingBudgetActionWarn, "true") == "true",
 		BudgetActionStopWorktrees: s.db.GetSetting(settingBudgetActionStopWorktrees, "false") == "true",
@@ -108,6 +112,7 @@ func (s *Service) UpdateSettings(ctx context.Context, req UpdateSettingsRequest)
 		field *bool
 		key   string
 	}{
+		{req.NotificationsEnabled, settingNotificationsEnabled},
 		{req.BudgetActionWarn, settingBudgetActionWarn},
 		{req.BudgetActionStopWorktrees, settingBudgetActionStopWorktrees},
 		{req.BudgetActionStopContainer, settingBudgetActionStopContainer},

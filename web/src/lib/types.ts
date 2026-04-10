@@ -543,6 +543,8 @@ export interface ServerSettings {
   auditLogMode: AuditLogMode
   /** Global default per-project cost budget in USD (0 = unlimited). */
   defaultProjectBudget: number
+  /** Whether the system tray sends desktop notifications when agents need attention. */
+  notificationsEnabled: boolean
 
   /** Show a warning (toast + audit log) when a project exceeds its budget. */
   budgetActionWarn: boolean

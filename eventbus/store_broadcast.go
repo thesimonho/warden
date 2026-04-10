@@ -122,6 +122,18 @@ func (s *Store) buildProjectBroadcast(ref event.ProjectRef) pendingBroadcast {
 	return pendingBroadcast{event: event.SSEProjectState, data: payload}
 }
 
+// BroadcastContainerStateChanged sends a container_state_changed SSE event
+// so the tray and other clients can track container lifecycle without polling.
+func (s *Store) BroadcastContainerStateChanged(ref event.ProjectRef, action event.ContainerStateAction) {
+	s.broadcast([]pendingBroadcast{{
+		event: event.SSEContainerStateChanged,
+		data: event.ContainerStatePayload{
+			ProjectRef: ref,
+			Action:     action,
+		},
+	}})
+}
+
 // AggregateContainerAttention returns the highest-priority attention state
 // across all worktrees for a container. The internal variant (lowercase) is
 // used under existing lock; this public variant acquires its own read lock.

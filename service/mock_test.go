@@ -44,13 +44,13 @@ type mockEngine struct {
 	lastWorktreeName        string
 	networkIsolationApplied bool
 	// Bridge call tracking.
-	execSocatCalls              []execSocatCall
-	killSocatCalls              []string
-	allowBridgePortCalls        []allowBridgePortCall
-	addFirewallRuleCalls        []int
-	removeFirewallRuleCalls     []int
-	setupFirewallCalled         bool
-	teardownFirewallCalled      bool
+	execSocatCalls          []execSocatCall
+	killSocatCalls          []string
+	allowBridgePortCalls    []allowBridgePortCall
+	addFirewallRuleCalls    []int
+	removeFirewallRuleCalls []int
+	setupFirewallCalled     bool
+	teardownFirewallCalled  bool
 }
 
 type execSocatCall struct {

@@ -53,6 +53,10 @@ Returns the current server-side settings including runtime, audit log state, and
 
   `string`
 
+- **`notificationsEnabled`**
+
+  `boolean` — NotificationsEnabled controls whether the system tray sends desktop notifications when agents need attention.
+
 - **`runtime`**
 
   `string`
@@ -78,6 +82,7 @@ Returns the current server-side settings including runtime, audit log state, and
   "codexVersion": "",
   "defaultProjectBudget": 1,
   "disconnectKey": "",
+  "notificationsEnabled": true,
   "runtime": "",
   "version": "",
   "workingDirectory": ""
@@ -128,6 +133,10 @@ Updates server-side settings. Only provided fields are changed. Changing the run
 - **`disconnectKey`**
 
   `string`
+
+- **`notificationsEnabled`**
+
+  `boolean`
 
 **Example:**
 

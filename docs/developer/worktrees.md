@@ -43,4 +43,4 @@ Worktrees can require user attention. Attention state is pushed via the event bu
 | `elicitation_dialog` | 2           | Red dot — Claude is asking a question               |
 | `idle_prompt`        | 1           | Blue dot — Claude finished, waiting for next prompt |
 
-Project cards on the home page show the highest-priority attention type across all worktrees.
+Project cards on the home page show the highest-priority attention type across all worktrees. The system tray (`warden-tray`) subscribes to SSE and sends native desktop notifications for these attention states, controlled by the server-side `notificationsEnabled` setting.

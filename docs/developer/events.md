@@ -66,6 +66,14 @@ These events are not in Claude's JSONL format yet. Codex either has them in JSON
 | `subagent_start`      | SubagentStart      | Claude adds subagent lifecycle to JSONL (stop is via JSONL now) |
 | `subagent_stop`       | SubagentStop       | Claude adds subagent lifecycle to JSONL (stop is via JSONL now) |
 
+## SSE-only events (not written to audit)
+
+These events are broadcast over the SSE stream (`GET /api/v1/events`) for real-time frontend updates but are not persisted to the audit database.
+
+| Event                     | Source     | Notes                                                                                                                                                                                              |
+| ------------------------- | ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `container_state_changed` | Go backend | Fired on container create, start, stop, delete. Payload includes `action` field (`created`, `started`, `stopped`, `deleted`). Used by the system tray to track running containers without polling. |
+
 ## Events from backend / container scripts
 
 | Event                          | Source                  | Notes                           |

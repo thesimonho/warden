@@ -26,6 +26,10 @@ const (
 	SSERuntimeStatus SSEEventType = "runtime_status"
 	// SSEAgentStatus is sent when an agent CLI installation starts or completes.
 	SSEAgentStatus SSEEventType = "agent_status"
+	// SSEContainerStateChanged is sent when a container is created, started,
+	// stopped, or deleted. The tray uses this to track running containers
+	// without polling.
+	SSEContainerStateChanged SSEEventType = "container_state_changed"
 )
 
 // ProjectRef identifies a project in SSE event payloads. Embedded by all
@@ -67,6 +71,26 @@ type AgentStatusPayload struct {
 	ProjectRef
 	Phase   string `json:"phase"`
 	Version string `json:"version"`
+}
+
+// ContainerStateAction identifies what happened to a container.
+type ContainerStateAction string
+
+const (
+	// ContainerActionCreated means a new container was created.
+	ContainerActionCreated ContainerStateAction = "created"
+	// ContainerActionStarted means a container was started (or restarted).
+	ContainerActionStarted ContainerStateAction = "started"
+	// ContainerActionStopped means a container was stopped.
+	ContainerActionStopped ContainerStateAction = "stopped"
+	// ContainerActionDeleted means a container was removed.
+	ContainerActionDeleted ContainerStateAction = "deleted"
+)
+
+// ContainerStatePayload is the SSE payload for container lifecycle events.
+type ContainerStatePayload struct {
+	ProjectRef
+	Action ContainerStateAction `json:"action"`
 }
 
 // SSEEvent is a typed event sent to frontend clients over Server-Sent Events.
