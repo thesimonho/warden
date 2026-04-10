@@ -180,6 +180,15 @@ When you create or restart a container with Access Items enabled:
 
 5. **No persistence** — Credentials exist only in the container's runtime environment. When the container stops, they're gone.
 
+## Sandbox Mode
+
+If your AI coding agent runs with sandbox restrictions (e.g., Claude Code's sandbox mode), the sandbox must allow access to the host resources that Access Items depend on. For example:
+
+- **SSH** requires the sandbox to permit connections to the `$SSH_AUTH_SOCK` Unix socket and outbound access to SSH hosts (e.g., `ssh.github.com`)
+- **GPG** requires the sandbox to permit access to the gpg-agent Unix socket (typically under `$XDG_RUNTIME_DIR/gnupg/` or `~/.gnupg/`)
+
+Check your sandbox configuration first. If socket forwarding or network access fails despite Access Items showing as detected, the issue is likely somewhere in your sandbox settings.
+
 ## Testing Access Items
 
 Both the create and edit dialogs include a **Test** button that resolves the current form state and shows exactly what would be injected:
