@@ -590,7 +590,9 @@ func (s *Service) HandleContainerStale(containerName string) {
 		Message:       msg,
 	}
 	if health.LogTail != "" {
-		entry.Data = []byte(health.LogTail)
+		if logJSON, jsonErr := json.Marshal(map[string]string{"logTail": health.LogTail}); jsonErr == nil {
+			entry.Data = logJSON
+		}
 	}
 	s.audit.Write(entry)
 }
