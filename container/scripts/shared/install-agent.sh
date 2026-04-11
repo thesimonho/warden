@@ -128,6 +128,9 @@ write_claude_managed_settings() {
   mkdir -p /etc/claude-code
   cat > /etc/claude-code/managed-settings.json <<'MANAGED_EOF'
 {
+  "env": {
+    "DISABLE_AUTOUPDATER": "1"
+  },
   "hooks": {
     "Notification": [
       {

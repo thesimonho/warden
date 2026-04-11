@@ -202,6 +202,16 @@ func (ec *EngineClient) CreateContainer(ctx context.Context, req api.CreateConta
 		envList = append(envList, fmt.Sprintf("WARDEN_ENABLED_RUNTIMES=%s", strings.Join(req.EnabledRuntimes, ",")))
 	}
 
+	// Set the container timezone to match the host so timestamps the user
+	// sees in the terminal (logs, shell prompts, `date`, git commit times)
+	// line up with their wall clock. glibc honours TZ at runtime, and the
+	// Ubuntu base image already ships tzdata, so no extra install is needed.
+	// If we can't determine the host timezone (e.g. Windows), we omit TZ and
+	// let the container default to UTC.
+	if tz := hostTimezone(); tz != "" {
+		envList = append(envList, fmt.Sprintf("TZ=%s", tz))
+	}
+
 	containerConfig := &container.Config{
 		Image:      image,
 		Env:        envList,
