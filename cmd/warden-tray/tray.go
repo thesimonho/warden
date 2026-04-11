@@ -58,26 +58,38 @@ type trayState struct {
 	// projects tracks the current state of all projects from the
 	// initial fetch. Updated by SSE events.
 	projects map[string]*projectState
+	// menuAttention is the parent "Needs Attention" submenu item.
+	menuAttention *systray.MenuItem
+	// attentionItems tracks submenu items for projects needing attention.
+	// Keyed by project key (projectId:agentType).
+	attentionItems map[string]*attentionMenuItem
 }
 
 // projectState tracks per-project data from SSE events.
 type projectState struct {
-	projectID        string
-	agentType        string
-	name             string // display name (container name)
-	state            string // Docker state
-	needsInput       bool
-	notificationType string
+	projectID            string
+	agentType            string
+	name                 string // display name (container name)
+	state                string // Docker state
+	needsInput           bool
+	notificationType     string
+	attentionWorktreeIDs []string
+}
+
+// attentionMenuItem tracks a submenu item for a project needing attention.
+type attentionMenuItem struct {
+	item *systray.MenuItem
 }
 
 // runTray initializes the system tray and blocks until exit.
 // This must be called from the main goroutine on macOS.
 func runTray(srv *serverClient) {
 	state := &trayState{
-		srv:      srv,
-		notif:    newNotifier(srv.baseURL),
-		sseStop:  make(chan struct{}),
-		projects: make(map[string]*projectState),
+		srv:            srv,
+		notif:          newNotifier(srv.baseURL),
+		sseStop:        make(chan struct{}),
+		projects:       make(map[string]*projectState),
+		attentionItems: make(map[string]*attentionMenuItem),
 	}
 
 	systray.Run(func() { state.onReady() }, func() {})
@@ -108,6 +120,12 @@ func (t *trayState) onReady() {
 	systray.AddSeparator()
 
 	mOpen := systray.AddMenuItem("Open Dashboard", "Open the Warden dashboard in a browser")
+
+	t.menuAttention = systray.AddMenuItem("Needs Attention (0)   ", "Projects needing your input")
+	t.menuAttention.Disable()
+	// Placeholder child forces the DE to register this as a submenu parent
+	// from the start. Hidden immediately — real items replace it dynamically.
+	t.menuAttention.AddSubMenuItem("", "").Hide()
 
 	t.menuStatus = systray.AddMenuItem("Checking...", "")
 	t.menuStatus.Disable()
@@ -160,16 +178,18 @@ func (t *trayState) loadInitialState() {
 	for _, p := range projects {
 		key := projectKey(p.ProjectID, p.AgentType)
 		t.projects[key] = &projectState{
-			projectID:        p.ProjectID,
-			agentType:        p.AgentType,
-			name:             p.Name,
-			state:            p.State,
-			needsInput:       p.NeedsInput,
-			notificationType: p.NotificationType,
+			projectID:            p.ProjectID,
+			agentType:            p.AgentType,
+			name:                 p.Name,
+			state:                p.State,
+			needsInput:           p.NeedsInput,
+			notificationType:     p.NotificationType,
+			attentionWorktreeIDs: p.AttentionWorktreeIDs,
 		}
 	}
 	t.mu.Unlock()
 	t.refreshStatusFromState()
+	t.updateAttentionMenu()
 }
 
 // sseLoop maintains a persistent SSE connection with automatic
@@ -288,21 +308,24 @@ func (t *trayState) handleProjectState(evt sseEvent) {
 	wasNeedingInput := ps.needsInput
 	ps.needsInput = data.NeedsInput
 	ps.notificationType = data.NotificationType
+	ps.attentionWorktreeIDs = data.AttentionWorktreeIDs
 	notifEnabled := t.notificationsEnabled
 	projectFocused := t.isProjectFocused(key)
 	projectName := ps.name
+	worktreeIDs := data.AttentionWorktreeIDs
 	t.mu.Unlock()
 
 	// Handle notification logic. Suppress when a client is actively
 	// viewing the project — the user can already see the attention
 	// indicators in the dashboard/TUI.
 	if data.NeedsInput && !wasNeedingInput && notifEnabled && !projectFocused {
-		t.notif.notify(key, projectName, data.ProjectID, data.AgentType, notificationType(data.NotificationType))
+		t.notif.notify(key, projectName, data.ProjectID, data.AgentType, notificationType(data.NotificationType), worktreeIDs)
 	} else if !data.NeedsInput && wasNeedingInput {
 		t.notif.clearAttention(key)
 	}
 
 	t.refreshStatusFromState()
+	t.updateAttentionMenu()
 }
 
 // handleViewerFocus processes a viewer_focus SSE event, updating the
@@ -326,6 +349,87 @@ func (t *trayState) isProjectFocused(key string) bool {
 	}
 	wts, ok := t.focusedWorktrees[key]
 	return ok && len(wts) > 0
+}
+
+// updateAttentionMenu synchronizes the "Needs Attention" submenu with
+// current project state. Creates sub-items for newly attention-needing
+// projects and removes items for projects that no longer need attention.
+func (t *trayState) updateAttentionMenu() {
+	t.mu.Lock()
+
+	// Collect projects that currently need attention.
+	active := make(map[string]*projectState)
+	for key, ps := range t.projects {
+		if ps.needsInput {
+			active[key] = ps
+		}
+	}
+
+	// Remove sub-items for projects that no longer need attention.
+	for key, ai := range t.attentionItems {
+		if _, ok := active[key]; !ok {
+			ai.item.Remove()
+			delete(t.attentionItems, key)
+		}
+	}
+
+	// Add or update sub-items for attention-needing projects.
+	for key, ps := range active {
+		if existing, ok := t.attentionItems[key]; ok {
+			// Update the label if the notification type changed.
+			existing.item.SetTitle(attentionLabel(ps.name, ps.notificationType))
+			continue
+		}
+		label := attentionLabel(ps.name, ps.notificationType)
+		item := t.menuAttention.AddSubMenuItem(label, "")
+		ai := &attentionMenuItem{item: item}
+		t.attentionItems[key] = ai
+
+		// Click handler reads current project state at click time so the
+		// deep link always includes the latest attention worktree IDs.
+		capturedKey := key
+		go func() {
+			for range item.ClickedCh {
+				t.mu.Lock()
+				ps, ok := t.projects[capturedKey]
+				var link string
+				if ok {
+					link = t.buildAttentionDeepLink(ps)
+				}
+				t.mu.Unlock()
+				if link != "" {
+					openBrowser(link)
+				}
+			}
+		}()
+	}
+
+	count := len(t.attentionItems)
+	t.mu.Unlock()
+
+	// Update parent menu title and enabled state.
+	// Enable before setting title so the DE sees the submenu hint on
+	// an enabled item.
+	// Trailing spaces pad the label away from the submenu chevron.
+	if count == 0 {
+		t.menuAttention.SetTitle("Needs Attention (0)   ")
+		t.menuAttention.Disable()
+	} else {
+		t.menuAttention.Enable()
+		t.menuAttention.SetTitle(fmt.Sprintf("Needs Attention (%d)   ", count))
+	}
+}
+
+// buildAttentionDeepLink constructs a dashboard URL for a project,
+// including worktree IDs as a query parameter for auto-connect.
+// Caller must hold t.mu.
+func (t *trayState) buildAttentionDeepLink(ps *projectState) string {
+	return buildProjectDeepLink(t.srv.baseURL, ps.projectID, ps.agentType, ps.attentionWorktreeIDs)
+}
+
+// attentionLabel returns a human-readable label for an attention submenu item.
+func attentionLabel(projectName, notifType string) string {
+	return fmt.Sprintf("%s — %s", projectName, notificationSuffix(notificationType(notifType)))
 }
 
 // handleContainerStateChanged processes a container_state_changed SSE
@@ -356,6 +460,7 @@ func (t *trayState) handleContainerStateChanged(evt sseEvent) {
 			ps.state = stateExited
 			ps.needsInput = false
 			ps.notificationType = ""
+			ps.attentionWorktreeIDs = nil
 		}
 		t.notif.clearAttention(key)
 	case containerActionDeleted:
@@ -365,6 +470,7 @@ func (t *trayState) handleContainerStateChanged(evt sseEvent) {
 	t.mu.Unlock()
 
 	t.refreshStatusFromState()
+	t.updateAttentionMenu()
 }
 
 // refreshStatusFromState updates the menu status label and tray icon

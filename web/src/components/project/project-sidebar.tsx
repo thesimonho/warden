@@ -32,6 +32,7 @@ import { formatCost } from '@/lib/cost'
 import { buildPanelId } from '@/lib/canvas-store'
 import { useProjects } from '@/hooks/use-projects'
 import { useRevealInFileManager } from '@/hooks/use-reveal-in-file-manager'
+import { useAutoConnect } from '@/hooks/use-auto-connect'
 import { useWorktrees } from '@/hooks/use-worktrees'
 import { workspaceMount, type Worktree, type WorkspaceMount } from '@/lib/types'
 import WorktreeList from '@/components/project/worktree-list'
@@ -332,6 +333,10 @@ function ProjectWorktreeList({
     },
     [projectId, agentType, projectName, onAddPanel, refetch],
   )
+
+  // Auto-connect worktrees specified in the URL query parameter (?worktrees=wid1,wid2).
+  // Used by tray attention menu items and notification deep links.
+  useAutoConnect({ worktrees, isLoading, onAddPanel: handleAddPanel })
 
   /**
    * Reconnects a background worktree that already has a panel on the canvas.

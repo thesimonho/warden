@@ -5,6 +5,7 @@ import (
 	"log"
 	"os/exec"
 	"runtime"
+	"strings"
 	"sync"
 
 	"github.com/godbus/dbus/v5"
@@ -20,26 +21,44 @@ const (
 	notifAuthSuccess       notificationType = "auth_success"
 )
 
+// notificationSuffix returns a short human-readable label for the given
+// notification type (e.g. "needs tool approval", "has a question").
+// Used by both desktop notification titles and tray menu item labels.
+func notificationSuffix(nt notificationType) string {
+	switch nt {
+	case notifPermissionPrompt:
+		return "needs tool approval"
+	case notifElicitationDialog:
+		return "has a question"
+	case notifIdlePrompt:
+		return "waiting for input"
+	case notifAuthSuccess:
+		return "auth complete"
+	default:
+		return "needs attention"
+	}
+}
+
+// notificationBody returns a longer description for the given notification type.
+func notificationBody(nt notificationType) string {
+	switch nt {
+	case notifPermissionPrompt:
+		return "A worktree is waiting for permission."
+	case notifElicitationDialog:
+		return "The agent is asking a question that needs your answer."
+	case notifIdlePrompt:
+		return "The agent is done and waiting for the next prompt."
+	case notifAuthSuccess:
+		return "Authentication was successful."
+	default:
+		return "A worktree is waiting for your response."
+	}
+}
+
 // notificationMessage returns a human-readable (title, body) pair for
 // the given notification type and project name.
 func notificationMessage(nt notificationType, projectName string) (title, body string) {
-	switch nt {
-	case notifPermissionPrompt:
-		return fmt.Sprintf("%s needs tool approval", projectName),
-			"A worktree is waiting for permission."
-	case notifElicitationDialog:
-		return fmt.Sprintf("%s has a question", projectName),
-			"The agent is asking a question that needs your answer."
-	case notifIdlePrompt:
-		return fmt.Sprintf("%s is waiting for input", projectName),
-			"The agent is done and waiting for the next prompt."
-	case notifAuthSuccess:
-		return fmt.Sprintf("%s authentication complete", projectName),
-			"Authentication was successful."
-	default:
-		return fmt.Sprintf("%s needs attention", projectName),
-			"A worktree is waiting for your response."
-	}
+	return fmt.Sprintf("%s %s", projectName, notificationSuffix(nt)), notificationBody(nt)
 }
 
 // notifier tracks notification dedup state and sends platform-native
@@ -65,8 +84,10 @@ func newNotifier(baseURL string) *notifier {
 
 // notify sends a desktop notification if this is a new attention cycle
 // or a different notification type than last sent for this project.
+// worktreeIDs are included in the deep link URL so the dashboard can
+// auto-connect the relevant terminals when the user clicks the notification.
 // Returns true if a notification was actually sent.
-func (n *notifier) notify(projectKey, projectName, projectID, agentType string, nt notificationType) bool {
+func (n *notifier) notify(projectKey, projectName, projectID, agentType string, nt notificationType, worktreeIDs []string) bool {
 	n.mu.Lock()
 	defer n.mu.Unlock()
 
@@ -76,7 +97,7 @@ func (n *notifier) notify(projectKey, projectName, projectID, agentType string, 
 	n.lastNotified[projectKey] = nt
 
 	title, body := notificationMessage(nt, projectName)
-	deepLink := fmt.Sprintf("%s/projects/%s/%s", n.baseURL, projectID, agentType)
+	deepLink := buildProjectDeepLink(n.baseURL, projectID, agentType, worktreeIDs)
 
 	go sendDesktopNotification(title, body, deepLink)
 	return true
@@ -283,4 +304,14 @@ $toast = [Windows.UI.Notifications.ToastNotification]::new($xml)
 `, openURL, title, body)
 
 	return exec.Command("powershell", "-NoProfile", "-Command", script).Run()
+}
+
+// buildProjectDeepLink constructs a dashboard URL for a project,
+// optionally including worktree IDs as a query parameter for auto-connect.
+func buildProjectDeepLink(baseURL, projectID, agentType string, worktreeIDs []string) string {
+	link := fmt.Sprintf("%s/projects/%s/%s", baseURL, projectID, agentType)
+	if len(worktreeIDs) > 0 {
+		link += "?worktrees=" + strings.Join(worktreeIDs, ",")
+	}
+	return link
 }

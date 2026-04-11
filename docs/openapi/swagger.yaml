@@ -871,6 +871,13 @@ components:
             type: string
           type: array
           uniqueItems: false
+        attentionWorktreeIDs:
+          description: AttentionWorktreeIDs lists the IDs of worktrees currently needing
+            user attention.
+          items:
+            type: string
+          type: array
+          uniqueItems: false
         cloneURL:
           description: CloneURL is the git repository URL to clone (remote projects
             only).

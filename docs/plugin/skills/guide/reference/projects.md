@@ -77,7 +77,7 @@ curl -s http://localhost:8090/api/v1/projects | jq
 Each project object includes:
 
 - **Container state** (`state`, `status`, `hasContainer`) -- whether the container exists and is running
-- **Agent state** (`agentStatus`, `needsInput`, `notificationType`) -- what the agent is doing right now
+- **Agent state** (`agentStatus`, `needsInput`, `notificationType`, `attentionWorktreeIDs`) -- what the agent is doing right now
 - **Cost data** (`totalCost`, `costBudget`, `isEstimatedCost`) -- spend tracking
 - **Worktree counts** (`activeWorktreeCount`, `isGitRepo`) -- how many worktrees have connected terminals
 - **Configuration** (`image`, `networkMode`, `allowedDomains`, `skipPermissions`) -- current settings

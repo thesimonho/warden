@@ -58,6 +58,8 @@ type ProjectResponse struct {
 	// NotificationType indicates why the agent needs attention
 	// (e.g. "permission_prompt", "idle_prompt", "elicitation_dialog").
 	NotificationType string `json:"notificationType,omitempty"`
+	// AttentionWorktreeIDs lists the IDs of worktrees currently needing user attention.
+	AttentionWorktreeIDs []string `json:"attentionWorktreeIDs,omitempty"`
 	// ActiveWorktreeCount is the number of worktrees with connected terminals.
 	ActiveWorktreeCount int `json:"activeWorktreeCount"`
 	// TotalCost is the aggregate cost across all worktrees in USD.

@@ -126,7 +126,9 @@ curl -s -X PUT http://localhost:8090/api/v1/settings \
 
 ### Notifications
 
-Controls whether the system tray (`warden-tray`) sends native desktop notifications when agents need attention (permission prompts, idle state, elicitation dialogs). The tray subscribes to the SSE event stream and fires OS-native notifications based on attention state changes.
+Controls whether the system tray (`warden-tray`) sends native desktop notifications when agents need attention (permission prompts, idle state, elicitation dialogs). The tray subscribes to the SSE event stream and fires OS-native notifications based on attention state changes. Clicking a notification opens the project dashboard with `?worktrees=wid1,wid2` query parameters, which auto-connects terminals for the worktrees that need attention.
+
+The tray also shows a **Needs Attention** submenu listing projects that currently need user input. Each submenu item opens the project dashboard with a deep link to the attention worktrees.
 
 ```bash
 # Enable desktop notifications
