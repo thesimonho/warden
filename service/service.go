@@ -56,6 +56,10 @@ type ServiceDeps struct {
 	// host.docker.internal. Used as the listen address for socket
 	// bridge TCP proxies (SSH/GPG agent forwarding).
 	BridgeIP string
+
+	// Broker is the SSE event broker for real-time updates.
+	// Used by the focus tracker to broadcast viewer focus changes.
+	Broker *eventbus.Broker
 }
 
 // Service provides business logic for all Warden operations. It is
@@ -119,6 +123,9 @@ type Service struct {
 	// double-applying network isolation (CreateContainer already
 	// waits for installs and applies it).
 	recentlyCreated sync.Map
+
+	// focus tracks which clients are viewing which projects/worktrees.
+	focus *focusTracker
 }
 
 // New creates a Service with the given dependencies. The lifecycle
@@ -150,6 +157,7 @@ func New(deps ServiceDeps) *Service {
 		sessionWatchers:         make(map[db.ProjectAgentKey]*agent.SessionWatcher),
 		sessionWatcherCooldowns: make(map[db.ProjectAgentKey]time.Time),
 		costFallbackNegCache:    make(map[db.ProjectAgentKey]time.Time),
+		focus:                   newFocusTracker(deps.Broker),
 	}
 }
 

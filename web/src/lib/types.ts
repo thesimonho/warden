@@ -264,6 +264,12 @@ export interface WorktreeListChangedEvent {
   containerName: string
 }
 
+/** Payload for `viewer_focus` SSE events. */
+export interface ViewerFocusEvent {
+  activeViewers: number
+  focusedWorktrees?: Record<string, string[]>
+}
+
 /** Result of a worktree mutation (connect, disconnect, kill, remove). */
 export interface WorktreeResult {
   worktreeId: string

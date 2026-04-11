@@ -193,7 +193,12 @@ func New(opts Options) (*Warden, error) {
 		DockerInfo:      dockerInfo,
 		BridgeIP:        dockerInfo.BridgeIP,
 		EnvResolver:     shellEnv,
+		Broker:          broker,
 	})
+
+	// Start the viewer focus TTL cleanup so stale entries are removed
+	// when clients disconnect without sending focused=false.
+	go svc.StartFocusCleanup(livenessCtx)
 
 	// Wire cost persistence and budget enforcement: on every cost update,
 	// funnel through the single gateway that persists cost and enforces

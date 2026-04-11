@@ -315,6 +315,20 @@ func (a *ServiceAdapter) UploadClipboard(ctx context.Context, projectID, agentTy
 	return a.w.Service.UploadClipboard(ctx, projectID, agentType, content, mimeType)
 }
 
+// --- Focus ---
+
+// ReportFocus delegates to the service's focus tracker.
+func (a *ServiceAdapter) ReportFocus(_ context.Context, req api.FocusRequest) error {
+	a.w.Service.ReportFocus(req)
+	return nil
+}
+
+// GetFocusState returns the aggregated viewer focus state.
+func (a *ServiceAdapter) GetFocusState(_ context.Context) (*api.FocusState, error) {
+	state := a.w.Service.GetFocusState()
+	return &state, nil
+}
+
 // --- Server Lifecycle ---
 
 // Shutdown is a no-op in embedded mode. The TUI process exits via

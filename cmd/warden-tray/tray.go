@@ -23,6 +23,7 @@ const (
 	// SSE event types (mirrors event.SSEEventType constants).
 	sseEventProjectState          = "project_state"
 	sseEventContainerStateChanged = "container_state_changed"
+	sseEventViewerFocus           = "viewer_focus"
 	sseEventServerShutdown        = "server_shutdown"
 
 	// Container lifecycle actions (mirrors event.ContainerStateAction).
@@ -51,6 +52,9 @@ type trayState struct {
 	needsAttention bool
 	// notificationsEnabled caches the server-side setting.
 	notificationsEnabled bool
+	// focusedWorktrees caches the latest viewer focus state.
+	// Key is "projectId:agentType", value is the list of focused worktree IDs.
+	focusedWorktrees map[string][]string
 	// projects tracks the current state of all projects from the
 	// initial fetch. Updated by SSE events.
 	projects map[string]*projectState
@@ -139,11 +143,18 @@ func (t *trayState) loadInitialState() {
 		enabled = true
 	}
 
+	// Fetch viewer focus state for notification suppression.
+	var focusedWorktrees map[string][]string
+	if focus, err := t.srv.fetchFocusState(); err == nil {
+		focusedWorktrees = focus.FocusedWorktrees
+	}
+
 	// Fetch projects to seed the menu.
 	projects, _ := t.srv.listProjects()
 
 	t.mu.Lock()
 	t.notificationsEnabled = enabled
+	t.focusedWorktrees = focusedWorktrees
 	// Clear existing state to remove projects deleted while disconnected.
 	clear(t.projects)
 	for _, p := range projects {
@@ -245,6 +256,8 @@ func (t *trayState) handleSSEEvent(evt sseEvent) {
 		t.handleProjectState(evt)
 	case sseEventContainerStateChanged:
 		t.handleContainerStateChanged(evt)
+	case sseEventViewerFocus:
+		t.handleViewerFocus(evt)
 	case sseEventServerShutdown:
 		t.shuttingDown.Store(true)
 	}
@@ -276,17 +289,43 @@ func (t *trayState) handleProjectState(evt sseEvent) {
 	ps.needsInput = data.NeedsInput
 	ps.notificationType = data.NotificationType
 	notifEnabled := t.notificationsEnabled
+	projectFocused := t.isProjectFocused(key)
 	projectName := ps.name
 	t.mu.Unlock()
 
-	// Handle notification logic.
-	if data.NeedsInput && !wasNeedingInput && notifEnabled {
+	// Handle notification logic. Suppress when a client is actively
+	// viewing the project — the user can already see the attention
+	// indicators in the dashboard/TUI.
+	if data.NeedsInput && !wasNeedingInput && notifEnabled && !projectFocused {
 		t.notif.notify(key, projectName, data.ProjectID, data.AgentType, notificationType(data.NotificationType))
 	} else if !data.NeedsInput && wasNeedingInput {
 		t.notif.clearAttention(key)
 	}
 
 	t.refreshStatusFromState()
+}
+
+// handleViewerFocus processes a viewer_focus SSE event, updating the
+// cached focus state used for notification suppression.
+func (t *trayState) handleViewerFocus(evt sseEvent) {
+	var data viewerFocusData
+	if err := unmarshalJSON(evt.Data, &data); err != nil {
+		return
+	}
+
+	t.mu.Lock()
+	t.focusedWorktrees = data.FocusedWorktrees
+	t.mu.Unlock()
+}
+
+// isProjectFocused returns true if any client is viewing the given project.
+// Caller must hold t.mu.
+func (t *trayState) isProjectFocused(key string) bool {
+	if t.focusedWorktrees == nil {
+		return false
+	}
+	wts, ok := t.focusedWorktrees[key]
+	return ok && len(wts) > 0
 }
 
 // handleContainerStateChanged processes a container_state_changed SSE

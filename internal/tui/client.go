@@ -213,6 +213,14 @@ type Client interface {
 	// API: POST /api/v1/projects/{projectId}/{agentType}/clipboard
 	UploadClipboard(ctx context.Context, projectID, agentType string, content []byte, mimeType string) (*api.ClipboardUploadResponse, error)
 
+	// ReportFocus reports the client's viewer focus state to the server.
+	// API: POST /api/v1/focus
+	ReportFocus(ctx context.Context, req api.FocusRequest) error
+
+	// GetFocusState returns the aggregated viewer focus state.
+	// API: GET /api/v1/focus
+	GetFocusState(ctx context.Context) (*api.FocusState, error)
+
 	// BaseURL returns the HTTP base URL of the Warden server (e.g. "http://localhost:8090").
 	// Used to construct full proxy URLs for display and clipboard copy.
 	BaseURL() string

@@ -6,6 +6,7 @@ import ProjectSidebar, { type ViewMode } from '@/components/project/project-side
 import CanvasView from '@/components/project/canvas-view'
 import GridView, { type GridViewHandle } from '@/components/project/grid-view'
 import { useCanvasStore, buildPanelId, LAYOUT_ANIMATION_MS } from '@/lib/canvas-store'
+import { useFocusReporter } from '@/hooks/use-focus-reporter'
 import { useCanvasWorktreeState } from '@/hooks/use-canvas-worktree-state'
 import { useCanvasPanZoom } from '@/hooks/use-canvas-pan-zoom'
 import { useMarqueeSelection } from '@/hooks/use-marquee-selection'
@@ -76,6 +77,9 @@ export default function ProjectView({ projectId, agentType, onProjectChange }: P
 
   const activePanelIds = useMemo(() => new Set(panels.map((p) => p.id)), [panels])
   const worktreeStates = useCanvasWorktreeState(panels)
+
+  // Report viewer focus state so the tray can suppress notifications for focused projects.
+  useFocusReporter(projectId, agentType, panels)
 
   // ─── Stable callbacks for CanvasView (avoid re-renders on SSE) ─────
   const handleCanvasDragStop = useCallback(
@@ -516,6 +520,7 @@ export default function ProjectView({ projectId, agentType, onProjectChange }: P
           </div>
         </div>
       )}
+
     </div>
   )
 }
