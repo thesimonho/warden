@@ -77,8 +77,14 @@ type projectState struct {
 }
 
 // attentionMenuItem tracks a submenu item for a project needing attention.
+// Items are never destroyed after creation — they are hidden when the
+// project no longer needs attention and shown again if it does. This
+// works around unreliable MenuItem.Remove() behaviour on Linux dbusmenu
+// where removed sub-items can linger visually even after the parent
+// count updates.
 type attentionMenuItem struct {
-	item *systray.MenuItem
+	item    *systray.MenuItem
+	visible bool
 }
 
 // runTray initializes the system tray and blocks until exit.
@@ -365,24 +371,30 @@ func (t *trayState) updateAttentionMenu() {
 		}
 	}
 
-	// Remove sub-items for projects that no longer need attention.
+	// Hide sub-items for projects that no longer need attention. We
+	// intentionally keep them in the map so they can be shown again
+	// without allocating a fresh MenuItem — Remove() is unreliable on
+	// Linux dbusmenu and leaves stale entries visible.
 	for key, ai := range t.attentionItems {
-		if _, ok := active[key]; !ok {
-			ai.item.Remove()
-			delete(t.attentionItems, key)
+		if _, ok := active[key]; !ok && ai.visible {
+			ai.item.Hide()
+			ai.visible = false
 		}
 	}
 
-	// Add or update sub-items for attention-needing projects.
+	// Add, update, or re-show sub-items for attention-needing projects.
 	for key, ps := range active {
+		label := attentionLabel(ps.name, ps.notificationType)
 		if existing, ok := t.attentionItems[key]; ok {
-			// Update the label if the notification type changed.
-			existing.item.SetTitle(attentionLabel(ps.name, ps.notificationType))
+			existing.item.SetTitle(label)
+			if !existing.visible {
+				existing.item.Show()
+				existing.visible = true
+			}
 			continue
 		}
-		label := attentionLabel(ps.name, ps.notificationType)
 		item := t.menuAttention.AddSubMenuItem(label, "")
-		ai := &attentionMenuItem{item: item}
+		ai := &attentionMenuItem{item: item, visible: true}
 		t.attentionItems[key] = ai
 
 		// Click handler reads current project state at click time so the
@@ -404,7 +416,7 @@ func (t *trayState) updateAttentionMenu() {
 		}()
 	}
 
-	count := len(t.attentionItems)
+	count := len(active)
 	t.mu.Unlock()
 
 	// Update parent menu title and enabled state.
