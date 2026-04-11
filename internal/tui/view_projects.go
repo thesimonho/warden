@@ -222,7 +222,7 @@ func (v *ProjectsView) selectedProject() *api.ProjectResponse {
 func projectColumns(width int) []table.Column {
 	// Fixed-width columns; Name gets all remaining space.
 	// Each column has 2 chars of cell padding (Padding(0,1) on each side).
-	const agentW, statusW, worktreeW, costW, networkW = 8, 10, 10, 8, 12
+	const agentW, statusW, worktreeW, costW, networkW = 16, 12, 12, 10, 14
 	const numCols = 6
 	const cellPadding = 2 * numCols
 	fixed := agentW + statusW + worktreeW + costW + networkW
