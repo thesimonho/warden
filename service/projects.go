@@ -505,23 +505,25 @@ func (s *Service) RestartProject(
 	s.StopSessionWatcher(project.ProjectID, project.AgentType)
 	s.startProjectWatcher(project.ProjectID, containerName, project.AgentType)
 
-	// Re-exec socat bridges after restart. The TCP bridge listeners in
-	// the Go process survive, but socat inside the container was killed.
-	// Runs in a goroutine to avoid blocking the API response while
-	// waiting for installs to complete.
+	// Re-exec socat bridges after restart. Socat is in the base image
+	// and doesn't depend on agent CLI or runtime installs, so bridges
+	// are set up immediately without waiting for installs. If bridges
+	// are still tracked in memory, re-exec with existing TCP ports.
+	// If bridges were cleared (StopProject closed them), rebuild from
+	// the DB — same recovery path used by HandleContainerStart.
 	s.socketBridgesMu.Lock()
 	bridges := s.socketBridges[containerName]
 	s.socketBridgesMu.Unlock()
 	if len(bridges) > 0 {
 		go func() {
-			execCtx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
-			defer cancel()
-			if err := s.docker.WaitForInstalls(execCtx, project.ContainerID); err != nil {
-				slog.Warn("timed out waiting for installs before socat re-exec",
-					"container", containerName, "err", err)
-			}
-			_ = s.docker.KillSocatBridges(execCtx, project.ContainerID)
-			s.execSocatBridges(execCtx, project.ContainerID, bridges)
+			ctx := context.Background()
+			_ = s.docker.KillSocatBridges(ctx, project.ContainerID)
+			s.execSocatBridges(ctx, project.ContainerID, bridges)
+		}()
+	} else if project.EnabledAccessItems != "" {
+		go func() {
+			s.refreshEnvResolver()
+			s.resumeBridgesForContainer(context.Background(), project.ContainerID, containerName)
 		}()
 	}
 
