@@ -358,12 +358,12 @@ type worktreeHelpKeyMap struct {
 var filterBinding = key.NewBinding(key.WithKeys("/"), key.WithHelp("/", "filter"))
 
 func (k worktreeHelpKeyMap) ShortHelp() []key.Binding {
-	return []key.Binding{k.keys.Connect, k.keys.New, filterBinding, k.keys.Back, moreHelp}
+	return []key.Binding{k.keys.Connect, k.keys.Shell, k.keys.New, filterBinding, k.keys.Back, moreHelp}
 }
 
 func (k worktreeHelpKeyMap) FullHelp() [][]key.Binding {
 	return [][]key.Binding{
-		{k.keys.Connect, k.disconnectHint, k.keys.Disconnect},
+		{k.keys.Connect, k.keys.Shell, k.disconnectHint, k.keys.Disconnect},
 		{k.keys.Kill, k.keys.Reset, k.keys.Remove},
 		{k.keys.New, k.keys.Cleanup, k.keys.Ports},
 		{filterBinding, k.keys.Back},

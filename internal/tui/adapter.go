@@ -357,12 +357,33 @@ func (a *ServiceAdapter) SubscribeEvents(_ context.Context, _ ...client.Subscrib
 
 // --- Terminal Attachment ---
 
+// resolveContainerID looks up the Docker container ID for a project from
+// the database. The TUI receives project IDs, but docker exec needs the
+// actual container ID — this mirrors what the web UI does in
+// handleTerminalWS before calling the terminal proxy.
+func (a *ServiceAdapter) resolveContainerID(projectID, agentType string) (string, error) {
+	row, err := a.w.Service.GetProject(projectID, agentType)
+	if err != nil {
+		return "", fmt.Errorf("resolve container ID: %w", err)
+	}
+	if row == nil {
+		return "", fmt.Errorf("project %s/%s not found", projectID, agentType)
+	}
+	if row.ContainerID == "" {
+		return "", fmt.Errorf("project %s/%s has no container", projectID, agentType)
+	}
+	return row.ContainerID, nil
+}
+
 // AttachTerminal creates a docker exec session attached to the
 // worktree's agent tmux session. Returns an io.ReadWriteCloser for the TUI
 // instead of bridging to a WebSocket (mirrors internal/terminal/proxy.go).
 func (a *ServiceAdapter) AttachTerminal(ctx context.Context, projectID, agentType, worktreeID string) (client.TerminalConnection, error) {
-	_ = agentType
-	return a.attachTmuxExec(ctx, projectID, engine.TmuxSessionName(worktreeID))
+	containerID, err := a.resolveContainerID(projectID, agentType)
+	if err != nil {
+		return nil, err
+	}
+	return a.attachTmuxExec(ctx, containerID, engine.TmuxSessionName(worktreeID))
 }
 
 // AttachShellTerminal lazily bootstraps the worktree's auxiliary bash-shell
@@ -371,10 +392,13 @@ func (a *ServiceAdapter) AttachTerminal(ctx context.Context, projectID, agentTyp
 // creating it does not emit terminal_connected events, touch cost, or alter
 // agent attention.
 func (a *ServiceAdapter) AttachShellTerminal(ctx context.Context, projectID, agentType, worktreeID string) (client.TerminalConnection, error) {
-	_ = agentType // shell session is agent-agnostic; accepted for interface parity
+	containerID, err := a.resolveContainerID(projectID, agentType)
+	if err != nil {
+		return nil, err
+	}
 	dockerAPI := a.w.Engine.APIClient()
 
-	bootstrapResp, err := dockerAPI.ContainerExecCreate(ctx, projectID, container.ExecOptions{
+	bootstrapResp, err := dockerAPI.ContainerExecCreate(ctx, containerID, container.ExecOptions{
 		Cmd:          []string{constants.CreateShellScript, worktreeID},
 		User:         containerUser,
 		AttachStdout: true,
@@ -390,7 +414,7 @@ func (a *ServiceAdapter) AttachShellTerminal(ctx context.Context, projectID, age
 	_, _ = io.Copy(io.Discard, bootstrapHijacked.Reader)
 	bootstrapHijacked.Close()
 
-	return a.attachTmuxExec(ctx, projectID, engine.TmuxShellSessionName(worktreeID))
+	return a.attachTmuxExec(ctx, containerID, engine.TmuxShellSessionName(worktreeID))
 }
 
 // attachTmuxExec opens a docker exec with TTY attached to the named tmux

@@ -32,7 +32,7 @@ dev-web:
 
 # Build and run the TUI
 dev-tui:
-    go run ./cmd/warden-tui
+    WARDEN_DB_DIR="${HOME}/.cache/warden-dev" go run ./cmd/warden-tui
 
 # Start Go + Vite dev servers
 dev:
