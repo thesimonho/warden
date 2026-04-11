@@ -99,6 +99,8 @@ func registerAPIRoutes(mux *http.ServeMux, svc *service.Service, broker *eventbu
 	mux.HandleFunc("GET /api/v1/defaults", rt.handleDefaults)
 	mux.HandleFunc("GET /api/v1/template", rt.handleReadTemplate)
 	mux.HandleFunc("POST /api/v1/template", rt.handleValidateTemplate)
+	mux.HandleFunc("POST /api/v1/focus", rt.handleReportFocus)
+	mux.HandleFunc("GET /api/v1/focus", rt.handleGetFocusState)
 	mux.HandleFunc("GET /api/v1/events", rt.handleSSE)
 	mux.HandleFunc("POST /api/v1/projects/{projectId}/{agentType}/clipboard", rt.handleUploadClipboard)
 	mux.HandleFunc("GET /api/v1/projects/{projectId}/{agentType}/ws/{wid}", rt.handleTerminalWS)

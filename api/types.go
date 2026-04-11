@@ -354,6 +354,30 @@ type PostAuditEventRequest struct {
 	Attrs map[string]any `json:"attrs,omitempty"`
 }
 
+// FocusRequest reports a client's focus state to the server.
+// The web UI and TUI POST this whenever window focus or the viewed
+// project/worktrees change, plus periodic heartbeats while focused.
+type FocusRequest struct {
+	// ClientID is a unique identifier for this client instance (UUID per page load or TUI session).
+	ClientID string `json:"clientId"`
+	// Focused is true when the client has visibility focus on Warden.
+	Focused bool `json:"focused"`
+	// ProjectID is the project being viewed (empty when unfocused or on a non-project page).
+	ProjectID string `json:"projectId,omitempty"`
+	// AgentType scopes the focus to a specific agent type.
+	AgentType string `json:"agentType,omitempty"`
+	// WorktreeIDs lists all worktrees currently open in the client's view.
+	WorktreeIDs []string `json:"worktreeIds,omitempty"`
+}
+
+// FocusState is the server's aggregated view of all focused clients.
+type FocusState struct {
+	// ActiveViewers is the total number of focused client instances.
+	ActiveViewers int `json:"activeViewers"`
+	// FocusedWorktrees maps "projectId:agentType" keys to deduplicated worktree ID lists.
+	FocusedWorktrees map[string][]string `json:"focusedWorktrees,omitempty"`
+}
+
 // DefaultMount represents a resolved default bind mount for the
 // create container form.
 type DefaultMount struct {

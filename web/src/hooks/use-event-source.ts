@@ -37,6 +37,7 @@ import type {
   WorktreeListChangedEvent,
   BudgetExceededEvent,
   BudgetContainerStoppedEvent,
+  ViewerFocusEvent,
 } from '@/lib/types'
 
 /** Connection status of the SSE stream. */
@@ -208,6 +209,9 @@ export interface AgentStatusEvent {
 /** Callback for agent_status SSE events. */
 export type AgentStatusHandler = (event: AgentStatusEvent) => void
 
+/** Callback for viewer_focus SSE events. */
+export type ViewerFocusHandler = (event: ViewerFocusEvent) => void
+
 /** Options for subscribing to SSE events. */
 interface UseEventSourceOptions {
   /** Handler for worktree_state events. */
@@ -224,6 +228,8 @@ interface UseEventSourceOptions {
   onRuntimeStatus?: RuntimeStatusHandler
   /** Handler for agent_status events (agent CLI install progress). */
   onAgentStatus?: AgentStatusHandler
+  /** Handler for viewer_focus events (viewer focus state changes). */
+  onViewerFocus?: ViewerFocusHandler
 }
 
 /** Creates a MessageEvent handler that parses JSON and forwards to a ref callback. */
@@ -256,6 +262,7 @@ export function useEventSource(options: UseEventSourceOptions): EventSourceStatu
   const onBudgetContainerStoppedRef = useRef(options.onBudgetContainerStopped)
   const onRuntimeStatusRef = useRef(options.onRuntimeStatus)
   const onAgentStatusRef = useRef(options.onAgentStatus)
+  const onViewerFocusRef = useRef(options.onViewerFocus)
 
   // Keep refs current without re-subscribing.
   useEffect(() => {
@@ -266,6 +273,7 @@ export function useEventSource(options: UseEventSourceOptions): EventSourceStatu
     onBudgetContainerStoppedRef.current = options.onBudgetContainerStopped
     onRuntimeStatusRef.current = options.onRuntimeStatus
     onAgentStatusRef.current = options.onAgentStatus
+    onViewerFocusRef.current = options.onViewerFocus
   }, [
     options.onWorktreeState,
     options.onProjectState,
@@ -274,6 +282,7 @@ export function useEventSource(options: UseEventSourceOptions): EventSourceStatu
     options.onBudgetContainerStopped,
     options.onRuntimeStatus,
     options.onAgentStatus,
+    options.onViewerFocus,
   ])
 
   useEffect(() => {
@@ -295,6 +304,7 @@ export function useEventSource(options: UseEventSourceOptions): EventSourceStatu
     const handleBudgetContainerStopped = makeSSEHandler(onBudgetContainerStoppedRef)
     const handleRuntimeStatus = makeSSEHandler(onRuntimeStatusRef)
     const handleAgentStatus = makeSSEHandler(onAgentStatusRef)
+    const handleViewerFocus = makeSSEHandler(onViewerFocusRef)
 
     // We need to listen on the current source AND any future reconnected sources.
     // Since sharedSource can change on reconnect, we add listeners at the module level.
@@ -307,6 +317,7 @@ export function useEventSource(options: UseEventSourceOptions): EventSourceStatu
       src.addEventListener('budget_container_stopped', handleBudgetContainerStopped)
       src.addEventListener('runtime_status', handleRuntimeStatus)
       src.addEventListener('agent_status', handleAgentStatus)
+      src.addEventListener('viewer_focus', handleViewerFocus)
     }
 
     const detach = (src: EventSource) => {
@@ -317,6 +328,7 @@ export function useEventSource(options: UseEventSourceOptions): EventSourceStatu
       src.removeEventListener('budget_container_stopped', handleBudgetContainerStopped)
       src.removeEventListener('runtime_status', handleRuntimeStatus)
       src.removeEventListener('agent_status', handleAgentStatus)
+      src.removeEventListener('viewer_focus', handleViewerFocus)
     }
 
     attach(source)

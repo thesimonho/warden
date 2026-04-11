@@ -90,3 +90,5 @@ export {
   resolveAccessItems,
 } from './api-access'
 export { uploadClipboardImage } from './api-clipboard'
+export { reportFocus, reportFocusBeacon } from './api-focus'
+export type { FocusRequest } from './api-focus'

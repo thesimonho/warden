@@ -30,6 +30,10 @@ const (
 	// stopped, or deleted. The tray uses this to track running containers
 	// without polling.
 	SSEContainerStateChanged SSEEventType = "container_state_changed"
+	// SSEViewerFocus is sent when the aggregated viewer focus state changes.
+	// The tray uses this to suppress notifications for projects the user
+	// is actively viewing.
+	SSEViewerFocus SSEEventType = "viewer_focus"
 )
 
 // ProjectRef identifies a project in SSE event payloads. Embedded by all

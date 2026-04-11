@@ -733,6 +733,44 @@ components:
         path:
           type: string
       type: object
+    api.FocusRequest:
+      properties:
+        agentType:
+          description: AgentType scopes the focus to a specific agent type.
+          type: string
+        clientId:
+          description: ClientID is a unique identifier for this client instance (UUID
+            per page load or TUI session).
+          type: string
+        focused:
+          description: Focused is true when the client has visibility focus on Warden.
+          type: boolean
+        projectId:
+          description: ProjectID is the project being viewed (empty when unfocused
+            or on a non-project page).
+          type: string
+        worktreeIds:
+          description: WorktreeIDs lists all worktrees currently open in the client's
+            view.
+          items:
+            type: string
+          type: array
+          uniqueItems: false
+      type: object
+    api.FocusState:
+      properties:
+        activeViewers:
+          description: ActiveViewers is the total number of focused client instances.
+          type: integer
+        focusedWorktrees:
+          additionalProperties:
+            items:
+              type: string
+            type: array
+          description: FocusedWorktrees maps "projectId:agentType" keys to deduplicated
+            worktree ID lists.
+          type: object
+      type: object
     api.Mount:
       properties:
         containerPath:
@@ -2085,6 +2123,47 @@ paths:
       summary: Reveal in file manager
       tags:
       - host
+  /api/v1/focus:
+    get:
+      description: Returns the aggregated viewer focus state across all connected
+        clients.
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/api.FocusState'
+          description: OK
+      summary: Get focus state
+      tags:
+      - focus
+    post:
+      description: |-
+        Reports which project and worktrees a client is actively viewing.
+        Used by the system tray to suppress desktop notifications for focused projects.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              oneOf:
+              - type: object
+              - $ref: '#/components/schemas/api.FocusRequest'
+                description: Focus state report
+                summary: body
+        description: Focus state report
+        required: true
+      responses:
+        "204":
+          description: No Content
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/server.apiError'
+          description: Bad Request
+      summary: Report focus state
+      tags:
+      - focus
   /api/v1/health:
     get:
       description: Returns a simple health check response indicating the server is

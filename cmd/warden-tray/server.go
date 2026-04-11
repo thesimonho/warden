@@ -20,6 +20,7 @@ const (
 	healthPath   = "/api/v1/health"
 	projectsPath = "/api/v1/projects"
 	settingsPath = "/api/v1/settings"
+	focusPath    = "/api/v1/focus"
 	eventsPath   = "/api/v1/events"
 	shutdownPath = "/api/v1/shutdown"
 	stateRunning = "running"
@@ -125,6 +126,21 @@ func (s *serverClient) listProjects() ([]project, error) {
 	return projects, nil
 }
 
+// fetchFocusState reads the aggregated viewer focus state.
+func (s *serverClient) fetchFocusState() (*viewerFocusData, error) {
+	resp, err := s.http.Get(s.baseURL + focusPath) //nolint:noctx
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close() //nolint:errcheck
+
+	var focus viewerFocusData
+	if err := json.NewDecoder(resp.Body).Decode(&focus); err != nil {
+		return nil, err
+	}
+	return &focus, nil
+}
+
 // fetchNotificationsEnabled reads the server-side notification setting.
 func (s *serverClient) fetchNotificationsEnabled() (bool, error) {
 	resp, err := s.http.Get(s.baseURL + settingsPath) //nolint:noctx
@@ -168,6 +184,12 @@ func (s *serverClient) shutdown() {
 }
 
 // --- SSE Client ---
+
+// viewerFocusData mirrors the SSE viewer_focus payload.
+type viewerFocusData struct {
+	ActiveViewers    int                 `json:"activeViewers"`
+	FocusedWorktrees map[string][]string `json:"focusedWorktrees,omitempty"`
+}
 
 // sseEvent is a parsed Server-Sent Event.
 type sseEvent struct {

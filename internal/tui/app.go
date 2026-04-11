@@ -53,6 +53,7 @@ type App struct {
 	auditLogMode    api.AuditLogMode
 	disconnectKey   string // e.g. "ctrl+\\"
 	dockerAvailable bool
+	focus           *focusReporter
 }
 
 // NewApp creates the root TUI model backed by the given Client.
@@ -92,6 +93,7 @@ func NewApp(client Client) App {
 		auditLogMode:    auditLogMode,
 		disconnectKey:   disconnectKey,
 		dockerAvailable: dockerAvailable,
+		focus:           newFocusReporter(client),
 	}
 	app.rebuildTabs()
 
@@ -109,7 +111,7 @@ func NewApp(client Client) App {
 
 // Init starts the SSE listener and initializes the default view.
 func (a App) Init() tea.Cmd {
-	cmds := []tea.Cmd{a.activeView.Init()}
+	cmds := []tea.Cmd{a.activeView.Init(), a.focus.heartbeatCmd()}
 	if a.eventCh != nil {
 		cmds = append(cmds, waitForEvent(a.eventCh))
 	}
@@ -213,8 +215,9 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case NavigateBackMsg:
 		if a.detailView != nil {
 			a.detailView = nil
-			cmd := a.activeView.Init()
-			return a, cmd
+			initCmd := a.activeView.Init()
+			focusCmd := a.focus.clearProjectContext()
+			return a, tea.Batch(initCmd, focusCmd)
 		}
 		// Also handle returning from a form view back to the tab's list.
 		a.activeView = a.viewForTab(a.activeTab)
@@ -232,6 +235,15 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			a.activeView, cmd = a.activeView.Update(msg)
 		}
 		return a, tea.Batch(cmd, waitForEvent(a.eventCh))
+
+	case tea.FocusMsg:
+		return a, a.focus.handleFocus()
+
+	case tea.BlurMsg:
+		return a, a.focus.handleBlur()
+
+	case focusHeartbeatMsg:
+		return a, a.focus.handleHeartbeat()
 
 	case EventStreamClosedMsg:
 		return a, nil
@@ -360,8 +372,11 @@ func (a App) handleNavigate(msg NavigateMsg) (tea.Model, tea.Cmd) {
 		a.detailView, _ = a.detailView.Update(tea.WindowSizeMsg{
 			Width: a.width, Height: a.height,
 		})
-		cmd := a.detailView.Init()
-		return a, cmd
+		initCmd := a.detailView.Init()
+		// Report focus on the newly navigated project. The worktree list
+		// isn't loaded yet — it will be updated via SSE events.
+		focusCmd := a.focus.setProjectContext(msg.ProjectID, msg.AgentType, nil)
+		return a, tea.Batch(initCmd, focusCmd)
 	}
 	return a.switchTab(msg.Tab)
 }
@@ -370,6 +385,7 @@ func (a App) switchTab(tab Tab) (tea.Model, tea.Cmd) {
 	if tab == a.activeTab && a.detailView == nil {
 		return a, nil
 	}
+	wasInDetail := a.detailView != nil
 	a.activeTab = tab
 	a.detailView = nil
 	a.activeView = a.viewForTab(tab)
@@ -377,8 +393,11 @@ func (a App) switchTab(tab Tab) (tea.Model, tea.Cmd) {
 	a.activeView, _ = a.activeView.Update(tea.WindowSizeMsg{
 		Width: a.width, Height: a.height,
 	})
-	cmd := a.activeView.Init()
-	return a, cmd
+	cmds := []tea.Cmd{a.activeView.Init()}
+	if wasInDetail {
+		cmds = append(cmds, a.focus.clearProjectContext())
+	}
+	return a, tea.Batch(cmds...)
 }
 
 func (a App) viewForTab(tab Tab) View {
