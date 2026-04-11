@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.12.0](https://github.com/thesimonho/warden/compare/v1.11.0...v1.12.0) (2026-04-11)
+
+
+### Features
+
+* auto-connect worktrees via URL and tray attention submenu ([#202](https://github.com/thesimonho/warden/issues/202)) ([7e986c9](https://github.com/thesimonho/warden/commit/7e986c94d323acb25a85656115aad33b2143ecc5))
+
+
+### Bug Fixes
+
+* mount GPG public keyring and recover bridges after stop ([#204](https://github.com/thesimonho/warden/issues/204)) ([3f61a18](https://github.com/thesimonho/warden/commit/3f61a184428ff576db01b386a421165c0a2f65ef))
+* suppress desktop notifications for focused projects ([#200](https://github.com/thesimonho/warden/issues/200)) ([ba1e192](https://github.com/thesimonho/warden/commit/ba1e1929092e7e720d4fa4a1dd2adaf84db890eb))
+
 ## [1.11.0](https://github.com/thesimonho/warden/compare/v1.10.2...v1.11.0) (2026-04-10)
 
 
