@@ -40,7 +40,7 @@ type TerminalTab = 'agent' | 'shell' | 'changes'
 interface PaneClipboard {
   copySelection: () => void
   pasteText: () => void
-  pasteImageFromClipboard: () => void | Promise<void>
+  pasteImageFromClipboard: () => void | Promise<void> | Promise<boolean>
   selectAll: () => void
 }
 
