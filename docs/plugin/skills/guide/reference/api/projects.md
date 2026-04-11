@@ -43,6 +43,14 @@ Returns all configured projects enriched with live container state, Claude statu
 
   `string`
 
+- **`attentionWorktreeIDs`**
+
+  `array` — AttentionWorktreeIDs lists the IDs of worktrees currently needing user attention.
+
+  **Items:**
+
+  `string`
+
 - **`cloneURL`**
 
   `string` — CloneURL is the git repository URL to clone (remote projects only).
@@ -161,6 +169,9 @@ Returns all configured projects enriched with live container state, Claude statu
     "agentType": "claude-code",
     "agentVersion": "",
     "allowedDomains": [
+      ""
+    ],
+    "attentionWorktreeIDs": [
       ""
     ],
     "cloneURL": "",
@@ -491,6 +502,14 @@ Returns a single project enriched with live container state, Claude status, work
 
   `string`
 
+- **`attentionWorktreeIDs`**
+
+  `array` — AttentionWorktreeIDs lists the IDs of worktrees currently needing user attention.
+
+  **Items:**
+
+  `string`
+
 - **`cloneURL`**
 
   `string` — CloneURL is the git repository URL to clone (remote projects only).
@@ -608,6 +627,9 @@ Returns a single project enriched with live container state, Claude status, work
   "agentType": "claude-code",
   "agentVersion": "",
   "allowedDomains": [
+    ""
+  ],
+  "attentionWorktreeIDs": [
     ""
   ],
   "cloneURL": "",

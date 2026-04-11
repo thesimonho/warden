@@ -18,7 +18,7 @@ Warden ships as four binaries that provide different integration levels:
 | `warden-tui`     | Engine + TUI (for terminal users)                                            |
 | `warden-tray`    | System tray companion for `warden-desktop` with native desktop notifications |
 
-The first three binaries share the same engine. `warden-tray` is a separate companion that connects to `warden-desktop` via SSE for real-time state updates and sends native desktop notifications when agents need attention.
+The first three binaries share the same engine. `warden-tray` is a separate companion that connects to `warden-desktop` via SSE for real-time state updates and sends native desktop notifications when agents need attention. The tray shows a **Needs Attention** submenu listing projects that require input, with click-to-open deep links that auto-connect the relevant terminals.
 
 ## Key packages
 
