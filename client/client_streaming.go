@@ -166,9 +166,30 @@ func readSSEStream(ctx context.Context, body io.ReadCloser, ch chan<- event.SSEE
 // The tmux session survives viewer disconnects. Call
 // [KillWorktreeProcess] to fully terminate the session.
 func (c *Client) AttachTerminal(ctx context.Context, projectID, agentType, worktreeID string) (TerminalConnection, error) {
+	return c.dialTerminalWS(ctx, projectID, agentType, worktreeID, "")
+}
+
+// AttachShellTerminal opens a WebSocket connection to a worktree's auxiliary
+// bash-shell tmux session (the "Terminal" tab in the webapp, the shell attach
+// action in the TUI). Unlike [AttachTerminal]:
+//
+//   - No [ConnectTerminal] prerequisite. The shell session is lazily
+//     bootstrapped by the server on first connect via create-shell.sh and
+//     persists for the lifetime of the worktree.
+//   - The shell session runs a plain bash at the worktree's working directory
+//     and has no agent state, cost tracking, or attention semantics.
+//   - Killed only when the worktree is reset or deleted.
+func (c *Client) AttachShellTerminal(ctx context.Context, projectID, agentType, worktreeID string) (TerminalConnection, error) {
+	return c.dialTerminalWS(ctx, projectID, agentType, worktreeID, "/shell")
+}
+
+// dialTerminalWS opens the WebSocket connection shared by AttachTerminal and
+// AttachShellTerminal. suffix is empty for the agent route, "/shell" for the
+// auxiliary shell route.
+func (c *Client) dialTerminalWS(ctx context.Context, projectID, agentType, worktreeID, suffix string) (TerminalConnection, error) {
 	wsURL := strings.Replace(c.baseURL, "http://", "ws://", 1)
 	wsURL = strings.Replace(wsURL, "https://", "wss://", 1)
-	wsURL += "/api/v1/projects/" + projectID + "/" + agentType + "/ws/" + worktreeID
+	wsURL += "/api/v1/projects/" + projectID + "/" + agentType + "/ws/" + worktreeID + suffix
 
 	conn, _, err := websocket.Dial(ctx, wsURL, &websocket.DialOptions{
 		CompressionMode: websocket.CompressionDisabled,

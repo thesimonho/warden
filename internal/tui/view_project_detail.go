@@ -382,6 +382,11 @@ func (v *ProjectDetailView) handleKey(msg tea.KeyPressMsg) (View, tea.Cmd) {
 			return v, attachTerminal(v.client, v.projectID, v.agentType, selected.wt.ID)
 		}
 
+	case key.Matches(msg, v.keys.Shell):
+		if hasSelected {
+			return v, attachShellTerminal(v.client, v.projectID, v.agentType, selected.wt.ID)
+		}
+
 	case key.Matches(msg, v.keys.Disconnect):
 		if hasSelected {
 			return v, disconnectTerminal(v.client, v.projectID, v.agentType, selected.wt.ID)
@@ -439,6 +444,20 @@ func attachTerminal(c Client, projectID, agentType, worktreeID string) tea.Cmd {
 			return TerminalExitedMsg{Err: err}
 		}
 		conn, err := c.AttachTerminal(context.Background(), projectID, agentType, worktreeID)
+		if err != nil {
+			return TerminalExitedMsg{Err: err}
+		}
+		return execTerminalMsg{conn: conn}
+	}
+}
+
+// attachShellTerminal opens a viewer into the worktree's auxiliary bash-shell
+// tmux session. Unlike [attachTerminal], it does not call ConnectTerminal —
+// the shell session is lazily bootstrapped on first attach and is independent
+// from the agent lifecycle.
+func attachShellTerminal(c Client, projectID, agentType, worktreeID string) tea.Cmd {
+	return func() tea.Msg {
+		conn, err := c.AttachShellTerminal(context.Background(), projectID, agentType, worktreeID)
 		if err != nil {
 			return TerminalExitedMsg{Err: err}
 		}
