@@ -69,6 +69,10 @@ The host path is editable if you want to point to a non-standard location.
 
 Any env var set at container creation is forwarded into the shell session — useful for `GITHUB_TOKEN`, `GIT_AUTHOR_NAME`, etc.
 
+## Agent and bash side-by-side
+
+Every worktree's terminal card has two tabs: **Agent** (the AI agent in tmux) and **Terminal** (a plain bash shell at the worktree directory). Switch to the bash tab to run commands like `npm install` or `git status` without interrupting the agent. In `warden-tui`, press `s` to open the bash terminal for the focused worktree.
+
 ## Next steps
 
 Explore Warden's feature set:

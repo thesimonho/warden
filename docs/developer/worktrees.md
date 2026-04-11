@@ -24,12 +24,14 @@ This is always consistent because git is the source of truth for worktrees, just
 
 ## Lifecycle Across Container Events
 
-| Container Event | Impact on Terminals                                     | Impact on Worktrees                                                                                  |
-| --------------- | ------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| Stop            | All tmux sessions killed. WebSocket connections closed. | Git worktrees preserved on bind mount. All become "stopped". Auto-resume on reconnect.               |
-| Start / Restart | Entrypoint writes exit_code for orphaned terminals.     | Worktrees rediscovered from filesystem. All start as "stopped". Auto-resume on reconnect.            |
-| Recreate (edit) | Old container removed.                                  | Worktrees preserved on bind mount. Reconnectable in new container.                                   |
-| Delete          | Container removed.                                      | Worktrees preserved on bind mount. Available when a new container mounts the same project directory. |
+| Container Event | Impact on Terminals                                                              | Impact on Worktrees                                                                                  |
+| --------------- | -------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| Stop            | Both agent and auxiliary shell tmux sessions killed. WebSocket connections closed. | Git worktrees preserved on bind mount. All become "stopped". Auto-resume on reconnect.               |
+| Start / Restart | Entrypoint writes exit_code for orphaned terminals.                              | Worktrees rediscovered from filesystem. All start as "stopped". Auto-resume on reconnect.            |
+| Recreate (edit) | Old container removed.                                                           | Worktrees preserved on bind mount. Reconnectable in new container.                                   |
+| Delete          | Container removed.                                                               | Worktrees preserved on bind mount. Available when a new container mounts the same project directory. |
+
+Each worktree has two attachable tmux sessions: the agent session (`warden-{wid}`) and an auxiliary shell session (`warden-shell-{wid}`) backing the Terminal tab in the webapp and the `s` keybind in the TUI. The shell session is created lazily on first attach and only torn down by Reset or Delete — Stop and Disconnect on the agent leave it running. See [`terminology.md#auxiliary-shell-session`](terminology.md#auxiliary-shell-session).
 
 ## Worktree Attention/Notifications
 

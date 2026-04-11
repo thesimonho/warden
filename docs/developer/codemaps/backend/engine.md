@@ -58,8 +58,11 @@ Container engine API wrapper (Docker). Located at `engine/`.
 
 - `terminalsDirSuffix = "/.warden/terminals"` — appended to workspace dir for terminal tracking
 - `wardenWorktreesPrefixSuffix = "/.warden/worktrees/"` — appended to workspace dir for non-Claude agent worktrees
-- `createTerminalScript = "/usr/local/bin/create-terminal.sh"` — in-container script to initialize tmux session
+- `createTerminalScript = "/usr/local/bin/create-terminal.sh"` — in-container script to initialize the agent tmux session
+- `createShellScript = "/usr/local/bin/create-shell.sh"` — in-container script to lazily initialize the auxiliary bash-shell tmux session (Terminal tab)
 - `disconnectTerminalScript = "/usr/local/bin/disconnect-terminal.sh"` — in-container script to kill tmux session
+- `TmuxSessionName(wid)` → `warden-<wid>` — the agent tmux session name
+- `TmuxShellSessionName(wid)` → `warden-shell-<wid>` — the auxiliary bash-shell tmux session name (defined in `constants/container.go`)
 - Method: `worktreesPrefixSuffix(ctx, containerID)` — returns agent-dependent worktree path prefix (`.claude/worktrees/` for Claude or `.warden/worktrees/` for other agents)
 
 For container environment variables (`WARDEN_*`), see [container/environment.md](../container/environment.md).

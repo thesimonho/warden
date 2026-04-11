@@ -52,6 +52,10 @@ No. Each project is locked to one agent type at creation time. If you want to ru
 
 Cost accuracy depends on the agent and billing method. Claude Code with an API key reports actual spend. Claude Code with a Pro/Max subscription and all Codex projects show estimated costs computed from token usage and model-specific pricing tables. See [Cost & Budget](/warden/features/cost-budget/) for details.
 
+## How do I run shell commands without interrupting the agent?
+
+Every worktree's terminal card has a **Terminal** tab next to the **Agent** tab — a plain bash shell rooted at the worktree's working directory. Use it for ad-hoc commands like `npm install`, `git status`, or running tests in parallel with the agent. The two tabs are independent persistent sessions, so switching between them never loses state. The bash session only goes away when the worktree is Reset or Removed. In `warden-tui`, press `s` on a worktree to open the bash terminal.
+
 ## Why does a worktree still show "connected" after I closed the tab?
 
 Closing your browser tab disconnects the WebSocket viewer but does **not** stop the agent. The tmux session manager keeps the agent running in the background — that's by design so agents can work autonomously. The worktree will show "active in background". To fully stop a worktree's process, use the right-click context menu to Disconnect and Remove the worktree.

@@ -53,6 +53,16 @@ Agents run with `TMUX` env var unset so they don't detect they're inside tmux.
 
 The browser connects via `GET /api/v1/projects/{projectID}/{agentType}/ws/{wid}` (WebSocket). Before attaching the live stream, the proxy captures the tmux scrollback buffer via `tmux capture-pane` and sends it to the client. This fills the gap between the user's last disconnect and now. The connection is kept alive with periodic ping/pong heartbeats (30s).
 
+## Auxiliary shell session
+
+Each worktree can host a second tmux session, `warden-shell-{worktreeID}`, backing the **Terminal** tab in the webapp and the **shell attach** action in the TUI (`s` key). It runs a plain bash at the worktree's working directory and is **independent** from the agent session:
+
+- **Created lazily** by `create-shell.sh` on first attach — idempotent, no-op if the session already exists.
+- **Endpoint:** `GET /api/v1/projects/{projectID}/{agentType}/ws/{wid}/shell` (WebSocket).
+- **No agent semantics:** does not emit `terminal_connected`/`terminal_disconnected` events, does not participate in attention tracking, cost tracking, auto-resume, or worktree state machine.
+- **Lifetime:** killed only by `kill-worktree.sh` when the worktree is Reset or Deleted. Stopping or disconnecting the agent leaves the shell session alive.
+- **Persistence:** switching between the Agent and Terminal tabs in the UI reattaches to the same live session with the same scrollback.
+
 ## Auto-resume
 
 When a terminal reconnects after the agent has exited (Stop button, container restart, or normal exit), `create-terminal.sh` detects the previous session via `exit_code` file + JSONL session files and launches the agent with `--continue` (Claude Code) or `resume --last` (Codex) instead of starting fresh. The user sees their previous conversation history.

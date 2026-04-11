@@ -28,4 +28,6 @@ Backend calls `create-terminal.sh` to initialize tmux sessions for new worktrees
 - Unsets `TMUX` env var so agents don't detect the tmux wrapper
 - Writes `exit_code` on agent exit for future auto-resume
 
-All tmux commands (`has-session`, `list-sessions`, `kill-session`, `capture-pane`) must run as `ContainerUser` ("warden") — tmux sessions are user-scoped. Use `TmuxSessionName(worktreeID)` from `constants/` for session names.
+All tmux commands (`has-session`, `list-sessions`, `kill-session`, `capture-pane`) must run as `ContainerUser` ("warden") — tmux sessions are user-scoped. Use `TmuxSessionName(worktreeID)` for the agent session and `TmuxShellSessionName(worktreeID)` for the auxiliary bash-shell session (both from `constants/`) — never hardcode the `warden-` / `warden-shell-` prefixes.
+
+Every worktree has **two** tmux sessions: the agent session and the shell session. When you add lifecycle logic (kill, reset, validate, orphan detection), handle both — missing one leaves stray processes or dangling state.
