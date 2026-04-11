@@ -6,11 +6,9 @@ TODO.md
 .warden.json
 
 # AI
-.claude/settings.local.json
-.claude/worktrees/
-.claude/agents
-.claude/commands
-.claude/skills
+.claude/*
+!.claude/settings.json
+!.claude/rules/
 .agents
 .mcp.json
 skills-lock.json

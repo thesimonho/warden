@@ -44,3 +44,21 @@ Upgrades to a WebSocket connection and bridges it to a tmux terminal session ins
 ##### Status: 400 Bad Request
 ##### Status: 404 Not Found
 ##### Status: 503 Terminal proxy not configured
+---
+
+## Shell terminal WebSocket
+
+- **Method:** `GET`
+- **Path:** `/api/v1/projects/{projectId}/{agentType}/ws/{wid}/shell`
+- **Tags:** streaming
+
+Upgrades to a WebSocket and bridges it to the worktree's auxiliary bash-shell tmux session (backing the "Terminal" tab in the webapp). The session is lazily created on first connect and persists for the lifetime of the worktree. Binary frames carry raw PTY data; text frames carry JSON control messages (e.g. {"type":"resize","cols":80,"rows":24}).
+
+#### Responses
+
+##### Status: 101 WebSocket upgrade
+
+##### Status: 400 Bad Request
+##### Status: 404 Not Found
+##### Status: 500 Internal Server Error
+##### Status: 503 Terminal proxy not configured

@@ -43,6 +43,16 @@ import '@fontsource/jetbrains-mono/600.css'
 /** Connection state of the terminal WebSocket. */
 export type TerminalStatus = 'connecting' | 'connected' | 'disconnected' | 'error'
 
+/**
+ * Which backend tmux session this terminal attaches to.
+ *
+ * - `'agent'` — the worktree's agent tmux session (Claude Code / Codex).
+ * - `'shell'` — the worktree's auxiliary bash-shell tmux session, lazily
+ *   bootstrapped on first connect. Runs a plain bash at the worktree's
+ *   working directory. Used by the "Terminal" tab in the terminal card.
+ */
+export type TerminalMode = 'agent' | 'shell'
+
 /** Options for the useTerminal hook. */
 interface UseTerminalOptions {
   /** Container ID (12 or 64 char hex). */
@@ -66,6 +76,12 @@ interface UseTerminalOptions {
    * before xterm is attached to the DOM.
    */
   autoFocus?: boolean
+  /**
+   * Which tmux session to attach. Defaults to `'agent'`. Pass `'shell'` to
+   * attach the auxiliary bash-shell session — the backend route then routes
+   * the WebSocket to `warden-shell-{worktreeId}` instead of `warden-{worktreeId}`.
+   */
+  mode?: TerminalMode
 }
 
 /** Terminal font family with local fallbacks. */
@@ -106,9 +122,15 @@ const SCROLLBACK_LINES = 10_000
  * backend, so we use the current host. In production, the Go binary serves
  * both the SPA and the WebSocket endpoint on the same origin.
  */
-function buildWSUrl(projectId: string, agentType: string, worktreeId: string): string {
+function buildWSUrl(
+  projectId: string,
+  agentType: string,
+  worktreeId: string,
+  mode: TerminalMode,
+): string {
   const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-  return `${protocol}//${window.location.host}/api/v1/projects/${projectId}/${agentType}/ws/${worktreeId}`
+  const base = `${protocol}//${window.location.host}/api/v1/projects/${projectId}/${agentType}/ws/${worktreeId}`
+  return mode === 'shell' ? `${base}/shell` : base
 }
 
 /**
@@ -128,6 +150,7 @@ export function useTerminal({
   isActive,
   isFocused = true,
   autoFocus = false,
+  mode = 'agent',
 }: UseTerminalOptions) {
   const containerRef = useRef<HTMLDivElement>(null)
   const terminalRef = useRef<Terminal | null>(null)
@@ -217,7 +240,7 @@ export function useTerminal({
     const terminal = terminalRef.current
     if (!terminal || isDisposedRef.current) return
 
-    const url = buildWSUrl(projectId, agentType, worktreeId)
+    const url = buildWSUrl(projectId, agentType, worktreeId, mode)
     const ws = new WebSocket(url)
     ws.binaryType = 'arraybuffer'
     wsRef.current = ws
@@ -301,7 +324,7 @@ export function useTerminal({
       },
       { once: true },
     )
-  }, [projectId, agentType, worktreeId, fit, flushWriteBuffer])
+  }, [projectId, agentType, worktreeId, mode, fit, flushWriteBuffer])
 
   /** Tears down the WebSocket and terminal, preventing reconnection. */
   const detach = useCallback(() => {
@@ -594,7 +617,7 @@ export function useTerminal({
     // are stable (empty deps). `detach` depends on [projectId, worktreeId] which
     // are already in this effect's deps, so changes are covered without listing it.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isActive, projectId, agentType, worktreeId])
+  }, [isActive, projectId, agentType, worktreeId, mode])
 
   return {
     containerRef,

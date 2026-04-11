@@ -2,7 +2,8 @@ import { forwardRef, useImperativeHandle, useState, type ReactNode } from 'react
 import {
   GitBranch,
   Unplug,
-  Terminal,
+  Bot,
+  SquareTerminal,
   GitCompareArrows,
   Copy,
   Clipboard,
@@ -23,8 +24,78 @@ import { useTerminal } from '@/hooks/use-terminal'
 import { ChangesView } from '@/components/project/changes-view'
 import '@xterm/xterm/css/xterm.css'
 
-/** Active tab in the terminal card. */
-type TerminalTab = 'terminal' | 'changes'
+/**
+ * Active tab in the terminal card.
+ *
+ * - `'agent'` — the agent tmux session (Claude Code / Codex). Always active
+ *   whenever the card is connected.
+ * - `'shell'` — a plain bash session at the worktree's working directory.
+ *   Backed by a separate tmux session (`warden-shell-{wid}`) that is lazily
+ *   bootstrapped on first click and persists for the lifetime of the worktree.
+ * - `'changes'` — the git diff view.
+ */
+type TerminalTab = 'agent' | 'shell' | 'changes'
+
+/** Clipboard actions surfaced by the context menu. Matches useTerminalClipboard. */
+interface PaneClipboard {
+  copySelection: () => void
+  pasteText: () => void
+  pasteImageFromClipboard: () => void | Promise<void> | Promise<boolean>
+  selectAll: () => void
+}
+
+interface TerminalPaneProps {
+  containerRef: React.RefObject<HTMLDivElement | null>
+  clipboard: PaneClipboard
+  hidden: boolean
+  inert: boolean
+  testId: string
+}
+
+/**
+ * The xterm.js container + its context menu. Shared by both the agent and
+ * shell tabs — they differ only in their containerRef, clipboard binding,
+ * visibility, and testid.
+ */
+function TerminalPane({ containerRef, clipboard, hidden, inert, testId }: TerminalPaneProps) {
+  return (
+    <ContextMenu>
+      <ContextMenuTrigger asChild>
+        <div className={cn('min-h-0 flex-1', inert && 'pointer-events-none', hidden && 'hidden')}>
+          <div
+            ref={containerRef}
+            data-testid={testId}
+            className="h-full w-full overflow-hidden border-0"
+            style={{ backgroundColor: 'var(--terminal-background)' }}
+          />
+        </div>
+      </ContextMenuTrigger>
+      <ContextMenuContent className="w-64">
+        <ContextMenuItem onClick={clipboard.copySelection}>
+          <Copy className="size-4" />
+          Copy
+          <ContextMenuShortcut>Ctrl+Shift+C</ContextMenuShortcut>
+        </ContextMenuItem>
+        <ContextMenuItem onClick={clipboard.pasteText}>
+          <Clipboard className="size-4" />
+          Paste
+          <ContextMenuShortcut>Ctrl+Shift+V</ContextMenuShortcut>
+        </ContextMenuItem>
+        <ContextMenuItem onClick={() => clipboard.pasteImageFromClipboard()}>
+          <Image className="size-4" />
+          Paste Image
+          <ContextMenuShortcut>Ctrl+V</ContextMenuShortcut>
+        </ContextMenuItem>
+        <ContextMenuSeparator />
+        <ContextMenuItem onClick={clipboard.selectAll}>
+          <BoxSelect className="size-4" />
+          Select All
+          <ContextMenuShortcut>Ctrl+Shift+A</ContextMenuShortcut>
+        </ContextMenuItem>
+      </ContextMenuContent>
+    </ContextMenu>
+  )
+}
 
 /** Handle exposed by TerminalCard for parent-driven cleanup and focus. */
 export interface TerminalCardHandle {
@@ -117,25 +188,54 @@ const TerminalCard = forwardRef<TerminalCardHandle, TerminalCardProps>(function 
   },
   ref,
 ) {
-  const [activeTab, setActiveTab] = useState<TerminalTab>('terminal')
+  const [activeTab, setActiveTab] = useState<TerminalTab>('agent')
+  // Lazy: don't spin up the shell tmux session until the user actually
+  // opens the shell tab once. Once flipped it never flips back — the shell
+  // stays alive in the background so returning to the tab is instant.
+  const [hasOpenedShell, setHasOpenedShell] = useState(false)
 
   const { containerRef, detach, focus, fit, clipboard } = useTerminal({
     projectId,
     agentType,
     worktreeId,
     isActive,
-    isFocused: isFocused && activeTab === 'terminal',
+    isFocused: isFocused && activeTab === 'agent',
     autoFocus,
+    mode: 'agent',
+  })
+
+  const {
+    containerRef: shellContainerRef,
+    detach: shellDetach,
+    focus: shellFocus,
+    fit: shellFit,
+    clipboard: shellClipboard,
+  } = useTerminal({
+    projectId,
+    agentType,
+    worktreeId,
+    // Gate shell activation on the user having opened the tab at least once.
+    // This avoids eagerly bootstrapping a shell tmux session for every
+    // terminal card on app load.
+    isActive: isActive && hasOpenedShell,
+    isFocused: isFocused && activeTab === 'shell',
+    autoFocus: false,
+    mode: 'shell',
   })
 
   useImperativeHandle(ref, () => ({
-    detach,
+    detach: () => {
+      detach()
+      shellDetach()
+    },
     focus: () => {
       // Only give keyboard focus — don't force-switch tabs. This prevents
       // parent focus events (e.g. clicking a canvas panel) from closing
       // the changes view.
-      if (activeTab === 'terminal') {
+      if (activeTab === 'agent') {
         focus()
+      } else if (activeTab === 'shell') {
+        shellFocus()
       }
     },
   }))
@@ -181,18 +281,18 @@ const TerminalCard = forwardRef<TerminalCardHandle, TerminalCardProps>(function 
         </div>
 
         <div className="flex items-center gap-1.5" onMouseDown={(e) => e.stopPropagation()}>
-          {/* Tab toggle */}
+          {/* Tab toggle: agent, shell, changes */}
           <div className="bg-muted/60 flex shrink-0 items-center rounded p-0.5">
             <button
               type="button"
               className={cn(
                 'rounded px-2 py-0.5 text-sm transition-colors',
-                activeTab === 'terminal'
+                activeTab === 'agent'
                   ? 'bg-background text-foreground shadow-xs'
                   : 'text-muted-foreground hover:text-foreground',
               )}
               onClick={() => {
-                setActiveTab('terminal')
+                setActiveTab('agent')
                 // Re-fit terminal on next frame after becoming visible —
                 // the container was hidden (display:none) so xterm needs
                 // to recalculate dimensions before focusing.
@@ -201,9 +301,33 @@ const TerminalCard = forwardRef<TerminalCardHandle, TerminalCardProps>(function 
                   focus()
                 })
               }}
-              title="Terminal"
+              title="Agent"
+              data-testid="tab-agent"
             >
-              <Terminal className="h-3.5 w-3.5" />
+              <Bot className="h-3.5 w-3.5" />
+            </button>
+            <button
+              type="button"
+              className={cn(
+                'rounded px-2 py-0.5 text-sm transition-colors',
+                activeTab === 'shell'
+                  ? 'bg-background text-foreground shadow-xs'
+                  : 'text-muted-foreground hover:text-foreground',
+              )}
+              onClick={() => {
+                setActiveTab('shell')
+                // Lazy-activate the shell tmux session the first time the
+                // user opens this tab. All subsequent clicks are free.
+                setHasOpenedShell(true)
+                requestAnimationFrame(() => {
+                  shellFit()
+                  shellFocus()
+                })
+              }}
+              title="Terminal"
+              data-testid="tab-shell"
+            >
+              <SquareTerminal className="h-3.5 w-3.5" />
             </button>
             <button
               type="button"
@@ -215,6 +339,7 @@ const TerminalCard = forwardRef<TerminalCardHandle, TerminalCardProps>(function 
               )}
               onClick={() => setActiveTab('changes')}
               title="Changes"
+              data-testid="tab-changes"
             >
               <GitCompareArrows className="h-3.5 w-3.5" />
             </button>
@@ -234,51 +359,17 @@ const TerminalCard = forwardRef<TerminalCardHandle, TerminalCardProps>(function 
         </div>
       </div>
 
-      {/* Terminal content — kept mounted but hidden when Changes tab is active */}
+      {/* Both terminals stay mounted so tab switching reattaches to live sessions. */}
       {isActive ? (
-        <ContextMenu>
-          <ContextMenuTrigger asChild>
-            <div
-              className={cn(
-                'min-h-0 flex-1',
-                terminalInert && 'pointer-events-none',
-                activeTab !== 'terminal' && 'hidden',
-              )}
-            >
-              <div
-                ref={containerRef}
-                data-testid="terminal-container"
-                className="h-full w-full overflow-hidden border-0"
-                style={{ backgroundColor: 'var(--terminal-background)' }}
-              />
-            </div>
-          </ContextMenuTrigger>
-          <ContextMenuContent className="w-64">
-            <ContextMenuItem onClick={clipboard.copySelection}>
-              <Copy className="size-4" />
-              Copy
-              <ContextMenuShortcut>Ctrl+Shift+C</ContextMenuShortcut>
-            </ContextMenuItem>
-            <ContextMenuItem onClick={clipboard.pasteText}>
-              <Clipboard className="size-4" />
-              Paste
-              <ContextMenuShortcut>Ctrl+Shift+V</ContextMenuShortcut>
-            </ContextMenuItem>
-            <ContextMenuItem onClick={() => clipboard.pasteImageFromClipboard()}>
-              <Image className="size-4" />
-              Paste Image
-              <ContextMenuShortcut>Ctrl+V</ContextMenuShortcut>
-            </ContextMenuItem>
-            <ContextMenuSeparator />
-            <ContextMenuItem onClick={clipboard.selectAll}>
-              <BoxSelect className="size-4" />
-              Select All
-              <ContextMenuShortcut>Ctrl+Shift+A</ContextMenuShortcut>
-            </ContextMenuItem>
-          </ContextMenuContent>
-        </ContextMenu>
+        <TerminalPane
+          containerRef={containerRef}
+          clipboard={clipboard}
+          hidden={activeTab !== 'agent'}
+          inert={terminalInert}
+          testId="terminal-container"
+        />
       ) : (
-        activeTab === 'terminal' && (
+        activeTab === 'agent' && (
           <div
             className="flex h-full w-full items-center justify-center"
             data-testid="terminal-disconnected"
@@ -288,7 +379,27 @@ const TerminalCard = forwardRef<TerminalCardHandle, TerminalCardProps>(function 
         )
       )}
 
-      {/* Changes tab — only rendered when active */}
+      {isActive && hasOpenedShell ? (
+        <TerminalPane
+          containerRef={shellContainerRef}
+          clipboard={shellClipboard}
+          hidden={activeTab !== 'shell'}
+          inert={terminalInert}
+          testId="shell-terminal-container"
+        />
+      ) : (
+        activeTab === 'shell' && (
+          <div
+            className="flex h-full w-full items-center justify-center"
+            data-testid="shell-terminal-disconnected"
+          >
+            <p className="text-muted-foreground">
+              {isActive ? 'Starting shell…' : 'Terminal disconnected'}
+            </p>
+          </div>
+        )
+      )}
+
       {activeTab === 'changes' && (
         <div className="min-h-0 flex-1">
           <ChangesView projectId={projectId} agentType={agentType} worktreeId={worktreeId} />

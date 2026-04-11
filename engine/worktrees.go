@@ -21,6 +21,10 @@ const ContainerHomeDir = constants.ContainerHomeDir
 // TmuxSessionName returns the tmux session name for a worktree.
 var TmuxSessionName = constants.TmuxSessionName
 
+// TmuxShellSessionName returns the tmux session name for a worktree's
+// auxiliary bash-shell session, backing the Terminal tab in the UI.
+var TmuxShellSessionName = constants.TmuxShellSessionName
+
 // createTerminalScript is the path to the terminal creator inside the container.
 const createTerminalScript = "/usr/local/bin/create-terminal.sh"
 

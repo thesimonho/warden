@@ -7,6 +7,13 @@ A **Worktree** is an isolated working directory within a project, backed by `git
 
 A **Terminal** is the interface into a worktree. Terminals connect to a persistent process inside the container — closing the terminal doesn't kill the agent. You can reconnect later and pick up where you left off.
 
+Each worktree's terminal card has two tabs:
+
+- **Agent** — the AI coding agent (Claude Code or Codex) running in tmux. This is where you talk to the agent.
+- **Terminal** — a plain bash shell rooted at the worktree's working directory, separate from the agent. Use it for ad-hoc commands like `npm install`, `git status`, or running tests without interrupting the agent.
+
+Both tabs are backed by independent persistent sessions, so you can switch between them freely without losing state. The bash session is only torn down when the worktree is **Reset** or **Removed**. In `warden-tui`, press `s` on a worktree to open the bash terminal alongside the agent.
+
 ## Creating Worktrees
 
 Create a worktree by providing a name. Warden creates an isolated directory with its own git branch, starts the agent, and connects your terminal. For non-git projects, the worktree is simply the project root directory.

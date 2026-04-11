@@ -104,6 +104,7 @@ func registerAPIRoutes(mux *http.ServeMux, svc *service.Service, broker *eventbu
 	mux.HandleFunc("GET /api/v1/events", rt.handleSSE)
 	mux.HandleFunc("POST /api/v1/projects/{projectId}/{agentType}/clipboard", rt.handleUploadClipboard)
 	mux.HandleFunc("GET /api/v1/projects/{projectId}/{agentType}/ws/{wid}", rt.handleTerminalWS)
+	mux.HandleFunc("GET /api/v1/projects/{projectId}/{agentType}/ws/{wid}/shell", rt.handleShellTerminalWS)
 }
 
 // --- Helpers ---

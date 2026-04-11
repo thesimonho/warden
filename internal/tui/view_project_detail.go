@@ -358,12 +358,12 @@ type worktreeHelpKeyMap struct {
 var filterBinding = key.NewBinding(key.WithKeys("/"), key.WithHelp("/", "filter"))
 
 func (k worktreeHelpKeyMap) ShortHelp() []key.Binding {
-	return []key.Binding{k.keys.Connect, k.keys.New, filterBinding, k.keys.Back, moreHelp}
+	return []key.Binding{k.keys.Connect, k.keys.Shell, k.keys.New, filterBinding, k.keys.Back, moreHelp}
 }
 
 func (k worktreeHelpKeyMap) FullHelp() [][]key.Binding {
 	return [][]key.Binding{
-		{k.keys.Connect, k.disconnectHint, k.keys.Disconnect},
+		{k.keys.Connect, k.keys.Shell, k.disconnectHint, k.keys.Disconnect},
 		{k.keys.Kill, k.keys.Reset, k.keys.Remove},
 		{k.keys.New, k.keys.Cleanup, k.keys.Ports},
 		{filterBinding, k.keys.Back},
@@ -380,6 +380,11 @@ func (v *ProjectDetailView) handleKey(msg tea.KeyPressMsg) (View, tea.Cmd) {
 	case key.Matches(msg, v.keys.Connect):
 		if hasSelected {
 			return v, attachTerminal(v.client, v.projectID, v.agentType, selected.wt.ID)
+		}
+
+	case key.Matches(msg, v.keys.Shell):
+		if hasSelected {
+			return v, attachShellTerminal(v.client, v.projectID, v.agentType, selected.wt.ID)
 		}
 
 	case key.Matches(msg, v.keys.Disconnect):
@@ -439,6 +444,20 @@ func attachTerminal(c Client, projectID, agentType, worktreeID string) tea.Cmd {
 			return TerminalExitedMsg{Err: err}
 		}
 		conn, err := c.AttachTerminal(context.Background(), projectID, agentType, worktreeID)
+		if err != nil {
+			return TerminalExitedMsg{Err: err}
+		}
+		return execTerminalMsg{conn: conn}
+	}
+}
+
+// attachShellTerminal opens a viewer into the worktree's auxiliary bash-shell
+// tmux session. Unlike [attachTerminal], it does not call ConnectTerminal —
+// the shell session is lazily bootstrapped on first attach and is independent
+// from the agent lifecycle.
+func attachShellTerminal(c Client, projectID, agentType, worktreeID string) tea.Cmd {
+	return func() tea.Msg {
+		conn, err := c.AttachShellTerminal(context.Background(), projectID, agentType, worktreeID)
 		if err != nil {
 			return TerminalExitedMsg{Err: err}
 		}

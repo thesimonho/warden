@@ -17,6 +17,7 @@ import (
 	dtypes "github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 
+	"github.com/thesimonho/warden/constants"
 	"github.com/thesimonho/warden/engine"
 )
 
@@ -32,6 +33,23 @@ const readLimit = 128 * 1024 // 128 KB
 
 // containerUser references the non-root user inside project containers.
 var containerUser = engine.ContainerUser
+
+// mode selects which tmux session the proxy attaches to.
+type mode int
+
+const (
+	// modeAgent attaches the websocket to the worktree's agent tmux session
+	// (Claude Code / Codex), the session created by create-terminal.sh.
+	modeAgent mode = iota
+	// modeShell attaches the websocket to the worktree's auxiliary bash-shell
+	// tmux session, lazily bootstrapped via create-shell.sh on first connect.
+	modeShell
+)
+
+// shellBootstrapTimeout bounds how long we wait for create-shell.sh to run.
+// The script is idempotent and near-instant (a tmux has-session check, then
+// a detached new-session on first call), so a short timeout is safe.
+const shellBootstrapTimeout = 5 * time.Second
 
 // ExecAPI is the subset of the Docker client used by the proxy.
 // Docker implements these through the SDK.
@@ -59,8 +77,8 @@ func NewProxy(api ExecAPI) *Proxy {
 	return &Proxy{api: api}
 }
 
-// ServeWS upgrades the HTTP request to a WebSocket and bridges it to a tmux
-// session inside the container. The connection stays open until the browser
+// ServeWS upgrades the HTTP request to a WebSocket and bridges it to the
+// worktree's agent tmux session. The connection stays open until the browser
 // disconnects or the exec process exits.
 //
 // Before attaching the live stream, scrollback is captured from the tmux pane
@@ -69,6 +87,23 @@ func NewProxy(api ExecAPI) *Proxy {
 //
 // The caller is responsible for validating containerID and worktreeID.
 func (p *Proxy) ServeWS(w http.ResponseWriter, r *http.Request, containerID, worktreeID string) {
+	p.serveWS(w, r, containerID, worktreeID, modeAgent)
+}
+
+// ServeShellWS upgrades the HTTP request to a WebSocket and bridges it to the
+// worktree's auxiliary bash-shell tmux session. The shell session is created
+// lazily on first connect via create-shell.sh (idempotent) and reused across
+// subsequent attaches.
+//
+// The caller is responsible for validating containerID and worktreeID.
+func (p *Proxy) ServeShellWS(w http.ResponseWriter, r *http.Request, containerID, worktreeID string) {
+	p.serveWS(w, r, containerID, worktreeID, modeShell)
+}
+
+// serveWS is the unexported mode-parameterised implementation backing
+// ServeWS and ServeShellWS. In shell mode it first runs create-shell.sh to
+// lazily bootstrap the shell tmux session before attaching.
+func (p *Proxy) serveWS(w http.ResponseWriter, r *http.Request, containerID, worktreeID string, m mode) {
 	conn, err := websocket.Accept(w, r, &websocket.AcceptOptions{
 		// Terminal data is raw bytes, compression adds latency for negligible gain.
 		CompressionMode: websocket.CompressionDisabled,
@@ -83,10 +118,22 @@ func (p *Proxy) ServeWS(w http.ResponseWriter, r *http.Request, containerID, wor
 
 	ctx := r.Context()
 
+	// For shell mode, lazily bootstrap the shell tmux session. The script is
+	// idempotent — if the session already exists, this is a near-instant
+	// no-op. If it fails we close the connection rather than attaching to a
+	// non-existent session (which would surface as an attach error anyway).
+	if m == modeShell {
+		if err := p.bootstrapShell(ctx, containerID, worktreeID); err != nil {
+			slog.Warn("shell bootstrap failed", "container", containerID, "worktree", worktreeID, "err", err)
+			conn.Close(websocket.StatusInternalError, "failed to bootstrap shell") //nolint:errcheck
+			return
+		}
+	}
+
 	// Capture tmux scrollback and send it before attaching the live stream.
 	// For fresh sessions this returns empty; for reconnects it replays output
 	// the user missed while disconnected.
-	sessionName := engine.TmuxSessionName(worktreeID)
+	sessionName := sessionNameFor(m, worktreeID)
 	scrollback, scrollErr := p.captureScrollback(ctx, containerID, sessionName)
 	if scrollErr != nil {
 		slog.Warn("scrollback capture failed", "container", containerID, "worktree", worktreeID, "err", scrollErr)
@@ -288,6 +335,47 @@ func (p *Proxy) captureScrollback(ctx context.Context, containerID, sessionName 
 	}
 
 	return data, nil
+}
+
+// sessionNameFor returns the tmux session name for the given mode.
+func sessionNameFor(m mode, worktreeID string) string {
+	if m == modeShell {
+		return engine.TmuxShellSessionName(worktreeID)
+	}
+	return engine.TmuxSessionName(worktreeID)
+}
+
+// bootstrapShell runs create-shell.sh inside the container to ensure the
+// worktree's auxiliary shell tmux session exists. The script is idempotent —
+// it is a no-op if the session is already running.
+//
+// We run it as [containerUser] because tmux sessions are user-scoped; a
+// bootstrap that ran as root would create a session unreachable by the
+// attach exec that follows.
+func (p *Proxy) bootstrapShell(ctx context.Context, containerID, worktreeID string) error {
+	ctx, cancel := context.WithTimeout(ctx, shellBootstrapTimeout)
+	defer cancel()
+
+	execResp, err := p.api.ContainerExecCreate(ctx, containerID, container.ExecOptions{
+		Cmd:          []string{constants.CreateShellScript, worktreeID},
+		User:         containerUser,
+		AttachStdout: true,
+		AttachStderr: true,
+	})
+	if err != nil {
+		return fmt.Errorf("shell bootstrap exec create: %w", err)
+	}
+
+	hijacked, err := p.api.ContainerExecAttach(ctx, execResp.ID, container.ExecStartOptions{})
+	if err != nil {
+		return fmt.Errorf("shell bootstrap exec attach: %w", err)
+	}
+	defer hijacked.Close()
+
+	// Drain output so the exec completes. We don't care about the JSON
+	// payload on stdout — the script always prints status JSON.
+	_, _ = io.Copy(io.Discard, hijacked.Reader)
+	return nil
 }
 
 // pingLoop sends WebSocket pings at regular intervals to detect dead connections.

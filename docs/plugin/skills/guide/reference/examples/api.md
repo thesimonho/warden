@@ -182,6 +182,9 @@ curl -X POST "http://localhost:8090/api/v1/projects/$PROJECT_ID/$AGENT/worktrees
 # Attach via WebSocket (use a WebSocket client — binary frames for PTY I/O)
 # wscat -c "ws://localhost:8090/api/v1/projects/$PROJECT_ID/$AGENT/ws/$WORKTREE"
 
+# Or attach the auxiliary shell terminal for ad-hoc commands alongside the agent
+# wscat -c "ws://localhost:8090/api/v1/projects/$PROJECT_ID/$AGENT/ws/$WORKTREE/shell"
+
 # Disconnect (notify server the viewer closed)
 curl -X POST "http://localhost:8090/api/v1/projects/$PROJECT_ID/$AGENT/worktrees/$WORKTREE/disconnect"
 
@@ -207,6 +210,11 @@ await fetch(
 const ws = new WebSocket(
   `ws://localhost:8090/api/v1/projects/${projectId}/${agent}/ws/${worktree}`,
 );
+
+// Or attach the auxiliary shell terminal for ad-hoc commands alongside the agent
+// const shell = new WebSocket(
+//   `ws://localhost:8090/api/v1/projects/${projectId}/${agent}/ws/${worktree}/shell`,
+// );
 
 // Binary frames = PTY data, text frames = control messages
 ws.onmessage = (event) => {

@@ -16,6 +16,7 @@ import (
 	dtypes "github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 
+	"github.com/thesimonho/warden/constants"
 	"github.com/thesimonho/warden/engine"
 )
 
@@ -402,6 +403,121 @@ func TestProxyStripsAltScreenSequences(t *testing.T) {
 	if got != "visible content" {
 		t.Errorf("expected %q, got %q", "visible content", got)
 	}
+}
+
+// shellMockExecAPI extends mockExecAPI so we can observe the bootstrap exec.
+// In ModeShell the proxy issues three exec creates in order:
+//  1. create-shell.sh bootstrap (drain stdout/stderr, no TTY)
+//  2. tmux capture-pane scrollback (TTY)
+//  3. tmux attach-session (TTY, bridged to the WebSocket)
+type shellMockExecAPI struct {
+	mu          sync.Mutex
+	hijacked    dtypes.HijackedResponse
+	createCmds  [][]string
+	createCount int
+	attachCount int
+	attached    chan struct{}
+	once        sync.Once
+}
+
+func (m *shellMockExecAPI) ContainerExecCreate(_ context.Context, _ string, opts container.ExecOptions) (container.ExecCreateResponse, error) {
+	m.mu.Lock()
+	m.createCount++
+	m.createCmds = append(m.createCmds, append([]string(nil), opts.Cmd...))
+	m.mu.Unlock()
+	return container.ExecCreateResponse{ID: "exec"}, nil
+}
+
+func (m *shellMockExecAPI) ContainerExecAttach(_ context.Context, _ string, _ container.ExecStartOptions) (dtypes.HijackedResponse, error) {
+	m.mu.Lock()
+	m.attachCount++
+	count := m.attachCount
+	m.mu.Unlock()
+
+	// #1: bootstrap — empty pipe, drained by io.Copy.
+	// #2: scrollback capture — empty pipe that closes immediately.
+	if count == 1 || count == 2 {
+		r, w := io.Pipe()
+		_ = w.Close()
+		return dtypes.HijackedResponse{
+			Conn:   &pipeConn{Reader: r, Writer: io.Discard},
+			Reader: bufio.NewReader(r),
+		}, nil
+	}
+
+	// #3: real tmux attach — signal the test that ServeWSMode is wired up.
+	m.once.Do(func() {
+		if m.attached != nil {
+			close(m.attached)
+		}
+	})
+	return m.hijacked, nil
+}
+
+func (m *shellMockExecAPI) ContainerExecResize(_ context.Context, _ string, _ container.ResizeOptions) error {
+	return nil
+}
+
+func (m *shellMockExecAPI) getCreateCmds() [][]string {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	out := make([][]string, len(m.createCmds))
+	for i, c := range m.createCmds {
+		out[i] = append([]string(nil), c...)
+	}
+	return out
+}
+
+// TestProxyShellModeBootstrapsThenAttaches verifies that ServeShellWS runs
+// create-shell.sh before the scrollback capture + tmux attach, and that the
+// attach exec targets the warden-shell-<wid> session name (not the agent one).
+func TestProxyShellModeBootstrapsThenAttaches(t *testing.T) {
+	hijacked, ptyWriter, _ := hijackedPipe()
+	attached := make(chan struct{})
+	mock := &shellMockExecAPI{hijacked: hijacked, attached: attached}
+	proxy := NewProxy(mock)
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		proxy.ServeShellWS(w, r, "test-container", "feat-foo")
+	}))
+	defer srv.Close()
+
+	wsURL := "ws" + strings.TrimPrefix(srv.URL, "http")
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	conn, _, err := websocket.Dial(ctx, wsURL, nil)
+	if err != nil {
+		t.Fatalf("dial websocket: %v", err)
+	}
+	defer conn.CloseNow() //nolint:errcheck
+
+	select {
+	case <-attached:
+	case <-time.After(3 * time.Second):
+		t.Fatal("timed out waiting for tmux attach exec")
+	}
+
+	cmds := mock.getCreateCmds()
+	if len(cmds) < 3 {
+		t.Fatalf("expected at least 3 exec creates (bootstrap, scrollback, attach), got %d: %v", len(cmds), cmds)
+	}
+
+	// #1 must be the bootstrap.
+	if len(cmds[0]) < 2 || cmds[0][0] != constants.CreateShellScript || cmds[0][1] != "feat-foo" {
+		t.Errorf("first exec should be %q feat-foo, got %v", constants.CreateShellScript, cmds[0])
+	}
+
+	// #3 must be tmux attach-session against the shell session name.
+	attach := cmds[2]
+	if len(attach) < 5 || attach[0] != "tmux" || attach[2] != "attach-session" {
+		t.Errorf("third exec should be tmux attach-session, got %v", attach)
+	}
+	if want := "warden-shell-feat-foo"; attach[4] != want {
+		t.Errorf("attach target %q, want %q", attach[4], want)
+	}
+
+	ptyWriter.Close() //nolint:errcheck
 }
 
 func TestProxyExecCreateError(t *testing.T) {

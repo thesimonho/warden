@@ -138,6 +138,7 @@ func (k ProjectKeyMap) FullHelp() [][]key.Binding {
 // WorktreeKeyMap defines key bindings for the project detail view.
 type WorktreeKeyMap struct {
 	Connect    key.Binding
+	Shell      key.Binding
 	Disconnect key.Binding
 	Kill       key.Binding
 	Reset      key.Binding
@@ -154,6 +155,10 @@ func DefaultWorktreeKeyMap() WorktreeKeyMap {
 		Connect: key.NewBinding(
 			key.WithKeys("enter"),
 			key.WithHelp("enter", "connect"),
+		),
+		Shell: key.NewBinding(
+			key.WithKeys("s"),
+			key.WithHelp("s", "shell"),
 		),
 		Disconnect: key.NewBinding(
 			key.WithKeys("d"),
@@ -198,9 +203,10 @@ func (k WorktreeKeyMap) ShortHelp() []key.Binding {
 // FullHelp returns bindings shown in expanded help.
 func (k WorktreeKeyMap) FullHelp() [][]key.Binding {
 	return [][]key.Binding{
-		{k.Connect, k.Disconnect, k.Ports},
+		{k.Connect, k.Shell, k.Disconnect},
 		{k.Kill, k.Reset, k.Remove},
-		{k.New, k.Cleanup, k.Back},
+		{k.New, k.Cleanup, k.Ports},
+		{k.Back},
 	}
 }
 

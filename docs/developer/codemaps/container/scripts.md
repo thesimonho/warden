@@ -14,8 +14,9 @@ container/scripts/
     install-runtimes.sh         # Language runtime install (Python, Go, Rust, Ruby, Lua)
     user-entrypoint.sh          # User-phase (PID 1): env forwarding, git config, heartbeat, handle orphaned terminals (remote)
     create-terminal.sh          # Agent-aware terminal creation (branches on WARDEN_AGENT_TYPE)
+    create-shell.sh             # Lazy, idempotent bootstrap for the auxiliary bash-shell tmux session (Terminal tab)
     disconnect-terminal.sh      # Disconnect viewer, tmux session continues
-    kill-worktree.sh            # Kill the tmux session + all processes for a worktree
+    kill-worktree.sh            # Kill the agent + shell tmux sessions and all processes for a worktree
     warden-write-event.sh       # Shared atomic event file write library
     warden-push-event.sh        # Terminal lifecycle event helper
     warden-heartbeat.sh         # Background heartbeat (every 10s)
@@ -62,13 +63,17 @@ User-phase (PID 1) entrypoint. Forwards environment variables, configures git, a
 
 Unsets `TMUX` env var in the inner script so agents don't detect they're inside tmux. If the agent exits with a non-zero code and auto-resume was attempted, falls back to a fresh session (prevents being dumped into bare bash when there's no conversation to resume). When the agent exits: records exit code, pushes `session_exit` event, drops to `exec bash`.
 
+### create-shell.sh
+
+Accepts `<worktree-id>`. Lazily creates `warden-shell-<wid>` — a plain bash tmux session at the worktree's working directory — for the webapp's **Terminal** tab and the TUI's `s` (shell) keybind. Idempotent: exits 0 if the session already exists. Independent from the agent session (no auto-resume, no JSONL, no `exit_code` file, no lifecycle events). Configured with the same tmux options as `create-terminal.sh` so the xterm.js viewer behaves identically.
+
 ### disconnect-terminal.sh
 
 Pushes `terminal_disconnected` event. Tmux session continues running.
 
 ### kill-worktree.sh
 
-Writes `exit_code=137` if not already present (for auto-resume on reconnect), then kills the tmux session. Pushes `process_killed` event. Cleans up stale tracking files but preserves exit_code.
+Writes `exit_code=137` if not already present (for auto-resume on reconnect), then kills both the agent tmux session (`warden-<wid>`) and the auxiliary shell tmux session (`warden-shell-<wid>`). Pushes `process_killed` event. Cleans up stale tracking files but preserves exit_code.
 
 ## Event Scripts
 

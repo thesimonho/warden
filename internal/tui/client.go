@@ -239,4 +239,18 @@ type Client interface {
 	// tmux session. In embedded mode this uses docker exec; in HTTP
 	// mode this uses WebSocket to /api/v1/projects/{id}/{agentType}/ws/{wid}.
 	AttachTerminal(ctx context.Context, projectID, agentType, worktreeID string) (client.TerminalConnection, error)
+
+	// AttachShellTerminal returns a bidirectional connection to a worktree's
+	// auxiliary bash-shell tmux session (warden-shell-{wid}), bootstrapping
+	// it lazily via create-shell.sh on first connect. Unlike AttachTerminal,
+	// no ConnectTerminal prerequisite is required — the shell session is
+	// independent from agent lifecycle. In embedded mode this uses docker
+	// exec; in HTTP mode this uses WebSocket to
+	// /api/v1/projects/{id}/{agentType}/ws/{wid}/shell.
+	//
+	// agentType is used for project lookup in HTTP mode (it is part of the
+	// URL path) but is not meaningful to the shell session itself — the
+	// same shell session would back any agent running against the same
+	// project + worktree.
+	AttachShellTerminal(ctx context.Context, projectID, agentType, worktreeID string) (client.TerminalConnection, error)
 }

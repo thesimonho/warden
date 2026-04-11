@@ -127,6 +127,16 @@ The server sends ping frames every 30 seconds. If a pong is not received within 
 
 The server also strips alternate screen escape sequences from the PTY output. This forces applications like Claude Code (which uses Ink/React for rendering) to render in the normal buffer where xterm.js scrollback works correctly.
 
+### Auxiliary shell terminal
+
+Each worktree also has a sibling **shell terminal** for ad-hoc commands alongside the agent. It is a separate tmux session named `warden-shell-<wid>`, lazily created on first connect and persisted for the lifetime of the worktree. Use it when you need to run `git status`, tail logs, or invoke tooling without disturbing the agent's PTY.
+
+```
+GET /api/v1/projects/{projectId}/{agentType}/ws/{wid}/shell
+```
+
+The protocol is identical to the main terminal WebSocket: binary frames carry PTY I/O, text frames carry resize control messages, and the server replays scrollback on connect. Killing or resetting the worktree does not tear down the shell session — it lives until the worktree is removed or the container restarts.
+
 ### Conceptual WebSocket example
 
 ```javascript

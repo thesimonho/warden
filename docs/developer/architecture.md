@@ -41,4 +41,13 @@ The `.warden/terminals/` directory only tracks which worktrees have active termi
 
 ## WebSocket Connections
 
-Terminal connections are proxied through the Go backend via WebSocket at `/api/projects/{id}/ws/{wid}`. The backend connects to the container's tmux session via `docker exec` with TTY mode. WebSocket connections are not port-limited — the backend can proxy unlimited concurrent connections.
+Terminal connections are proxied through the Go backend via WebSocket at `/api/v1/projects/{projectID}/{agentType}/ws/{wid}`. The backend connects to the container's tmux session via `docker exec` with TTY mode. WebSocket connections are not port-limited — the backend can proxy unlimited concurrent connections.
+
+Each worktree has two attachable tmux sessions and a dedicated WebSocket endpoint for each:
+
+| Endpoint                                                      | tmux session              | Backing script      | Purpose                                     |
+| ------------------------------------------------------------- | ------------------------- | ------------------- | ------------------------------------------- |
+| `/api/v1/projects/{projectID}/{agentType}/ws/{wid}`           | `warden-{wid}`            | `create-terminal.sh`| Agent session (Claude Code or Codex)        |
+| `/api/v1/projects/{projectID}/{agentType}/ws/{wid}/shell`     | `warden-shell-{wid}`      | `create-shell.sh`   | Auxiliary bash shell at the worktree root   |
+
+The auxiliary shell session backs the **Terminal** tab in the webapp's terminal card (alongside Agent and Git Changes) and the TUI `s` keybind. It is created lazily on first attach and persists for the worktree's lifetime — see [`terminology.md#auxiliary-shell-session`](terminology.md#auxiliary-shell-session) for the full ownership and lifecycle rules.
