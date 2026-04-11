@@ -23,6 +23,17 @@ const ContainerSSHAgentPath = constants.ContainerHomeDir + "/.ssh/agent.sock"
 // without needing env var overrides or extra configuration.
 const ContainerGPGAgentPath = constants.ContainerHomeDir + "/.gnupg/S.gpg-agent"
 
+// ContainerGPGPubringPath is where the host's public keyring is
+// mounted inside the container. GPG needs the public keyring to
+// know which keys exist — the agent socket alone only handles
+// private key operations (signing/decryption).
+const ContainerGPGPubringPath = constants.ContainerHomeDir + "/.gnupg/pubring.kbx"
+
+// ContainerGPGTrustDBPath is where the host's trust database is
+// mounted. Without it, GPG shows "[unknown]" trust level for all
+// keys, which can cause signing failures with strict trust settings.
+const ContainerGPGTrustDBPath = constants.ContainerHomeDir + "/.gnupg/trustdb.gpg"
+
 // BuiltInGit returns the built-in Git access item. It mounts the host's
 // .gitconfig (read-only) so git commands inside the container use the
 // host user's identity and settings.
@@ -99,17 +110,45 @@ func BuiltInSSH() Item {
 }
 
 // BuiltInGPG returns the built-in GPG access item. It forwards the
-// host's gpg-agent socket so git commit signing (-S) works inside the
-// container without copying private keys.
+// host's gpg-agent socket and mounts the public keyring so git commit
+// signing (-S) works inside the container without copying private keys.
+// The public keyring is needed because GPG must know which keys exist
+// before it can ask the agent to perform signing operations.
 func BuiltInGPG() Item {
 	return Item{
 		ID:          BuiltInIDGPG,
 		Label:       "GPG",
-		Description: "Forwards the gpg-agent socket so commit signing works without copying private keys.",
+		Description: "Forwards the gpg-agent socket and mounts the public keyring so commit signing works without copying private keys.",
 		Method:      MethodTransport,
 		BuiltIn:     true,
 		Credentials: []Credential{
 			gpgAgentCredential(),
+			{
+				Label: "GPG Public Keyring",
+				Sources: []Source{
+					{Type: SourceFilePath, Value: "~/.gnupg/pubring.kbx"},
+				},
+				Injections: []Injection{
+					{
+						Type:     InjectionMountFile,
+						Key:      ContainerGPGPubringPath,
+						ReadOnly: true,
+					},
+				},
+			},
+			{
+				Label: "GPG Trust Database",
+				Sources: []Source{
+					{Type: SourceFilePath, Value: "~/.gnupg/trustdb.gpg"},
+				},
+				Injections: []Injection{
+					{
+						Type:     InjectionMountFile,
+						Key:      ContainerGPGTrustDBPath,
+						ReadOnly: true,
+					},
+				},
+			},
 		},
 	}
 }

@@ -112,8 +112,8 @@ func TestBuiltInGit_CredentialStructure(t *testing.T) {
 func TestBuiltInGPG_CredentialStructure(t *testing.T) {
 	gpg := BuiltInGPG()
 
-	if len(gpg.Credentials) != 1 {
-		t.Fatalf("expected 1 credential (agent), got %d", len(gpg.Credentials))
+	if len(gpg.Credentials) != 3 {
+		t.Fatalf("expected 3 credentials (agent, pubring, trustdb), got %d", len(gpg.Credentials))
 	}
 
 	agent := gpg.Credentials[0]
@@ -122,6 +122,28 @@ func TestBuiltInGPG_CredentialStructure(t *testing.T) {
 	}
 	if agent.Transform != nil {
 		t.Error("expected no transform on GPG agent credential")
+	}
+
+	pubring := gpg.Credentials[1]
+	if pubring.Label != "GPG Public Keyring" {
+		t.Errorf("expected GPG Public Keyring label, got %q", pubring.Label)
+	}
+	if len(pubring.Injections) != 1 || pubring.Injections[0].Type != InjectionMountFile {
+		t.Error("expected single mount_file injection for pubring")
+	}
+	if !pubring.Injections[0].ReadOnly {
+		t.Error("expected pubring mount to be read-only")
+	}
+
+	trustdb := gpg.Credentials[2]
+	if trustdb.Label != "GPG Trust Database" {
+		t.Errorf("expected GPG Trust Database label, got %q", trustdb.Label)
+	}
+	if len(trustdb.Injections) != 1 || trustdb.Injections[0].Type != InjectionMountFile {
+		t.Error("expected single mount_file injection for trustdb")
+	}
+	if !trustdb.Injections[0].ReadOnly {
+		t.Error("expected trustdb mount to be read-only")
 	}
 }
 

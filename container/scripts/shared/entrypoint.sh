@@ -57,6 +57,7 @@ fi
 # intermediate directories as root.
 # -------------------------------------------------------------------
 chown -R "${WARDEN_USER}:${WARDEN_USER}" "/home/${WARDEN_USER}/.ssh" 2>/dev/null || true
+chown -R "${WARDEN_USER}:${WARDEN_USER}" "/home/${WARDEN_USER}/.gnupg" 2>/dev/null || true
 
 # -------------------------------------------------------------------
 # Fix ownership of the SSH agent socket. Docker Desktop's proxy socket
