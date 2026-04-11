@@ -35,9 +35,15 @@ if [ ! -f "${TERMINAL_DIR}/exit_code" ]; then
 fi
 
 # -------------------------------------------------------------------
-# Kill tmux session
+# Kill tmux sessions: the agent session AND the auxiliary bash-shell
+# session (created lazily by create-shell.sh for the Terminal tab).
+# Both are tied to the worktree lifetime — Reset / Delete tears both
+# down so no stray processes remain.
 # -------------------------------------------------------------------
-tmux -u kill-session -t "warden-${WORKTREE_ID}" 2>/dev/null || true
+AGENT_SESSION="warden-${WORKTREE_ID}"
+SHELL_SESSION="warden-shell-${WORKTREE_ID}"
+tmux -u kill-session -t "$AGENT_SESSION" 2>/dev/null || true
+tmux -u kill-session -t "$SHELL_SESSION" 2>/dev/null || true
 
 # -------------------------------------------------------------------
 # Clean up tracking state but preserve exit_code for auto-resume.

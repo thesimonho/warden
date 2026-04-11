@@ -246,3 +246,64 @@ func (rt *routes) handleTerminalWS(w http.ResponseWriter, r *http.Request) {
 		rt.svc.NotifyTerminalDisconnected(ctx, row, wid)
 	}
 }
+
+// handleShellTerminalWS upgrades to a WebSocket and bridges it to the
+// worktree's auxiliary bash-shell tmux session inside the project's container.
+// On first connect the shell session is lazily bootstrapped via create-shell.sh;
+// subsequent connects reuse the same live session.
+//
+// Unlike [routes.handleTerminalWS], this handler does not track viewer counts
+// or emit terminal_disconnected events — the shell session is independent
+// from agent connection state and does not participate in attention, cost,
+// or session lifecycle tracking.
+//
+//	@Summary		Shell terminal WebSocket
+//	@Description	Upgrades to a WebSocket and bridges it to the worktree's auxiliary
+//	@Description	bash-shell tmux session (backing the "Terminal" tab in the webapp).
+//	@Description	The session is lazily created on first connect and persists for the
+//	@Description	lifetime of the worktree. Binary frames carry raw PTY data; text
+//	@Description	frames carry JSON control messages (e.g. {"type":"resize","cols":80,"rows":24}).
+//	@Tags			streaming
+//	@Param			projectId	path	string	true	"Project ID"
+//	@Param			agentType	path	string	true	"Agent type"
+//	@Param			wid			path	string	true	"Worktree ID"
+//	@Success		101			"WebSocket upgrade"
+//	@Failure		400			{object}	apiError
+//	@Failure		404			{object}	apiError
+//	@Failure		500			{object}	apiError
+//	@Failure		503			{object}	apiError	"Terminal proxy not configured"
+//	@Router			/api/v1/projects/{projectId}/{agentType}/ws/{wid}/shell [get]
+func (rt *routes) handleShellTerminalWS(w http.ResponseWriter, r *http.Request) {
+	projectID := r.PathValue("projectId")
+
+	agentType, ok := extractAgentType(r)
+	if !ok {
+		writeError(w, ErrCodeInvalidBody, "invalid agent type", http.StatusBadRequest)
+		return
+	}
+	row, err := rt.svc.GetProject(projectID, agentType)
+	if err != nil {
+		writeError(w, ErrCodeInternal, "failed to look up project", http.StatusInternalServerError)
+		slog.Error("resolve project for shell terminal WS", "projectId", projectID, "err", err)
+		return
+	}
+	if row == nil {
+		writeError(w, ErrCodeNotFound, "project not found", http.StatusNotFound)
+		return
+	}
+
+	wid := r.PathValue("wid")
+	if !isValidWorktreeID(wid) {
+		writeError(w, ErrCodeInvalidWorktreeID, "invalid worktree ID", http.StatusBadRequest)
+		return
+	}
+
+	if rt.terminalProxy == nil {
+		writeError(w, ErrCodeNotConfigured, "terminal proxy not configured", http.StatusServiceUnavailable)
+		return
+	}
+
+	// ServeShellWS blocks until the WebSocket closes. No viewer tracking or
+	// disconnect notification — the shell session is not tied to the agent.
+	rt.terminalProxy.ServeShellWS(w, r, row.ContainerID, wid)
+}

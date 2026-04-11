@@ -520,6 +520,7 @@ var requiredBinaries = []string{
 	"/usr/local/bin/entrypoint.sh",
 	"/usr/local/bin/user-entrypoint.sh",
 	"/usr/local/bin/create-terminal.sh",
+	"/usr/local/bin/create-shell.sh",
 	"/usr/local/bin/disconnect-terminal.sh",
 	"/usr/local/bin/kill-worktree.sh",
 	"/usr/bin/tmux",
