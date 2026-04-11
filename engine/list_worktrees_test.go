@@ -165,7 +165,9 @@ func TestEnrichWorktreeState_SetsConnectedWhenSessionAlive(t *testing.T) {
 	mock.onCmd("TMUX", `---WT_START:feature-x---
 ---EXIT_END---
 1
----SESSION_END---`)
+---SESSION_END---
+node
+---PANE_END---`)
 
 	ec := newTestClient(mock)
 
@@ -192,7 +194,9 @@ func TestEnrichWorktreeState_SetsShellWhenAgentExited(t *testing.T) {
 0
 ---EXIT_END---
 1
----SESSION_END---`)
+---SESSION_END---
+bash
+---PANE_END---`)
 
 	ec := newTestClient(mock)
 
@@ -218,7 +222,9 @@ func TestEnrichWorktreeState_StaysStoppedWhenSessionDead(t *testing.T) {
 	mock.onCmd("TMUX", `---WT_START:dead-wt---
 ---EXIT_END---
 0
----SESSION_END---`)
+---SESSION_END---
+
+---PANE_END---`)
 
 	ec := newTestClient(mock)
 
@@ -242,11 +248,15 @@ func TestEnrichWorktreeState_MultipleWorktrees(t *testing.T) {
 ---EXIT_END---
 1
 ---SESSION_END---
+node
+---PANE_END---
 ---WT_START:killed---
 137
 ---EXIT_END---
 1
----SESSION_END---`)
+---SESSION_END---
+bash
+---PANE_END---`)
 
 	ec := newTestClient(mock)
 
@@ -265,6 +275,44 @@ func TestEnrichWorktreeState_MultipleWorktrees(t *testing.T) {
 	}
 	if worktrees[1].ExitCode == nil || *worktrees[1].ExitCode != 137 {
 		t.Errorf("killed worktree exit code: got %v, want 137", worktrees[1].ExitCode)
+	}
+}
+
+// Regression: after the user Ctrl-C's the agent and drops to the fallback
+// bash shell, the wrapper writes an exit_code file. If the user then manually
+// runs the agent again from that shell, the wrapper never runs, so exit_code
+// stays on disk. The pane's foreground process is `node` (the agent) again —
+// the worktree should report connected, not stay stuck in shell state.
+func TestEnrichWorktreeState_ManualRestartClearsShellState(t *testing.T) {
+	t.Parallel()
+
+	mock := newExecMockAPI()
+	// Stale exit_code 0 from the prior agent run, but pane foreground is now `node`.
+	mock.onCmd("TMUX", `---WT_START:feature-x---
+0
+---EXIT_END---
+1
+---SESSION_END---
+node
+---PANE_END---`)
+
+	ec := newTestClient(mock)
+
+	// Start with a non-nil ExitCode from a prior poll cycle to verify that
+	// the manual-restart branch clears it — otherwise the UI would show a
+	// connected worktree with a stale exit code.
+	prior := 0
+	worktrees := []Worktree{
+		{ID: "feature-x", ProjectID: "ctr-restart", State: WorktreeStateShell, ExitCode: &prior},
+	}
+
+	ec.enrichWorktreeState(context.Background(), "ctr-restart", worktrees)
+
+	if worktrees[0].State != WorktreeStateConnected {
+		t.Errorf("worktree state: got %q, want %q (agent running again via manual restart)", worktrees[0].State, WorktreeStateConnected)
+	}
+	if worktrees[0].ExitCode != nil {
+		t.Errorf("exit code should be cleared when agent is running again, got %v", *worktrees[0].ExitCode)
 	}
 }
 

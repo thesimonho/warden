@@ -18,22 +18,21 @@ func (ec *EngineClient) enrichWorktreeState(ctx context.Context, containerID str
 		return
 	}
 
-	// Build a batch command to read terminal state for all worktrees.
-	// First lists all tmux sessions, then checks exit code and session
-	// liveness for each worktree using grep against the session list.
-	//
-	// Attention state is NOT read here — it's handled by the event bus push path.
 	wsDir := ec.workspaceDir(ctx, containerID)
 	termDir := wsDir + terminalsDirSuffix
 
-	var cmdParts []string
-	// Prepend a single tmux list-sessions call and store the result.
-	cmdParts = append(cmdParts, `TMUX_SESSIONS=$(tmux list-sessions -F '#{session_name}' 2>/dev/null || true)`)
+	cmdParts := make([]string, 0, len(worktrees)+2)
+	// Prelude: capture tmux state once so each worktree is a pure string grep
+	// — avoids an O(N) round-trip to the tmux socket per worktree.
+	cmdParts = append(cmdParts,
+		`TMUX_SESSIONS=$(tmux list-sessions -F '#{session_name}' 2>/dev/null || true)`,
+		`TMUX_PANES=$(tmux list-panes -a -F '#{session_name} #{pane_current_command}' 2>/dev/null || true)`,
+	)
 	for _, wt := range worktrees {
 		cmdParts = append(cmdParts,
 			fmt.Sprintf(
-				`echo "---WT_START:%s---" && (cat %s/%s/exit_code 2>/dev/null || true) && echo "---EXIT_END---" && echo "$TMUX_SESSIONS" | grep -qx "warden-%s" && echo 1 || echo 0 && echo "---SESSION_END---"`,
-				wt.ID, termDir, wt.ID, wt.ID,
+				`echo "---WT_START:%s---" && (cat %s/%s/exit_code 2>/dev/null || true) && echo "---EXIT_END---" && (echo "$TMUX_SESSIONS" | grep -qx "warden-%s" && echo 1 || echo 0) && echo "---SESSION_END---" && (echo "$TMUX_PANES" | awk '$1=="warden-%s"{print $2; exit}') && echo "---PANE_END---"`,
+				wt.ID, termDir, wt.ID, wt.ID, wt.ID,
 			),
 		)
 	}
@@ -59,8 +58,14 @@ func (ec *EngineClient) enrichWorktreeState(ctx context.Context, containerID str
 		}
 
 		if ts.sessionAlive {
-			if ts.exitCode >= 0 {
-				// Agent exited but shell is still alive
+			// A live `node` process in the pane overrides a stale exit_code file.
+			// This handles the case where the user Ctrl-C's the agent (wrapper
+			// writes exit_code), then manually re-launches it from the fallback
+			// bash shell (wrapper never runs, so exit_code is never cleared).
+			if ts.paneCommand == agentProcessName {
+				worktrees[i].State = WorktreeStateConnected
+				worktrees[i].ExitCode = nil
+			} else if ts.exitCode >= 0 {
 				worktrees[i].State = WorktreeStateShell
 				code := ts.exitCode
 				worktrees[i].ExitCode = &code
@@ -71,10 +76,18 @@ func (ec *EngineClient) enrichWorktreeState(ctx context.Context, containerID str
 	}
 }
 
+// agentProcessName is the tmux `#{pane_current_command}` value reported when
+// an agent is running in the pane. Both claude-code and codex are Node.js
+// CLIs launched via `#!/usr/bin/env node`, so the kernel `comm` is `node` —
+// not the provider's `ProcessName()` (which returns argv-based names like
+// `claude` used for `pgrep -x` matching).
+const agentProcessName = "node"
+
 // terminalState holds parsed terminal tracking data for a worktree.
 type terminalState struct {
-	exitCode     int // -1 means not set (Claude still running)
+	exitCode     int // -1 means not set (agent still running)
 	sessionAlive bool
+	paneCommand  string
 }
 
 // parseTerminalBatch parses the batched output from the terminal state read command.
@@ -96,7 +109,6 @@ func parseTerminalBatch(output string) map[string]*terminalState {
 
 		ts := &terminalState{exitCode: -1}
 
-		// Parse exit code
 		if exitEnd := strings.Index(rest, "---EXIT_END---"); exitEnd >= 0 {
 			exitStr := strings.TrimSpace(rest[:exitEnd])
 			if code, err := strconv.Atoi(exitStr); err == nil {
@@ -105,9 +117,13 @@ func parseTerminalBatch(output string) map[string]*terminalState {
 			rest = rest[exitEnd+len("---EXIT_END---"):]
 		}
 
-		// Parse session alive check
 		if sessionEnd := strings.Index(rest, "---SESSION_END---"); sessionEnd >= 0 {
 			ts.sessionAlive = strings.TrimSpace(rest[:sessionEnd]) == "1"
+			rest = rest[sessionEnd+len("---SESSION_END---"):]
+		}
+
+		if paneEnd := strings.Index(rest, "---PANE_END---"); paneEnd >= 0 {
+			ts.paneCommand = strings.TrimSpace(rest[:paneEnd])
 		}
 
 		states[worktreeID] = ts
