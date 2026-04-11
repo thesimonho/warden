@@ -1,5 +1,20 @@
 # Changelog
 
+## [1.13.0](https://github.com/thesimonho/warden/compare/v1.12.0...v1.13.0) (2026-04-11)
+
+
+### Features
+
+* add Terminal (shell) tab to worktree terminal card ([#210](https://github.com/thesimonho/warden/issues/210)) ([8135806](https://github.com/thesimonho/warden/commit/813580630c9f3bd0885fd495d080f761d64b4fda))
+* set container timezone to match host ([#205](https://github.com/thesimonho/warden/issues/205)) ([19a2f93](https://github.com/thesimonho/warden/commit/19a2f936a6e3355779cb9ea6a14fc2b806af5d82))
+
+
+### Bug Fixes
+
+* detect manual agent restart in worktree state ([#209](https://github.com/thesimonho/warden/issues/209)) ([e08331f](https://github.com/thesimonho/warden/commit/e08331f554f92ba73982176b0239d94191e2dd59))
+* disable Claude Code autoupdater in managed settings ([#208](https://github.com/thesimonho/warden/issues/208)) ([54f6dd5](https://github.com/thesimonho/warden/commit/54f6dd54c7ec45df5efe350705809f3f051ddf4d))
+* hide stale tray attention submenu items instead of removing ([#207](https://github.com/thesimonho/warden/issues/207)) ([ae38b2a](https://github.com/thesimonho/warden/commit/ae38b2a49e262bce42882e54d65036317c85f57f))
+
 ## [1.12.0](https://github.com/thesimonho/warden/compare/v1.11.0...v1.12.0) (2026-04-11)
 
 
