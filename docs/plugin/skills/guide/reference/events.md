@@ -55,15 +55,16 @@ Sent when project-level aggregated state changes. Carries cost and the highest-p
 
 **Payload fields:**
 
-| Field              | Type    | Description                                                                                |
-| ------------------ | ------- | ------------------------------------------------------------------------------------------ |
-| `projectId`        | string  | The 12-char hex project identifier.                                                        |
-| `agentType`        | string  | `"claude-code"` or `"codex"`.                                                              |
-| `containerName`    | string  | Docker container name.                                                                     |
-| `totalCost`        | number  | Cumulative cost in USD across all worktrees.                                               |
-| `messageCount`     | number  | Total messages across all worktrees.                                                       |
-| `needsInput`       | boolean | `true` if any worktree in this project needs attention.                                    |
-| `notificationType` | string  | Highest-priority notification type across all worktrees (same values as `worktree_state`). |
+| Field                  | Type     | Description                                                                                |
+| ---------------------- | -------- | ------------------------------------------------------------------------------------------ |
+| `projectId`            | string   | The 12-char hex project identifier.                                                        |
+| `agentType`            | string   | `"claude-code"` or `"codex"`.                                                              |
+| `containerName`        | string   | Docker container name.                                                                     |
+| `totalCost`            | number   | Cumulative cost in USD across all worktrees.                                               |
+| `messageCount`         | number   | Total messages across all worktrees.                                                       |
+| `needsInput`           | boolean  | `true` if any worktree in this project needs attention.                                    |
+| `notificationType`     | string   | Highest-priority notification type across all worktrees (same values as `worktree_state`). |
+| `attentionWorktreeIDs` | string[] | IDs of worktrees currently needing user attention. Empty when `needsInput` is `false`.     |
 
 ### `worktree_list_changed`
 

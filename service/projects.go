@@ -679,7 +679,7 @@ func (s *Service) overlayAttention(projects []engine.Project) {
 		if projects[i].State != "running" {
 			continue
 		}
-		projects[i].NeedsInput, projects[i].NotificationType = s.store.AggregateContainerAttention(
+		projects[i].NeedsInput, projects[i].NotificationType, projects[i].AttentionWorktreeIDs = s.store.AggregateContainerAttention(
 			projects[i].Name,
 		)
 	}

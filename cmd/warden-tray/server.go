@@ -43,12 +43,13 @@ type serverClient struct {
 // ProjectID is the stable identifier used in API paths; ID is the
 // Docker container ID (not used by the tray).
 type project struct {
-	ProjectID        string `json:"projectId"`
-	Name             string `json:"name"`
-	AgentType        string `json:"agentType"`
-	State            string `json:"state"`
-	NeedsInput       bool   `json:"needsInput"`
-	NotificationType string `json:"notificationType"`
+	ProjectID            string   `json:"projectId"`
+	Name                 string   `json:"name"`
+	AgentType            string   `json:"agentType"`
+	State                string   `json:"state"`
+	NeedsInput           bool     `json:"needsInput"`
+	NotificationType     string   `json:"notificationType"`
+	AttentionWorktreeIDs []string `json:"attentionWorktreeIDs,omitempty"`
 }
 
 // settingsResponse is the minimal subset of server settings the tray needs.
@@ -199,11 +200,12 @@ type sseEvent struct {
 
 // projectStateData mirrors the SSE project_state payload.
 type projectStateData struct {
-	ProjectID        string `json:"projectId"`
-	AgentType        string `json:"agentType"`
-	ContainerName    string `json:"containerName"`
-	NeedsInput       bool   `json:"needsInput"`
-	NotificationType string `json:"notificationType,omitempty"`
+	ProjectID            string   `json:"projectId"`
+	AgentType            string   `json:"agentType"`
+	ContainerName        string   `json:"containerName"`
+	NeedsInput           bool     `json:"needsInput"`
+	NotificationType     string   `json:"notificationType,omitempty"`
+	AttentionWorktreeIDs []string `json:"attentionWorktreeIDs,omitempty"`
 }
 
 // containerStateData mirrors the SSE container_state_changed payload.

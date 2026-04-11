@@ -520,7 +520,6 @@ export default function ProjectView({ projectId, agentType, onProjectChange }: P
           </div>
         </div>
       )}
-
     </div>
   )
 }

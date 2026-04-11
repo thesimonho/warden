@@ -95,10 +95,11 @@ func buildWorktreeBroadcast(ref event.ProjectRef, worktreeID string, att *Worktr
 // Carries both cost and attention state so the home page can update in real time.
 type ProjectStatePayload struct {
 	event.ProjectRef
-	TotalCost        float64                `json:"totalCost"`
-	MessageCount     int                    `json:"messageCount"`
-	NeedsInput       bool                   `json:"needsInput"`
-	NotificationType event.NotificationType `json:"notificationType,omitempty"`
+	TotalCost            float64                `json:"totalCost"`
+	MessageCount         int                    `json:"messageCount"`
+	NeedsInput           bool                   `json:"needsInput"`
+	NotificationType     event.NotificationType `json:"notificationType,omitempty"`
+	AttentionWorktreeIDs []string               `json:"attentionWorktreeIDs,omitempty"`
 }
 
 // buildProjectBroadcast creates a project_state broadcast with complete state:
@@ -106,12 +107,13 @@ type ProjectStatePayload struct {
 // event carries the full snapshot so the frontend can apply it unconditionally.
 // Must be called under lock.
 func (s *Store) buildProjectBroadcast(ref event.ProjectRef) pendingBroadcast {
-	needsInput, highestType := s.aggregateContainerAttention(ref.ContainerName)
+	needsInput, highestType, worktreeIDs := s.aggregateContainerAttention(ref.ContainerName)
 
 	payload := ProjectStatePayload{
-		ProjectRef:       ref,
-		NeedsInput:       needsInput,
-		NotificationType: highestType,
+		ProjectRef:           ref,
+		NeedsInput:           needsInput,
+		NotificationType:     highestType,
+		AttentionWorktreeIDs: worktreeIDs,
 	}
 
 	if cost, ok := s.costs[ref.ContainerName]; ok {
@@ -135,22 +137,25 @@ func (s *Store) BroadcastContainerStateChanged(ref event.ProjectRef, action even
 }
 
 // AggregateContainerAttention returns the highest-priority attention state
-// across all worktrees for a container. The internal variant (lowercase) is
-// used under existing lock; this public variant acquires its own read lock.
-func (s *Store) AggregateContainerAttention(containerName string) (needsInput bool, highest event.NotificationType) {
+// across all worktrees for a container, along with the IDs of worktrees
+// needing attention. The internal variant (lowercase) is used under
+// existing lock; this public variant acquires its own read lock.
+func (s *Store) AggregateContainerAttention(containerName string) (needsInput bool, highest event.NotificationType, worktreeIDs []string) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	return s.aggregateContainerAttention(containerName)
 }
 
 // aggregateContainerAttention returns the highest-priority attention state
-// across all worktrees for a container. Must be called under lock.
-func (s *Store) aggregateContainerAttention(containerName string) (needsInput bool, highest event.NotificationType) {
+// across all worktrees for a container, along with the IDs of worktrees
+// needing attention. Must be called under lock.
+func (s *Store) aggregateContainerAttention(containerName string) (needsInput bool, highest event.NotificationType, worktreeIDs []string) {
 	for key, att := range s.attention {
 		if key.containerName != containerName || !att.NeedsInput {
 			continue
 		}
 		needsInput = true
+		worktreeIDs = append(worktreeIDs, key.worktreeID)
 		if highest == "" || event.NotificationPriority(att.NotificationType) > event.NotificationPriority(highest) {
 			highest = att.NotificationType
 		}

@@ -254,6 +254,7 @@ export interface ProjectStateEvent {
   messageCount: number
   needsInput: boolean
   notificationType?: NotificationType
+  attentionWorktreeIDs?: string[]
 }
 
 /** Payload for `worktree_list_changed` SSE events. */
