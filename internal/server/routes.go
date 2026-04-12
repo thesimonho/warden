@@ -36,6 +36,7 @@ type routes struct {
 	svc           *service.Service
 	broker        *eventbus.Broker
 	terminalProxy *terminal.Proxy
+	proxyRouter   *proxyRouter
 
 	// viewerMu guards viewerCounts for concurrent WebSocket connect/disconnect.
 	viewerMu     sync.Mutex
@@ -43,9 +44,10 @@ type routes struct {
 }
 
 // registerAPIRoutes attaches all API endpoint handlers to the given mux.
-func registerAPIRoutes(mux *http.ServeMux, svc *service.Service, broker *eventbus.Broker, termProxy *terminal.Proxy, shutdownCh chan<- struct{}) {
+func registerAPIRoutes(mux *http.ServeMux, svc *service.Service, broker *eventbus.Broker, termProxy *terminal.Proxy, pr *proxyRouter, shutdownCh chan<- struct{}) {
 	rt := &routes{
 		svc: svc, broker: broker, terminalProxy: termProxy,
+		proxyRouter:  pr,
 		viewerCounts: make(map[viewerKey]int),
 	}
 

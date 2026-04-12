@@ -16,7 +16,7 @@ func TestHandleGetSettings_IncludesAuditLogMode(t *testing.T) {
 
 	mock := &mockEngineClient{}
 	mux := http.NewServeMux()
-	registerAPIRoutes(mux, service.New(service.ServiceDeps{DockerAvailable: true, Engine: mock, DB: testDB(t)}), nil, nil, make(chan struct{}, 1))
+	registerAPIRoutes(mux, service.New(service.ServiceDeps{DockerAvailable: true, Engine: mock, DB: testDB(t)}), nil, nil, nil, make(chan struct{}, 1))
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/settings", nil)
 	rec := httptest.NewRecorder()
@@ -47,7 +47,7 @@ func TestHandleUpdateSettings_AuditLogMode(t *testing.T) {
 	mock := &mockEngineClient{}
 	database := testDB(t)
 	mux := http.NewServeMux()
-	registerAPIRoutes(mux, service.New(service.ServiceDeps{DockerAvailable: true, Engine: mock, DB: database}), nil, nil, make(chan struct{}, 1))
+	registerAPIRoutes(mux, service.New(service.ServiceDeps{DockerAvailable: true, Engine: mock, DB: database}), nil, nil, nil, make(chan struct{}, 1))
 
 	body := strings.NewReader(`{"auditLogMode":"detailed"}`)
 	req := httptest.NewRequest(http.MethodPut, "/api/v1/settings", body)
@@ -82,7 +82,7 @@ func TestHandlePostAuditEvent(t *testing.T) {
 
 	writer := db.NewAuditWriter(logger, db.AuditDetailed, nil)
 	mux := http.NewServeMux()
-	registerAPIRoutes(mux, service.New(service.ServiceDeps{DockerAvailable: true, Engine: &mockEngineClient{}, DB: logger, Audit: writer}), nil, nil, make(chan struct{}, 1))
+	registerAPIRoutes(mux, service.New(service.ServiceDeps{DockerAvailable: true, Engine: &mockEngineClient{}, DB: logger, Audit: writer}), nil, nil, nil, make(chan struct{}, 1))
 
 	body := strings.NewReader(`{"event":"terminal_opened","message":"terminal opened"}`)
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/audit", body)
@@ -117,7 +117,7 @@ func TestHandleDeleteAuditEvents(t *testing.T) {
 	_ = logger.Write(db.Entry{Source: db.SourceBackend, Message: "test"})
 
 	mux := http.NewServeMux()
-	registerAPIRoutes(mux, service.New(service.ServiceDeps{DockerAvailable: true, Engine: &mockEngineClient{}, DB: logger}), nil, nil, make(chan struct{}, 1))
+	registerAPIRoutes(mux, service.New(service.ServiceDeps{DockerAvailable: true, Engine: &mockEngineClient{}, DB: logger}), nil, nil, nil, make(chan struct{}, 1))
 
 	req := httptest.NewRequest(http.MethodDelete, "/api/v1/audit", nil)
 	rec := httptest.NewRecorder()
