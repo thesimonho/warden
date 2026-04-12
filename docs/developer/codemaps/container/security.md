@@ -59,7 +59,7 @@ Network isolation is enforced **from outside the container** via `docker exec --
 Iptables rules don't persist across container restarts. The Go server re-applies them via two mechanisms:
 
 - **Explicit restarts** (via API): `RestartProject` re-runs the privileged exec after the restart completes.
-- **Auto-restarts** (Docker `unless-stopped` policy): A Docker events watcher subscribes to container start events filtered by the `dev.warden.managed` label. On each start event, it looks up the project's network mode from the DB and re-applies isolation.
+- **Auto-restarts** (Docker `unless-stopped` policy): A Docker events watcher subscribes to container start events filtered by the `app.warden.managed` label. On each start event, it looks up the project's network mode from the DB and re-applies isolation.
 
 The readiness gate in `user-entrypoint.sh` ensures the agent cannot start until network isolation is confirmed, even during restarts.
 

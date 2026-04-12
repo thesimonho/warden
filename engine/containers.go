@@ -12,12 +12,14 @@ import (
 	"time"
 
 	"github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/api/types/mount"
 
 	"github.com/thesimonho/warden/agent"
 	"github.com/thesimonho/warden/api"
 	"github.com/thesimonho/warden/constants"
+	"github.com/thesimonho/warden/version"
 )
 
 // defaultPidsLimit is the maximum number of processes allowed in a container.
@@ -145,7 +147,8 @@ func (ec *EngineClient) CreateContainer(ctx context.Context, req api.CreateConta
 	// Label Warden-managed containers so the Docker events watcher can filter
 	// container start events efficiently (re-apply network isolation on restart).
 	labels := map[string]string{
-		"dev.warden.managed": "true",
+		constants.LabelManaged: "true",
+		constants.LabelMode:    constants.ModeValue(version.Version),
 	}
 
 	// Pass network mode to the container as env vars so the entrypoint
@@ -315,24 +318,6 @@ func (ec *EngineClient) CreateContainer(ctx context.Context, req api.CreateConta
 	id := resp.ID
 	if len(id) > 12 {
 		id = id[:12]
-	}
-
-	// Apply network isolation via privileged docker exec. Wait for the
-	// entrypoint to finish agent CLI and runtime installs first — they
-	// need unrestricted network access. The entrypoint writes a marker
-	// file when installs are done, then this applies iptables rules and
-	// writes the network-ready marker for the user-phase entrypoint.
-	if networkMode != api.NetworkModeFull {
-		installCtx, installCancel := context.WithTimeout(ctx, 5*time.Minute)
-		if err := ec.WaitForInstalls(installCtx, id); err != nil {
-			slog.Warn("timed out waiting for installs, applying network isolation anyway",
-				"container", req.Name, "err", err)
-		}
-		installCancel()
-		if err := ec.ApplyNetworkIsolation(ctx, id, string(networkMode), req.AllowedDomains); err != nil {
-			_ = ec.stopAndRemove(ctx, resp.ID)
-			return "", fmt.Errorf("setting up network isolation: %w", err)
-		}
 	}
 
 	slog.Info("created container", "name", req.Name, "id", id, "image", image)
@@ -608,6 +593,16 @@ func buildSecurityConfig(seccompValue string) (capDrop, capAdd []string, securit
 	return capDrop, capAdd, securityOpts
 }
 
+// ephemeralLabels returns the label set for short-lived helper containers
+// (CLI precache, firewall, network isolation). Includes the mode label so
+// dev vs release orphans can be identified and pruned separately.
+func ephemeralLabels() map[string]string {
+	return map[string]string{
+		constants.LabelEphemeral: "true",
+		constants.LabelMode:     constants.ModeValue(version.Version),
+	}
+}
+
 // PreWarmCLICache downloads pinned agent CLIs into the warden-cache volume
 // using throwaway containers. Both agent types run in parallel. Subsequent
 // container creates get a cache hit and skip the download.
@@ -650,6 +645,7 @@ func (ec *EngineClient) runEphemeralInstall(ctx context.Context, img, agentType 
 			fmt.Sprintf("WARDEN_CODEX_VERSION=%s", agent.CodexVersion),
 		},
 		Entrypoint: []string{"/usr/local/bin/install-agent.sh"},
+		Labels:     ephemeralLabels(),
 	}, &container.HostConfig{
 		Mounts: []mount.Mount{
 			{Type: mount.TypeVolume, Source: cacheVolumeName, Target: cacheVolumeTarget},
@@ -658,7 +654,7 @@ func (ec *EngineClient) runEphemeralInstall(ctx context.Context, img, agentType 
 	if err != nil {
 		return fmt.Errorf("creating pre-warm %s container: %w", agentType, err)
 	}
-	defer func() { _ = ec.api.ContainerRemove(ctx, resp.ID, container.RemoveOptions{Force: true}) }()
+	defer func() { _ = ec.api.ContainerRemove(context.Background(), resp.ID, container.RemoveOptions{Force: true}) }()
 
 	if err := ec.api.ContainerStart(ctx, resp.ID, container.StartOptions{}); err != nil {
 		return fmt.Errorf("starting pre-warm %s container: %w", agentType, err)
@@ -675,6 +671,26 @@ func (ec *EngineClient) runEphemeralInstall(ctx context.Context, img, agentType 
 		return ctx.Err()
 	}
 	return nil
+}
+
+// CleanupEphemeralContainers removes any leftover ephemeral containers
+// (precache, firewall, network isolation) from a previous run that crashed
+// before defer-based cleanup could execute. Should be called once on startup.
+func (ec *EngineClient) CleanupEphemeralContainers(ctx context.Context) {
+	containers, err := ec.api.ContainerList(ctx, container.ListOptions{
+		All: true,
+		Filters: filters.NewArgs(
+			filters.Arg("label", constants.LabelEphemeral+"=true"),
+		),
+	})
+	if err != nil {
+		slog.Warn("failed to list ephemeral containers for cleanup", "err", err)
+		return
+	}
+	for _, c := range containers {
+		_ = ec.api.ContainerRemove(ctx, c.ID, container.RemoveOptions{Force: true})
+		slog.Info("cleaned up orphaned ephemeral container", "id", c.ID[:12])
+	}
 }
 
 // RemoveVolume removes a Docker named volume. Used to clean up workspace

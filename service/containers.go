@@ -135,7 +135,58 @@ func (s *Service) CreateContainer(ctx context.Context, req api.CreateContainerRe
 		}, event.ContainerActionCreated)
 	}
 
+	// Network isolation runs in the background so the HTTP response returns
+	// immediately. If isolation fails, the container is stopped and removed
+	// because it would otherwise run with full network access despite the
+	// user choosing restricted/none mode.
+	if req.NetworkMode != api.NetworkModeFull {
+		go s.postCreateNetworkIsolation(
+			containerID, req.Name, string(req.NetworkMode), req.AllowedDomains,
+			row.ProjectID, row.AgentType,
+		)
+	}
+
 	return &ContainerResult{ContainerID: containerID, Name: req.Name, ProjectID: row.ProjectID}, nil
+}
+
+// postCreateNetworkIsolation waits for installs and applies network isolation
+// in the background after container creation. If isolation fails the container
+// is stopped and removed — running with full access when the user chose
+// restricted/none mode is a security violation.
+func (s *Service) postCreateNetworkIsolation(
+	containerID, containerName, networkMode string, allowedDomains []string,
+	projectID, agentType string,
+) {
+	ctx := context.Background()
+
+	installCtx, installCancel := context.WithTimeout(ctx, 5*time.Minute)
+	if err := s.docker.WaitForInstalls(installCtx, containerID); err != nil {
+		slog.Warn("timed out waiting for installs, applying network isolation anyway",
+			"container", containerName, "err", err)
+	}
+	installCancel()
+
+	if err := s.docker.ApplyNetworkIsolation(ctx, containerID, networkMode, allowedDomains); err != nil {
+		slog.Error("network isolation failed after creation, removing container",
+			"container", containerName, "err", err)
+		s.audit.Write(db.Entry{
+			Source:        db.SourceBackend,
+			Level:         db.LevelError,
+			ProjectID:     projectID,
+			AgentType:     agentType,
+			ContainerName: containerName,
+			Event:         "network_isolation_failed",
+			Message:       fmt.Sprintf("network isolation failed — container %q removed", containerName),
+		})
+		_ = s.docker.DeleteContainer(ctx, containerID)
+		if s.store != nil {
+			s.store.BroadcastContainerStateChanged(event.ProjectRef{
+				ProjectID:     projectID,
+				AgentType:     agentType,
+				ContainerName: containerName,
+			}, event.ContainerActionDeleted)
+		}
+	}
 }
 
 // DeleteContainer stops and removes a container.
@@ -418,6 +469,13 @@ func (s *Service) recreateContainer(ctx context.Context, project *db.ProjectRow,
 	s.startProjectWatcher(row.ProjectID, req.Name, string(req.AgentType))
 
 	s.auditContainerUpdate(project, req, "recreated", req.Name)
+
+	if req.NetworkMode != api.NetworkModeFull {
+		go s.postCreateNetworkIsolation(
+			newID, req.Name, string(req.NetworkMode), req.AllowedDomains,
+			row.ProjectID, row.AgentType,
+		)
+	}
 
 	return &ContainerResult{ContainerID: newID, Name: req.Name, ProjectID: row.ProjectID, Recreated: true}, nil
 }

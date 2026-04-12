@@ -20,6 +20,7 @@ import (
 
 	"github.com/thesimonho/warden/agent"
 	"github.com/thesimonho/warden/api"
+	"github.com/thesimonho/warden/constants"
 	"github.com/thesimonho/warden/docker"
 )
 
@@ -739,7 +740,7 @@ func (ec *EngineClient) processContainerEvents(ctx context.Context, onStart func
 		Filters: filters.NewArgs(
 			filters.Arg("type", string(events.ContainerEventType)),
 			filters.Arg("event", string(events.ActionStart)),
-			filters.Arg("label", "dev.warden.managed=true"),
+			filters.Arg("label", constants.LabelManaged+"=true"),
 		),
 	})
 

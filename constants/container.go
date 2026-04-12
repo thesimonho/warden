@@ -38,3 +38,28 @@ func TmuxShellSessionName(worktreeID string) string {
 // in engine/worktrees.go) because both the terminal proxy and the TUI
 // adapter invoke it from outside the engine package.
 const CreateShellScript = "/usr/local/bin/create-shell.sh"
+
+// LabelManaged marks a container as managed by Warden. Used by the Docker
+// events watcher to filter start events and by cleanup routines to identify
+// Warden-owned containers.
+const LabelManaged = "app.warden.managed"
+
+// LabelEphemeral marks a container as a short-lived helper (CLI precache,
+// firewall iptables, network isolation). These are cleaned up on server
+// startup in case a previous run crashed before the defer-based removal ran.
+const LabelEphemeral = "app.warden.ephemeral"
+
+// LabelMode distinguishes containers created by development builds ("dev")
+// from release builds ("release"). Useful for pruning dev containers without
+// affecting production ones. The value is derived from version.Version at
+// container creation time.
+const LabelMode = "app.warden.mode"
+
+// ModeValue returns "dev" for development builds and "release" for
+// versioned release builds. The input should be version.Version.
+func ModeValue(v string) string {
+	if v == "dev" {
+		return "dev"
+	}
+	return "release"
+}
