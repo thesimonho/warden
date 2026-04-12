@@ -30,4 +30,5 @@ After changing any annotations, regenerate and commit the result:
 
 ```bash
 just openapi
+just docs-build
 ```
