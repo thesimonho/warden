@@ -140,6 +140,7 @@ func (rt *routes) handleDeleteContainer(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	rt.proxyRouter.evictProject(projectID, agentType)
 	writeJSON(w, result)
 }
 

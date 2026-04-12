@@ -31,8 +31,14 @@ func New(addr string, svc *service.Service, broker *eventbus.Broker, termProxy *
 	mux := http.NewServeMux()
 	shutdownCh := make(chan struct{}, 1)
 
-	// API routes
-	registerAPIRoutes(mux, svc, broker, termProxy, shutdownCh)
+	// Wrap the mux with the subdomain-based proxy router so that
+	// requests to {projectId}-{agentType}-{port}.localhost are
+	// forwarded to the container before hitting the normal API mux.
+	pr := newProxyRouter(svc, mux)
+
+	// API routes — proxy router is passed so handlers can evict
+	// stale cache entries on container delete/stop.
+	registerAPIRoutes(mux, svc, broker, termProxy, pr, shutdownCh)
 
 	// Static frontend — served from embedded ui/ directory
 	uiFS, err := fs.Sub(staticFiles, "ui")
@@ -41,10 +47,7 @@ func New(addr string, svc *service.Service, broker *eventbus.Broker, termProxy *
 	}
 	mux.Handle("/", spaHandler(http.FileServerFS(uiFS), uiFS))
 
-	// Wrap the mux with the subdomain-based proxy router so that
-	// requests to {projectId}-{agentType}-{port}.localhost are
-	// forwarded to the container before hitting the normal API mux.
-	handler := loggingMiddleware(corsMiddleware(newProxyRouter(svc, mux)))
+	handler := loggingMiddleware(corsMiddleware(pr))
 
 	return &Server{
 		addr:       addr,

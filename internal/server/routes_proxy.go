@@ -18,6 +18,15 @@ import (
 // Browsers resolve *.localhost to 127.0.0.1 per RFC 6761.
 const proxySubdomainSuffix = ".localhost"
 
+// proxyTransport is a shared HTTP transport for proxied requests with a
+// higher idle connection limit than the default (2). Dev servers trigger
+// burst loads (JS bundles, images, HMR WebSocket) that benefit from
+// keeping more connections alive — especially on Docker Desktop where
+// each new TCP connection spawns a docker exec process.
+var proxyTransport = &http.Transport{
+	MaxIdleConnsPerHost: 16,
+}
+
 // proxyKey identifies a cached reverse proxy transport.
 type proxyKey struct {
 	projectID string
@@ -181,10 +190,28 @@ func (pr *proxyRouter) getOrCreateProxy(projectID, agentType string, containerPo
 	cached := &cachedProxy{
 		targetAddr: addr,
 		target:     target,
-		transport:  http.DefaultTransport,
+		transport:  proxyTransport,
 	}
 	pr.cache[key] = cached
 	return cached
+}
+
+// evictProject removes all cached proxy entries for the given project.
+// Called when a project's container is deleted or stopped so stale
+// entries don't accumulate indefinitely.
+func (pr *proxyRouter) evictProject(projectID, agentType string) {
+	if pr == nil {
+		return
+	}
+
+	pr.mu.Lock()
+	defer pr.mu.Unlock()
+
+	for key := range pr.cache {
+		if key.projectID == projectID && key.agentType == agentType {
+			delete(pr.cache, key)
+		}
+	}
 }
 
 // validateForwardedPorts checks that all ports are in the valid range.
