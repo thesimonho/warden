@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.13.1](https://github.com/thesimonho/warden/compare/v1.13.0...v1.13.1) (2026-04-12)
+
+
+### Bug Fixes
+
+* auto-discover and mount gitconfig include/includeIf files ([#214](https://github.com/thesimonho/warden/issues/214)) ([4e88686](https://github.com/thesimonho/warden/commit/4e88686801115f1ccb9cd33c63ba0b9fbdd06c75))
+* Docker Desktop path resolution for host actions ([#212](https://github.com/thesimonho/warden/issues/212)) ([b016b3c](https://github.com/thesimonho/warden/commit/b016b3c54f48d6c203a3208cedd2df6e2a38caf0))
+
 ## [1.13.0](https://github.com/thesimonho/warden/compare/v1.12.0...v1.13.0) (2026-04-11)
 
 
