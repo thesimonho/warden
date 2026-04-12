@@ -32,6 +32,7 @@ import { formatCost } from '@/lib/cost'
 import { buildPanelId } from '@/lib/canvas-store'
 import { useProjects } from '@/hooks/use-projects'
 import { useRevealInFileManager } from '@/hooks/use-reveal-in-file-manager'
+import { useOpenInEditor } from '@/hooks/use-open-in-editor'
 import { useAutoConnect } from '@/hooks/use-auto-connect'
 import { useWorktrees } from '@/hooks/use-worktrees'
 import { workspaceMount, type Worktree, type WorkspaceMount } from '@/lib/types'
@@ -431,6 +432,7 @@ function ProjectWorktreeList({
   )
 
   const handleReveal = useRevealInFileManager(mount)
+  const handleOpenInEditor = useOpenInEditor(mount)
 
   /** Called when a worktree is created from the dialog. */
   const handleWorktreeCreated = useCallback(
@@ -490,6 +492,7 @@ function ProjectWorktreeList({
         onReset={handleReset}
         onRemove={handleRemove}
         onReveal={handleReveal ?? undefined}
+        onOpenInEditor={handleOpenInEditor ?? undefined}
         newDialogOpen={isNewDialogOpen}
         onNewDialogOpenChange={setIsNewDialogOpen}
         onRequestNewWorktree={handleRequestNewWorktree}

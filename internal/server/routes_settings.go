@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/thesimonho/warden/service"
 )
@@ -183,7 +184,7 @@ func (rt *routes) handleListDirectories(w http.ResponseWriter, r *http.Request) 
 //	@Description	Opens the given host directory in the system file manager (Finder, Nautilus, Explorer).
 //	@Tags			host
 //	@Accept			json
-//	@Param			body	body	revealRequest	true	"Directory path to reveal"
+//	@Param			body	body	hostPathRequest	true	"Directory path to reveal"
 //	@Success		204		"Directory opened"
 //	@Failure		400		{object}	apiError
 //	@Failure		404		{object}	apiError	"Path not found"
@@ -215,6 +216,54 @@ func (rt *routes) handleRevealInFileManager(w http.ResponseWriter, r *http.Reque
 		} else {
 			slog.Warn("could not open file manager", "path", body.Path, "err", err)
 			writeError(w, ErrCodeInternal, "failed to open file manager", http.StatusInternalServerError)
+		}
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// handleOpenInEditor opens the given directory in the user's preferred code editor.
+//
+//	@Summary		Open in editor
+//	@Description	Opens the given host directory in the user's preferred code editor ($VISUAL, $EDITOR, or a well-known editor CLI).
+//	@Tags			host
+//	@Accept			json
+//	@Param			body	body	hostPathRequest	true	"Directory path to open"
+//	@Success		204		"Editor launched"
+//	@Failure		400		{object}	apiError
+//	@Failure		404		{object}	apiError	"Path not found"
+//	@Failure		422		{object}	apiError	"No editor found"
+//	@Failure		500		{object}	apiError
+//	@Router			/api/v1/filesystem/editor [post]
+func (rt *routes) handleOpenInEditor(w http.ResponseWriter, r *http.Request) {
+	var body struct {
+		Path string `json:"path"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		writeError(w, ErrCodeInvalidBody, "invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	if body.Path == "" {
+		writeError(w, ErrCodeRequiredField, "path is required", http.StatusBadRequest)
+		return
+	}
+	if !filepath.IsAbs(body.Path) {
+		writeError(w, ErrCodeInvalidPath, "path must be absolute", http.StatusBadRequest)
+		return
+	}
+
+	if err := rt.svc.OpenInEditor(body.Path); err != nil {
+		if errors.Is(err, service.ErrNotFound) {
+			writeError(w, ErrCodeNotFound, "path not found", http.StatusNotFound)
+		} else if errors.Is(err, service.ErrInvalidInput) {
+			writeError(w, ErrCodeNotADirectory, "path is not a directory", http.StatusBadRequest)
+		} else if errors.Is(err, service.ErrNoEditor) {
+			writeError(w, ErrCodeNoEditor, "no editor found: set $VISUAL or $EDITOR, or install a supported editor ("+strings.Join(service.KnownEditors(), ", ")+")", http.StatusUnprocessableEntity)
+		} else {
+			slog.Warn("could not open editor", "path", body.Path, "err", err)
+			writeError(w, ErrCodeInternal, "failed to open editor", http.StatusInternalServerError)
 		}
 		return
 	}

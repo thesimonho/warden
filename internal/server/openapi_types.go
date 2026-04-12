@@ -5,9 +5,9 @@ package server
 // themselves continue to use inline structs/maps. The linter correctly flags
 // them as unused in Go code; they are only consumed by the swag parser.
 
-// revealRequest is the JSON body for revealing a directory in the file manager.
-type revealRequest struct { //nolint:unused
-	// Path is the absolute host directory path to open.
+// hostPathRequest is the JSON body for host filesystem actions (reveal, open in editor).
+type hostPathRequest struct { //nolint:unused
+	// Path is the absolute host directory path to act on.
 	Path string `json:"path" example:"/home/user/projects"`
 }
 

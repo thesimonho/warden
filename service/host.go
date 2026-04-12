@@ -181,10 +181,8 @@ func (s *Service) ListDirectories(path string, includeFiles bool) ([]api.DirEntr
 	return result, nil
 }
 
-// RevealInFileManager opens the given directory in the host's file
-// manager. Returns an error if the path does not exist or is not a
-// directory.
-func (s *Service) RevealInFileManager(path string) error {
+// validateDirPath checks that path is absolute, exists, and is a directory.
+func validateDirPath(path string) error {
 	if !filepath.IsAbs(path) {
 		return ErrInvalidInput
 	}
@@ -194,6 +192,26 @@ func (s *Service) RevealInFileManager(path string) error {
 	}
 	if !info.IsDir() {
 		return ErrInvalidInput
+	}
+	return nil
+}
+
+// startDetached launches a command without waiting for it to complete.
+// The child process is reaped in a background goroutine.
+func startDetached(cmd *exec.Cmd) error {
+	if err := cmd.Start(); err != nil {
+		return err
+	}
+	go func() { _ = cmd.Wait() }()
+	return nil
+}
+
+// RevealInFileManager opens the given directory in the host's file
+// manager. Returns an error if the path does not exist or is not a
+// directory.
+func (s *Service) RevealInFileManager(path string) error {
+	if err := validateDirPath(path); err != nil {
+		return err
 	}
 
 	var cmd *exec.Cmd
@@ -205,11 +223,47 @@ func (s *Service) RevealInFileManager(path string) error {
 	default:
 		cmd = exec.Command("xdg-open", path)
 	}
-	if err := cmd.Start(); err != nil {
+	return startDetached(cmd)
+}
+
+// knownEditors is an ordered list of editor CLI commands to try when
+// neither $VISUAL nor $EDITOR is set.
+var knownEditors = []string{"code", "cursor", "zed", "subl"}
+
+// KnownEditors returns the list of editor CLI names used as fallbacks.
+func KnownEditors() []string { return knownEditors }
+
+// OpenInEditor opens the given directory in the user's preferred code
+// editor. It checks $VISUAL, $EDITOR, then falls back to well-known
+// editor CLIs on $PATH. Returns ErrNoEditor if no editor is found.
+func (s *Service) OpenInEditor(path string) error {
+	if err := validateDirPath(path); err != nil {
 		return err
 	}
-	go func() { _ = cmd.Wait() }()
 
+	args := resolveEditor()
+	if len(args) == 0 {
+		return ErrNoEditor
+	}
+
+	cmd := exec.Command(args[0], append(args[1:], path)...)
+	return startDetached(cmd)
+}
+
+// resolveEditor returns the editor command (and any flags) to use.
+// Checks $VISUAL first (the convention for graphical editors), then
+// falls back to well-known GUI editor CLIs on $PATH. $EDITOR is
+// intentionally skipped — it is typically a terminal editor (vim, nano)
+// that cannot launch without a TTY.
+func resolveEditor() []string {
+	if v := os.Getenv("VISUAL"); v != "" {
+		return strings.Fields(v)
+	}
+	for _, name := range knownEditors {
+		if _, err := exec.LookPath(name); err == nil {
+			return []string{name}
+		}
+	}
 	return nil
 }
 

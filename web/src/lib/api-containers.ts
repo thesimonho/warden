@@ -121,6 +121,19 @@ export async function revealInFileManager(path: string): Promise<void> {
 }
 
 /**
+ * Opens a directory in the user's preferred code editor.
+ *
+ * @param path - Absolute host path to open.
+ */
+export async function openInEditor(path: string): Promise<void> {
+  await apiFetch('/api/v1/filesystem/editor', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ path }),
+  })
+}
+
+/**
  * Lists filesystem entries at the given path for the browser.
  *
  * @param dirPath - Absolute path to list entries in.

@@ -89,6 +89,7 @@ func registerAPIRoutes(mux *http.ServeMux, svc *service.Service, broker *eventbu
 	mux.HandleFunc("DELETE /api/v1/audit", rt.handleDeleteAuditEvents)
 	mux.HandleFunc("GET /api/v1/filesystem/directories", rt.handleListDirectories)
 	mux.HandleFunc("POST /api/v1/filesystem/reveal", rt.handleRevealInFileManager)
+	mux.HandleFunc("POST /api/v1/filesystem/editor", rt.handleOpenInEditor)
 	mux.HandleFunc("GET /api/v1/access", rt.handleListAccessItems)
 	mux.HandleFunc("POST /api/v1/access", rt.handleCreateAccessItem)
 	mux.HandleFunc("GET /api/v1/access/{id}", rt.handleGetAccessItem)

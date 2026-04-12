@@ -60,6 +60,7 @@ export {
   fetchContainerConfig,
   updateContainer,
   revealInFileManager,
+  openInEditor,
   listDirectories,
 } from './api-containers'
 export {

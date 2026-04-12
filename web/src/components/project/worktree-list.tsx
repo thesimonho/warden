@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useState } from 'react'
 import {
+  CodeXml,
   FolderOpen,
   GitBranch,
   Info,
@@ -62,6 +63,8 @@ interface WorktreeListProps {
   onRemove: (worktreeId: string) => void
   /** Opens a worktree's host directory in the system file manager. */
   onReveal?: (worktree: Worktree) => void
+  /** Opens a worktree's host directory in the user's preferred code editor. */
+  onOpenInEditor?: (worktree: Worktree) => void
   /** Controlled open state for the new worktree dialog (parent owns the state). */
   newDialogOpen?: boolean
   /** Callback when the new worktree dialog open state changes. */
@@ -136,6 +139,7 @@ export default function WorktreeList({
   onReset,
   onRemove,
   onReveal,
+  onOpenInEditor,
   newDialogOpen,
   onNewDialogOpenChange,
   onRequestNewWorktree,
@@ -192,6 +196,7 @@ export default function WorktreeList({
         onReset={() => onReset(wt.id)}
         onRemove={() => onRemove(wt.id)}
         onReveal={onReveal ? () => onReveal(wt) : undefined}
+        onOpenInEditor={onOpenInEditor ? () => onOpenInEditor(wt) : undefined}
       />
     )
   }
@@ -287,6 +292,7 @@ interface WorktreeRowProps {
   onReset: () => void
   onRemove: () => void
   onReveal?: () => void
+  onOpenInEditor?: () => void
 }
 
 /**
@@ -308,6 +314,7 @@ function WorktreeRow({
   onReset,
   onRemove,
   onReveal,
+  onOpenInEditor,
 }: WorktreeRowProps) {
   const [showRemoveDialog, setShowRemoveDialog] = useState(false)
   const [showResetDialog, setShowResetDialog] = useState(false)
@@ -371,12 +378,20 @@ function WorktreeRow({
           </div>
         </ContextMenuTrigger>
         <ContextMenuContent>
-          {onReveal && (
+          {(onReveal || onOpenInEditor) && (
             <>
-              <ContextMenuItem onClick={onReveal}>
-                <FolderOpen className="h-4 w-4" />
-                Reveal in File Manager
-              </ContextMenuItem>
+              {onReveal && (
+                <ContextMenuItem onClick={onReveal}>
+                  <FolderOpen className="h-4 w-4" />
+                  Reveal in File Manager
+                </ContextMenuItem>
+              )}
+              {onOpenInEditor && (
+                <ContextMenuItem onClick={onOpenInEditor}>
+                  <CodeXml className="h-4 w-4" />
+                  Open in Editor
+                </ContextMenuItem>
+              )}
               <ContextMenuSeparator />
             </>
           )}

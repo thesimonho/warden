@@ -174,10 +174,16 @@ export interface WorkspaceMount {
   workspaceDir: string
 }
 
-/** Extracts the workspace mount from a project, if both paths are available. */
+/**
+ * Extracts the workspace mount from a project, if both paths are available.
+ *
+ * Uses `hostPath` (the real host filesystem path from the DB) rather than
+ * `mountedDir` (Docker's mount source) because Docker Desktop reports
+ * VM-internal paths like `/host_mnt/...` that don't exist on the host.
+ */
 export function workspaceMount(project: Project): WorkspaceMount | undefined {
-  return project.mountedDir && project.workspaceDir
-    ? { mountedDir: project.mountedDir, workspaceDir: project.workspaceDir }
+  return project.hostPath && project.workspaceDir
+    ? { mountedDir: project.hostPath, workspaceDir: project.workspaceDir }
     : undefined
 }
 

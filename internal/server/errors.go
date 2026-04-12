@@ -34,6 +34,9 @@ const (
 	// Proxy errors.
 	ErrCodeProxyError ErrorCode = "PROXY_ERROR" // 502
 
+	// Editor errors.
+	ErrCodeNoEditor ErrorCode = "NO_EDITOR" // 422
+
 	// Catch-all for unclassified server errors.
 	ErrCodeInternal ErrorCode = "INTERNAL" // 500
 )
