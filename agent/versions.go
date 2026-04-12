@@ -13,11 +13,11 @@ import "github.com/thesimonho/warden/constants"
 const (
 	// ClaudeCodeVersion is the pinned Claude Code CLI version.
 	// Query latest: curl -sfL "https://storage.googleapis.com/claude-code-dist-86c565f3-f756-42ad-8dfa-d59b1c096819/claude-code-releases/latest"
-	ClaudeCodeVersion = "2.1.98"
+	ClaudeCodeVersion = "2.1.101"
 
 	// CodexVersion is the pinned OpenAI Codex CLI version.
 	// Query latest: npm view @openai/codex version
-	CodexVersion = "0.118.0"
+	CodexVersion = "0.120.0"
 )
 
 // VersionForType returns the pinned CLI version for the given agent type.
