@@ -257,6 +257,40 @@ Returns filesystem entries at the given path. By default only directories are re
 ##### Status: 500 Internal Server Error
 ---
 
+## Open in editor
+
+- **Method:** `POST`
+- **Path:** `/api/v1/filesystem/editor`
+- **Tags:** host
+
+Opens the given host directory in the user's preferred code editor ($VISUAL, $EDITOR, or a well-known editor CLI).
+
+#### Request Body
+
+##### Content-Type: application/json
+
+**One of:**
+
+- **`path`**
+
+  `string` — Path is the absolute host directory path to act on.
+
+**Example:**
+
+```json
+{}
+```
+
+#### Responses
+
+##### Status: 204 Editor launched
+
+##### Status: 400 Bad Request
+##### Status: 404 Path not found
+##### Status: 422 No editor found
+##### Status: 500 Internal Server Error
+---
+
 ## Reveal in file manager
 
 - **Method:** `POST`
@@ -273,7 +307,7 @@ Opens the given host directory in the system file manager (Finder, Nautilus, Exp
 
 - **`path`**
 
-  `string` — Path is the absolute host directory path to open.
+  `string` — Path is the absolute host directory path to act on.
 
 **Example:**
 

@@ -35,7 +35,7 @@ Some pages in `docs/site/src/content/docs/` are **gitignored and generated at bu
 
 ## Agent-format API docs
 
-Files in `docs/plugin/skills/guide/reference/api/` are auto-generated from `docs/openapi/swagger.yaml` but **committed** (not gitignored) because the plugin distribution needs them. They regenerate automatically as part of `just docs-build`. CI checks freshness. DO NOT edit them directly.
+Files in `docs/plugin/skills/guide/reference/api/` are auto-generated from `docs/openapi/swagger.yaml` but **committed** (not gitignored) because the plugin distribution needs them. Regenerate them  using `just docs-build` if you make any changes. DO NOT edit them directly.
 
 ## Link rules
 
