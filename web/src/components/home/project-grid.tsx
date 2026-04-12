@@ -1,7 +1,25 @@
+import { useMemo } from 'react'
 import type { AgentType, Project } from '@/lib/types'
 import type { InstallStatus } from '@/hooks/use-projects'
 import ProjectCard from '@/components/home/project-card'
 import { Skeleton } from '@/components/ui/skeleton'
+
+/** Priority order for Docker container states (lower = sorted first).
+ * Keep in sync with statePriority() in internal/tui/view_projects.go. */
+const STATE_PRIORITY: Record<string, number> = {
+  running: 0,
+  restarting: 1,
+  paused: 2,
+  created: 3,
+  exited: 4,
+  dead: 5,
+}
+
+/** Returns the sort priority for a project based on its Docker state. */
+function getStatePriority(project: Project): number {
+  if (!project.hasContainer) return 6
+  return STATE_PRIORITY[project.state] ?? 5
+}
 
 /** Props for the ProjectGrid component. */
 interface ProjectGridProps {
@@ -49,6 +67,11 @@ export default function ProjectGrid({
   budgetActionPreventStart = false,
   installStatuses,
 }: ProjectGridProps) {
+  const sortedProjects = useMemo(
+    () => [...projects].sort((a, b) => getStatePriority(a) - getStatePriority(b)),
+    [projects],
+  )
+
   if (isLoading) {
     return (
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -74,7 +97,7 @@ export default function ProjectGrid({
       data-testid="project-grid"
       className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3"
     >
-      {projects.map((project) => {
+      {sortedProjects.map((project) => {
         const key = `${project.projectId}:${project.agentType}`
         return (
           <ProjectCard

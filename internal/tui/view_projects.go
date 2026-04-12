@@ -3,6 +3,7 @@ package tui
 import (
 	"context"
 	"fmt"
+	"slices"
 	"strings"
 
 	"charm.land/bubbles/v2/help"
@@ -240,9 +241,35 @@ func projectColumns(width int) []table.Column {
 	}
 }
 
+// statePriority returns a sort rank for Docker container states (lower = first).
+// Keep in sync with STATE_PRIORITY in web/src/components/home/project-grid.tsx.
+func statePriority(p api.ProjectResponse) int {
+	if !p.HasContainer {
+		return 6
+	}
+	switch p.State {
+	case components.ContainerStateRunning:
+		return 0
+	case components.ContainerStateRestarting:
+		return 1
+	case components.ContainerStatePaused:
+		return 2
+	case components.ContainerStateCreated:
+		return 3
+	case components.ContainerStateExited:
+		return 4
+	default: // dead or unknown
+		return 5
+	}
+}
+
 func projectRows(projects []api.ProjectResponse) []table.Row {
-	rows := make([]table.Row, len(projects))
-	for i, p := range projects {
+	sorted := slices.Clone(projects)
+	slices.SortStableFunc(sorted, func(a, b api.ProjectResponse) int {
+		return statePriority(a) - statePriority(b)
+	})
+	rows := make([]table.Row, len(sorted))
+	for i, p := range sorted {
 		state := p.State
 		if !p.HasContainer {
 			state = "no container"

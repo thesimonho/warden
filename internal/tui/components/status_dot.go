@@ -76,9 +76,13 @@ func AttentionDot(notificationType event.NotificationType) string {
 
 // Container state strings as reported by Docker.
 const (
-	ContainerStateRunning = "running"
-	ContainerStateExited  = "exited"
-	ContainerStateStopped = "stopped"
+	ContainerStateRunning    = "running"
+	ContainerStateRestarting = "restarting"
+	ContainerStatePaused     = "paused"
+	ContainerStateCreated    = "created"
+	ContainerStateExited     = "exited"
+	ContainerStateDead       = "dead"
+	ContainerStateStopped    = "stopped"
 )
 
 // ContainerStateDot returns a styled dot for container state.
