@@ -73,6 +73,25 @@ When a worktree is in the **Connected** state, Warden tracks what the agent is d
 
 These activity states are broadcast as real-time events via SSE, so frontends can show attention indicators across all projects without opening each terminal.
 
+## Opening in an Editor
+
+Right-click a worktree in the project sidebar and select **Open in Editor** to launch the worktree directory in your preferred code editor.
+
+Editor detection order:
+
+1. `$VISUAL` environment variable (the Unix convention for graphical editors)
+2. Well-known GUI editor CLIs on `$PATH`: `code` (VS Code), `cursor`, `zed`, `subl` (Sublime Text)
+
+`$EDITOR` is intentionally skipped — it typically points to a terminal editor (vim, nano) that cannot launch without a TTY.
+
+If no editor is found, a 422 error is returned. To configure an editor explicitly, set `$VISUAL` in your shell profile before starting Warden.
+
+The same context menu also provides **Reveal in File Manager**, which opens the directory in Finder, Nautilus, or Explorer.
+
+:::note[Docker Desktop]
+On Docker Desktop, mount sources are reported as VM-internal paths (e.g. `/host_mnt/Users/...`). Warden automatically resolves these to real host paths before launching the editor or file manager.
+:::
+
 ## Worktree Diff
 
 Each worktree exposes a git diff view showing uncommitted changes via the API. This lets you review what the agent has done before committing or providing feedback.

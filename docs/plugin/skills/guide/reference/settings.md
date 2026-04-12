@@ -16,8 +16,8 @@ The response includes both configurable settings and read-only server informatio
 {
   "version": "v0.5.2",
   "runtime": "go1.23.0",
-  "claudeCodeVersion": "1.0.12",
-  "codexVersion": "0.1.2",
+  "claudeCodeVersion": "2.1.101",
+  "codexVersion": "0.120.0",
   "workingDirectory": "/home/user",
   "auditLogMode": "off",
   "defaultProjectBudget": 0,

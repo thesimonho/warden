@@ -179,6 +179,43 @@ Remove all audit events for a project:
 curl -s -X DELETE http://localhost:8090/api/v1/projects/a1b2c3d4e5f6/claude-code/audit
 ```
 
+## Host desktop integration
+
+Warden provides two endpoints for launching host desktop applications from the web UI or a custom frontend. Both accept a JSON body with a single `path` field (an absolute host directory path) and return `204 No Content` on success.
+
+### Reveal in file manager
+
+Opens the given directory in the system file manager (Finder, Nautilus, Explorer, etc.).
+
+```bash
+curl -s -X POST http://localhost:8090/api/v1/filesystem/reveal \
+  -H "Content-Type: application/json" \
+  -d '{"path": "/home/user/my-app"}'
+# 204 No Content on success
+```
+
+### Open in code editor
+
+Opens the given directory in the user's preferred code editor (detected via `$EDITOR`, `$VISUAL`, or common editor binaries such as `code`, `cursor`, `zed`).
+
+```bash
+curl -s -X POST http://localhost:8090/api/v1/filesystem/editor \
+  -H "Content-Type: application/json" \
+  -d '{"path": "/home/user/my-app"}'
+# 204 No Content on success
+```
+
+Error responses:
+
+| HTTP Status | Error Code     | Meaning                                             |
+| ----------- | -------------- | --------------------------------------------------- |
+| 400         | `INVALID_PATH` | Path is not an absolute path or fails safety checks |
+| 404         | `NOT_FOUND`    | Path does not exist on the host                     |
+| 422         | `NO_EDITOR`    | No code editor was found on the host                |
+| 500         | (varies)       | Failed to launch the editor                         |
+
+Both endpoints are host-only — they interact with the host machine running Warden, not the container. See [api/host.md](./api/host.md) for full field definitions.
+
 ## Common patterns
 
 ### Full create flow
