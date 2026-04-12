@@ -103,6 +103,10 @@ type Client interface {
 	// API: GET /api/v1/projects/{projectId}/{agentType}/worktrees/{wid}/diff
 	GetWorktreeDiff(ctx context.Context, projectID, agentType, worktreeID string) (*api.DiffResponse, error)
 
+	// CheckContainerName reports whether a container name is available.
+	// API: POST /api/v1/containers/check-name
+	CheckContainerName(ctx context.Context, name string) (*api.CheckNameResult, error)
+
 	// CreateContainer creates a new container for the given project.
 	// API: POST /api/v1/projects/{projectId}/{agentType}/container
 	CreateContainer(ctx context.Context, projectID, agentType string, req api.CreateContainerRequest) (*api.ContainerResult, error)

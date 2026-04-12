@@ -1,9 +1,15 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Loader2 } from 'lucide-react'
+import { AlertTriangle, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
-import type { ContainerConfig } from '@/lib/types'
+import type { CheckNameResult, ContainerConfig, CreateContainerRequest } from '@/lib/types'
 import { DEFAULT_AGENT_TYPE } from '@/lib/types'
-import { addProject, createContainer, fetchContainerConfig, updateContainer } from '@/lib/api'
+import {
+  addProject,
+  checkContainerName,
+  createContainer,
+  fetchContainerConfig,
+  updateContainer,
+} from '@/lib/api'
 import {
   Dialog,
   DialogContent,
@@ -11,6 +17,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import { Button } from '@/components/ui/button'
 import ProjectConfigForm, {
   type ProjectConfigFormData,
 } from '@/components/home/project-config-form'
@@ -36,11 +43,18 @@ interface AddProjectDialogProps {
   createForProject?: CreateForProject | null
 }
 
+/** Pending confirmation state when a container name is already taken. */
+interface PendingConfirm {
+  formData: ProjectConfigFormData
+  payload: CreateContainerRequest
+  checkResult: CheckNameResult
+}
+
 /**
  * Dialog for creating or editing project containers.
  *
- * In create mode, shows the project config form. Creating a project first
- * registers it via `addProject`, then creates its container.
+ * In create mode, checks container name availability before creating anything.
+ * If a Warden-managed container already exists, shows a confirmation prompt.
  * When `editProjectId` is provided, opens directly in edit mode.
  * When `createForProject` is provided, skips project registration and
  * creates a container for the existing project.
@@ -57,6 +71,7 @@ export default function AddProjectDialog({
   const [formError, setFormError] = useState<string | null>(null)
   const [editConfig, setEditConfig] = useState<ContainerConfig | null>(null)
   const [isLoadingConfig, setIsLoadingConfig] = useState(false)
+  const [pendingConfirm, setPendingConfirm] = useState<PendingConfirm | null>(null)
   const isEditMode = editProjectId !== null
 
   /** Reset state when dialog opens/closes or edit target changes. */
@@ -65,6 +80,7 @@ export default function AddProjectDialog({
       setFormError(null)
       setEditConfig(null)
       setIsLoadingConfig(false)
+      setPendingConfirm(null)
       return
     }
 
@@ -80,49 +96,80 @@ export default function AddProjectDialog({
     }
   }, [open, editProjectId, editAgentType])
 
-  /** Handles form submission for create, edit, and create-for-existing modes. */
+  /** Builds the container request payload from form data. */
+  const buildPayload = (data: ProjectConfigFormData): CreateContainerRequest => ({
+    name: data.name,
+    image: data.image,
+    projectPath: data.projectPath,
+    cloneURL: data.cloneURL,
+    temporary: data.temporary,
+    agentType: data.agentType,
+    envVars: data.envVars,
+    mounts: data.mounts,
+    skipPermissions: data.skipPermissions,
+    networkMode: data.networkMode,
+    allowedDomains: data.allowedDomains,
+    costBudget: data.costBudget,
+    enabledAccessItems: data.enabledAccessItems,
+    enabledRuntimes: data.enabledRuntimes,
+    forwardedPorts: data.forwardedPorts,
+  })
+
+  /** Creates the project and/or container. Called after name check passes. */
+  const executeCreate = useCallback(
+    async (data: ProjectConfigFormData, payload: CreateContainerRequest) => {
+      if (createForProject) {
+        await createContainer(createForProject.projectId, data.agentType, payload)
+        toast.success('Container created')
+      } else {
+        await addProject(
+          data.name,
+          data.projectPath,
+          data.agentType,
+          data.cloneURL,
+          data.temporary,
+          payload,
+        )
+        toast.success('Project created')
+      }
+      onProjectAdded()
+      onOpenChange(false)
+    },
+    [createForProject, onProjectAdded, onOpenChange],
+  )
+
+  /** Handles form submission — checks name availability before creating. */
   const handleFormSubmit = useCallback(
     async (data: ProjectConfigFormData) => {
       setIsSubmitting(true)
       setFormError(null)
-      try {
-        const payload = {
-          name: data.name,
-          image: data.image,
-          projectPath: data.projectPath,
-          cloneURL: data.cloneURL,
-          temporary: data.temporary,
-          agentType: data.agentType,
-          envVars: data.envVars,
-          mounts: data.mounts,
-          skipPermissions: data.skipPermissions,
-          networkMode: data.networkMode,
-          allowedDomains: data.allowedDomains,
-          costBudget: data.costBudget,
-          enabledAccessItems: data.enabledAccessItems,
-          enabledRuntimes: data.enabledRuntimes,
-          forwardedPorts: data.forwardedPorts,
-        }
+      setPendingConfirm(null)
 
+      const payload = buildPayload(data)
+
+      try {
         if (isEditMode && editProjectId && editAgentType) {
           const result = await updateContainer(editProjectId, editAgentType, payload)
           toast.success(result.recreated ? 'Container recreated' : 'Container updated')
-        } else if (createForProject) {
-          await createContainer(createForProject.projectId, data.agentType, payload)
-          toast.success('Container created')
-        } else {
-          const result = await addProject(
-            data.name,
-            data.projectPath,
-            data.agentType,
-            data.cloneURL,
-            data.temporary,
-          )
-          await createContainer(result.project.projectId, data.agentType, payload)
-          toast.success('Project created')
+          onProjectAdded()
+          onOpenChange(false)
+          return
         }
-        onProjectAdded()
-        onOpenChange(false)
+
+        // Pre-flight: check if the container name is available before creating anything.
+        const check = await checkContainerName(data.name)
+        if (!check.available) {
+          if (check.managed) {
+            setPendingConfirm({ formData: data, payload, checkResult: check })
+            return
+          }
+          setFormError(
+            `Container name "${data.name}" is in use by a non-Warden container — remove it manually or choose a different name`,
+          )
+          return
+        }
+
+        await executeCreate(data, payload)
       } catch (err) {
         setFormError(
           err instanceof Error
@@ -133,8 +180,26 @@ export default function AddProjectDialog({
         setIsSubmitting(false)
       }
     },
-    [isEditMode, editProjectId, editAgentType, createForProject, onProjectAdded, onOpenChange],
+    [isEditMode, editProjectId, editAgentType, onProjectAdded, onOpenChange, executeCreate],
   )
+
+  /** Replaces the existing container after user confirmation. */
+  const handleReplace = useCallback(async () => {
+    if (!pendingConfirm) return
+    setIsSubmitting(true)
+    setFormError(null)
+    try {
+      await executeCreate(pendingConfirm.formData, {
+        ...pendingConfirm.payload,
+        forceReplace: true,
+      })
+    } catch (err) {
+      setPendingConfirm(null)
+      setFormError(err instanceof Error ? err.message : 'Failed to replace container')
+    } finally {
+      setIsSubmitting(false)
+    }
+  }, [pendingConfirm, executeCreate])
 
   const title = isEditMode
     ? 'Edit Container'
@@ -183,7 +248,28 @@ export default function AddProjectDialog({
             </div>
           )}
 
-          {!isLoadingConfig && (!isEditMode || editConfig) && (
+          {pendingConfirm && (
+            <div className="flex flex-col items-center justify-center gap-4 py-16">
+              <AlertTriangle className="text-warning h-10 w-10" />
+              <div className="max-w-md space-y-2 text-center">
+                <p className="font-medium">A Warden container already exists with this name</p>
+                <p className="text-muted-foreground text-sm">
+                  The existing container is {pendingConfirm.checkResult.state ?? 'unknown'}.
+                  Replace it to continue, or go back to choose a different name.
+                </p>
+              </div>
+              <div className="flex gap-2">
+                <Button variant="ghost" onClick={() => setPendingConfirm(null)}>
+                  Go Back
+                </Button>
+                <Button variant="error" onClick={handleReplace} loading={isSubmitting}>
+                  Replace & Continue
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {!pendingConfirm && !isLoadingConfig && (!isEditMode || editConfig) && (
             <div className="flex min-h-0 flex-1 flex-col">
               {isEditMode && (
                 <p className="text-muted-foreground mb-4 text-sm">

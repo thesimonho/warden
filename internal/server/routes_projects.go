@@ -222,6 +222,10 @@ func (rt *routes) handleAddProject(w http.ResponseWriter, r *http.Request) {
 		if writeServiceError(w, err) {
 			return
 		}
+		if errors.Is(err, engine.ErrContainerExists) {
+			writeError(w, ErrCodeContainerExists, err.Error(), http.StatusConflict)
+			return
+		}
 		if errors.Is(err, engine.ErrNameTaken) {
 			writeError(w, ErrCodeNameTaken, err.Error(), http.StatusConflict)
 			return

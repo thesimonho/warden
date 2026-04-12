@@ -12,6 +12,24 @@ import (
 	"github.com/thesimonho/warden/internal/tui/components"
 )
 
+// handleOrphanKey handles y/n key input during orphan container confirmation.
+func (v *ContainerFormView) handleOrphanKey(msg tea.KeyPressMsg) (View, tea.Cmd) {
+	switch msg.String() {
+	case "y", "Y":
+		req := v.pendingOrphan.Request
+		req.ForceReplace = true
+		v.pendingOrphan = nil
+		v.loading = true
+		return v, func() tea.Msg {
+			_, err := v.client.CreateContainer(context.Background(), "", string(req.AgentType), req)
+			return OperationResultMsg{Operation: "create", Err: err}
+		}
+	case "n", "N", "esc":
+		v.pendingOrphan = nil
+	}
+	return v, nil
+}
+
 func (v *ContainerFormView) handleKey(msg tea.KeyPressMsg) (View, tea.Cmd) {
 	if v.browsing && v.dirBrowser != nil {
 		return v.handleBrowsingKey(msg)

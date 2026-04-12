@@ -212,6 +212,16 @@ export function worktreeDisplayName(worktreeId: string, projectName: string): st
   return worktreeId === 'main' ? projectName : worktreeId
 }
 
+/** Result of checking container name availability. */
+export interface CheckNameResult {
+  /** True when no container with this name exists. */
+  available: boolean
+  /** True when the existing container has the app.warden.managed label. */
+  managed?: boolean
+  /** Docker container state (running, exited, etc.) when a container exists. */
+  state?: string
+}
+
 // ---------------------------------------------------------------------------
 // SSE event payloads (from GET /api/v1/events)
 // ---------------------------------------------------------------------------
@@ -353,6 +363,8 @@ export interface CreateContainerRequest {
   enabledRuntimes?: string[]
   /** Container ports to expose via the reverse proxy (1-65535). */
   forwardedPorts?: number[]
+  /** When true, removes an orphaned Warden container occupying the name. */
+  forceReplace?: boolean
 }
 
 /** Editable configuration of an existing container. */

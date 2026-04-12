@@ -171,6 +171,10 @@ type ContainerFormView struct {
 
 	dirBrowser *components.DirectoryBrowser
 
+	// Renders a y/n confirmation prompt instead of the form when set.
+	// Separate from err because it's not an error — it's a user decision point.
+	pendingOrphan *OrphanConfirmMsg
+
 	// Server-provided restricted domains per agent type.
 	restrictedDomains map[string][]string
 
@@ -477,9 +481,14 @@ func (v *ContainerFormView) Update(msg tea.Msg) (View, tea.Cmd) {
 		v.loading = false
 		return v, nil
 
+	case OrphanConfirmMsg:
+		v.pendingOrphan = &msg
+		return v, nil
+
 	case OperationResultMsg:
 		if msg.Err != nil {
 			v.err = msg.Err
+			v.pendingOrphan = nil
 		} else {
 			return v, func() tea.Msg { return NavigateBackMsg{} }
 		}
@@ -496,6 +505,9 @@ func (v *ContainerFormView) Update(msg tea.Msg) (View, tea.Cmd) {
 		if v.err != nil {
 			v.err = nil
 			return v, nil
+		}
+		if v.pendingOrphan != nil {
+			return v.handleOrphanKey(msg)
 		}
 		return v.handleKey(msg)
 	}

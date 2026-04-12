@@ -172,6 +172,11 @@ func (a *ServiceAdapter) PurgeProjectAudit(_ context.Context, projectID, agentTy
 
 // --- Containers ---
 
+// CheckContainerName delegates to Service.CheckContainerName.
+func (a *ServiceAdapter) CheckContainerName(_ context.Context, name string) (*api.CheckNameResult, error) {
+	return a.w.Service.CheckContainerName(context.Background(), name)
+}
+
 // CreateContainer delegates to Service.CreateContainer.
 // The projectID parameter is used by the HTTP client but ignored here —
 // the service computes the project ID from req.ProjectPath.

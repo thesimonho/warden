@@ -73,6 +73,7 @@ func registerAPIRoutes(mux *http.ServeMux, svc *service.Service, broker *eventbu
 	mux.HandleFunc("POST /api/v1/projects/{projectId}/{agentType}/worktrees/cleanup", rt.handleCleanupWorktrees)
 	mux.HandleFunc("DELETE /api/v1/projects/{projectId}/{agentType}/costs", rt.handleResetProjectCosts)
 	mux.HandleFunc("DELETE /api/v1/projects/{projectId}/{agentType}/audit", rt.handlePurgeProjectAudit)
+	mux.HandleFunc("POST /api/v1/containers/check-name", rt.handleCheckContainerName)
 	mux.HandleFunc("POST /api/v1/projects/{projectId}/{agentType}/container", rt.handleCreateContainer)
 	mux.HandleFunc("DELETE /api/v1/projects/{projectId}/{agentType}/container", rt.handleDeleteContainer)
 	mux.HandleFunc("GET /api/v1/projects/{projectId}/{agentType}/container/config", rt.handleInspectContainer)

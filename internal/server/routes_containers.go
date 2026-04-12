@@ -10,6 +10,41 @@ import (
 	"github.com/thesimonho/warden/engine"
 )
 
+// handleCheckContainerName checks whether a container name is available.
+//
+//	@Summary		Check container name
+//	@Description	Reports whether a container name is available, and if not, whether the existing container is Warden-managed.
+//	@Tags			containers
+//	@Accept			json
+//	@Param			body	body		api.CheckNameRequest	true	"Container name to check"
+//	@Success		200		{object}	api.CheckNameResult
+//	@Failure		400		{object}	apiError
+//	@Failure		503		{object}	apiError
+//	@Router			/api/v1/containers/check-name [post]
+func (rt *routes) handleCheckContainerName(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, 1<<16)
+
+	var req api.CheckNameRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Name == "" {
+		writeError(w, ErrCodeInvalidBody, "name is required", http.StatusBadRequest)
+		return
+	}
+	if !isValidContainerName(req.Name) {
+		writeError(w, ErrCodeInvalidContainerName, "invalid container name", http.StatusBadRequest)
+		return
+	}
+	result, err := rt.svc.CheckContainerName(r.Context(), req.Name)
+	if err != nil {
+		if writeServiceError(w, err) {
+			return
+		}
+		writeError(w, ErrCodeInternal, err.Error(), http.StatusInternalServerError)
+		slog.Error("check container name", "name", req.Name, "err", err)
+		return
+	}
+	writeJSON(w, result)
+}
+
 // handleCreateContainer creates a new container for an existing project.
 //
 //	@Summary		Create container
@@ -59,6 +94,10 @@ func (rt *routes) handleCreateContainer(w http.ResponseWriter, r *http.Request) 
 	if err != nil {
 		slog.Error("create container", "projectId", projectID, "name", req.Name, "err", err)
 		if writeServiceError(w, err) {
+			return
+		}
+		if errors.Is(err, engine.ErrContainerExists) {
+			writeError(w, ErrCodeContainerExists, err.Error(), http.StatusConflict)
 			return
 		}
 		if errors.Is(err, engine.ErrNameTaken) {

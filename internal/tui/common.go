@@ -90,6 +90,14 @@ type OperationResultMsg struct {
 	Err       error
 }
 
+// OrphanConfirmMsg is sent when a pre-flight name check finds an existing
+// Warden-managed container. The form should prompt the user to confirm
+// replacement before creating anything.
+type OrphanConfirmMsg struct {
+	Request api.CreateContainerRequest
+	State   string
+}
+
 // --- Navigation messages ---
 
 // NavigateMsg requests a view transition.

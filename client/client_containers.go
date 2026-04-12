@@ -6,6 +6,15 @@ import (
 	"github.com/thesimonho/warden/api"
 )
 
+// CheckContainerName reports whether a container name is available for use.
+func (c *Client) CheckContainerName(ctx context.Context, name string) (*api.CheckNameResult, error) {
+	var resp api.CheckNameResult
+	if err := c.post(ctx, "/api/v1/containers/check-name", api.CheckNameRequest{Name: name}, &resp); err != nil {
+		return nil, err
+	}
+	return &resp, nil
+}
+
 // CreateContainer creates a new container for the given project.
 func (c *Client) CreateContainer(ctx context.Context, projectID, agentType string, req api.CreateContainerRequest) (*api.ContainerResult, error) {
 	var resp api.ContainerResult

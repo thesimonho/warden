@@ -26,11 +26,12 @@ func TestCreateContainer(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
+	expectedName := applyModeSuffix("my-project")
 	if result.ContainerID != "new123container" {
 		t.Errorf("expected container ID 'new123container', got %q", result.ContainerID)
 	}
-	if result.Name != "my-project" {
-		t.Errorf("expected name 'my-project', got %q", result.Name)
+	if result.Name != expectedName {
+		t.Errorf("expected name %q, got %q", expectedName, result.Name)
 	}
 
 	// Verify auto-add to database with computed project ID.

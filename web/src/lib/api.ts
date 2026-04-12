@@ -54,6 +54,7 @@ export {
   worktreeHostPath,
 } from './api-worktrees'
 export {
+  checkContainerName,
   validateContainer,
   createContainer,
   deleteContainer,
