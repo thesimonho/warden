@@ -159,6 +159,9 @@ type Client interface {
 	// rules after a container restart. No-op for full network mode.
 	ReapplyNetworkIsolation(ctx context.Context, id, networkMode string, allowedDomains []string)
 
+	// CheckContainerName reports whether a container name is available.
+	CheckContainerName(ctx context.Context, name string) api.CheckNameResult
+
 	// CreateContainer creates and starts a new project container.
 	CreateContainer(ctx context.Context, req api.CreateContainerRequest) (string, error)
 

@@ -108,7 +108,18 @@ func (v *ContainerFormView) submit() tea.Cmd {
 		}
 	}
 	return func() tea.Msg {
-		_, err := v.client.CreateContainer(context.Background(), "", string(req.AgentType), req)
+		// Pre-flight: check if the container name is available before creating.
+		check, err := v.client.CheckContainerName(context.Background(), req.Name)
+		if err == nil && !check.Available {
+			if check.Managed {
+				return OrphanConfirmMsg{Request: req, State: check.State}
+			}
+			return OperationResultMsg{
+				Operation: "create",
+				Err:       fmt.Errorf("container name %q is in use by a non-Warden container", req.Name),
+			}
+		}
+		_, err = v.client.CreateContainer(context.Background(), "", string(req.AgentType), req)
 		return OperationResultMsg{Operation: "create", Err: err}
 	}
 }

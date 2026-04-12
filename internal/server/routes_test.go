@@ -63,6 +63,10 @@ func (m *mockEngineClient) RestartProject(_ context.Context, _ string, _ []api.M
 
 func (m *mockEngineClient) ReapplyNetworkIsolation(_ context.Context, _, _ string, _ []string) {}
 
+func (m *mockEngineClient) CheckContainerName(_ context.Context, _ string) api.CheckNameResult {
+	return api.CheckNameResult{Available: true}
+}
+
 func (m *mockEngineClient) CreateContainer(_ context.Context, _ api.CreateContainerRequest) (string, error) {
 	return m.containerID, m.containerErr
 }

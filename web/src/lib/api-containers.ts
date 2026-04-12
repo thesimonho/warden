@@ -4,6 +4,7 @@
  * @module
  */
 import type {
+  CheckNameResult,
   ContainerConfig,
   ContainerResult,
   CreateContainerRequest,
@@ -15,6 +16,24 @@ import { apiFetch, projectUrl } from './api-core'
 interface ValidateContainerResult {
   valid: boolean
   missing: string[] | null
+}
+
+/**
+ * Checks whether a container name is available for use.
+ *
+ * If a container exists with the name, reports whether it is Warden-managed
+ * (replaceable via forceReplace) and its current Docker state.
+ *
+ * @param name - The container name to check.
+ * @returns Name availability and existing container details.
+ */
+export async function checkContainerName(name: string): Promise<CheckNameResult> {
+  const response = await apiFetch('/api/v1/containers/check-name', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name }),
+  })
+  return response.json() as Promise<CheckNameResult>
 }
 
 /**

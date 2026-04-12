@@ -102,6 +102,13 @@ func (v *ContainerFormView) Render(width, height int) string {
 		return s.String()
 	}
 
+	if v.pendingOrphan != nil {
+		s.WriteString(Styles.Warning.Render("⚠ A Warden container already exists with this name") + "\n\n")
+		s.WriteString(Styles.Muted.Render("The existing container is "+v.pendingOrphan.State+".") + "\n\n")
+		s.WriteString("Replace it and continue? " + Styles.Bold.Render("[y/n]"))
+		return s.String()
+	}
+
 	if v.err != nil {
 		s.WriteString(Styles.Error.Render("Error: "+v.err.Error()) + "\n\n")
 	}

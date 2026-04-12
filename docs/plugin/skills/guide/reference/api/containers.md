@@ -3,6 +3,62 @@
 # Containers API
 
 All error responses return `{"error": "message", "code": "ERROR_CODE"}`.
+## Check container name
+
+- **Method:** `POST`
+- **Path:** `/api/v1/containers/check-name`
+- **Tags:** containers
+
+Reports whether a container name is available, and if not, whether the existing container is Warden-managed.
+
+#### Request Body
+
+##### Content-Type: application/json
+
+**One of:**
+
+- **`name`**
+
+  `string` — Name is the container name to check.
+
+**Example:**
+
+```json
+{}
+```
+
+#### Responses
+
+##### Status: 200 OK
+
+###### Content-Type: application/json
+
+- **`available`**
+
+  `boolean` — Available is true when no container with this name exists.
+
+- **`managed`**
+
+  `boolean` — Managed is true when an existing container has the app.warden.managed label. When true, the user can choose to replace it via ForceReplace.
+
+- **`state`**
+
+  `string` — State is the Docker container state (running, exited, etc.) when a container exists with this name.
+
+**Example:**
+
+```json
+{
+  "available": true,
+  "managed": true,
+  "state": ""
+}
+```
+
+##### Status: 400 Bad Request
+##### Status: 503 Service Unavailable
+---
+
 ## Delete container
 
 - **Method:** `DELETE`
@@ -107,6 +163,10 @@ Creates a new container for the given project with the provided configuration. S
 - **`envVars`**
 
   `object`
+
+- **`forceReplace`**
+
+  `boolean` — ForceReplace removes an orphaned Warden-managed container that occupies the requested name. Without this flag, creation returns CONTAINER\_EXISTS.
 
 - **`forwardedPorts`**
 
@@ -261,6 +321,10 @@ Updates the project's container configuration. Lightweight changes (budget, skip
 - **`envVars`**
 
   `object`
+
+- **`forceReplace`**
+
+  `boolean` — ForceReplace removes an orphaned Warden-managed container that occupies the requested name. Without this flag, creation returns CONTAINER\_EXISTS.
 
 - **`forwardedPorts`**
 

@@ -206,6 +206,24 @@ type WorktreeResult struct {
 	State string `json:"state,omitempty"`
 }
 
+// CheckNameRequest is the body sent to POST /api/v1/containers/check-name.
+type CheckNameRequest struct {
+	// Name is the container name to check.
+	Name string `json:"name"`
+}
+
+// CheckNameResult reports whether a container name is available for use.
+type CheckNameResult struct {
+	// Available is true when no container with this name exists.
+	Available bool `json:"available"`
+	// Managed is true when an existing container has the app.warden.managed label.
+	// When true, the user can choose to replace it via ForceReplace.
+	Managed bool `json:"managed,omitempty"`
+	// State is the Docker container state (running, exited, etc.) when a
+	// container exists with this name.
+	State string `json:"state,omitempty"`
+}
+
 // ContainerResult holds the output of a container create, update, or delete
 // operation. ContainerID is the Docker container ID. Name is the container
 // name. For delete operations, these reflect the container that was removed.
@@ -749,6 +767,9 @@ type CreateContainerRequest struct {
 	// ForwardedPorts lists container ports to expose via the reverse proxy.
 	// Each port (1-65535) is accessible at http://{projectId}-{agentType}-{port}.localhost:{serverPort}/
 	ForwardedPorts []int `json:"forwardedPorts,omitempty"`
+	// ForceReplace removes an orphaned Warden-managed container that occupies
+	// the requested name. Without this flag, creation returns CONTAINER_EXISTS.
+	ForceReplace bool `json:"forceReplace,omitempty"`
 }
 
 // ContainerConfig holds the editable configuration of an existing container.

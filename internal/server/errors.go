@@ -23,8 +23,9 @@ const (
 	ErrCodeNotADirectory        ErrorCode = "NOT_A_DIRECTORY"
 
 	// Resource errors.
-	ErrCodeNotFound  ErrorCode = "NOT_FOUND"  // 404
-	ErrCodeNameTaken ErrorCode = "NAME_TAKEN" // 409
+	ErrCodeNotFound        ErrorCode = "NOT_FOUND"        // 404
+	ErrCodeNameTaken       ErrorCode = "NAME_TAKEN"       // 409
+	ErrCodeContainerExists ErrorCode = "CONTAINER_EXISTS" // 409
 
 	// Infrastructure errors.
 	ErrCodeNotConfigured  ErrorCode = "NOT_CONFIGURED"  // 503

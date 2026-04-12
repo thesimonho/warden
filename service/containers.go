@@ -15,7 +15,34 @@ import (
 	"github.com/thesimonho/warden/engine"
 	"github.com/thesimonho/warden/event"
 	"github.com/thesimonho/warden/runtimes"
+	"github.com/thesimonho/warden/version"
 )
+
+// devSuffix is appended to container names in development builds so dev
+// and production containers don't collide in the shared Docker namespace.
+const devSuffix = "-dev"
+
+// applyModeSuffix appends a mode-specific suffix to the container name for
+// development builds. Release builds return the name unchanged. This prevents
+// dev and production containers from colliding when both use the same Docker
+// daemon.
+func applyModeSuffix(name string) string {
+	if version.Version == "dev" && !strings.HasSuffix(name, devSuffix) {
+		return name + devSuffix
+	}
+	return name
+}
+
+// CheckContainerName reports whether a container name is available for use.
+// Applies the dev mode suffix before checking so the result reflects the
+// actual Docker container name that would be created.
+func (s *Service) CheckContainerName(ctx context.Context, name string) (*api.CheckNameResult, error) {
+	if err := s.requireDocker(); err != nil {
+		return nil, err
+	}
+	result := s.docker.CheckContainerName(ctx, applyModeSuffix(name))
+	return &result, nil
+}
 
 // CreateContainer creates a new project container and saves full
 // project metadata to the database.
@@ -23,6 +50,7 @@ func (s *Service) CreateContainer(ctx context.Context, req api.CreateContainerRe
 	if err := s.requireDocker(); err != nil {
 		return nil, err
 	}
+	req.Name = applyModeSuffix(req.Name)
 	row, err := projectRowFromRequest(req)
 	if err != nil {
 		return nil, err

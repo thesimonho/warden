@@ -57,16 +57,64 @@ const cacheVolumeName = "warden-cache"
 // cacheVolumeTarget is the in-container mount point for the cache volume.
 const cacheVolumeTarget = "/home/warden/.cache/warden-runtimes"
 
-// ErrNameTaken is returned when a container with the requested name already exists.
+// ErrNameTaken is returned when a container with the requested name already
+// exists and is not a Warden-managed container.
 var ErrNameTaken = fmt.Errorf("container name already in use")
 
-// checkNameAvailable returns ErrNameTaken if a container with the given name already exists.
-func (ec *EngineClient) checkNameAvailable(ctx context.Context, name string) error {
-	_, err := ec.api.ContainerInspect(ctx, name)
+// ErrContainerExists is returned when an existing Warden-managed container
+// occupies the requested name. The caller should prompt for confirmation
+// and retry with ForceReplace to remove it.
+var ErrContainerExists = fmt.Errorf("a Warden container already exists with this name")
+
+// checkNameAvailable ensures no Docker container with the given name exists.
+// Existing Warden-managed containers return ErrContainerExists unless
+// forceReplace is set, in which case the container is force-removed.
+// Non-Warden containers always return ErrNameTaken.
+func (ec *EngineClient) checkNameAvailable(
+	ctx context.Context,
+	name string,
+	forceReplace bool,
+) error {
+	info, err := ec.api.ContainerInspect(ctx, name)
 	if err != nil {
 		return nil // container doesn't exist, name is available
 	}
-	return fmt.Errorf("%w: %q — remove the existing container first, or choose a different name", ErrNameTaken, name)
+
+	// Non-Warden containers must be handled manually.
+	if info.Config == nil || info.Config.Labels[constants.LabelManaged] != "true" {
+		return fmt.Errorf(
+			"%w: %q is a non-Warden container — remove it manually or choose a different name",
+			ErrNameTaken, name,
+		)
+	}
+
+	if !forceReplace {
+		return fmt.Errorf(
+			"%w: %q (state: %s)",
+			ErrContainerExists, name, info.State.Status,
+		)
+	}
+
+	slog.Info("removing existing container to free name", "name", name, "id", info.ID[:12])
+	if err := ec.api.ContainerRemove(
+		ctx,
+		info.ID,
+		container.RemoveOptions{Force: true},
+	); err != nil {
+		return fmt.Errorf("removing existing container %q: %w", name, err)
+	}
+	return nil
+}
+
+// CheckContainerName reports whether a container name is available. If a
+// container exists, returns whether it is Warden-managed and its Docker state.
+func (ec *EngineClient) CheckContainerName(ctx context.Context, name string) api.CheckNameResult {
+	info, err := ec.api.ContainerInspect(ctx, name)
+	if err != nil {
+		return api.CheckNameResult{Available: true}
+	}
+	managed := info.Config != nil && info.Config.Labels[constants.LabelManaged] == "true"
+	return api.CheckNameResult{Available: false, Managed: managed, State: info.State.Status}
 }
 
 // ensureImage pulls the container image if it is not already available locally.
@@ -94,7 +142,10 @@ func (ec *EngineClient) ensureImage(ctx context.Context, imageName string) error
 
 // CreateContainer creates and starts a new project container with the
 // given configuration. Returns the container ID (truncated to 12 chars).
-func (ec *EngineClient) CreateContainer(ctx context.Context, req api.CreateContainerRequest) (string, error) {
+func (ec *EngineClient) CreateContainer(
+	ctx context.Context,
+	req api.CreateContainerRequest,
+) (string, error) {
 	if req.Name == "" {
 		return "", fmt.Errorf("container name is required")
 	}
@@ -119,7 +170,7 @@ func (ec *EngineClient) CreateContainer(ctx context.Context, req api.CreateConta
 		}
 	}
 
-	if err := ec.checkNameAvailable(ctx, req.Name); err != nil {
+	if err := ec.checkNameAvailable(ctx, req.Name, req.ForceReplace); err != nil {
 		return "", err
 	}
 
@@ -155,7 +206,10 @@ func (ec *EngineClient) CreateContainer(ctx context.Context, req api.CreateConta
 	// can set up iptables rules for restricted/none modes.
 	envList = append(envList, fmt.Sprintf("WARDEN_NETWORK_MODE=%s", networkMode))
 	if networkMode == api.NetworkModeRestricted && len(req.AllowedDomains) > 0 {
-		envList = append(envList, fmt.Sprintf("WARDEN_ALLOWED_DOMAINS=%s", strings.Join(req.AllowedDomains, ",")))
+		envList = append(
+			envList,
+			fmt.Sprintf("WARDEN_ALLOWED_DOMAINS=%s", strings.Join(req.AllowedDomains, ",")),
+		)
 	}
 
 	// Pass container name and project ID so hook scripts can identify
@@ -202,7 +256,10 @@ func (ec *EngineClient) CreateContainer(ctx context.Context, req api.CreateConta
 
 	// Pass enabled runtimes so the entrypoint can install them.
 	if len(req.EnabledRuntimes) > 0 {
-		envList = append(envList, fmt.Sprintf("WARDEN_ENABLED_RUNTIMES=%s", strings.Join(req.EnabledRuntimes, ",")))
+		envList = append(
+			envList,
+			fmt.Sprintf("WARDEN_ENABLED_RUNTIMES=%s", strings.Join(req.EnabledRuntimes, ",")),
+		)
 	}
 
 	// Set the container timezone to match the host so timestamps the user
@@ -254,7 +311,10 @@ func (ec *EngineClient) CreateContainer(ctx context.Context, req api.CreateConta
 				return "", fmt.Errorf("recreating event directory: %w", mkErr)
 			}
 			if retryErr := os.Chmod(eventHostDir, 0o777); retryErr != nil {
-				return "", fmt.Errorf("setting event directory permissions after recreate: %w", retryErr)
+				return "", fmt.Errorf(
+					"setting event directory permissions after recreate: %w",
+					retryErr,
+				)
 			}
 		}
 		binds = append(binds, fmt.Sprintf("%s:%s", eventHostDir, containerEventDir))
@@ -349,7 +409,10 @@ func (ec *EngineClient) DeleteContainer(ctx context.Context, id string) error {
 
 // InspectContainer returns the editable configuration of an existing container
 // by parsing its inspect data (binds, env vars, labels).
-func (ec *EngineClient) InspectContainer(ctx context.Context, id string) (*api.ContainerConfig, error) {
+func (ec *EngineClient) InspectContainer(
+	ctx context.Context,
+	id string,
+) (*api.ContainerConfig, error) {
 	info, err := ec.api.ContainerInspect(ctx, id)
 	if err != nil {
 		return nil, fmt.Errorf("inspecting container %s: %w", id, err)
@@ -433,8 +496,17 @@ func (ec *EngineClient) RenameContainer(ctx context.Context, id string, newName 
 // container to update the allowed domain list without recreation. Delegates
 // to ApplyNetworkIsolation with restricted mode hardcoded (the only mode
 // that uses domain hot-reload).
-func (ec *EngineClient) ReloadAllowedDomains(ctx context.Context, containerID string, domains []string) error {
-	if err := ec.ApplyNetworkIsolation(ctx, containerID, string(api.NetworkModeRestricted), domains); err != nil {
+func (ec *EngineClient) ReloadAllowedDomains(
+	ctx context.Context,
+	containerID string,
+	domains []string,
+) error {
+	if err := ec.ApplyNetworkIsolation(
+		ctx,
+		containerID,
+		string(api.NetworkModeRestricted),
+		domains,
+	); err != nil {
 		return fmt.Errorf("reloading allowed domains: %w", err)
 	}
 	return nil
@@ -482,12 +554,19 @@ func (ec *EngineClient) WaitForInstalls(ctx context.Context, containerID string)
 // without granting NET_ADMIN to the container's capability set. This makes
 // network isolation tamper-proof — even root inside the container cannot
 // modify iptables rules.
-func (ec *EngineClient) ApplyNetworkIsolation(ctx context.Context, containerID, mode string, domains []string) error {
+func (ec *EngineClient) ApplyNetworkIsolation(
+	ctx context.Context,
+	containerID, mode string,
+	domains []string,
+) error {
 	cfg := container.ExecOptions{
-		Cmd:          []string{"/usr/local/bin/setup-network-isolation.sh"},
-		User:         "root",
-		Privileged:   true,
-		Env:          []string{"WARDEN_NETWORK_MODE=" + mode, "WARDEN_ALLOWED_DOMAINS=" + strings.Join(domains, ",")},
+		Cmd:        []string{"/usr/local/bin/setup-network-isolation.sh"},
+		User:       "root",
+		Privileged: true,
+		Env: []string{
+			"WARDEN_NETWORK_MODE=" + mode,
+			"WARDEN_ALLOWED_DOMAINS=" + strings.Join(domains, ","),
+		},
 		AttachStdout: true,
 		AttachStderr: true,
 	}
@@ -501,7 +580,11 @@ func (ec *EngineClient) ApplyNetworkIsolation(ctx context.Context, containerID, 
 // RecreateContainer replaces a stopped container with a new one using updated config.
 // The old container is renamed to a temporary name before creating the replacement,
 // so it can be restored if the create fails (atomic swap).
-func (ec *EngineClient) RecreateContainer(ctx context.Context, id string, req api.CreateContainerRequest) (string, error) {
+func (ec *EngineClient) RecreateContainer(
+	ctx context.Context,
+	id string,
+	req api.CreateContainerRequest,
+) (string, error) {
 	info, err := ec.api.ContainerInspect(ctx, id)
 	if err != nil {
 		return "", fmt.Errorf("inspecting container for recreate: %w", err)
@@ -599,7 +682,7 @@ func buildSecurityConfig(seccompValue string) (capDrop, capAdd []string, securit
 func ephemeralLabels() map[string]string {
 	return map[string]string{
 		constants.LabelEphemeral: "true",
-		constants.LabelMode:     constants.ModeValue(version.Version),
+		constants.LabelMode:      constants.ModeValue(version.Version),
 	}
 }
 
@@ -630,7 +713,13 @@ func (ec *EngineClient) PreWarmCLICache(ctx context.Context) error {
 		}
 	}
 
-	slog.Info("CLI cache pre-warmed", "claudeVersion", agent.ClaudeCodeVersion, "codexVersion", agent.CodexVersion)
+	slog.Info(
+		"CLI cache pre-warmed",
+		"claudeVersion",
+		agent.ClaudeCodeVersion,
+		"codexVersion",
+		agent.CodexVersion,
+	)
 	return nil
 }
 
@@ -654,7 +743,13 @@ func (ec *EngineClient) runEphemeralInstall(ctx context.Context, img, agentType 
 	if err != nil {
 		return fmt.Errorf("creating pre-warm %s container: %w", agentType, err)
 	}
-	defer func() { _ = ec.api.ContainerRemove(context.Background(), resp.ID, container.RemoveOptions{Force: true}) }()
+	defer func() {
+		_ = ec.api.ContainerRemove(
+			context.Background(),
+			resp.ID,
+			container.RemoveOptions{Force: true},
+		)
+	}()
 
 	if err := ec.api.ContainerStart(ctx, resp.ID, container.StartOptions{}); err != nil {
 		return fmt.Errorf("starting pre-warm %s container: %w", agentType, err)

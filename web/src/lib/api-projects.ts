@@ -7,6 +7,7 @@ import type {
   AddProjectResponse,
   AgentType,
   BatchProjectResponse,
+  CreateContainerRequest,
   Project,
   ProjectResult,
 } from '@/lib/types'
@@ -40,6 +41,7 @@ export async function addProject(
   agentType: AgentType,
   cloneURL?: string,
   temporary?: boolean,
+  container?: CreateContainerRequest,
 ): Promise<AddProjectResponse> {
   const body: Record<string, unknown> = { name, agentType }
   if (cloneURL) {
@@ -47,6 +49,9 @@ export async function addProject(
     if (temporary) body.temporary = true
   } else {
     body.projectPath = projectPath
+  }
+  if (container) {
+    body.container = container
   }
   const response = await apiFetch('/api/v1/projects', {
     method: 'POST',
