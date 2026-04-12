@@ -4,6 +4,7 @@ paths:
   - "docs/openapi/**/*"
   - "docs/site/**/*"
   - "api/**/*"
+  - "access/**/*"
   - "service/**/*"
   - "client/**/*"
 ---
