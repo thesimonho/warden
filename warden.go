@@ -234,6 +234,10 @@ func New(opts Options) (*Warden, error) {
 		// forwarding recovers after a server restart.
 		svc.ResumeSocketBridges(context.Background())
 
+		// Remove orphaned ephemeral containers (precache, firewall) left
+		// over from a previous run that crashed before cleanup ran.
+		engineClient.CleanupEphemeralContainers(context.Background())
+
 		// Pre-warm the CLI cache in the background so the first container
 		// create for each agent type is a cache hit (near-instant).
 		// Uses the liveness context so it cancels cleanly on shutdown.

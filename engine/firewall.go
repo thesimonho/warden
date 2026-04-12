@@ -151,6 +151,7 @@ func (ec *EngineClient) runHostIptables(ctx context.Context, shellCmd string) er
 			Image:      firewallImage,
 			Entrypoint: []string{"sh"},
 			Cmd:        []string{"-c", fullCmd},
+			Labels:     ephemeralLabels(),
 		},
 		&container.HostConfig{
 			AutoRemove:  true,
