@@ -89,6 +89,36 @@ func (ec *EngineClient) ExecSocatBridge(ctx context.Context, containerID, contai
 	return nil
 }
 
+// ExecPortForward creates a docker exec running socat in STDIO mode to
+// forward data to a TCP port inside the container. Returns a hijacked
+// connection that provides a bidirectional stream: writes go to socat's
+// stdin, reads come from socat's stdout/stderr (multiplexed).
+//
+// Used by the port bridge on Docker Desktop where the container's bridge
+// IP is unreachable from the host. Each call creates a new exec instance
+// for one TCP connection.
+func (ec *EngineClient) ExecPortForward(ctx context.Context, containerID string, port int) (ExecStream, error) {
+	cmd := fmt.Sprintf("exec socat STDIO TCP:127.0.0.1:%d", port)
+
+	resp, err := ec.api.ContainerExecCreate(ctx, containerID, container.ExecOptions{
+		Cmd:          []string{"sh", "-c", cmd},
+		User:         constants.ContainerUser,
+		AttachStdin:  true,
+		AttachStdout: true,
+		AttachStderr: true,
+	})
+	if err != nil {
+		return ExecStream{}, fmt.Errorf("creating port forward exec: %w", err)
+	}
+
+	hijacked, err := ec.api.ContainerExecAttach(ctx, resp.ID, container.ExecStartOptions{})
+	if err != nil {
+		return ExecStream{}, fmt.Errorf("attaching to port forward exec: %w", err)
+	}
+
+	return ExecStream{Conn: hijacked.Conn, Reader: hijacked.Reader}, nil
+}
+
 // KillSocatBridges kills all socat bridge processes inside the
 // container and removes stale iptables rules for old bridge ports.
 // Called before re-exec'ing bridges with new ports (e.g. after server

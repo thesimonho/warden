@@ -5,6 +5,7 @@ package engine
 import (
 	"context"
 	"io"
+	"net"
 
 	"github.com/thesimonho/warden/agent"
 	"github.com/thesimonho/warden/api"
@@ -139,6 +140,23 @@ type ContainerHealth struct {
 	LogTail string
 }
 
+// ExecStream is a bidirectional stream from a docker exec process.
+// Wraps the Docker SDK's HijackedResponse to avoid leaking SDK types
+// through the Client interface.
+type ExecStream struct {
+	// Conn is the raw connection for writing to exec stdin.
+	Conn net.Conn
+	// Reader provides the multiplexed stdout/stderr stream from the exec.
+	Reader io.Reader
+}
+
+// Close releases the underlying connection.
+func (s ExecStream) Close() {
+	if s.Conn != nil {
+		_ = s.Conn.Close()
+	}
+}
+
 // Client defines the interface for interacting with Docker containers.
 // All methods accept a context for cancellation and timeout control.
 type Client interface {
@@ -247,6 +265,11 @@ type Client interface {
 	// ExecSocatBridge starts a socat process inside the container that
 	// creates a Unix socket and forwards connections to the host TCP bridge.
 	ExecSocatBridge(ctx context.Context, containerID, containerPath string, port int) error
+
+	// ExecPortForward creates a docker exec with socat STDIO forwarding to
+	// a container port. Returns a bidirectional stream. Used by the port
+	// bridge on Docker Desktop where bridge IPs are unreachable.
+	ExecPortForward(ctx context.Context, containerID string, port int) (ExecStream, error)
 
 	// KillSocatBridges kills all socat bridge processes inside the container.
 	KillSocatBridges(ctx context.Context, containerID string) error

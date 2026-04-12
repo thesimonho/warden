@@ -106,6 +106,12 @@ type Service struct {
 	socketBridges   map[string][]*socketBridge
 	socketBridgesMu sync.Mutex
 
+	// portBridges tracks active docker-exec-based port bridges keyed by
+	// (containerName, port). Used on Docker Desktop where the container's
+	// bridge IP is unreachable from the host.
+	portBridges   map[portBridgeKey]*portBridge
+	portBridgesMu sync.Mutex
+
 	// Session watcher state — one watcher per project+agent, keyed by compound key.
 	sessionWatchers         map[db.ProjectAgentKey]*agent.SessionWatcher
 	sessionWatchersMu       sync.Mutex
@@ -154,6 +160,7 @@ func New(deps ServiceDeps) *Service {
 		dockerInfo:              deps.DockerInfo,
 		bridgeIP:                deps.BridgeIP,
 		socketBridges:           make(map[string][]*socketBridge),
+		portBridges:             make(map[portBridgeKey]*portBridge),
 		sessionWatchers:         make(map[db.ProjectAgentKey]*agent.SessionWatcher),
 		sessionWatcherCooldowns: make(map[db.ProjectAgentKey]time.Time),
 		costFallbackNegCache:    make(map[db.ProjectAgentKey]time.Time),

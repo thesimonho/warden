@@ -229,8 +229,9 @@ func (s *Service) DeleteContainer(ctx context.Context, projectID, agentType stri
 		return nil, err
 	}
 
-	// Stop socket bridges for the deleted container.
+	// Stop socket and port bridges for the deleted container.
 	s.stopSocketBridges(containerName)
+	s.stopPortBridges(containerName)
 
 	// Clean up the event directory for this container.
 	s.docker.CleanupEventDir(containerName)
@@ -450,6 +451,7 @@ func (s *Service) recreateContainer(ctx context.Context, project *db.ProjectRow,
 	// Stop old bridges and lifecycle watchers before recreation.
 	oldContainerName := effectiveContainerName(project)
 	s.stopSocketBridges(oldContainerName)
+	s.stopPortBridges(oldContainerName)
 	s.StopSessionWatcher(project.ProjectID, project.AgentType)
 	if s.eventWatcher != nil {
 		s.eventWatcher.CleanupContainerDir(oldContainerName)

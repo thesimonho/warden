@@ -181,6 +181,10 @@ func (m *mockEngineClient) ExecSocatBridge(_ context.Context, _, _ string, _ int
 	return nil
 }
 
+func (m *mockEngineClient) ExecPortForward(_ context.Context, _ string, _ int) (engine.ExecStream, error) {
+	return engine.ExecStream{}, nil
+}
+
 func (m *mockEngineClient) KillSocatBridges(_ context.Context, _ string) error {
 	return nil
 }
