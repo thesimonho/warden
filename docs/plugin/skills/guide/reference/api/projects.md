@@ -275,6 +275,10 @@ Registers a host directory as a Warden project. Optionally creates a container i
 
     `object`
 
+  - **`forceReplace`**
+
+    `boolean` — ForceReplace removes an orphaned Warden-managed container that occupies the requested name. Without this flag, creation returns CONTAINER\_EXISTS.
+
   - **`forwardedPorts`**
 
     `array` — ForwardedPorts lists container ports to expose via the reverse proxy. Each port (1-65535) is accessible at http\://{projectId}-{agentType}-{port}.localhost:{serverPort}/

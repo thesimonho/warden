@@ -31,7 +31,8 @@ Every error response has the same shape:
 | `NOT_A_DIRECTORY` | 400 | Expected a directory, got a file | Host path points to a file instead of a directory |
 | `NOT_FOUND` | 404 | Resource does not exist | Project, container, or worktree not found for the given ID |
 | `BUDGET_EXCEEDED` | 403 | Cost budget exceeded, action blocked | Container restart blocked because `budgetActionPreventStart` is enabled and the project is over budget |
-| `NAME_TAKEN` | 409 | Name collision | Project or container name already in use by another resource |
+| `NAME_TAKEN` | 409 | Name collision | Project or container name already in use by a non-Warden container |
+| `CONTAINER_EXISTS` | 409 | Warden container already exists | A Warden-managed container already occupies the name. Use the pre-flight `POST /api/v1/containers/check-name` endpoint to detect this before creation, or retry with `forceReplace: true` to replace it |
 | `STALE_MOUNTS` | 409 | Mount sources have moved or been deleted | One or more bind mount source paths no longer exist on the host |
 | `NOT_CONFIGURED` | 503 | Container runtime not available | Docker is not running or not found on the system |
 | `INTERNAL` | 500 | Unexpected server error | Catch-all for unclassified errors. Check server logs for details. |
