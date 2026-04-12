@@ -105,8 +105,10 @@ install_claude() {
   fi
 
   # Run the installer as the warden user. Pass the version so it uses
-  # the local binary instead of trying to download "latest".
-  gosu warden "$cache_bin" install "$version" 2>/dev/null || {
+  # the local binary instead of trying to download "latest". Include
+  # ~/.local/bin in PATH so the installer's post-install PATH check
+  # passes (gosu's clean env doesn't inherit shell profile PATH).
+  PATH="/home/warden/.local/bin:$PATH" gosu warden "$cache_bin" install "$version" >/dev/null 2>&1 || {
     echo "[warden] ERROR: Claude Code install command failed" >&2
     return 1
   }

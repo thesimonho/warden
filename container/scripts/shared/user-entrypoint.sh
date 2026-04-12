@@ -132,7 +132,7 @@ for config_dir in /home/warden/.claude /home/warden/.codex; do
     [ -f "$target" ] || continue
     target_dir=$(dirname "$target")
     if [ ! -w "$target_dir" ]; then
-      echo "[warden] warning: skipping symlink dereference for $(basename "$link") — target is in read-only directory $target_dir (overlay mount may be missing)" >&2
+      echo "[warden] info: skipping symlink dereference for $(basename "$link") — target is in read-only directory $target_dir (host uses a read-only config manager like nix/home-manager; settings will be used as-is via symlink)" >&2
       continue
     fi
     cp --remove-destination "$target" "$link" 2>/dev/null || true
