@@ -418,6 +418,7 @@ func (s *Service) StopProject(
 	}
 
 	s.stopSocketBridges(containerName)
+	s.stopPortBridges(containerName)
 	s.StopSessionWatcher(project.ProjectID, project.AgentType)
 
 	if s.store != nil {

@@ -25,14 +25,14 @@ type proxyKey struct {
 	port      int
 }
 
-// cachedProxy holds a reverse proxy transport and the container IP it was
-// created for. When the container IP changes (e.g. after a restart), the
-// cached entry is replaced. The transport is shared across requests to
-// enable HTTP connection reuse.
+// cachedProxy holds a reverse proxy transport and the target address it
+// was created for. When the target changes (e.g. container restart on
+// native Docker, or new bridge port on Desktop), the cached entry is
+// replaced. The transport is shared across requests for connection reuse.
 type cachedProxy struct {
-	containerIP string
-	target      *url.URL
-	transport   http.RoundTripper
+	targetAddr string // "host:port" used for staleness check
+	target     *url.URL
+	transport  http.RoundTripper
 }
 
 // proxyRouter intercepts requests to {projectId}-{agentType}-{port}.localhost
@@ -48,7 +48,7 @@ type proxyRouter struct {
 
 // proxyService is the subset of service.Service needed by the proxy router.
 type proxyService interface {
-	ProxyPort(ctx context.Context, projectID, agentType string, port int) (string, error)
+	ProxyPort(ctx context.Context, projectID, agentType string, port int) (string, int, error)
 }
 
 // newProxyRouter wraps an http.Handler with subdomain-based port forwarding.
@@ -91,7 +91,7 @@ func (pr *proxyRouter) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	containerIP, err := pr.svc.ProxyPort(r.Context(), projectID, agentType, port)
+	targetHost, targetPort, err := pr.svc.ProxyPort(r.Context(), projectID, agentType, port)
 	if err != nil {
 		if writeServiceError(w, err) {
 			return
@@ -100,7 +100,7 @@ func (pr *proxyRouter) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	cached := pr.getOrCreateProxy(projectID, agentType, port, containerIP)
+	cached := pr.getOrCreateProxy(projectID, agentType, port, targetHost, targetPort)
 
 	proxy := &httputil.ReverseProxy{
 		Transport: cached.transport,
@@ -109,6 +109,10 @@ func (pr *proxyRouter) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			pr.Out.URL.Path = r.URL.Path
 			pr.Out.URL.RawQuery = r.URL.RawQuery
 			pr.Out.Host = cached.target.Host
+			// Preserve the original browser Host so upstream CSRF
+			// checks (e.g. Next.js Server Actions) see the proxy
+			// hostname, not the internal backend address.
+			pr.Out.Header.Set("X-Forwarded-Host", r.Host)
 		},
 		ErrorHandler: func(rw http.ResponseWriter, _ *http.Request, proxyErr error) {
 			slog.Warn("proxy error", "project", projectID, "port", port, "err", proxyErr)
@@ -156,24 +160,28 @@ func parseProxySubdomain(subdomain string) (projectID, agentType string, port in
 	return projectID, agentType, port, true
 }
 
-// getOrCreateProxy returns a cached transport and target URL for the given
-// container, creating one if the cache is empty or the container IP has
-// changed.
-func (pr *proxyRouter) getOrCreateProxy(projectID, agentType string, port int, containerIP string) *cachedProxy {
-	key := proxyKey{projectID: projectID, agentType: agentType, port: port}
+// getOrCreateProxy returns a cached transport and target URL for the
+// given project port, creating one if the cache is empty or the target
+// address has changed (e.g. container restart or new bridge port).
+// containerPort is the stable port from the subdomain (used as cache
+// key); targetHost:targetPort is the actual backend address (which may
+// differ on Docker Desktop where an ephemeral bridge port is used).
+func (pr *proxyRouter) getOrCreateProxy(projectID, agentType string, containerPort int, targetHost string, targetPort int) *cachedProxy {
+	key := proxyKey{projectID: projectID, agentType: agentType, port: containerPort}
+	addr := fmt.Sprintf("%s:%d", targetHost, targetPort)
 
 	pr.mu.Lock()
 	defer pr.mu.Unlock()
 
-	if cached, ok := pr.cache[key]; ok && cached.containerIP == containerIP {
+	if cached, ok := pr.cache[key]; ok && cached.targetAddr == addr {
 		return cached
 	}
 
-	target, _ := url.Parse(fmt.Sprintf("http://%s:%d", containerIP, port))
+	target, _ := url.Parse(fmt.Sprintf("http://%s", addr))
 	cached := &cachedProxy{
-		containerIP: containerIP,
-		target:      target,
-		transport:   http.DefaultTransport,
+		targetAddr: addr,
+		target:     target,
+		transport:  http.DefaultTransport,
 	}
 	pr.cache[key] = cached
 	return cached

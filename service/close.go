@@ -6,6 +6,7 @@ import "context"
 func (s *Service) Close() {
 	s.StopAllSessionWatchers()
 	s.stopAllSocketBridges()
+	s.stopAllPortBridges()
 
 	// Clean up the bridge firewall chain on the host. No-op on Docker
 	// Desktop. Errors are logged but don't block shutdown.
