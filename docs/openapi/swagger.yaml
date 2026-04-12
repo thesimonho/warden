@@ -1235,12 +1235,14 @@ components:
       - STALE_MOUNTS
       - BUDGET_EXCEEDED
       - PROXY_ERROR
+      - NO_EDITOR
       - INTERNAL
       type: string
       x-enum-comments:
         ErrCodeBudgetExceeded: "403"
         ErrCodeInternal: "500"
         ErrCodeNameTaken: "409"
+        ErrCodeNoEditor: "422"
         ErrCodeNotConfigured: "503"
         ErrCodeNotFound: "404"
         ErrCodeProxyError: "502"
@@ -1261,6 +1263,7 @@ components:
       - ErrCodeStaleMounts
       - ErrCodeBudgetExceeded
       - ErrCodeProxyError
+      - ErrCodeNoEditor
       - ErrCodeInternal
     server.apiError:
       properties:
@@ -1290,10 +1293,10 @@ components:
           example: v0.5.2
           type: string
       type: object
-    server.revealRequest:
+    server.hostPathRequest:
       properties:
         path:
-          description: Path is the absolute host directory path to open.
+          description: Path is the absolute host directory path to act on.
           example: /home/user/projects
           type: string
       type: object
@@ -2091,6 +2094,51 @@ paths:
       summary: List filesystem entries
       tags:
       - host
+  /api/v1/filesystem/editor:
+    post:
+      description: Opens the given host directory in the user's preferred code editor
+        ($VISUAL, $EDITOR, or a well-known editor CLI).
+      requestBody:
+        content:
+          application/json:
+            schema:
+              oneOf:
+              - type: object
+              - $ref: '#/components/schemas/server.hostPathRequest'
+                description: Directory path to open
+                summary: body
+        description: Directory path to open
+        required: true
+      responses:
+        "204":
+          description: Editor launched
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/server.apiError'
+          description: Bad Request
+        "404":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/server.apiError'
+          description: Path not found
+        "422":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/server.apiError'
+          description: No editor found
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/server.apiError'
+          description: Internal Server Error
+      summary: Open in editor
+      tags:
+      - host
   /api/v1/filesystem/reveal:
     post:
       description: Opens the given host directory in the system file manager (Finder,
@@ -2101,7 +2149,7 @@ paths:
             schema:
               oneOf:
               - type: object
-              - $ref: '#/components/schemas/server.revealRequest'
+              - $ref: '#/components/schemas/server.hostPathRequest'
                 description: Directory path to reveal
                 summary: body
         description: Directory path to reveal
