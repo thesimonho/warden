@@ -117,6 +117,14 @@ export function useProjects(pollIntervalMs = DEFAULT_POLL_INTERVAL_MS): UseProje
     })
   }, [])
 
+  /** Refetches the project list when a container starts, stops, or is deleted. */
+  const handleContainerStateChanged = useCallback(
+    () => {
+      refetch()
+    },
+    [refetch],
+  )
+
   /** Shows a toast when a project exceeds its cost budget. */
   const handleBudgetExceeded = useCallback(
     (event: BudgetExceededEvent) => {
@@ -229,6 +237,7 @@ export function useProjects(pollIntervalMs = DEFAULT_POLL_INTERVAL_MS): UseProje
   useEventSource({
     onProjectState: handleProjectState,
     onBudgetExceeded: handleBudgetExceeded,
+    onContainerStateChanged: handleContainerStateChanged,
     onRuntimeStatus: handleRuntimeStatus,
     onAgentStatus: handleAgentStatus,
   })

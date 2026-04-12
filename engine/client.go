@@ -582,7 +582,7 @@ func (ec *EngineClient) StopProject(ctx context.Context, id string) error {
 //
 // originalMounts are the pre-symlink-resolution mount specs from the DB.
 // When nil, mount validation is skipped (container predates the migration).
-func (ec *EngineClient) RestartProject(ctx context.Context, id string, originalMounts []api.Mount, networkMode string, allowedDomains []string) error {
+func (ec *EngineClient) RestartProject(ctx context.Context, id string, originalMounts []api.Mount) error {
 	if err := ec.validateMountSources(ctx, id, originalMounts); err != nil {
 		return err
 	}
@@ -595,25 +595,30 @@ func (ec *EngineClient) RestartProject(ctx context.Context, id string, originalM
 		return fmt.Errorf("restarting container %s: %w", id, err)
 	}
 
-	// Re-apply network isolation after restart. Iptables rules are lost
-	// when the container stops, so they must be re-established. Wait for
-	// installs to complete first — the entrypoint needs unrestricted
-	// network for agent CLI and runtime downloads, and the previous
-	// dnsmasq instance needs time to fully exit.
-	if networkMode != "" && api.NetworkMode(networkMode) != api.NetworkModeFull {
-		installCtx, installCancel := context.WithTimeout(ctx, 5*time.Minute)
-		if err := ec.WaitForInstalls(installCtx, id); err != nil {
-			slog.Warn("timed out waiting for installs on restart, applying network isolation anyway",
-				"id", id, "err", err)
-		}
-		installCancel()
-		if err := ec.ApplyNetworkIsolation(ctx, id, networkMode, allowedDomains); err != nil {
-			return fmt.Errorf("re-applying network isolation after restart: %w", err)
-		}
-	}
-
 	slog.Info("restarted project", "id", id)
 	return nil
+}
+
+// ReapplyNetworkIsolation waits for agent/runtime installs to finish, then
+// re-applies iptables rules. Iptables rules are lost when the container stops,
+// so they must be re-established after every restart. The install wait ensures
+// the entrypoint has unrestricted network for downloads before rules are applied.
+func (ec *EngineClient) ReapplyNetworkIsolation(ctx context.Context, id, networkMode string, allowedDomains []string) {
+	if networkMode == "" || api.NetworkMode(networkMode) == api.NetworkModeFull {
+		return
+	}
+
+	installCtx, installCancel := context.WithTimeout(ctx, 5*time.Minute)
+	if err := ec.WaitForInstalls(installCtx, id); err != nil {
+		slog.Warn("timed out waiting for installs on restart, applying network isolation anyway",
+			"id", id, "err", err)
+	}
+	installCancel()
+
+	if err := ec.ApplyNetworkIsolation(ctx, id, networkMode, allowedDomains); err != nil {
+		slog.Error("re-applying network isolation after restart",
+			"id", id, "err", err)
+	}
 }
 
 // validateMountSources re-resolves the original mount specs and compares

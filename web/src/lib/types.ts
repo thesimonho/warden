@@ -592,6 +592,17 @@ export interface BudgetContainerStoppedEvent extends BudgetEventPayload {
   containerId: string
 }
 
+/** Container lifecycle action from `container_state_changed` SSE events. */
+export type ContainerStateAction = 'created' | 'started' | 'stopped' | 'deleted'
+
+/** Payload for `container_state_changed` SSE events. */
+export interface ContainerStateChangedEvent {
+  projectId: string
+  agentType?: string
+  containerName: string
+  action: ContainerStateAction
+}
+
 /** Source layer that produced an audit log entry. */
 export type AuditLogSource = 'agent' | 'backend' | 'frontend' | 'container'
 

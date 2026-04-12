@@ -37,6 +37,7 @@ import type {
   WorktreeListChangedEvent,
   BudgetExceededEvent,
   BudgetContainerStoppedEvent,
+  ContainerStateChangedEvent,
   ViewerFocusEvent,
 } from '@/lib/types'
 
@@ -209,6 +210,9 @@ export interface AgentStatusEvent {
 /** Callback for agent_status SSE events. */
 export type AgentStatusHandler = (event: AgentStatusEvent) => void
 
+/** Callback for container_state_changed SSE events. */
+export type ContainerStateChangedHandler = (event: ContainerStateChangedEvent) => void
+
 /** Callback for viewer_focus SSE events. */
 export type ViewerFocusHandler = (event: ViewerFocusEvent) => void
 
@@ -228,6 +232,8 @@ interface UseEventSourceOptions {
   onRuntimeStatus?: RuntimeStatusHandler
   /** Handler for agent_status events (agent CLI install progress). */
   onAgentStatus?: AgentStatusHandler
+  /** Handler for container_state_changed events (container lifecycle). */
+  onContainerStateChanged?: ContainerStateChangedHandler
   /** Handler for viewer_focus events (viewer focus state changes). */
   onViewerFocus?: ViewerFocusHandler
 }
@@ -262,6 +268,7 @@ export function useEventSource(options: UseEventSourceOptions): EventSourceStatu
   const onBudgetContainerStoppedRef = useRef(options.onBudgetContainerStopped)
   const onRuntimeStatusRef = useRef(options.onRuntimeStatus)
   const onAgentStatusRef = useRef(options.onAgentStatus)
+  const onContainerStateChangedRef = useRef(options.onContainerStateChanged)
   const onViewerFocusRef = useRef(options.onViewerFocus)
 
   // Keep refs current without re-subscribing.
@@ -273,6 +280,7 @@ export function useEventSource(options: UseEventSourceOptions): EventSourceStatu
     onBudgetContainerStoppedRef.current = options.onBudgetContainerStopped
     onRuntimeStatusRef.current = options.onRuntimeStatus
     onAgentStatusRef.current = options.onAgentStatus
+    onContainerStateChangedRef.current = options.onContainerStateChanged
     onViewerFocusRef.current = options.onViewerFocus
   }, [
     options.onWorktreeState,
@@ -282,6 +290,7 @@ export function useEventSource(options: UseEventSourceOptions): EventSourceStatu
     options.onBudgetContainerStopped,
     options.onRuntimeStatus,
     options.onAgentStatus,
+    options.onContainerStateChanged,
     options.onViewerFocus,
   ])
 
@@ -304,6 +313,7 @@ export function useEventSource(options: UseEventSourceOptions): EventSourceStatu
     const handleBudgetContainerStopped = makeSSEHandler(onBudgetContainerStoppedRef)
     const handleRuntimeStatus = makeSSEHandler(onRuntimeStatusRef)
     const handleAgentStatus = makeSSEHandler(onAgentStatusRef)
+    const handleContainerStateChanged = makeSSEHandler(onContainerStateChangedRef)
     const handleViewerFocus = makeSSEHandler(onViewerFocusRef)
 
     // We need to listen on the current source AND any future reconnected sources.
@@ -317,6 +327,7 @@ export function useEventSource(options: UseEventSourceOptions): EventSourceStatu
       src.addEventListener('budget_container_stopped', handleBudgetContainerStopped)
       src.addEventListener('runtime_status', handleRuntimeStatus)
       src.addEventListener('agent_status', handleAgentStatus)
+      src.addEventListener('container_state_changed', handleContainerStateChanged)
       src.addEventListener('viewer_focus', handleViewerFocus)
     }
 
@@ -328,6 +339,7 @@ export function useEventSource(options: UseEventSourceOptions): EventSourceStatu
       src.removeEventListener('budget_container_stopped', handleBudgetContainerStopped)
       src.removeEventListener('runtime_status', handleRuntimeStatus)
       src.removeEventListener('agent_status', handleAgentStatus)
+      src.removeEventListener('container_state_changed', handleContainerStateChanged)
       src.removeEventListener('viewer_focus', handleViewerFocus)
     }
 
