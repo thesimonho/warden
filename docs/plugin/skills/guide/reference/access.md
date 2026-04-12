@@ -24,13 +24,13 @@ Each credential has one or more **sources** (tried in order; first detected wins
 
 ### Source types
 
-| Type          | Value field contains        | Use case                            |
-| ------------- | --------------------------- | ----------------------------------- |
-| `env`         | Environment variable name   | Tokens and API keys in your shell   |
-| `file`        | Absolute file path          | Config files, certificates          |
-| `socket`      | Socket path (or env var)    | SSH agent, Docker socket            |
-| `named_pipe`  | Windows named pipe path     | SSH agent on Windows                |
-| `command`     | Shell command string        | Tokens in keychains, dynamic values |
+| Type         | Value field contains      | Use case                            |
+| ------------ | ------------------------- | ----------------------------------- |
+| `env`        | Environment variable name | Tokens and API keys in your shell   |
+| `file`       | Absolute file path        | Config files, certificates          |
+| `socket`     | Socket path (or env var)  | SSH agent, Docker socket            |
+| `named_pipe` | Windows named pipe path   | SSH agent on Windows                |
+| `command`    | Shell command string      | Tokens in keychains, dynamic values |
 
 Sources are tried in declaration order. The first one where the value is detected on the host is used. Remaining sources are skipped. The `named_pipe` type is only available on Windows -- it is used by the built-in SSH item to detect the OpenSSH agent named pipe (`\\.\pipe\openssh-ssh-agent`).
 
@@ -63,6 +63,9 @@ Mounts your host `.gitconfig` (read-only) so git commands inside the container u
 - Looks for `~/.gitconfig` or `~/.config/git/config` (first found wins)
 - Mounts read-only at `/home/warden/.gitconfig.host`
 - The container entrypoint includes it via `git config --global include.path`
+- Automatically discovers `include` and `includeIf` directives and mounts referenced files under `/home/warden/.gitconfig.d/` (paths in the gitconfig are rewritten to point to the container locations). Missing include files are silently skipped. Symlinked files (e.g. Nix Home Manager) are resolved before mounting.
+
+This supports multi-identity setups (e.g. `includeIf "hasconfig:remote.*.url:..."` for personal vs work email) without manual configuration.
 
 The Git item only handles git configuration (identity, aliases, settings). For SSH-based git authentication, use the SSH item.
 

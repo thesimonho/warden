@@ -7,6 +7,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"os"
+	"path/filepath"
 
 	"github.com/thesimonho/warden/access"
 	"github.com/thesimonho/warden/api"
@@ -349,8 +351,21 @@ func (s *Service) ResolveAccessItemsForContainer(req *api.CreateContainerRequest
 				case access.InjectionEnvVar:
 					req.EnvVars[inj.Key] = inj.Value
 				case access.InjectionMountFile:
+					hostPath := inj.Value
+					if inj.Content != "" {
+						// The transform rewrote the file content (e.g. git
+						// include paths). Write to a temp file so Docker
+						// can bind-mount it instead of the original.
+						tmpPath, writeErr := writeContentTempFile(inj.Content)
+						if writeErr != nil {
+							slog.Warn("failed to write content temp file for access item mount",
+								"containerPath", inj.Key, "err", writeErr)
+						} else {
+							hostPath = tmpPath
+						}
+					}
 					req.Mounts = append(req.Mounts, api.Mount{
-						HostPath:      inj.Value,
+						HostPath:      hostPath,
 						ContainerPath: inj.Key,
 						ReadOnly:      inj.ReadOnly,
 					})
@@ -463,4 +478,41 @@ func generateID() string {
 	b := make([]byte, 8)
 	_, _ = rand.Read(b)
 	return hex.EncodeToString(b)
+}
+
+// writeContentTempFile writes content to a temporary file and returns
+// its path. Used when a transform rewrites file content (e.g. git
+// include path rewriting) and the rewritten content needs to be
+// bind-mounted instead of the original host file.
+//
+// Files are written under ~/.config/warden/tmp/ instead of /tmp
+// because Docker Desktop only bind-mounts paths under the user's
+// home directory by default — /tmp is not in the shared file list.
+func writeContentTempFile(content string) (string, error) {
+	configDir, err := os.UserConfigDir()
+	if err != nil {
+		return "", fmt.Errorf("resolving config dir: %w", err)
+	}
+	tmpDir := filepath.Join(configDir, "warden", "tmp")
+	if err := os.MkdirAll(tmpDir, 0o700); err != nil {
+		return "", fmt.Errorf("creating temp dir: %w", err)
+	}
+
+	f, err := os.CreateTemp(tmpDir, "warden-gitconfig-*")
+	if err != nil {
+		return "", fmt.Errorf("creating temp file: %w", err)
+	}
+
+	if _, err := f.WriteString(content); err != nil {
+		_ = f.Close()
+		_ = os.Remove(f.Name())
+		return "", fmt.Errorf("writing temp file: %w", err)
+	}
+
+	if err := f.Close(); err != nil {
+		_ = os.Remove(f.Name())
+		return "", fmt.Errorf("closing temp file: %w", err)
+	}
+
+	return f.Name(), nil
 }

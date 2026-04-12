@@ -154,6 +154,12 @@ type ResolvedInjection struct {
 	Value string `json:"value"`
 	// ReadOnly applies to mount injections.
 	ReadOnly bool `json:"readOnly,omitempty"`
+	// Content, when non-empty, holds file content to mount instead of
+	// using Value as a host path. The service layer writes this to a
+	// temp file before creating the bind mount. Only used with
+	// InjectionMountFile when a transform rewrites file content
+	// (e.g. git include path rewriting).
+	Content string `json:"content,omitempty"`
 }
 
 // ResolvedCredential holds the resolution output for a single credential.

@@ -2,8 +2,11 @@
 paths:
   - "service/**/*"
   - "db/**/*"
+  - "agent/**/*"
   - "eventbus/**/*"
   - "internal/server/**/*"
+  - "internal/tui/**/cost*"
+  - "internal/tui/**/budget*"
   - "api/**/*"
   - "web/src/**/cost*"
   - "web/src/**/budget*"

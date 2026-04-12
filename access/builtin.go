@@ -10,6 +10,17 @@ const (
 	BuiltInIDGPG = "gpg"
 )
 
+// ContainerGitConfigHostPath is the container path where the host's
+// gitconfig is mounted. Used by the entrypoint to set up
+// `git config --global include.path` and by the TransformGitInclude
+// transform to produce content-bearing injections.
+const ContainerGitConfigHostPath = constants.ContainerHomeDir + "/.gitconfig.host"
+
+// ContainerGitIncludeDir is the directory inside the container where
+// git include files from the host are mounted. The TransformGitInclude
+// transform rewrites include paths to point here.
+const ContainerGitIncludeDir = constants.ContainerHomeDir + "/.gitconfig.d"
+
 // ContainerSSHAgentPath is the fixed path where the SSH agent socket
 // appears inside the container. The entrypoint's socat process creates
 // this socket and forwards connections to the host via the TCP bridge.
@@ -55,7 +66,7 @@ func BuiltInGit() Item {
 				Injections: []Injection{
 					{
 						Type:     InjectionMountFile,
-						Key:      constants.ContainerHomeDir + "/.gitconfig.host",
+						Key:      ContainerGitConfigHostPath,
 						ReadOnly: true,
 					},
 				},

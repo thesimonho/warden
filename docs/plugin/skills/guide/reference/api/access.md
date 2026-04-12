@@ -1074,6 +1074,10 @@ Resolves the given access items by checking host sources and computing the injec
 
       **Items:**
 
+      - **`content`**
+
+        `string` — Content, when non-empty, holds file content to mount instead of using Value as a host path. The service layer writes this to a temp file before creating the bind mount. Only used with InjectionMountFile when a transform rewrites file content (e.g. git include path rewriting).
+
       - **`key`**
 
         `string` — Key is the env var name or container path.
@@ -1121,6 +1125,7 @@ Resolves the given access items by checking host sources and computing the injec
           "error": "",
           "injections": [
             {
+              "content": "",
               "key": "",
               "readOnly": true,
               "type": "env",

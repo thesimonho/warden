@@ -4,9 +4,11 @@ paths:
   - "service/**/*"
   - "internal/server/**/*"
   - "api/**/*"
+  - "agent/**/*"
   - "eventbus/**/*"
   - "container/scripts/**/*"
   - "web/src/**/audit*"
+  - "internal/tui/**/audit*"
 ---
 
 # Audit System
@@ -29,11 +31,11 @@ Supports `source` (agent/backend/frontend/container/external) and `level` (info/
 
 `auditLogMode` setting (off/standard/detailed) controls what events are written to the audit DB. All audit writes MUST go through a single `db.AuditWriter` interface that enforces mode filtering via a `standardEvents` allowlist before writing to the `events` SQLite table.
 
-| Mode         | What gets written                                                            |
-| ------------ | ---------------------------------------------------------------------------- |
-| **Off**      | No events written                                                            |
+| Mode         | What gets written                                                                     |
+| ------------ | ------------------------------------------------------------------------------------- |
+| **Off**      | No events written                                                                     |
 | **Standard** | Session lifecycle, budget enforcement, system events, frontend/external-posted events |
-| **Detailed** | Standard + agent events, prompt, config, debug                               |
+| **Detailed** | Standard + agent events, prompt, config, debug                                        |
 
 The `AuditWriter` is the only path for audit log writes; direct `db.Store.Write()` calls for audit events are prohibited. Settings endpoint returns `auditLogMode` string.
 

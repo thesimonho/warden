@@ -71,6 +71,9 @@ Mounts your host `.gitconfig` (read-only) so git commands inside the container u
 - Looks for `~/.gitconfig` or `~/.config/git/config` (first found wins)
 - Mounts it read-only at `/home/warden/.gitconfig.host`
 - The container entrypoint includes it via `git config --global include.path`
+- Automatically discovers `include` and `includeIf` directives in your gitconfig and mounts the referenced files into the container under `/home/warden/.gitconfig.d/`. Include paths in the mounted gitconfig are rewritten to point to the container locations. Missing include files are silently skipped.
+
+This means setups that use conditional includes for multiple identities (e.g. personal vs work email based on remote URL) work automatically inside containers — no manual configuration needed. Symlinked include files (common with Nix Home Manager) are resolved to their real paths before mounting.
 
 **When to enable:** Always, unless you want the container to use a different git identity.
 

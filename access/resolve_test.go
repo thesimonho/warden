@@ -4,6 +4,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -724,3 +725,293 @@ func TestDetect_WithCustomEnvResolver(t *testing.T) {
 		t.Fatal("expected credential to be available via custom resolver")
 	}
 }
+
+func TestResolve_GitInclude_WithIncludes(t *testing.T) {
+	dir := t.TempDir()
+
+	// Create include files.
+	identityPersonal := filepath.Join(dir, "identity-personal")
+	if err := os.WriteFile(identityPersonal, []byte("[user]\n  email = me@example.com\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	identityWork := filepath.Join(dir, "identity-work")
+	if err := os.WriteFile(identityWork, []byte("[user]\n  email = me@work.com\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Create gitconfig with include directives.
+	gitconfig := filepath.Join(dir, ".gitconfig")
+	content := `[user]
+	name = Test User
+
+[includeIf "hasconfig:remote.*.url:git@github.com:*/**"]
+	path = ` + identityPersonal + `
+
+[includeIf "hasconfig:remote.*.url:git@work.com:*/**"]
+	path = ` + identityWork + `
+`
+	if err := os.WriteFile(gitconfig, []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	item := Item{
+		ID:     "git",
+		Label:  "Git",
+		Method: MethodTransport,
+		Credentials: []Credential{
+			{
+				Label:     "Git Config",
+				Sources:   []Source{{Type: SourceFilePath, Value: gitconfig}},
+				Transform: &Transform{Type: TransformGitInclude},
+				Injections: []Injection{
+					{Type: InjectionMountFile, Key: ContainerGitConfigHostPath, ReadOnly: true},
+				},
+			},
+		},
+	}
+
+	result, err := Resolve(item, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	cred := result.Credentials[0]
+	if !cred.Resolved {
+		t.Fatal("expected credential to be resolved")
+	}
+
+	// Expect 3 injections: main gitconfig (with Content) + 2 include files.
+	if len(cred.Injections) != 3 {
+		t.Fatalf("expected 3 injections, got %d: %+v", len(cred.Injections), cred.Injections)
+	}
+
+	// First injection: main gitconfig with rewritten content.
+	main := cred.Injections[0]
+	if main.Key != ContainerGitConfigHostPath {
+		t.Errorf("expected main mount key %s, got %s", ContainerGitConfigHostPath, main.Key)
+	}
+	if main.Content == "" {
+		t.Fatal("expected main injection to have rewritten Content")
+	}
+	if main.Value != gitconfig {
+		t.Errorf("expected main injection Value to be host path %s, got %s", gitconfig, main.Value)
+	}
+
+	// Verify the rewritten content contains container paths.
+	if !strings.Contains(main.Content, ContainerGitIncludeDir) {
+		t.Errorf("rewritten content should reference %s, got:\n%s", ContainerGitIncludeDir, main.Content)
+	}
+	// Verify the original host paths are NOT in the rewritten content.
+	if strings.Contains(main.Content, identityPersonal) {
+		t.Error("rewritten content should not contain original host path")
+	}
+
+	// Second and third: include file mounts.
+	for _, inj := range cred.Injections[1:] {
+		if inj.Type != InjectionMountFile {
+			t.Errorf("expected mount_file, got %s", inj.Type)
+		}
+		if !inj.ReadOnly {
+			t.Error("expected include file mount to be read-only")
+		}
+		if inj.Content != "" {
+			t.Error("include file mounts should not have Content set")
+		}
+	}
+}
+
+func TestResolve_GitInclude_NoIncludes(t *testing.T) {
+	dir := t.TempDir()
+	gitconfig := filepath.Join(dir, ".gitconfig")
+	if err := os.WriteFile(gitconfig, []byte("[user]\n\tname = Test\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	item := Item{
+		ID:     "git",
+		Label:  "Git",
+		Method: MethodTransport,
+		Credentials: []Credential{
+			{
+				Label:     "Git Config",
+				Sources:   []Source{{Type: SourceFilePath, Value: gitconfig}},
+				Transform: &Transform{Type: TransformGitInclude},
+				Injections: []Injection{
+					{Type: InjectionMountFile, Key: ContainerGitConfigHostPath, ReadOnly: true},
+				},
+			},
+		},
+	}
+
+	result, err := Resolve(item, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	cred := result.Credentials[0]
+	if !cred.Resolved {
+		t.Fatal("expected credential to be resolved")
+	}
+
+	// No includes → single injection, no Content rewriting.
+	if len(cred.Injections) != 1 {
+		t.Fatalf("expected 1 injection, got %d", len(cred.Injections))
+	}
+	if cred.Injections[0].Content != "" {
+		t.Error("expected no Content for gitconfig without includes")
+	}
+}
+
+func TestResolve_GitInclude_MissingIncludeFile(t *testing.T) {
+	dir := t.TempDir()
+	gitconfig := filepath.Join(dir, ".gitconfig")
+	content := "[include]\n\tpath = /nonexistent/identity\n"
+	if err := os.WriteFile(gitconfig, []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	item := Item{
+		ID:     "git",
+		Label:  "Git",
+		Method: MethodTransport,
+		Credentials: []Credential{
+			{
+				Label:     "Git Config",
+				Sources:   []Source{{Type: SourceFilePath, Value: gitconfig}},
+				Transform: &Transform{Type: TransformGitInclude},
+				Injections: []Injection{
+					{Type: InjectionMountFile, Key: ContainerGitConfigHostPath, ReadOnly: true},
+				},
+			},
+		},
+	}
+
+	result, err := Resolve(item, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	cred := result.Credentials[0]
+	if !cred.Resolved {
+		t.Fatal("expected credential to be resolved")
+	}
+
+	// Missing include file → no extra injections, no content rewriting.
+	if len(cred.Injections) != 1 {
+		t.Fatalf("expected 1 injection (missing includes skipped), got %d", len(cred.Injections))
+	}
+	if cred.Injections[0].Content != "" {
+		t.Error("expected no Content when all includes are missing")
+	}
+}
+
+func TestResolve_GitInclude_PartiallyMissing(t *testing.T) {
+	dir := t.TempDir()
+
+	// Only create one of two include files.
+	identityPersonal := filepath.Join(dir, "identity-personal")
+	if err := os.WriteFile(identityPersonal, []byte("[user]\n  email = me@example.com\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	gitconfig := filepath.Join(dir, ".gitconfig")
+	content := `[include]
+	path = ` + identityPersonal + `
+
+[include]
+	path = /nonexistent/identity-work
+`
+	if err := os.WriteFile(gitconfig, []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	item := Item{
+		ID:     "git",
+		Label:  "Git",
+		Method: MethodTransport,
+		Credentials: []Credential{
+			{
+				Label:     "Git Config",
+				Sources:   []Source{{Type: SourceFilePath, Value: gitconfig}},
+				Transform: &Transform{Type: TransformGitInclude},
+				Injections: []Injection{
+					{Type: InjectionMountFile, Key: ContainerGitConfigHostPath, ReadOnly: true},
+				},
+			},
+		},
+	}
+
+	result, err := Resolve(item, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	cred := result.Credentials[0]
+	// Main gitconfig (with Content) + 1 existing include file.
+	if len(cred.Injections) != 2 {
+		t.Fatalf("expected 2 injections, got %d", len(cred.Injections))
+	}
+
+	// The rewritten content should only rewrite the existing include's path.
+	main := cred.Injections[0]
+	if main.Content == "" {
+		t.Fatal("expected Content on main injection")
+	}
+	// The nonexistent path should be unchanged in the rewritten content.
+	if !strings.Contains(main.Content, "/nonexistent/identity-work") {
+		t.Error("expected nonexistent path to remain unchanged in rewritten content")
+	}
+}
+
+func TestResolve_GitInclude_SymlinkedInclude(t *testing.T) {
+	dir := t.TempDir()
+
+	// Create the real file and a symlink to it.
+	realFile := filepath.Join(dir, "real-identity")
+	if err := os.WriteFile(realFile, []byte("[user]\n  email = me@example.com\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	symlink := filepath.Join(dir, "identity-link")
+	if err := os.Symlink(realFile, symlink); err != nil {
+		t.Fatal(err)
+	}
+
+	gitconfig := filepath.Join(dir, ".gitconfig")
+	content := "[include]\n\tpath = " + symlink + "\n"
+	if err := os.WriteFile(gitconfig, []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	item := Item{
+		ID:     "git",
+		Label:  "Git",
+		Method: MethodTransport,
+		Credentials: []Credential{
+			{
+				Label:     "Git Config",
+				Sources:   []Source{{Type: SourceFilePath, Value: gitconfig}},
+				Transform: &Transform{Type: TransformGitInclude},
+				Injections: []Injection{
+					{Type: InjectionMountFile, Key: ContainerGitConfigHostPath, ReadOnly: true},
+				},
+			},
+		},
+	}
+
+	result, err := Resolve(item, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	cred := result.Credentials[0]
+	if len(cred.Injections) != 2 {
+		t.Fatalf("expected 2 injections, got %d", len(cred.Injections))
+	}
+
+	// The include file mount should use the resolved (real) path.
+	includeInj := cred.Injections[1]
+	if includeInj.Value != realFile {
+		t.Errorf("expected resolved path %s, got %s", realFile, includeInj.Value)
+	}
+}
+

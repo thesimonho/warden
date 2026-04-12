@@ -142,6 +142,14 @@ components:
       type: object
     access.ResolvedInjection:
       properties:
+        content:
+          description: |-
+            Content, when non-empty, holds file content to mount instead of
+            using Value as a host path. The service layer writes this to a
+            temp file before creating the bind mount. Only used with
+            InjectionMountFile when a transform rewrites file content
+            (e.g. git include path rewriting).
+          type: string
         key:
           description: Key is the env var name or container path.
           type: string
