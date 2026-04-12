@@ -486,7 +486,7 @@ func (s *Service) RestartProject(
 	// waits for installs and applies it.
 	s.recentlyCreated.Store(project.ContainerID, true)
 
-	if err := s.docker.RestartProject(ctx, project.ContainerID, originalMounts, project.NetworkMode, domains); err != nil {
+	if err := s.docker.RestartProject(ctx, project.ContainerID, originalMounts); err != nil {
 		var staleErr *engine.StaleMountsError
 		if errors.As(err, &staleErr) {
 			s.audit.Write(db.Entry{
@@ -504,6 +504,20 @@ func (s *Service) RestartProject(
 	}
 	s.StopSessionWatcher(project.ProjectID, project.AgentType)
 	s.startProjectWatcher(project.ProjectID, containerName, project.AgentType)
+
+	// Broadcast immediately so the frontend updates the project card state
+	// without waiting for post-restart work (installs, network isolation).
+	if s.store != nil {
+		s.store.BroadcastContainerStateChanged(event.ProjectRef{
+			ProjectID:     project.ProjectID,
+			AgentType:     project.AgentType,
+			ContainerName: containerName,
+		}, event.ContainerActionStarted)
+	}
+
+	// Network isolation runs in the background — it waits for installs
+	// (up to 5 min) and must not block the HTTP response.
+	go s.postRestartNetworkIsolation(project.ContainerID, project.NetworkMode, domains)
 
 	// Re-exec socat bridges after restart. Socat is in the base image
 	// and doesn't depend on agent CLI or runtime installs, so bridges
@@ -527,20 +541,19 @@ func (s *Service) RestartProject(
 		}()
 	}
 
-	if s.store != nil {
-		s.store.BroadcastContainerStateChanged(event.ProjectRef{
-			ProjectID:     project.ProjectID,
-			AgentType:     project.AgentType,
-			ContainerName: containerName,
-		}, event.ContainerActionStarted)
-	}
-
 	return &ProjectResult{
 		ProjectID:   project.ProjectID,
 		AgentType:   project.AgentType,
 		Name:        containerName,
 		ContainerID: project.ContainerID,
 	}, nil
+}
+
+// postRestartNetworkIsolation re-applies network isolation in the background
+// after a container restart. Uses context.Background() since the HTTP request
+// context is already done.
+func (s *Service) postRestartNetworkIsolation(containerID, networkMode string, domains []string) {
+	s.docker.ReapplyNetworkIsolation(context.Background(), containerID, networkMode, domains)
 }
 
 // applyDBMetadata merges database-stored project metadata onto a single project.

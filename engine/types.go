@@ -149,12 +149,15 @@ type Client interface {
 	// StopProject gracefully stops the container with the given ID.
 	StopProject(ctx context.Context, id string) error
 
-	// RestartProject restarts the container with the given ID and re-applies
-	// network isolation if needed. originalMounts are the pre-symlink-resolution
-	// mount specs from the DB, used to detect stale bind mounts before restarting.
-	// networkMode and allowedDomains are read from the DB so that network
-	// isolation can be re-applied after the container restarts.
-	RestartProject(ctx context.Context, id string, originalMounts []api.Mount, networkMode string, allowedDomains []string) error
+	// RestartProject restarts the container with the given ID. originalMounts
+	// are the pre-symlink-resolution mount specs from the DB, used to detect
+	// stale bind mounts before restarting. Network isolation is re-applied
+	// separately via ReapplyNetworkIsolation after the restart returns.
+	RestartProject(ctx context.Context, id string, originalMounts []api.Mount) error
+
+	// ReapplyNetworkIsolation waits for installs and re-applies iptables
+	// rules after a container restart. No-op for full network mode.
+	ReapplyNetworkIsolation(ctx context.Context, id, networkMode string, allowedDomains []string)
 
 	// CreateContainer creates and starts a new project container.
 	CreateContainer(ctx context.Context, req api.CreateContainerRequest) (string, error)

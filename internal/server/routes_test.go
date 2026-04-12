@@ -57,9 +57,11 @@ func (m *mockEngineClient) StopProject(_ context.Context, _ string) error {
 	return m.stopErr
 }
 
-func (m *mockEngineClient) RestartProject(_ context.Context, _ string, _ []api.Mount, _ string, _ []string) error {
+func (m *mockEngineClient) RestartProject(_ context.Context, _ string, _ []api.Mount) error {
 	return m.restartErr
 }
+
+func (m *mockEngineClient) ReapplyNetworkIsolation(_ context.Context, _, _ string, _ []string) {}
 
 func (m *mockEngineClient) CreateContainer(_ context.Context, _ api.CreateContainerRequest) (string, error) {
 	return m.containerID, m.containerErr
