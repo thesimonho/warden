@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.13.2](https://github.com/thesimonho/warden/compare/v1.13.1...v1.13.2) (2026-04-12)
+
+
+### Bug Fixes
+
+* label ephemeral containers and clean up orphans on startup ([#219](https://github.com/thesimonho/warden/issues/219)) ([a452346](https://github.com/thesimonho/warden/commit/a4523463b9ae13b2b67982355605b0ca053dfb80))
+* move toast close button to top-right ([#215](https://github.com/thesimonho/warden/issues/215)) ([96786b7](https://github.com/thesimonho/warden/commit/96786b7c998fdd1181c5b9c7788d1a7870815d31))
+* pre-flight container name check and dev mode suffix ([#220](https://github.com/thesimonho/warden/issues/220)) ([c22ebe6](https://github.com/thesimonho/warden/commit/c22ebe649fa12be3ee6e35c9791921b5d032e40a))
+* reduce noisy container startup warnings ([#217](https://github.com/thesimonho/warden/issues/217)) ([d962376](https://github.com/thesimonho/warden/commit/d962376b70e48b9cb231b2542759c69389096ebf))
+* sort project cards by Docker container state ([#221](https://github.com/thesimonho/warden/issues/221)) ([5a8f198](https://github.com/thesimonho/warden/commit/5a8f1985dd92f0adfc101cbde5fbd94fe80caae7))
+* unblock restart API and update project cards via SSE ([#218](https://github.com/thesimonho/warden/issues/218)) ([1a73546](https://github.com/thesimonho/warden/commit/1a73546e609b8019d94363cd7a198425b114b058))
+
 ## [1.13.1](https://github.com/thesimonho/warden/compare/v1.13.0...v1.13.1) (2026-04-12)
 
 
