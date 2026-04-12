@@ -55,14 +55,14 @@ export default function Layout() {
           localStorage.setItem(storageKey, version)
           if (prev && prev !== version) {
             toast.info(`${label} updated to ${version}`, {
-              description: `Previously ${prev}. New containers will use this version.`,
+              description: `Previously ${prev}. New containers will use updated version.`,
               duration: Infinity,
               dismissible: true,
             })
           }
         }
       })
-      .catch(() => {})
+      .catch(() => { })
   }, [])
 
   const handleSettingsClose = useCallback(() => {
@@ -72,7 +72,7 @@ export default function Layout() {
         setBudgetActionPreventStart(s.budgetActionPreventStart)
         setAuditLogMode(s.auditLogMode)
       })
-      .catch(() => {})
+      .catch(() => { })
   }, [])
 
   return (
@@ -173,7 +173,7 @@ export default function Layout() {
         auditLogMode={auditLogMode}
         onAuditLogModeChange={setAuditLogMode}
       />
-      <Toaster theme={resolvedTheme} position="bottom-right" visibleToasts={3} expand richColors />
+      <Toaster theme={resolvedTheme} position="bottom-right" visibleToasts={3} expand richColors closeButton />
       {sseStatus === 'server_stopped' && <ServerStoppedOverlay />}
     </div>
   )

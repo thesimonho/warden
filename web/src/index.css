@@ -151,6 +151,11 @@
   --error-border: var(--error);
   --error-text: var(--error-foreground);
 }
+[data-sonner-toaster][dir='ltr'] {
+  --toast-close-button-start: unset !important;
+  --toast-close-button-end: 0 !important;
+  --toast-close-button-transform: translate(35%, -35%) !important;
+}
 
 @layer components {
   /* Richer card elevation in dark mode */
