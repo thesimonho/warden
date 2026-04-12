@@ -486,6 +486,28 @@ components:
         totalCost:
           type: number
       type: object
+    api.CheckNameRequest:
+      properties:
+        name:
+          description: Name is the container name to check.
+          type: string
+      type: object
+    api.CheckNameResult:
+      properties:
+        available:
+          description: Available is true when no container with this name exists.
+          type: boolean
+        managed:
+          description: |-
+            Managed is true when an existing container has the app.warden.managed label.
+            When true, the user can choose to replace it via ForceReplace.
+          type: boolean
+        state:
+          description: |-
+            State is the Docker container state (running, exited, etc.) when a
+            container exists with this name.
+          type: string
+      type: object
     api.ClipboardUploadResponse:
       properties:
         path:
@@ -624,6 +646,11 @@ components:
           additionalProperties:
             type: string
           type: object
+        forceReplace:
+          description: |-
+            ForceReplace removes an orphaned Warden-managed container that occupies
+            the requested name. Without this flag, creation returns CONTAINER_EXISTS.
+          type: boolean
         forwardedPorts:
           description: |-
             ForwardedPorts lists container ports to expose via the reverse proxy.
@@ -1239,6 +1266,7 @@ components:
       - NOT_A_DIRECTORY
       - NOT_FOUND
       - NAME_TAKEN
+      - CONTAINER_EXISTS
       - NOT_CONFIGURED
       - STALE_MOUNTS
       - BUDGET_EXCEEDED
@@ -1247,6 +1275,7 @@ components:
       type: string
       x-enum-comments:
         ErrCodeBudgetExceeded: "403"
+        ErrCodeContainerExists: "409"
         ErrCodeInternal: "500"
         ErrCodeNameTaken: "409"
         ErrCodeNotConfigured: "503"
@@ -1265,6 +1294,7 @@ components:
       - ErrCodeNotADirectory
       - ErrCodeNotFound
       - ErrCodeNameTaken
+      - ErrCodeContainerExists
       - ErrCodeNotConfigured
       - ErrCodeStaleMounts
       - ErrCodeBudgetExceeded
@@ -2001,6 +2031,43 @@ paths:
       summary: Get audit summary
       tags:
       - audit
+  /api/v1/containers/check-name:
+    post:
+      description: Reports whether a container name is available, and if not, whether
+        the existing container is Warden-managed.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              oneOf:
+              - type: object
+              - $ref: '#/components/schemas/api.CheckNameRequest'
+                description: Container name to check
+                summary: body
+        description: Container name to check
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/api.CheckNameResult'
+          description: OK
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/server.apiError'
+          description: Bad Request
+        "503":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/server.apiError'
+          description: Service Unavailable
+      summary: Check container name
+      tags:
+      - containers
   /api/v1/defaults:
     get:
       description: |-
