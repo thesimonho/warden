@@ -5,11 +5,13 @@ paths:
   - "README.md"
   - "CONTRIBUTING.md"
   - "CLAUDE.md"
+  - "access/**/*"
   - "service/**/*"
   - "engine/**/*"
   - "client/**/*"
   - "api/**/*"
   - "cmd/**/*"
+  - "warden.go"
   - "internal/tui/**/*"
 ---
 

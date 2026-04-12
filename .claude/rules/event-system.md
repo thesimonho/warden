@@ -2,6 +2,7 @@
 paths:
   - "event/**/*"
   - "eventbus/**/*"
+  - "agent/**/*"
   - "watcher/hook/**/*"
   - "container/scripts/**/*"
   - "service/**/*"

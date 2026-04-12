@@ -2,9 +2,10 @@
 paths:
   - "internal/server/**/*"
   - "docs/openapi/**/*"
-  - "docs/site/**/*"
   - "api/**/*"
   - "access/**/*"
+  - "engine/**/*"
+  - "event/**/*"
   - "service/**/*"
   - "client/**/*"
 ---
