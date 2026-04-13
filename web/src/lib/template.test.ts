@@ -1,11 +1,11 @@
-import { describe, it, expect } from 'vitest'
-import type { ProjectTemplate, RuntimeDefault } from '@/lib/types'
+import { describe, expect, it } from 'vitest'
 import {
-  resolveRuntimeToggles,
-  resolveRuntimeEnvVars,
-  resolveTemplateDomains,
   mergeRuntimeDomains,
+  resolveRuntimeEnvVars,
+  resolveRuntimeToggles,
+  resolveTemplateDomains,
 } from '@/lib/template'
+import type { ProjectTemplate, RuntimeDefault } from '@/lib/types'
 
 // Runtime domain/envvar fixtures — used in assertions below via domainsFor/envVarsFor.
 const pythonDomains = ['pypi.org', 'files.pythonhosted.org']
@@ -54,11 +54,11 @@ const runtimeDefaults: RuntimeDefault[] = [
 ]
 
 /** Helper: returns domains for a given runtime id from the fixture. */
-const domainsFor = (id: string) => runtimeDefaults.find((r) => r.id === id)!.domains
+const domainsFor = (id: string) => runtimeDefaults.find((r) => r.id === id)?.domains
 
 /** Helper: returns env var entries for a given runtime id from the fixture. */
 const envVarsFor = (id: string) =>
-  Object.entries(runtimeDefaults.find((r) => r.id === id)!.envVars).map(([key, value]) => ({
+  Object.entries(runtimeDefaults.find((r) => r.id === id)?.envVars ?? {}).map(([key, value]) => ({
     key,
     value,
   }))
@@ -211,7 +211,7 @@ describe('mergeRuntimeDomains', () => {
     const base = ['*.anthropic.com', '*.github.com']
     const toggles = { node: true, python: true, go: false, rust: false }
     const result = mergeRuntimeDomains(base, runtimeDefaults, toggles)
-    expect(result).toEqual([...base, ...domainsFor('python')])
+    expect(result).toEqual([...base, ...(domainsFor('python') ?? [])])
   })
 
   it('deduplicates domains already in base list', () => {
@@ -232,7 +232,7 @@ describe('mergeRuntimeDomains', () => {
     const base = ['*.anthropic.com']
     const toggles = { node: true, python: true, go: true, rust: false }
     const result = mergeRuntimeDomains(base, runtimeDefaults, toggles)
-    expect(result).toEqual([...base, ...domainsFor('python'), ...domainsFor('go')])
+    expect(result).toEqual([...base, ...(domainsFor('python') ?? []), ...(domainsFor('go') ?? [])])
   })
 
   it('works end-to-end with template-resolved toggles', () => {
@@ -246,6 +246,6 @@ describe('mergeRuntimeDomains', () => {
     const domains = resolveTemplateDomains(template, 'claude-code')!
     const result = mergeRuntimeDomains(domains, runtimeDefaults, toggles)
     // go in template → go domains merged; python detected but not in template → excluded
-    expect(result).toEqual([...templateDomains, ...domainsFor('go')])
+    expect(result).toEqual([...templateDomains, ...(domainsFor('go') ?? [])])
   })
 })

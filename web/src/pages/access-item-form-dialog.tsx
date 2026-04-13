@@ -1,15 +1,14 @@
-import { useEffect, useState } from 'react'
-import { containerPathToDisplay, containerPathToAbsolute } from '@/lib/utils'
 import {
-  Loader2,
-  Plus,
-  Trash2,
-  FlaskConical,
-  RotateCcw,
   CircleCheck,
   CircleMinus,
+  FlaskConical,
+  Loader2,
+  Plus,
+  RotateCcw,
   Save,
+  Trash2,
 } from 'lucide-react'
+import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -21,8 +20,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import DirectoryBrowser from '@/components/ui/directory-browser'
 import { Input } from '@/components/ui/input'
-import { Textarea } from '@/components/ui/textarea'
 import {
   Select,
   SelectContent,
@@ -30,17 +29,18 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { createAccessItem, updateAccessItem, resetAccessItem, resolveAccessItems } from '@/lib/api'
-import DirectoryBrowser from '@/components/ui/directory-browser'
+import { Textarea } from '@/components/ui/textarea'
+import { createAccessItem, resetAccessItem, resolveAccessItems, updateAccessItem } from '@/lib/api'
 import type {
-  AccessItemResponse,
   AccessCredential,
-  AccessSource,
   AccessInjection,
-  AccessSourceType,
   AccessInjectionType,
+  AccessItemResponse,
+  AccessSource,
+  AccessSourceType,
   ResolvedItem,
 } from '@/lib/types'
+import { containerPathToAbsolute, containerPathToDisplay } from '@/lib/utils'
 
 // --- Credential Form Helpers ---
 

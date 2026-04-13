@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { abbreviateHomePath, relativeTime } from '@/lib/utils'
 
 const FIXED_NOW = new Date('2024-06-15T12:00:00Z')

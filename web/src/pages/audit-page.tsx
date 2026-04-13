@@ -1,18 +1,19 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
-  RefreshCw,
-  Download,
-  Trash2,
-  Loader2,
   ChevronDown,
-  ShieldCheck,
+  Download,
+  Loader2,
+  RefreshCw,
   Search,
+  ShieldCheck,
+  Trash2,
   X,
 } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { toast } from 'sonner'
+import { ActivityTimeline } from '@/components/activity-timeline'
+import { AuditLogTable } from '@/components/audit-log-table'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import {
   Dialog,
   DialogContent,
@@ -21,6 +22,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import {
   Select,
   SelectContent,
@@ -28,27 +30,25 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { AuditLogTable } from '@/components/audit-log-table'
 import { useInterval } from '@/hooks/use-interval'
-import { ActivityTimeline } from '@/components/activity-timeline'
-import { fetchAuditLog, fetchAuditSummary, auditExportUrl, deleteAuditEvents } from '@/lib/api'
-import { cn } from '@/lib/utils'
-import { formatCost } from '@/lib/cost'
 import { DAY } from '@/lib/activity-buckets'
+import { auditExportUrl, deleteAuditEvents, fetchAuditLog, fetchAuditSummary } from '@/lib/api'
 import {
-  AUDIT_CATEGORIES,
   ALL_LEVELS,
-  levelColorVar,
+  AUDIT_CATEGORIES,
   formatFullTimestamp,
+  levelColorVar,
 } from '@/lib/audit-log-utils'
+import { formatCost } from '@/lib/cost'
 import { readStoredSet, writeStoredSet } from '@/lib/storage'
 import type {
+  AuditCategory,
+  AuditFilters,
   AuditLogEntry,
   AuditLogLevel,
-  AuditCategory,
   AuditSummary,
-  AuditFilters,
 } from '@/lib/types'
+import { cn } from '@/lib/utils'
 
 // --- Constants ---
 
@@ -444,6 +444,7 @@ export default function AuditPage() {
               <PopoverContent align="end" className="w-36 p-1">
                 {autoRefreshSeconds && (
                   <button
+                    type="button"
                     className="hover:bg-accent w-full rounded px-2 py-1.5 text-left text-sm font-medium"
                     onClick={() => {
                       setAutoRefreshSeconds(null)
@@ -455,6 +456,7 @@ export default function AuditPage() {
                 )}
                 {AUTO_REFRESH_OPTIONS.map((option) => (
                   <button
+                    type="button"
                     key={option.seconds}
                     className={cn(
                       'w-full rounded px-2 py-1.5 text-left text-sm',

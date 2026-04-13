@@ -3,7 +3,7 @@
  *
  * @module
  */
-import type { RuntimeInfo, ServerSettings, RuntimeDefault, ProjectTemplate } from '@/lib/types'
+import type { ProjectTemplate, RuntimeDefault, RuntimeInfo, ServerSettings } from '@/lib/types'
 import { apiFetch } from './api-core'
 
 /**

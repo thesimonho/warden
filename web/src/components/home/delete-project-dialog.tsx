@@ -1,8 +1,8 @@
-import { useCallback, useState } from 'react'
 import { AlertTriangle, Loader2, Trash2 } from 'lucide-react'
+import { useCallback, useState } from 'react'
 import { toast } from 'sonner'
-import { deleteContainer, removeProject, resetProjectCosts } from '@/lib/api'
-import type { Project } from '@/lib/types'
+import { Button } from '@/components/ui/button'
+import { Checkbox } from '@/components/ui/checkbox'
 import {
   Dialog,
   DialogContent,
@@ -11,8 +11,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { Button } from '@/components/ui/button'
-import { Checkbox } from '@/components/ui/checkbox'
+import { deleteContainer, removeProject, resetProjectCosts } from '@/lib/api'
+import type { Project } from '@/lib/types'
 
 /** Props for the DeleteProjectDialog component. */
 interface DeleteProjectDialogProps {

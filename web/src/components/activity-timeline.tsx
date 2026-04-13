@@ -1,19 +1,19 @@
+import { X } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef } from 'react'
 import { Bar, BarChart, Brush, CartesianGrid, XAxis, YAxis } from 'recharts'
-import { X } from 'lucide-react'
+import { Button } from '@/components/ui/button'
 import {
+  type ChartConfig,
   ChartContainer,
   ChartTooltip,
   ChartTooltipContent,
-  type ChartConfig,
 } from '@/components/ui/chart'
-import { Button } from '@/components/ui/button'
 import {
+  type ActivityBucket,
   bucketEventsByCategory,
   CATEGORY_KEYS,
-  HOUR,
   DAY,
-  type ActivityBucket,
+  HOUR,
 } from '@/lib/activity-buckets'
 import type { AuditLogEntry } from '@/lib/types'
 

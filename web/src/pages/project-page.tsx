@@ -1,5 +1,5 @@
 import { useCallback } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import ProjectView from '@/components/project/project-view'
 import { useEventSource } from '@/hooks/use-event-source'

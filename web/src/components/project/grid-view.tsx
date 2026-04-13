@@ -1,4 +1,15 @@
 import {
+  closestCenter,
+  DndContext,
+  type DragEndEvent,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+} from '@dnd-kit/core'
+import { rectSortingStrategy, SortableContext, useSortable } from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
+import {
   forwardRef,
   memo,
   useCallback,
@@ -7,23 +18,12 @@ import {
   useRef,
   useState,
 } from 'react'
-import {
-  DndContext,
-  closestCenter,
-  PointerSensor,
-  KeyboardSensor,
-  useSensor,
-  useSensors,
-  type DragEndEvent,
-} from '@dnd-kit/core'
-import { SortableContext, rectSortingStrategy, useSortable } from '@dnd-kit/sortable'
-import { CSS } from '@dnd-kit/utilities'
-import { cn } from '@/lib/utils'
 import TerminalCard, { type TerminalCardHandle } from '@/components/project/terminal-card'
-import { useTerminalDisconnect } from '@/hooks/use-terminal-disconnect'
-import { worktreeDisplayName } from '@/lib/types'
-import type { CanvasPanel as CanvasPanelData } from '@/lib/canvas-store'
 import type { PanelWorktreeState } from '@/hooks/use-canvas-worktree-state'
+import { useTerminalDisconnect } from '@/hooks/use-terminal-disconnect'
+import type { CanvasPanel as CanvasPanelData } from '@/lib/canvas-store'
+import { worktreeDisplayName } from '@/lib/types'
+import { cn } from '@/lib/utils'
 
 /** Minimum drag distance before activation — prevents accidental drags on click. */
 const POINTER_ACTIVATION = { distance: 8 } as const

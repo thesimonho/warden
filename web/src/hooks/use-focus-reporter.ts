@@ -16,8 +16,8 @@
  * @module
  */
 import { useCallback, useEffect, useRef } from 'react'
-import { reportFocus, reportFocusBeacon } from '@/lib/api-focus'
 import type { FocusRequest } from '@/lib/api-focus'
+import { reportFocus, reportFocusBeacon } from '@/lib/api-focus'
 import type { CanvasPanel } from '@/lib/canvas-store'
 
 /** Heartbeat interval — must be less than the server's 45s focusEntryTTL. */
@@ -84,7 +84,7 @@ export function useFocusReporter(
   // Re-send when panels change (worktree added/removed/swapped).
   useEffect(() => {
     sendFocusState()
-  }, [panels, sendFocusState])
+  }, [sendFocusState])
 
   // Heartbeat: refresh the server-side TTL every 30 seconds.
   // Sends unconditionally — sendFocusState reads document.hasFocus()

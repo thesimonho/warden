@@ -1,8 +1,8 @@
 import { useMemo } from 'react'
-import type { AgentType, Project } from '@/lib/types'
-import type { InstallStatus } from '@/hooks/use-projects'
 import ProjectCard from '@/components/home/project-card'
 import { Skeleton } from '@/components/ui/skeleton'
+import type { InstallStatus } from '@/hooks/use-projects'
+import type { AgentType, Project } from '@/lib/types'
 
 /** Priority order for Docker container states (lower = sorted first).
  * Keep in sync with statePriority() in internal/tui/view_projects.go. */

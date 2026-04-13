@@ -1,6 +1,7 @@
-import { useCallback, useState } from 'react'
 import { Loader2, RefreshCw } from 'lucide-react'
+import { useCallback, useState } from 'react'
 import { toast } from 'sonner'
+import { Button } from '@/components/ui/button'
 import {
   Dialog,
   DialogContent,
@@ -9,7 +10,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { Button } from '@/components/ui/button'
 import { fetchContainerConfig, updateContainer } from '@/lib/api'
 
 /** Props for the StaleMountsDialog component. */

@@ -1,8 +1,8 @@
-import { execSync } from 'child_process'
-import { cpSync, existsSync, mkdirSync, writeFileSync, rmSync } from 'fs'
-import path from 'path'
-import { fileURLToPath } from 'url'
-import { test, expect } from '@playwright/test'
+import { execSync } from 'node:child_process'
+import { cpSync, existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
+import { expect, test } from '@playwright/test'
 
 /**
  * Devcontainer feature integration test.
@@ -67,10 +67,12 @@ function execInContainer(cmd: string): string {
   if (!devcontainerContainerId) {
     throw new Error('devcontainerContainerId not set — did beforeAll run?')
   }
-  return execSync(
-    `docker exec ${devcontainerContainerId} sh -c '${cmd}'`,
-    { stdio: 'pipe', timeout: 30_000 },
-  ).toString().trim()
+  return execSync(`docker exec ${devcontainerContainerId} sh -c '${cmd}'`, {
+    stdio: 'pipe',
+    timeout: 30_000,
+  })
+    .toString()
+    .trim()
 }
 
 test.describe('Devcontainer feature', () => {
@@ -108,10 +110,10 @@ test.describe('Devcontainer feature', () => {
        the JSON output so exec can use `docker exec` directly (avoiding
        OCI runtime CWD namespace errors with `devcontainer exec`). */
     console.log('[E2E] Running devcontainer up with local Warden feature...')
-    const upOutput = execSync(
-      `devcontainer up --workspace-folder ${BUILD_DIR}`,
-      { stdio: 'pipe', timeout: 180_000 },
-    ).toString()
+    const upOutput = execSync(`devcontainer up --workspace-folder ${BUILD_DIR}`, {
+      stdio: 'pipe',
+      timeout: 180_000,
+    }).toString()
     try {
       const parsed = JSON.parse(upOutput) as { outcome: string; containerId: string }
       if (parsed.outcome !== 'success') {
@@ -132,7 +134,9 @@ test.describe('Devcontainer feature', () => {
         stdio: 'pipe',
         timeout: 30_000,
       })
-    } catch { /* best effort */ }
+    } catch {
+      /* best effort */
+    }
 
     if (existsSync(BUILD_DIR)) {
       rmSync(BUILD_DIR, { recursive: true })
@@ -162,7 +166,9 @@ test.describe('Devcontainer feature', () => {
   })
 
   test('should have Claude Code managed settings installed', () => {
-    const result = execInContainer('test -f /etc/claude-code/managed-settings.json && echo ok || echo missing')
+    const result = execInContainer(
+      'test -f /etc/claude-code/managed-settings.json && echo ok || echo missing',
+    )
     expect(result).toBe('ok')
   })
 })

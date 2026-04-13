@@ -1,12 +1,12 @@
-import { memo, useCallback, useEffect, useRef, useState } from 'react'
-import { Rnd, type RndResizeCallback, type RndDragCallback } from 'react-rnd'
 import { Maximize2, Minimize2 } from 'lucide-react'
+import { memo, useCallback, useEffect, useRef, useState } from 'react'
+import { Rnd, type RndDragCallback, type RndResizeCallback } from 'react-rnd'
+import TerminalCard, { type TerminalCardHandle } from '@/components/project/terminal-card'
 import { Button } from '@/components/ui/button'
+import { useTerminalDisconnect } from '@/hooks/use-terminal-disconnect'
+import { type CanvasPanel as CanvasPanelData, LAYOUT_ANIMATION_MS } from '@/lib/canvas-store'
 import { worktreeDisplayName } from '@/lib/types'
 import { cn } from '@/lib/utils'
-import TerminalCard, { type TerminalCardHandle } from '@/components/project/terminal-card'
-import { useTerminalDisconnect } from '@/hooks/use-terminal-disconnect'
-import { LAYOUT_ANIMATION_MS, type CanvasPanel as CanvasPanelData } from '@/lib/canvas-store'
 
 /** Props for the CanvasView component. */
 interface CanvasViewProps {

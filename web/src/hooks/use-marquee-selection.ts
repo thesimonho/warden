@@ -150,7 +150,7 @@ export function useMarqueeSelection({
     [handlePanPointerUp, clearSelection, clearFocus],
   )
 
-  /* eslint-disable react-hooks/refs -- canvasRectRef is stable and only read during active drag */
+  // canvasRectRef is stable and only read during active drag
   /** Computed marquee overlay style (screen-space coordinates). */
   const marqueeStyle = useMemo(() => {
     if (!marquee) return undefined
@@ -164,7 +164,6 @@ export function useMarqueeSelection({
       height: Math.abs(marquee.currentY - marquee.startY),
     }
   }, [marquee, canvasRectRef])
-  /* eslint-enable react-hooks/refs */
 
   return {
     marquee,

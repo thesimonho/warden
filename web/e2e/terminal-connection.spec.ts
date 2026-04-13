@@ -1,12 +1,12 @@
+import { disconnectTerminal, waitForWorktreeState } from './helpers/api'
 import {
-  test,
+  assertTerminalUsable,
   expect,
   navigateToProject,
-  waitForTerminalReady,
-  assertTerminalUsable,
   terminalContainer,
+  test,
+  waitForTerminalReady,
 } from './helpers/fixtures'
-import { disconnectTerminal, waitForWorktreeState } from './helpers/api'
 import { selectors } from './helpers/selectors'
 
 test.describe('Terminal connection', () => {
@@ -82,6 +82,12 @@ test.describe('Terminal connection', () => {
        sidebar should reflect the state change. */
     await disconnectTerminal(testProject.id, 'main', testProject.agentType)
 
-    await waitForWorktreeState(testProject.id, 'main', ['background', 'shell'], 30_000, testProject.agentType)
+    await waitForWorktreeState(
+      testProject.id,
+      'main',
+      ['background', 'shell'],
+      30_000,
+      testProject.agentType,
+    )
   })
 })

@@ -1,7 +1,7 @@
-import { isolatedTest, expect } from './helpers/fixtures'
 import {
   collectSSEEvents,
   connectTerminal,
+  createAccessItem,
   createWorktree,
   deleteAccessItem,
   deleteContainer,
@@ -17,22 +17,22 @@ import {
   fetchWorktree,
   fetchWorktreeDiff,
   getAccessItem,
-  createAccessItem,
   killWorktreeProcess,
   listAccessItems,
   postAuditEvent,
   removeWorktree,
   resetCosts,
+  restartProject,
   sendWorktreeInput,
   sleep,
   stopProject,
-  restartProject,
   updateAccessItem,
   updateContainer,
   updateSettings,
   waitForProjectState,
   waitForWorktreeState,
 } from './helpers/api'
+import { expect, isolatedTest } from './helpers/fixtures'
 
 /**
  * Integrator API flow tests.
@@ -255,9 +255,7 @@ test.describe('Integrator API flows', () => {
       }
 
       // Verify all three of our events are present in the export.
-      const ourExported = exportLines.filter((e) =>
-        eventNames.includes(e.event),
-      )
+      const ourExported = exportLines.filter((e) => eventNames.includes(e.event))
       expect(ourExported.length).toBe(eventNames.length)
     })
   })

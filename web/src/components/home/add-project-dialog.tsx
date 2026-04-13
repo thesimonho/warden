@@ -1,15 +1,10 @@
-import { useCallback, useEffect, useState } from 'react'
 import { AlertTriangle, Loader2 } from 'lucide-react'
+import { useCallback, useEffect, useState } from 'react'
 import { toast } from 'sonner'
-import type { CheckNameResult, ContainerConfig, CreateContainerRequest } from '@/lib/types'
-import { DEFAULT_AGENT_TYPE } from '@/lib/types'
-import {
-  addProject,
-  checkContainerName,
-  createContainer,
-  fetchContainerConfig,
-  updateContainer,
-} from '@/lib/api'
+import ProjectConfigForm, {
+  type ProjectConfigFormData,
+} from '@/components/home/project-config-form'
+import { Button } from '@/components/ui/button'
 import {
   Dialog,
   DialogContent,
@@ -17,10 +12,15 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { Button } from '@/components/ui/button'
-import ProjectConfigForm, {
-  type ProjectConfigFormData,
-} from '@/components/home/project-config-form'
+import {
+  addProject,
+  checkContainerName,
+  createContainer,
+  fetchContainerConfig,
+  updateContainer,
+} from '@/lib/api'
+import type { CheckNameResult, ContainerConfig, CreateContainerRequest } from '@/lib/types'
+import { DEFAULT_AGENT_TYPE } from '@/lib/types'
 
 /** Pre-fill data for creating a container on an existing no-container project. */
 export interface CreateForProject {
@@ -181,7 +181,15 @@ export default function AddProjectDialog({
         setIsSubmitting(false)
       }
     },
-    [isEditMode, editProjectId, editAgentType, onProjectAdded, onOpenChange, executeCreate],
+    [
+      isEditMode,
+      editProjectId,
+      editAgentType,
+      onProjectAdded,
+      onOpenChange,
+      executeCreate,
+      buildPayload,
+    ],
   )
 
   /** Replaces the existing container after user confirmation. */

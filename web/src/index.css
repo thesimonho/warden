@@ -1,11 +1,11 @@
-@import 'tailwindcss';
-@import 'tw-animate-css';
-@import 'shadcn/tailwind.css';
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
 
 /* ─── Themes ─────────────────────────────────────────────────────────────── */
 /* Add new theme files here to extend the theming system.                     */
-@import './themes/permafrost.css';
-@import './themes/frostpunk.css';
+@import "./themes/permafrost.css";
+@import "./themes/frostpunk.css";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -141,32 +141,32 @@
 
 /* ─── Sonner toast theming ─────────────────────────────────────────────── */
 /* Maps Sonner's rich-color variables to the app's semantic color tokens.   */
-[data-rich-colors='true'][data-sonner-toast][data-type='success'] {
+[data-rich-colors="true"][data-sonner-toast][data-type="success"] {
   --success-bg: var(--success);
   --success-border: var(--success);
   --success-text: var(--success-foreground);
 }
-[data-rich-colors='true'][data-sonner-toast][data-type='error'] {
+[data-rich-colors="true"][data-sonner-toast][data-type="error"] {
   --error-bg: var(--error);
   --error-border: var(--error);
   --error-text: var(--error-foreground);
 }
-[data-sonner-toaster][dir='ltr'] {
-  --toast-close-button-start: unset !important;
-  --toast-close-button-end: 0 !important;
-  --toast-close-button-transform: translate(35%, -35%) !important;
+[data-sonner-toaster][dir="ltr"] {
+  --toast-close-button-start: unset;
+  --toast-close-button-end: 0;
+  --toast-close-button-transform: translate(35%, -35%);
 }
 
 @layer components {
   /* Richer card elevation in dark mode */
-  .dark [data-slot='card'] {
+  .dark [data-slot="card"] {
     box-shadow:
       0 1px 3px oklch(0 0 0 / 0.5),
       0 0 0 1px oklch(1 1 1 / 0.06);
   }
 
   /* Smooth theme transitions on structural elements */
-  [data-slot='card'],
+  [data-slot="card"],
   header {
     transition-property: background-color, border-color, box-shadow;
     transition-duration: 0.25s;
