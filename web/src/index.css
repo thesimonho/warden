@@ -151,10 +151,12 @@
   --error-border: var(--error);
   --error-text: var(--error-foreground);
 }
-[data-sonner-toaster][dir="ltr"] {
-  --toast-close-button-start: unset;
-  --toast-close-button-end: 0;
-  --toast-close-button-transform: translate(35%, -35%);
+[data-sonner-toast] [data-close-button] {
+  left: unset !important;
+  right: 0 !important;
+  transform: translate(35%, -35%) !important;
+  background: var(--background) !important;
+  color: var(--foreground) !important;
 }
 
 @layer components {
