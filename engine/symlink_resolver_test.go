@@ -401,17 +401,17 @@ func TestResolveSymlinks_SymlinksInSubdirectories(t *testing.T) {
 	mountDir, externalDir := setupSymlinkTree(t)
 
 	// Create a real subdirectory with a symlink inside it.
-	subDir := filepath.Join(mountDir, "plugins", "cache")
-	writeFile(t, filepath.Join(subDir, "local-plugin.json"), `{}`)
+	subDir := filepath.Join(mountDir, "projects", "data")
+	writeFile(t, filepath.Join(subDir, "local-config.json"), `{}`)
 
 	// Symlink inside the subdirectory pointing outside.
-	writeFile(t, filepath.Join(externalDir, "remote-plugin.json"), `{"remote":true}`)
+	writeFile(t, filepath.Join(externalDir, "remote-config.json"), `{"remote":true}`)
 	if err := os.MkdirAll(subDir, 0o755); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.Symlink(
-		filepath.Join(externalDir, "remote-plugin.json"),
-		filepath.Join(subDir, "remote-plugin.json"),
+		filepath.Join(externalDir, "remote-config.json"),
+		filepath.Join(subDir, "remote-config.json"),
 	); err != nil {
 		t.Fatal(err)
 	}
@@ -426,9 +426,9 @@ func TestResolveSymlinks_SymlinksInSubdirectories(t *testing.T) {
 	// Should find the symlink inside the nested subdirectory.
 	hasNestedMount := false
 	for _, m := range resolved {
-		if m.HostPath == filepath.Join(externalDir, "remote-plugin.json") {
+		if m.HostPath == filepath.Join(externalDir, "remote-config.json") {
 			hasNestedMount = true
-			expected := "/home/warden/.claude/plugins/cache/remote-plugin.json"
+			expected := "/home/warden/.claude/projects/data/remote-config.json"
 			if m.ContainerPath != expected {
 				t.Errorf("expected container path %s, got %s", expected, m.ContainerPath)
 			}
@@ -852,6 +852,45 @@ func TestResolveSymlinks_TmpAndLogDirsSkipped(t *testing.T) {
 	for _, m := range resolved {
 		if m.HostPath == filepath.Join(externalDir, "codex-binary") {
 			t.Error("tmp/ directory symlinks should be skipped, but apply_patch was resolved")
+		}
+	}
+}
+
+func TestResolveSymlinks_PluginsCacheDirSkipped(t *testing.T) {
+	mountDir := t.TempDir()
+	externalDir := t.TempDir()
+
+	// Create plugins/cache/ with an external symlink (simulates cached plugin).
+	cacheDir := filepath.Join(mountDir, "plugins", "cache", "caveman")
+	if err := os.MkdirAll(cacheDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, filepath.Join(externalDir, "SKILL.md"), "# skill")
+	if err := os.Symlink(filepath.Join(externalDir, "SKILL.md"), filepath.Join(cacheDir, "SKILL.md")); err != nil {
+		t.Fatal(err)
+	}
+
+	// Create a sibling symlink outside plugins/cache/ that SHOULD be resolved.
+	writeFile(t, filepath.Join(externalDir, "settings.json"), `{}`)
+	if err := os.Symlink(filepath.Join(externalDir, "settings.json"), filepath.Join(mountDir, "settings.json")); err != nil {
+		t.Fatal(err)
+	}
+
+	mounts := []api.Mount{{HostPath: mountDir, ContainerPath: "/home/warden/.claude"}}
+
+	resolved, err := resolveSymlinksForMounts(mounts)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Should have original + settings.json only. plugins/cache/ symlinks are skipped.
+	if len(resolved) != 2 {
+		t.Errorf("expected 2 mounts (original + settings.json), got %d: %+v", len(resolved), resolved)
+	}
+
+	for _, m := range resolved {
+		if m.HostPath == filepath.Join(externalDir, "SKILL.md") {
+			t.Error("plugins/cache/ symlinks should be skipped, but SKILL.md was resolved")
 		}
 	}
 }

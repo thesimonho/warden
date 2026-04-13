@@ -59,7 +59,7 @@ func resolveMount(m api.Mount) ([]api.Mount, error) {
 		resolved, err := filepath.EvalSymlinks(m.HostPath)
 		if err != nil {
 			// Broken or circular symlink — pass through as-is.
-			slog.Warn("mount symlink target unresolvable, passing through without resolution",
+			slog.Debug("mount symlink target unresolvable, passing through without resolution",
 				"path", m.HostPath, "error", err)
 			return []api.Mount{m}, nil
 		}
@@ -104,6 +104,15 @@ func resolveMount(m api.Mount) ([]api.Mount, error) {
 // does not follow symlinks), so the walk is bounded to the real directory
 // tree under the mount root.
 func walkForExternalSymlinks(parent api.Mount) ([]api.Mount, error) {
+	// Directories to skip during the walk. These contain host-specific
+	// runtime artifacts or caches with routinely broken symlinks that
+	// are not actionable (nix GC, plugin uninstalls, sandbox binaries).
+	skipDirs := map[string]struct{}{
+		"tmp":                             {},
+		"log":                             {},
+		filepath.Join("plugins", "cache"): {},
+	}
+
 	var extras []api.Mount
 	hostRoot := parent.HostPath
 
@@ -119,13 +128,9 @@ func walkForExternalSymlinks(parent api.Mount) ([]api.Mount, error) {
 			return nil
 		}
 
-		// Skip top-level ephemeral directories that contain host-specific
-		// runtime artifacts (e.g. Codex's tmp/path/ has hundreds of nix
-		// store symlinks to sandbox binaries that don't exist in containers).
 		if d.IsDir() {
-			rel, relErr := filepath.Rel(hostRoot, path)
-			if relErr == nil && !strings.Contains(rel, string(filepath.Separator)) {
-				if rel == "tmp" || rel == "log" {
+			if rel, relErr := filepath.Rel(hostRoot, path); relErr == nil {
+				if _, skip := skipDirs[rel]; skip {
 					return fs.SkipDir
 				}
 			}
@@ -141,8 +146,9 @@ func walkForExternalSymlinks(parent api.Mount) ([]api.Mount, error) {
 		if err != nil {
 			// Broken or circular symlink — the overlay mount that would
 			// protect this symlink from the entrypoint's cp cannot be
-			// created. Log so the failure is visible in diagnostics.
-			slog.Warn("symlink target unresolvable, overlay mount will be missing",
+			// created. Logged at debug level because dangling symlinks
+			// are common (nix GC, plugin uninstalls) and not actionable.
+			slog.Debug("symlink target unresolvable, overlay mount will be missing",
 				"path", path, "error", err)
 			return nil
 		}
