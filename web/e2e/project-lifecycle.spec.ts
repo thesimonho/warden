@@ -15,9 +15,9 @@ const test = base.extend<{ isolatedProject: { id: string; name: string } }>({
     const name = generateProjectName()
     const workspace = createUniqueWorkspace(name)
     const result = await createTestProject(name, workspace, { skipPermissions: true })
-    await waitForProjectState(name, 'running', 60_000)
+    await waitForProjectState(result.name, 'running', 60_000)
 
-    await use({ id: result.projectId, name })
+    await use({ id: result.projectId, name: result.name })
 
     await removeTestProject(result.projectId)
     if (existsSync(workspace)) {

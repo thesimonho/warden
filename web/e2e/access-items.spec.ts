@@ -51,8 +51,9 @@ base.describe('Access items', () => {
     /* The container must reach running state, which means the entrypoint
        completed without crashing. A permission error in .ssh directory
        handling would cause a restart loop and the state would never
-       reach "running" within the timeout. */
-    const project = await waitForProjectState(name, 'running', 60_000)
+       reach "running" within the timeout.
+       Use result.name which includes the mode suffix (e.g. "-dev"). */
+    const project = await waitForProjectState(result.name, 'running', 60_000)
     expect(project.state).toBe('running')
   })
 })

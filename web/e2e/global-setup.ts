@@ -2,7 +2,7 @@ import { execSync } from 'node:child_process'
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { fetchProjects, getBaseURL, removeTestProject } from './helpers/api'
+import { E2E_BASE_URL, fetchProjects, removeTestProject } from './helpers/api'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -64,12 +64,15 @@ export default async function globalSetup() {
     )
   }
 
-  /* Verify a server is reachable. getBaseURL probes :5173 then :8090. */
+  /* Verify the E2E server is reachable. */
   try {
-    await getBaseURL()
+    const response = await fetch(`${E2E_BASE_URL}/api/v1/health`, {
+      signal: AbortSignal.timeout(2000),
+    })
+    if (!response.ok) throw new Error(`health check returned ${response.status}`)
   } catch {
     throw new Error(
-      'No server reachable at localhost:5173 or :8092. Run `just dev` or let Playwright start the server.',
+      `No server reachable at ${E2E_BASE_URL}. Let Playwright start the server via webServer config.`,
     )
   }
 
