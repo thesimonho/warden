@@ -8,18 +8,20 @@ go 1.26
 retract [v1.0.0, v1.4.1]
 
 require (
-	charm.land/bubbles/v2 v2.0.0
+	charm.land/bubbles/v2 v2.1.0
 	charm.land/bubbletea/v2 v2.0.2
 	charm.land/lipgloss/v2 v2.0.2
+	github.com/Microsoft/go-winio v0.6.2
 	github.com/coder/websocket v1.8.14
 	github.com/docker/docker v28.5.2+incompatible
 	github.com/fsnotify/fsnotify v1.9.0
-	golang.org/x/term v0.41.0
-	modernc.org/sqlite v1.47.0
+	github.com/google/uuid v1.6.0
+	golang.org/x/sys v0.43.0
+	golang.org/x/term v0.42.0
+	modernc.org/sqlite v1.48.2
 )
 
 require (
-	github.com/Microsoft/go-winio v0.6.2 // indirect
 	github.com/atotto/clipboard v0.1.4 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/charmbracelet/colorprofile v0.4.2 // indirect
@@ -40,10 +42,9 @@ require (
 	github.com/felixge/httpsnoop v1.0.4 // indirect
 	github.com/go-logr/logr v1.4.3 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
-	github.com/google/uuid v1.6.0 // indirect
 	github.com/lucasb-eyer/go-colorful v1.3.0 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
-	github.com/mattn/go-runewidth v0.0.20 // indirect
+	github.com/mattn/go-runewidth v0.0.21 // indirect
 	github.com/moby/docker-image-spec v1.3.1 // indirect
 	github.com/moby/sys/atomicwriter v0.1.0 // indirect
 	github.com/moby/term v0.5.2 // indirect
@@ -66,7 +67,6 @@ require (
 	go.opentelemetry.io/otel/sdk/metric v1.43.0 // indirect
 	go.opentelemetry.io/otel/trace v1.43.0 // indirect
 	golang.org/x/sync v0.20.0 // indirect
-	golang.org/x/sys v0.42.0 // indirect
 	golang.org/x/time v0.15.0 // indirect
 	gotest.tools/v3 v3.5.2 // indirect
 	modernc.org/libc v1.70.0 // indirect
