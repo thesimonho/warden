@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.13.5](https://github.com/thesimonho/warden/compare/v1.13.4...v1.13.5) (2026-04-13)
+
+
+### Bug Fixes
+
+* rewrite Origin, Referer, and Location headers in port-forwarding proxy ([#236](https://github.com/thesimonho/warden/issues/236)) ([165b93c](https://github.com/thesimonho/warden/commit/165b93c3f3e1ccb548307fdce79efee839a44eff))
+
 ## [1.13.4](https://github.com/thesimonho/warden/compare/v1.13.3...v1.13.4) (2026-04-13)
 
 
