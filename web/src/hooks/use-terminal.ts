@@ -30,13 +30,14 @@
  *
  * @module
  */
-import { useEffect, useRef, useCallback, useState } from 'react'
-import { Terminal } from '@xterm/xterm'
+
 import { FitAddon } from '@xterm/addon-fit'
 import { Unicode11Addon } from '@xterm/addon-unicode11'
 import { WebLinksAddon } from '@xterm/addon-web-links'
-import { getTerminalTheme } from '@/lib/terminal-themes'
+import { Terminal } from '@xterm/xterm'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTerminalClipboard } from '@/hooks/use-terminal-clipboard'
+import { getTerminalTheme } from '@/lib/terminal-themes'
 import '@fontsource/jetbrains-mono/400.css'
 import '@fontsource/jetbrains-mono/600.css'
 
@@ -616,8 +617,42 @@ export function useTerminal({
     // We exclude `connect`, `fit`, and `detach` from deps. `connect` and `fit`
     // are stable (empty deps). `detach` depends on [projectId, worktreeId] which
     // are already in this effect's deps, so changes are covered without listing it.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isActive, projectId, agentType, worktreeId, mode])
+    // biome-ignore lint/correctness/useExhaustiveDependencies: intentional subset — see comment above
+  }, [
+    isActive,
+    fit, // DOM renderer (default) — no WebGL or canvas addon loaded.
+    // CSS zoom on the canvas surface requires DOM rendering: the browser
+    // re-rasterizes real HTML text at the zoomed resolution. WebGL/canvas
+    // renderers rasterize at a fixed DPR and fight the zoom, keeping text
+    // the same size regardless of zoom level.
+
+    // Scrollback: The Go proxy (internal/terminal/altscreen.go) strips
+    // alternate screen escape sequences so Claude Code renders in the
+    // normal buffer and xterm.js scrollback works.
+    //
+    // TODO: Mouse wheel scrolling in Claude Code's TUI doesn't work.
+    // Claude Code enables mouse reporting, so xterm.js forwards wheel
+    // events as mouse escape sequences (button 64/65), which Claude
+    // interprets as input history cycling. Native terminals handle this
+    // at a lower level that xterm.js doesn't expose. This is a known
+    // xterm.js limitation (also affects VS Code's terminal).
+    // See: https://github.com/xtermjs/xterm.js/issues/5194
+    // See: https://github.com/anthropics/claude-code/issues/23581
+
+    // OSC 52 clipboard support: applications inside the container can
+    // write to the browser clipboard via the OSC 52 escape sequence.
+    // Claude Code uses this in fullscreen mode (CLAUDE_CODE_NO_FLICKER=1)
+    // for copy operations. Format: ESC ] 52 ; <sel> ; <base64> ST
+    clipboard.registerOsc52Handler,
+    detach,
+    clipboard.pasteText,
+    clipboard.copySelection, // Connect immediately — tmux scrollback replay handles history
+    // server-side via capture-pane before the live stream attaches.
+    connect,
+    clipboard.handlePasteEvent,
+    clipboard.handleDropEvent,
+    autoFocus,
+  ])
 
   return {
     containerRef,

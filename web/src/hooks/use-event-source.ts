@@ -32,13 +32,13 @@
 import type React from 'react'
 import { useEffect, useRef, useState } from 'react'
 import type {
-  WorktreeStateEvent,
-  ProjectStateEvent,
-  WorktreeListChangedEvent,
-  BudgetExceededEvent,
   BudgetContainerStoppedEvent,
+  BudgetExceededEvent,
   ContainerStateChangedEvent,
+  ProjectStateEvent,
   ViewerFocusEvent,
+  WorktreeListChangedEvent,
+  WorktreeStateEvent,
 } from '@/lib/types'
 
 /** Connection status of the SSE stream. */
@@ -71,7 +71,7 @@ const BASE_BACKOFF_MS = 1_000
 
 /** Returns exponential backoff delay clamped to MAX_BACKOFF_MS. */
 function backoffDelay(attempt: number): number {
-  const delay = BASE_BACKOFF_MS * Math.pow(2, attempt)
+  const delay = BASE_BACKOFF_MS * 2 ** attempt
   return Math.min(delay, MAX_BACKOFF_MS)
 }
 
@@ -301,7 +301,6 @@ export function useEventSource(options: UseEventSourceOptions): EventSourceStatu
     statusListeners.add(setStatus)
 
     // Sync initial status from the external EventSource — legitimate effect-to-state sync.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (source.readyState === EventSource.OPEN) setStatus('open')
     else if (source.readyState === EventSource.CLOSED) setStatus('closed')
     else setStatus('connecting')

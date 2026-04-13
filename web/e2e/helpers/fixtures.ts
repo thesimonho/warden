@@ -1,19 +1,19 @@
-import { randomUUID } from 'crypto'
-import { execSync } from 'child_process'
-import { existsSync, mkdirSync, writeFileSync, rmSync } from 'fs'
-import path from 'path'
+import { execSync } from 'node:child_process'
+import { randomUUID } from 'node:crypto'
+import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs'
+import path from 'node:path'
 import { test as base, expect as baseExpect, type Page } from '@playwright/test'
 import { TEST_WORKSPACE } from '../global-setup'
 import {
+  type ApiRuntime,
   createTestProject,
   createWorktree,
-  removeTestProject,
-  waitForProjectState,
   fetchDockerStatus,
   fetchWorktrees,
   killWorktreeProcess,
+  removeTestProject,
+  waitForProjectState,
   waitForWorktreeState,
-  type ApiRuntime,
 } from './api'
 
 /** Info about a test project created by the fixture. */
@@ -80,69 +80,75 @@ export const test = base.extend<
   { cleanupTerminals: void },
   { testProject: TestProjectInfo; runtime: ApiRuntime }
 >({
-  runtime: [async ({}, use) => {
-    const runtime = await detectRuntime()
-    await use(runtime)
-  }, { scope: 'worker' }],
+  runtime: [
+    async ({}, use) => {
+      const runtime = await detectRuntime()
+      await use(runtime)
+    },
+    { scope: 'worker' },
+  ],
 
-  testProject: [async ({ runtime }, use) => {
-    const name = generateProjectName()
-    const agentType = process.env.WARDEN_AGENT_TYPE ?? 'claude-code'
-    let projectId: string | undefined
+  testProject: [
+    async ({ runtime }, use) => {
+      const name = generateProjectName()
+      const agentType = process.env.WARDEN_AGENT_TYPE ?? 'claude-code'
+      let projectId: string | undefined
 
-    /* Each worker needs a unique workspace directory so project IDs
+      /* Each worker needs a unique workspace directory so project IDs
        (sha256 of host path) don't collide across parallel workers. */
-    const workerWorkspace = path.join(TEST_WORKSPACE, name)
-    mkdirSync(workerWorkspace, { recursive: true })
-    if (!existsSync(path.join(workerWorkspace, '.git'))) {
-      execSync('git init', { cwd: workerWorkspace, stdio: 'pipe' })
-      writeFileSync(path.join(workerWorkspace, 'README.md'), '# E2E Test Workspace\n')
-      execSync('git add .', { cwd: workerWorkspace, stdio: 'pipe' })
-      execSync(
-        'git -c user.email="e2e@warden.test" -c user.name="Warden E2E" commit -m "initial commit"',
-        { cwd: workerWorkspace, stdio: 'pipe' },
-      )
-    }
+      const workerWorkspace = path.join(TEST_WORKSPACE, name)
+      mkdirSync(workerWorkspace, { recursive: true })
+      if (!existsSync(path.join(workerWorkspace, '.git'))) {
+        execSync('git init', { cwd: workerWorkspace, stdio: 'pipe' })
+        writeFileSync(path.join(workerWorkspace, 'README.md'), '# E2E Test Workspace\n')
+        execSync('git add .', { cwd: workerWorkspace, stdio: 'pipe' })
+        execSync(
+          'git -c user.email="e2e@warden.test" -c user.name="Warden E2E" commit -m "initial commit"',
+          { cwd: workerWorkspace, stdio: 'pipe' },
+        )
+      }
 
-    /* Retry container creation — when multiple workers start simultaneously,
+      /* Retry container creation — when multiple workers start simultaneously,
        port allocation or resource contention can cause transient failures. */
-    const maxAttempts = 3
-    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      const maxAttempts = 3
+      for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+        try {
+          const result = await createTestProject(name, workerWorkspace, {
+            skipPermissions: true,
+            agentType,
+          })
+          projectId = result.projectId
+          break
+        } catch (err) {
+          if (attempt === maxAttempts) throw err
+          /* Stagger retries to reduce contention. */
+          await new Promise((r) => setTimeout(r, attempt * 3000))
+        }
+      }
+
       try {
-        const result = await createTestProject(name, workerWorkspace, {
-          skipPermissions: true,
+        /* Wait for the container to reach running state. */
+        await waitForProjectState(name, 'running', 60_000)
+
+        await use({
+          id: projectId!,
+          name,
+          runtime,
           agentType,
         })
-        projectId = result.projectId
-        break
-      } catch (err) {
-        if (attempt === maxAttempts) throw err
-        /* Stagger retries to reduce contention. */
-        await new Promise((r) => setTimeout(r, attempt * 3000))
+      } finally {
+        /* Always clean up, even if the test fails. */
+        if (projectId) {
+          await removeTestProject(projectId, agentType)
+        }
+        /* Clean up worker-specific workspace. */
+        if (existsSync(workerWorkspace)) {
+          rmSync(workerWorkspace, { recursive: true, force: true })
+        }
       }
-    }
-
-    try {
-      /* Wait for the container to reach running state. */
-      await waitForProjectState(name, 'running', 60_000)
-
-      await use({
-        id: projectId!,
-        name,
-        runtime,
-        agentType,
-      })
-    } finally {
-      /* Always clean up, even if the test fails. */
-      if (projectId) {
-        await removeTestProject(projectId, agentType)
-      }
-      /* Clean up worker-specific workspace. */
-      if (existsSync(workerWorkspace)) {
-        rmSync(workerWorkspace, { recursive: true, force: true })
-      }
-    }
-  }, { scope: 'worker' }],
+    },
+    { scope: 'worker' },
+  ],
 
   /**
    * Auto-fixture: disconnects all terminals after each test.
@@ -150,33 +156,44 @@ export const test = base.extend<
    * Without this, connected terminals accumulate across tests in the
    * shared container.
    */
-  cleanupTerminals: [async ({ testProject }, use) => {
-    await use()
+  cleanupTerminals: [
+    async ({ testProject }, use) => {
+      await use()
 
-    /* After the test: kill every active worktree process so the next test
+      /* After the test: kill every active worktree process so the next test
        starts from a clean "stopped" state. Using kill instead of
        disconnect ensures the tmux session is fully stopped — a background
        session would cause connectTerminal to skip create-terminal.sh,
        which means no terminal_connected event fires. */
-    try {
-      const worktrees = await fetchWorktrees(testProject.id, testProject.agentType)
-      const active = worktrees.filter((wt) =>
-        wt.state === 'connected' || wt.state === 'shell' || wt.state === 'background',
-      )
-      if (active.length > 0) {
-        await Promise.all(
-          active.map((wt) => killWorktreeProcess(testProject.id, wt.id, testProject.agentType).catch(() => {})),
+      try {
+        const worktrees = await fetchWorktrees(testProject.id, testProject.agentType)
+        const active = worktrees.filter(
+          (wt) => wt.state === 'connected' || wt.state === 'shell' || wt.state === 'background',
         )
-        await Promise.all(
-          active.map((wt) =>
-            waitForWorktreeState(testProject.id, wt.id, 'stopped', 10_000, testProject.agentType).catch(() => {}),
-          ),
-        )
+        if (active.length > 0) {
+          await Promise.all(
+            active.map((wt) =>
+              killWorktreeProcess(testProject.id, wt.id, testProject.agentType).catch(() => {}),
+            ),
+          )
+          await Promise.all(
+            active.map((wt) =>
+              waitForWorktreeState(
+                testProject.id,
+                wt.id,
+                'stopped',
+                10_000,
+                testProject.agentType,
+              ).catch(() => {}),
+            ),
+          )
+        }
+      } catch {
+        /* Best-effort cleanup — don't fail the test. */
       }
-    } catch {
-      /* Best-effort cleanup — don't fail the test. */
-    }
-  }, { auto: true }],
+    },
+    { auto: true },
+  ],
 })
 
 /** Info about an isolated test project (per-test, not shared across workers). */
@@ -257,10 +274,7 @@ export function terminalContainer(page: Page) {
  * @param page - Playwright page.
  * @param timeoutMs - Max time to wait for terminal readiness.
  */
-export async function waitForTerminalReady(
-  page: Page,
-  timeoutMs = 45_000,
-): Promise<void> {
+export async function waitForTerminalReady(page: Page, timeoutMs = 45_000): Promise<void> {
   const container = terminalContainer(page)
 
   /* 1. Terminal container exists in the DOM. */
@@ -273,7 +287,9 @@ export async function waitForTerminalReady(
   await container.locator('.xterm-rows').waitFor({ state: 'attached', timeout: 10_000 })
 
   /* 4. Hidden textarea exists (keyboard input capture ready). */
-  await container.locator('textarea.xterm-helper-textarea').waitFor({ state: 'attached', timeout: 5_000 })
+  await container
+    .locator('textarea.xterm-helper-textarea')
+    .waitFor({ state: 'attached', timeout: 5_000 })
 }
 
 /**
@@ -328,7 +344,10 @@ export async function navigateToProject(
  */
 export async function switchToCanvasMode(page: Page): Promise<void> {
   await page.locator('[role="tab"]:has-text("Canvas")').click()
-  await baseExpect(page.locator('[role="tab"]:has-text("Canvas")')).toHaveAttribute('data-state', 'active')
+  await baseExpect(page.locator('[role="tab"]:has-text("Canvas")')).toHaveAttribute(
+    'data-state',
+    'active',
+  )
 }
 
 /**
@@ -353,5 +372,7 @@ export async function ensureWorktreeVisible(
     /* Worktree may already exist from a prior test (shared container). */
   }
   /* Sidebar polls worktrees every 15s — wait long enough to survive a full cycle. */
-  await baseExpect(page.locator(`[data-testid="worktree-row-${name}"]`)).toBeVisible({ timeout: 30_000 })
+  await baseExpect(page.locator(`[data-testid="worktree-row-${name}"]`)).toBeVisible({
+    timeout: 30_000,
+  })
 }

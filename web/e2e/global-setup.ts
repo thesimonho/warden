@@ -1,8 +1,8 @@
-import { execSync } from 'child_process'
-import { existsSync, mkdirSync, writeFileSync } from 'fs'
-import path from 'path'
-import { fileURLToPath } from 'url'
-import { getBaseURL, fetchProjects, removeTestProject } from './helpers/api'
+import { execSync } from 'node:child_process'
+import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
+import { fetchProjects, getBaseURL, removeTestProject } from './helpers/api'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -83,12 +83,16 @@ export default async function globalSetup() {
     const projects = await fetchProjects()
     const stale = projects.filter((p) => p.name.startsWith('warden-e2e-'))
 
-    await Promise.all(stale.map(async (project) => removeTestProject(project.projectId, project.agentType)))
+    await Promise.all(
+      stale.map(async (project) => removeTestProject(project.projectId, project.agentType)),
+    )
 
     if (stale.length > 0) {
       console.log(`[E2E] Cleaned up ${stale.length} stale container(s)`)
     }
-  } catch { /* non-fatal */ }
+  } catch {
+    /* non-fatal */
+  }
 
   /* CLI fallback: force-remove any orphaned warden-e2e-* containers that
      the API cleanup missed (e.g. server was down during previous teardown). */
@@ -96,7 +100,9 @@ export default async function globalSetup() {
     const containers = execSync(
       `${activeRuntime} ps -a --filter "name=warden-e2e-" --format "{{.Names}}"`,
       { stdio: 'pipe', timeout: 10_000 },
-    ).toString().trim()
+    )
+      .toString()
+      .trim()
     if (containers) {
       const names = containers.split('\n').filter(Boolean)
       for (const name of names) {
@@ -104,5 +110,7 @@ export default async function globalSetup() {
       }
       console.log(`[E2E] Force-removed ${names.length} orphaned container(s) via ${activeRuntime}`)
     }
-  } catch { /* non-fatal */ }
+  } catch {
+    /* non-fatal */
+  }
 }

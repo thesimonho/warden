@@ -1,15 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { SSE_POLL_INTERVAL_MS, useEventSource } from '@/hooks/use-event-source'
 import { fetchWorktrees } from '@/lib/api'
+import type { CanvasPanel } from '@/lib/canvas-store'
+import { getAttentionConfig } from '@/lib/notification-config'
+import type { WorktreeState, WorktreeStateEvent } from '@/lib/types'
 import {
   deriveStateLabel,
   deriveWorktreeStateFromEvent,
   hasActiveTerminal,
   worktreeStateIndicator,
 } from '@/lib/types'
-import type { CanvasPanel } from '@/lib/canvas-store'
-import type { WorktreeState, WorktreeStateEvent } from '@/lib/types'
-import { getAttentionConfig } from '@/lib/notification-config'
-import { useEventSource, SSE_POLL_INTERVAL_MS } from '@/hooks/use-event-source'
 
 /** Display state for a canvas panel derived from its worktree. */
 export interface PanelWorktreeState {
@@ -166,7 +166,7 @@ export function useCanvasWorktreeState(panels: CanvasPanel[]): Map<string, Panel
     // panels.length as dependency is intentional: panelsRef keeps the latest
     // panel list, so the interval always polls the current set without
     // restarting unnecessarily.
-  }, [panels.length])
+  }, [])
 
   /** Applies a worktree_state SSE event to canvas panel state. */
   const handleWorktreeState = useCallback((event: WorktreeStateEvent) => {

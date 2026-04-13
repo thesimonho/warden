@@ -1,5 +1,5 @@
-import { execSync } from 'child_process'
-import { rmSync, existsSync } from 'fs'
+import { execSync } from 'node:child_process'
+import { existsSync, rmSync } from 'node:fs'
 import { E2E_CACHE_DIR, TEST_WORKSPACE } from './global-setup'
 import { fetchProjects, removeTestProject } from './helpers/api'
 
@@ -30,10 +30,12 @@ export default async function globalTeardown() {
     const projects = await fetchProjects()
     const leaked = projects.filter((p) => p.name.startsWith('warden-e2e-'))
 
-    await Promise.all(leaked.map(async (project) => {
-      console.warn(`[E2E] Cleaning up leaked container: ${project.name}`)
-      await removeTestProject(project.projectId, project.agentType)
-    }))
+    await Promise.all(
+      leaked.map(async (project) => {
+        console.warn(`[E2E] Cleaning up leaked container: ${project.name}`)
+        await removeTestProject(project.projectId, project.agentType)
+      }),
+    )
 
     if (leaked.length > 0) {
       console.warn(`[E2E] Cleaned up ${leaked.length} leaked container(s)`)
@@ -44,10 +46,12 @@ export default async function globalTeardown() {
 
   /* Layer 2: CLI fallback — force-remove orphaned containers directly. */
   try {
-    const containers = execSync(
-      'docker ps -a --filter "name=warden-e2e-" --format "{{.Names}}"',
-      { stdio: 'pipe', timeout: 10_000 },
-    ).toString().trim()
+    const containers = execSync('docker ps -a --filter "name=warden-e2e-" --format "{{.Names}}"', {
+      stdio: 'pipe',
+      timeout: 10_000,
+    })
+      .toString()
+      .trim()
     if (containers) {
       const names = containers.split('\n').filter(Boolean)
       for (const name of names) {

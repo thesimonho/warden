@@ -1,31 +1,31 @@
-import { useNavigate } from 'react-router-dom'
 import {
-  Square,
-  Loader2,
+  FolderCog,
   FolderOpen,
   GitBranch,
-  Terminal,
-  FolderCog,
-  Pencil,
   Layers,
+  Loader2,
+  Pencil,
+  Play,
+  RotateCcw,
   ShieldCheck,
   ShieldOff,
-  RotateCcw,
-  Play,
+  Square,
+  Terminal,
   Trash2,
 } from 'lucide-react'
-import type { AgentType, Project } from '@/lib/types'
-import type { InstallStatus } from '@/hooks/use-projects'
-import { formatCost } from '@/lib/cost'
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
-import { serverPort } from '@/lib/api-core'
-import { abbreviateHomePath, shortenCloneURL, cn } from '@/lib/utils'
-import StatusBadge from '@/components/home/status-badge'
+import { useNavigate } from 'react-router-dom'
 import AgentStatusIndicator from '@/components/home/agent-status-indicator'
 import { LinkPortChip } from '@/components/home/port-chip'
+import StatusBadge from '@/components/home/status-badge'
 import { AgentIcon } from '@/components/ui/agent-icons'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import type { InstallStatus } from '@/hooks/use-projects'
+import { serverPort } from '@/lib/api-core'
+import { formatCost } from '@/lib/cost'
+import type { AgentType, Project } from '@/lib/types'
+import { abbreviateHomePath, cn, shortenCloneURL } from '@/lib/utils'
 
 /** Props for the ProjectCard component. */
 interface ProjectCardProps {

@@ -1,4 +1,4 @@
-import { test, expect, navigateToProject, switchToCanvasMode } from './helpers/fixtures'
+import { expect, navigateToProject, switchToCanvasMode, test } from './helpers/fixtures'
 import { selectors } from './helpers/selectors'
 
 test.describe('Project page', () => {

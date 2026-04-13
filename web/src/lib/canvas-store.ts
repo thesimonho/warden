@@ -1,8 +1,8 @@
-import { useState, useCallback, useRef } from 'react'
 import { arrayMove } from '@dnd-kit/sortable'
+import { useCallback, useRef, useState } from 'react'
+import { layoutGrid, layoutHorizontal, layoutVertical } from '@/lib/canvas-layout'
 import type { Worktree } from '@/lib/types'
 import { isWorktreeAlive } from '@/lib/types'
-import { layoutGrid, layoutHorizontal, layoutVertical } from '@/lib/canvas-layout'
 
 /** Position and size of a canvas panel. */
 export interface PanelGeometry {

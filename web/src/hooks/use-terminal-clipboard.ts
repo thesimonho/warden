@@ -15,8 +15,9 @@
  *
  * @module
  */
-import { useCallback, useRef } from 'react'
+
 import type { Terminal } from '@xterm/xterm'
+import { useCallback, useRef } from 'react'
 import { toast } from 'sonner'
 import { uploadClipboardImage } from '@/lib/api'
 

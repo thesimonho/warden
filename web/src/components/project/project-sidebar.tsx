@@ -1,16 +1,7 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
 import { LayoutGrid, Scan } from 'lucide-react'
-import { Badge } from '@/components/ui/badge'
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { toast } from 'sonner'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
-import { Separator } from '@/components/ui/separator'
+import WorktreeList from '@/components/project/worktree-list'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -21,6 +12,20 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
+import { Badge } from '@/components/ui/badge'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { Separator } from '@/components/ui/separator'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { useAutoConnect } from '@/hooks/use-auto-connect'
+import { useProjects } from '@/hooks/use-projects'
+import { useRevealInFileManager } from '@/hooks/use-reveal-in-file-manager'
+import { useWorktrees } from '@/hooks/use-worktrees'
 import {
   connectTerminal,
   disconnectTerminal,
@@ -28,36 +33,27 @@ import {
   removeWorktree,
   resetWorktree,
 } from '@/lib/api'
-import { formatCost } from '@/lib/cost'
 import { buildPanelId } from '@/lib/canvas-store'
-import { useProjects } from '@/hooks/use-projects'
-import { useRevealInFileManager } from '@/hooks/use-reveal-in-file-manager'
-import { useAutoConnect } from '@/hooks/use-auto-connect'
-import { useWorktrees } from '@/hooks/use-worktrees'
-import { workspaceMount, type Worktree, type WorkspaceMount } from '@/lib/types'
-import WorktreeList from '@/components/project/worktree-list'
+import { formatCost } from '@/lib/cost'
+import { type WorkspaceMount, type Worktree, workspaceMount } from '@/lib/types'
 
 /** Projects change infrequently — poll less aggressively than worktree state. */
 const PROJECT_POLL_INTERVAL_MS = 10_000
 
 /** Callback signature for adding a worktree panel to the canvas. */
-interface OnAddPanel {
-  (params: {
-    projectId: string
-    agentType: string
-    projectName: string
-    worktreeId: string
-    branch?: string
-  }): void
-}
+type OnAddPanel = (params: {
+  projectId: string
+  agentType: string
+  projectName: string
+  worktreeId: string
+  branch?: string
+}) => void
 
 /** Group ordering for the worktree list — panels on canvas first. */
 const CANVAS_GROUP_ORDER = ['Displayed', 'Available']
 
 /** Callback to sync canvas panels with live worktree state. */
-interface OnSyncWorktrees {
-  (projectId: string, worktrees: Worktree[]): void
-}
+type OnSyncWorktrees = (projectId: string, worktrees: Worktree[]) => void
 
 /** Set of panel IDs already on the canvas, for disabling duplicate adds. */
 type ActivePanelIds = Set<string>

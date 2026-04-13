@@ -1,21 +1,21 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { compareItems, type RankingInfo, rankItem, rankings } from '@tanstack/match-sorter-utils'
 import {
   type ColumnDef,
   type ColumnFiltersState,
-  type FilterFn,
-  type SortingFn,
-  type SortingState,
-  type ExpandedState,
   type ColumnSizingState,
+  type ExpandedState,
+  type FilterFn,
   flexRender,
   getCoreRowModel,
+  getExpandedRowModel,
   getFilteredRowModel,
   getSortedRowModel,
-  getExpandedRowModel,
+  type SortingFn,
+  type SortingState,
   sortingFns,
   useReactTable,
 } from '@tanstack/react-table'
-import { type RankingInfo, rankItem, compareItems, rankings } from '@tanstack/match-sorter-utils'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 declare module '@tanstack/react-table' {
   interface FilterFns {
@@ -25,6 +25,7 @@ declare module '@tanstack/react-table' {
     itemRank: RankingInfo
   }
 }
+
 import { useVirtualizer } from '@tanstack/react-virtual'
 import {
   ArrowDown,
@@ -38,20 +39,20 @@ import {
 } from 'lucide-react'
 import { AgentIcon } from '@/components/ui/agent-icons'
 import { Badge } from '@/components/ui/badge'
-import { cn } from '@/lib/utils'
 import {
   AUDIT_CATEGORIES,
   categoryOrder,
-  formatTimestamp,
-  formatDataForDisplay,
   copyEntry,
   entryKey,
-  eventLabel,
   entryMessage,
+  eventLabel,
+  formatDataForDisplay,
+  formatTimestamp,
   promptSource,
 } from '@/lib/audit-log-utils'
 import { readStorage, writeStorage } from '@/lib/storage'
-import type { AgentType, AuditLogEntry, AuditCategory, AuditLogLevel } from '@/lib/types'
+import type { AgentType, AuditCategory, AuditLogEntry, AuditLogLevel } from '@/lib/types'
+import { cn } from '@/lib/utils'
 
 // --- Styles ---
 
@@ -436,7 +437,6 @@ export function AuditLogTable({
     [],
   )
 
-  // eslint-disable-next-line react-hooks/incompatible-library -- TanStack Table API is stable; false positive from React Compiler
   const table = useReactTable({
     data: entries,
     columns,
@@ -489,7 +489,7 @@ export function AuditLogTable({
   /** Re-measure all rows when expansion state changes so positions update. */
   useEffect(() => {
     virtualizer.measure()
-  }, [expanded, virtualizer])
+  }, [virtualizer])
 
   if (isLoading) {
     return (

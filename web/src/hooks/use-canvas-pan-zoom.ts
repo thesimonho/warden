@@ -35,7 +35,7 @@ function clampScale(s: number): number {
 
 /** Cubic ease-out curve: fast start, gentle finish. */
 function easeOutCubic(t: number): number {
-  return 1 - Math.pow(1 - t, 3)
+  return 1 - (1 - t) ** 3
 }
 
 /**

@@ -1,7 +1,7 @@
-import type { AgentStatus, NotificationType } from '@/lib/types'
-import { getAttentionConfig } from '@/lib/notification-config'
-import { cn } from '@/lib/utils'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { getAttentionConfig } from '@/lib/notification-config'
+import type { AgentStatus, NotificationType } from '@/lib/types'
+import { cn } from '@/lib/utils'
 
 /** Props for the AgentStatusIndicator component. */
 interface AgentStatusIndicatorProps {

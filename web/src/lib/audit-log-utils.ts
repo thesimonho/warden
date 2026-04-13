@@ -1,15 +1,15 @@
-import { toast } from 'sonner'
 import {
-  Play,
   Bot,
-  MessageSquare,
-  Settings2,
-  Coins,
-  Terminal,
   Bug,
+  Coins,
   type LucideIcon,
+  MessageSquare,
+  Play,
+  Settings2,
+  Terminal,
 } from 'lucide-react'
-import type { AuditLogEntry, AuditCategory, AuditLogLevel } from '@/lib/types'
+import { toast } from 'sonner'
+import type { AuditCategory, AuditLogEntry, AuditLogLevel } from '@/lib/types'
 
 // --- Category metadata (single source of truth) ---
 

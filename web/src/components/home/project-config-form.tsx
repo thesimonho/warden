@@ -1,6 +1,31 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { FolderOpen, GitBranch, Info } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { toast } from 'sonner'
+import { AgentIcon } from '@/components/ui/agent-icons'
+import { Button } from '@/components/ui/button'
+import { Checkbox } from '@/components/ui/checkbox'
+import DirectoryBrowser from '@/components/ui/directory-browser'
+import { Input } from '@/components/ui/input'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { Switch } from '@/components/ui/switch'
+import { Textarea } from '@/components/ui/textarea'
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import type { DefaultMount } from '@/lib/api'
+import { fetchAccessItems, fetchDefaults, fetchSettings, validateProjectTemplate } from '@/lib/api'
+import { getRestrictedDomains } from '@/lib/domain-groups'
+import {
+  mergeRuntimeDomains,
+  resolveRuntimeEnvVars,
+  resolveRuntimeToggles,
+  resolveTemplateDomains,
+} from '@/lib/template'
 import type {
   AccessItemResponse,
   AgentType,
@@ -10,33 +35,15 @@ import type {
   ProjectTemplate,
   RuntimeDefault,
 } from '@/lib/types'
-import type { DefaultMount } from '@/lib/api'
 import { agentTypeLabels, agentTypeOptions, DEFAULT_AGENT_TYPE } from '@/lib/types'
-import { fetchAccessItems, fetchDefaults, fetchSettings, validateProjectTemplate } from '@/lib/api'
+import { containerPathToAbsolute, containerPathToDisplay } from '@/lib/utils'
 import {
-  resolveRuntimeToggles,
-  resolveRuntimeEnvVars,
-  resolveTemplateDomains,
-  mergeRuntimeDomains,
-} from '@/lib/template'
-import { containerPathToDisplay, containerPathToAbsolute } from '@/lib/utils'
-import { getRestrictedDomains } from '@/lib/domain-groups'
-import { Button } from '@/components/ui/button'
-import { Checkbox } from '@/components/ui/checkbox'
-import { Input } from '@/components/ui/input'
-import { Textarea } from '@/components/ui/textarea'
-import { Switch } from '@/components/ui/switch'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
-import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
-import { AgentIcon } from '@/components/ui/agent-icons'
-import DirectoryBrowser from '@/components/ui/directory-browser'
+  BindMountsField,
+  EnvVarsField,
+  FormField,
+  ForwardedPortsField,
+} from './project-config-form-fields'
+import { StepFooter, StepTabs } from './project-config-form-steps'
 import type {
   EnvVarEntry,
   FormStep,
@@ -46,17 +53,10 @@ import type {
 import {
   DEFAULT_IMAGE,
   FORM_STEPS,
-  isMountForAgent,
   findRequiredMount,
+  isMountForAgent,
   withRequiredMount,
 } from './project-config-form-types'
-import {
-  FormField,
-  BindMountsField,
-  EnvVarsField,
-  ForwardedPortsField,
-} from './project-config-form-fields'
-import { StepTabs, StepFooter } from './project-config-form-steps'
 
 export type { ProjectConfigFormData } from './project-config-form-types'
 
@@ -276,8 +276,17 @@ export default function ProjectConfigForm({
         })
         .catch(() => {})
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- initialValues is stable across renders; only mode determines create/edit behavior
-  }, [mode])
+    // biome-ignore lint/correctness/useExhaustiveDependencies: initialValues is stable across renders; only mode determines create/edit behavior
+  }, [
+    mode,
+    agentType,
+    initialValues?.projectPath,
+    initialValues?.enabledRuntimes,
+    projectPath,
+    initialValues?.enabledAccessItems,
+    initialValues?.allowedDomains,
+    applyTemplate,
+  ])
 
   /** Re-fetches defaults when project path changes in create mode to pick up .warden.json. */
   useEffect(() => {
@@ -313,8 +322,13 @@ export default function ProjectConfigForm({
     return () => {
       stale = true
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- only re-fetch when projectPath changes
-  }, [projectPath])
+    // biome-ignore lint/correctness/useExhaustiveDependencies: only re-fetch when projectPath changes
+  }, [
+    projectPath,
+    mode, // Template handles its own toggle/envvar/domain resolution.
+    applyTemplate,
+    agentType,
+  ])
 
   /** Updates agent type, re-filters default mounts, and updates allowed domains. */
   const handleAgentTypeChange = (newType: AgentType) => {
@@ -495,8 +509,8 @@ export default function ProjectConfigForm({
   const isEditMode = mode === 'edit'
   const isValid = useMemo(
     () => validate() === null,
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- validate is not memoized; listing its captured fields explicitly
-    [name, source, projectPath, cloneURL, image, networkMode, allowedDomains],
+    // biome-ignore lint/correctness/useExhaustiveDependencies: validate is not memoized; listing its captured fields explicitly
+    [validate],
   )
   const displayError = error ?? externalError
 

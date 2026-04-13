@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
-import type { DiffResponse } from '@/lib/types'
 import { fetchWorktreeDiff } from '@/lib/api'
+import type { DiffResponse } from '@/lib/types'
 
 /** Return type for the useDiff hook. */
 interface UseDiffResult {

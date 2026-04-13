@@ -19,7 +19,7 @@ async function isServerUp(url: string): Promise<boolean> {
     const response = await fetch(url, { signal: AbortSignal.timeout(2000) })
     if (!response.ok) return false
     // Validate JSON — Vite returns index.html (200) when the Go backend is down.
-    const body = await response.json() as { status?: string }
+    const body = (await response.json()) as { status?: string }
     return body.status === 'ok'
   } catch {
     return false
@@ -63,8 +63,10 @@ const serverConfig = await resolveServer()
 const runtimePrefix = ''
 
 /** Test-file patterns for the two project tiers. */
-const uiTestMatch = /home-page|navigation|project-page|project-lifecycle|panel-maximize|terminal-connection/
-const containerTestMatch = /container-integration|codex-container|devcontainer-feature|panel-layout|terminal-resilience|api-endpoints|api-workflows/
+const uiTestMatch =
+  /home-page|navigation|project-page|project-lifecycle|panel-maximize|terminal-connection/
+const containerTestMatch =
+  /container-integration|codex-container|devcontainer-feature|panel-layout|terminal-resilience|api-endpoints|api-workflows/
 
 export default defineConfig({
   testDir: './e2e',

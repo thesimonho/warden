@@ -1,15 +1,16 @@
-import { forwardRef, useImperativeHandle, useState, type ReactNode } from 'react'
 import {
-  GitBranch,
-  Unplug,
   Bot,
-  SquareTerminal,
-  GitCompareArrows,
-  Copy,
-  Clipboard,
   BoxSelect,
+  Clipboard,
+  Copy,
+  GitBranch,
+  GitCompareArrows,
   Image,
+  SquareTerminal,
+  Unplug,
 } from 'lucide-react'
+import { forwardRef, type ReactNode, useImperativeHandle, useState } from 'react'
+import { ChangesView } from '@/components/project/changes-view'
 import { Button } from '@/components/ui/button'
 import {
   ContextMenu,
@@ -19,9 +20,8 @@ import {
   ContextMenuShortcut,
   ContextMenuTrigger,
 } from '@/components/ui/context-menu'
-import { cn } from '@/lib/utils'
 import { useTerminal } from '@/hooks/use-terminal'
-import { ChangesView } from '@/components/project/changes-view'
+import { cn } from '@/lib/utils'
 import '@xterm/xterm/css/xterm.css'
 
 /**

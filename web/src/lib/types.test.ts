@@ -1,11 +1,11 @@
-import { describe, it, expect } from 'vitest'
+import { describe, expect, it } from 'vitest'
+import type { WorktreeState, WorktreeStateEvent } from '@/lib/types'
 import {
   deriveWorktreeStateFromEvent,
   hasActiveTerminal,
   isConnectedWorktree,
   isWorktreeAlive,
 } from '@/lib/types'
-import type { WorktreeState, WorktreeStateEvent } from '@/lib/types'
 
 describe('hasActiveTerminal', () => {
   it('returns true for connected worktrees', () => {

@@ -1,4 +1,4 @@
-import { clsx, type ClassValue } from 'clsx'
+import { type ClassValue, clsx } from 'clsx'
 import { twMerge } from 'tailwind-merge'
 
 export function cn(...inputs: ClassValue[]) {
@@ -36,7 +36,7 @@ export function parentDir(path: string): string {
 export function containerPathToDisplay(path: string, containerHomeDir: string): string {
   if (!containerHomeDir || !path) return path
   if (path === containerHomeDir) return '~'
-  if (path.startsWith(containerHomeDir + '/')) return '~' + path.slice(containerHomeDir.length)
+  if (path.startsWith(`${containerHomeDir}/`)) return `~${path.slice(containerHomeDir.length)}`
   return path
 }
 

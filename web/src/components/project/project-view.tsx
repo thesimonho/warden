@@ -1,15 +1,15 @@
+import { ArrowDownFromLine, ArrowRightFromLine, Focus, Frame, LayoutGrid } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Focus, Frame, LayoutGrid, ArrowRightFromLine, ArrowDownFromLine } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
-import ProjectSidebar, { type ViewMode } from '@/components/project/project-sidebar'
 import CanvasView from '@/components/project/canvas-view'
 import GridView, { type GridViewHandle } from '@/components/project/grid-view'
-import { useCanvasStore, buildPanelId, LAYOUT_ANIMATION_MS } from '@/lib/canvas-store'
-import { useFocusReporter } from '@/hooks/use-focus-reporter'
-import { useCanvasWorktreeState } from '@/hooks/use-canvas-worktree-state'
+import ProjectSidebar, { type ViewMode } from '@/components/project/project-sidebar'
+import { Button } from '@/components/ui/button'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { useCanvasPanZoom } from '@/hooks/use-canvas-pan-zoom'
+import { useCanvasWorktreeState } from '@/hooks/use-canvas-worktree-state'
+import { useFocusReporter } from '@/hooks/use-focus-reporter'
 import { useMarqueeSelection } from '@/hooks/use-marquee-selection'
+import { buildPanelId, LAYOUT_ANIMATION_MS, useCanvasStore } from '@/lib/canvas-store'
 
 /** Extra buffer for React to commit the state update after the CSS animation. */
 const POST_ANIMATION_BUFFER_MS = 50
@@ -116,7 +116,7 @@ export default function ProjectView({ projectId, agentType, onProjectChange }: P
     measureCanvas()
     window.addEventListener('resize', measureCanvas)
     return () => window.removeEventListener('resize', measureCanvas)
-  }, [measureCanvas, viewMode])
+  }, [measureCanvas])
 
   const {
     setContainerEl: setPanZoomEl,
