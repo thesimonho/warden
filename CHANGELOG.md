@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.13.4](https://github.com/thesimonho/warden/compare/v1.13.3...v1.13.4) (2026-04-13)
+
+
+### Bug Fixes
+
+* clear stale event bus state on container restart ([#235](https://github.com/thesimonho/warden/issues/235)) ([6586c1c](https://github.com/thesimonho/warden/commit/6586c1c749cdebd8e895e34a6ddf16ad3f2e1994))
+* isolate E2E tests from dev server and fix container name mismatch ([#232](https://github.com/thesimonho/warden/issues/232)) ([e181d73](https://github.com/thesimonho/warden/commit/e181d732f7f794c312d5ffcf72c040928b166e7f))
+
 ## [1.13.3](https://github.com/thesimonho/warden/compare/v1.13.2...v1.13.3) (2026-04-13)
 
 
