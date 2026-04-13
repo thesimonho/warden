@@ -80,6 +80,7 @@ export default function AddProjectDialog({
       setFormError(null)
       setEditConfig(null)
       setIsLoadingConfig(false)
+      setIsSubmitting(false)
       setPendingConfirm(null)
       return
     }
@@ -254,8 +255,8 @@ export default function AddProjectDialog({
               <div className="max-w-md space-y-2 text-center">
                 <p className="font-medium">A Warden container already exists with this name</p>
                 <p className="text-muted-foreground text-sm">
-                  The existing container is {pendingConfirm.checkResult.state ?? 'unknown'}.
-                  Replace it to continue, or go back to choose a different name.
+                  The existing container is {pendingConfirm.checkResult.state ?? 'unknown'}. Replace
+                  it to continue, or go back to choose a different name.
                 </p>
               </div>
               <div className="flex gap-2">
