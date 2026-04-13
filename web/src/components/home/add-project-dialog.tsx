@@ -229,7 +229,7 @@ export default function AddProjectDialog({
         image: '',
         agentType: DEFAULT_AGENT_TYPE,
         skipPermissions: false,
-        networkMode: 'full',
+        networkMode: 'restricted',
         costBudget: 0,
       }
     : undefined
