@@ -1,6 +1,6 @@
 {
   "name": "warden",
-  "version": "1.13.3",
+  "version": "1.13.4",
   "description": "Integrate with Warden — the container engine for AI agents.",
   "author": {
     "name": "Simon Ho",
