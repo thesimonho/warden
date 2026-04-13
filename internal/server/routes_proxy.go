@@ -111,6 +111,8 @@ func (pr *proxyRouter) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	cached := pr.getOrCreateProxy(projectID, agentType, port, targetHost, targetPort)
 
+	proxyOrigin := fmt.Sprintf("http://%s", r.Host)
+
 	proxy := &httputil.ReverseProxy{
 		Transport: cached.transport,
 		Rewrite: func(pr *httputil.ProxyRequest) {
@@ -122,6 +124,30 @@ func (pr *proxyRouter) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			// checks (e.g. Next.js Server Actions) see the proxy
 			// hostname, not the internal backend address.
 			pr.Out.Header.Set("X-Forwarded-Host", r.Host)
+			pr.Out.Header.Set("X-Forwarded-Proto", "http")
+			// Rewrite Origin to match the target so upstream CORS
+			// checks (e.g. Expo's CorsMiddleware) see a same-origin
+			// request instead of the proxy subdomain origin.
+			if pr.Out.Header.Get("Origin") != "" {
+				pr.Out.Header.Set("Origin", cached.target.String())
+			}
+			// Rewrite Referer authority to match the target while
+			// preserving the path+query. Dev servers (Expo, Vite)
+			// validate Referer the same way they validate Origin.
+			if ref := pr.Out.Header.Get("Referer"); ref != "" {
+				pr.Out.Header.Set("Referer", rewriteReferer(ref, cached.target))
+			}
+		},
+		// Rewrite Location headers in redirects from the internal
+		// container address back to the proxy subdomain so the
+		// browser can follow them.
+		ModifyResponse: func(resp *http.Response) error {
+			loc := resp.Header.Get("Location")
+			if loc == "" {
+				return nil
+			}
+			resp.Header.Set("Location", rewriteLocation(loc, cached.target, proxyOrigin))
+			return nil
 		},
 		ErrorHandler: func(rw http.ResponseWriter, _ *http.Request, proxyErr error) {
 			slog.Warn("proxy error", "project", projectID, "port", port, "err", proxyErr)
@@ -167,6 +193,30 @@ func parseProxySubdomain(subdomain string) (projectID, agentType string, port in
 	}
 
 	return projectID, agentType, port, true
+}
+
+// rewriteReferer replaces the scheme+authority of a Referer URL with the
+// proxy target's origin while preserving the path and query string.
+// Returns the original value unchanged if parsing fails.
+func rewriteReferer(referer string, target *url.URL) string {
+	parsed, err := url.Parse(referer)
+	if err != nil {
+		return referer
+	}
+	parsed.Scheme = target.Scheme
+	parsed.Host = target.Host
+	return parsed.String()
+}
+
+// rewriteLocation replaces the upstream target origin in a Location header
+// with the browser-facing proxy origin so redirects are followable.
+// Relative and non-matching Location values are returned unchanged.
+func rewriteLocation(loc string, target *url.URL, proxyOrigin string) string {
+	targetOrigin := target.String()
+	if strings.HasPrefix(loc, targetOrigin) {
+		return proxyOrigin + strings.TrimPrefix(loc, targetOrigin)
+	}
+	return loc
 }
 
 // getOrCreateProxy returns a cached transport and target URL for the

@@ -1,6 +1,9 @@
 package server
 
-import "testing"
+import (
+	"net/url"
+	"testing"
+)
 
 func TestParseProxySubdomain(t *testing.T) {
 	t.Parallel()
@@ -105,6 +108,93 @@ func TestParseProxySubdomain(t *testing.T) {
 			}
 			if port != tt.wantPort {
 				t.Errorf("port = %d, want %d", port, tt.wantPort)
+			}
+		})
+	}
+}
+
+func TestRewriteReferer(t *testing.T) {
+	t.Parallel()
+
+	target, _ := url.Parse("http://172.17.0.2:8081")
+
+	tests := []struct {
+		name    string
+		referer string
+		want    string
+	}{
+		{
+			name:    "rewrites authority preserving path",
+			referer: "http://abc123-claude-code-8081.localhost:8090/some/page?q=1",
+			want:    "http://172.17.0.2:8081/some/page?q=1",
+		},
+		{
+			name:    "rewrites authority with no path",
+			referer: "http://abc123-claude-code-8081.localhost:8090",
+			want:    "http://172.17.0.2:8081",
+		},
+		{
+			name:    "empty referer unchanged",
+			referer: "",
+			want:    "http://172.17.0.2:8081",
+		},
+		{
+			name:    "preserves fragment",
+			referer: "http://abc123-claude-code-8081.localhost:8090/page#section",
+			want:    "http://172.17.0.2:8081/page#section",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			got := rewriteReferer(tt.referer, target)
+			if got != tt.want {
+				t.Errorf("rewriteReferer() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestRewriteLocation(t *testing.T) {
+	t.Parallel()
+
+	target, _ := url.Parse("http://172.17.0.2:8081")
+	proxyOrigin := "http://abc123-claude-code-8081.localhost:8090"
+
+	tests := []struct {
+		name string
+		loc  string
+		want string
+	}{
+		{
+			name: "rewrites target origin to proxy origin",
+			loc:  "http://172.17.0.2:8081/login?next=/dashboard",
+			want: "http://abc123-claude-code-8081.localhost:8090/login?next=/dashboard",
+		},
+		{
+			name: "leaves relative path unchanged",
+			loc:  "/login",
+			want: "/login",
+		},
+		{
+			name: "leaves unrelated origin unchanged",
+			loc:  "http://example.com/other",
+			want: "http://example.com/other",
+		},
+		{
+			name: "rewrites root redirect",
+			loc:  "http://172.17.0.2:8081/",
+			want: "http://abc123-claude-code-8081.localhost:8090/",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			got := rewriteLocation(tt.loc, target, proxyOrigin)
+			if got != tt.want {
+				t.Errorf("rewriteLocation() = %q, want %q", got, tt.want)
 			}
 		})
 	}
