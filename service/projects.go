@@ -504,6 +504,17 @@ func (s *Service) RestartProject(
 		return nil, err
 	}
 	s.StopSessionWatcher(project.ProjectID, project.AgentType)
+
+	// Clear stale event bus state from the old container. Without this,
+	// the TerminalState (SessionAlive=true, ViewerConnected=true) from
+	// the previous run persists in memory — and the new container sends
+	// heartbeats fast enough that the liveness checker never fires
+	// MarkContainerStale, so the UI shows "connected" for a worktree
+	// that has no tmux session.
+	if s.store != nil {
+		s.store.MarkContainerStale(containerName)
+	}
+
 	s.startProjectWatcher(project.ProjectID, containerName, project.AgentType)
 
 	// Broadcast immediately so the frontend updates the project card state
