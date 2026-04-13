@@ -322,13 +322,8 @@ export default function ProjectConfigForm({
     return () => {
       stale = true
     }
-    // biome-ignore lint/correctness/useExhaustiveDependencies: only re-fetch when projectPath changes
-  }, [
-    projectPath,
-    mode, // Template handles its own toggle/envvar/domain resolution.
-    applyTemplate,
-    agentType,
-  ])
+    // biome-ignore lint/correctness/useExhaustiveDependencies: applyTemplate excluded — it receives runtimes explicitly, and including it causes an infinite fetch loop (runtimeDefaults → new applyTemplate identity → effect re-fires → setRuntimeDefaults → repeat)
+  }, [projectPath, mode, agentType])
 
   /** Updates agent type, re-filters default mounts, and updates allowed domains. */
   const handleAgentTypeChange = (newType: AgentType) => {
