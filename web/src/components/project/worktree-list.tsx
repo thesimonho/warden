@@ -1,4 +1,3 @@
-import { useCallback, useMemo, useState } from 'react'
 import {
   FolderOpen,
   GitBranch,
@@ -10,7 +9,11 @@ import {
   Trash2,
   Unplug,
 } from 'lucide-react'
+import { useCallback, useMemo, useState } from 'react'
 import { toast } from 'sonner'
+import NewWorktreeDialog from '@/components/project/new-worktree-dialog'
+import RemoveWorktreeDialog from '@/components/project/remove-worktree-dialog'
+import { Button } from '@/components/ui/button'
 import {
   ContextMenu,
   ContextMenuContent,
@@ -18,16 +21,13 @@ import {
   ContextMenuSeparator,
   ContextMenuTrigger,
 } from '@/components/ui/context-menu'
+import { Separator } from '@/components/ui/separator'
 import { cleanupWorktrees } from '@/lib/api'
 import { buildPanelId } from '@/lib/canvas-store'
-import { hasActiveTerminal, worktreeDisplayName, worktreeStateIndicator } from '@/lib/types'
 import { getAttentionConfig } from '@/lib/notification-config'
 import type { Worktree } from '@/lib/types'
-import { Separator } from '@/components/ui/separator'
+import { hasActiveTerminal, worktreeDisplayName, worktreeStateIndicator } from '@/lib/types'
 import { cn } from '@/lib/utils'
-import { Button } from '@/components/ui/button'
-import NewWorktreeDialog from '@/components/project/new-worktree-dialog'
-import RemoveWorktreeDialog from '@/components/project/remove-worktree-dialog'
 
 /** Returns a display label for a worktree — project name for main, ID otherwise. */
 function worktreeLabel(worktree: Worktree, projectName: string): string {

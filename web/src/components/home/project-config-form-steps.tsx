@@ -1,9 +1,9 @@
 import { Check, ChevronLeft, ChevronRight, FileUp, Loader2 } from 'lucide-react'
-import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { cn } from '@/lib/utils'
 import type { FormStep, StepBadge } from './project-config-form-types'
-import { FORM_STEPS, FORM_STEP_LABELS } from './project-config-form-types'
+import { FORM_STEP_LABELS, FORM_STEPS } from './project-config-form-types'
 
 /** Props for the StepTabs component. */
 interface StepTabsProps {

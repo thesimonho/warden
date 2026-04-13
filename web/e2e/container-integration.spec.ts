@@ -1,12 +1,12 @@
-import { execSync } from 'child_process'
-import { test, expect } from './helpers/fixtures'
+import { execSync } from 'node:child_process'
 import {
-  validateContainer,
-  createWorktree,
   connectTerminal,
+  createWorktree,
   disconnectTerminal,
+  validateContainer,
   waitForWorktreeState,
 } from './helpers/api'
+import { expect, test } from './helpers/fixtures'
 
 /**
  * Runs a shell command inside the test container.
@@ -65,7 +65,13 @@ test.describe('Container integration', () => {
 
       await disconnectTerminal(testProject.id, 'main', testProject.agentType)
 
-      await waitForWorktreeState(testProject.id, 'main', ['background', 'shell'], 30_000, testProject.agentType)
+      await waitForWorktreeState(
+        testProject.id,
+        'main',
+        ['background', 'shell'],
+        30_000,
+        testProject.agentType,
+      )
     })
   })
 
@@ -77,7 +83,13 @@ test.describe('Container integration', () => {
       await waitForWorktreeState(testProject.id, 'main', 'connected', 45_000, testProject.agentType)
 
       await disconnectTerminal(testProject.id, 'main', testProject.agentType)
-      await waitForWorktreeState(testProject.id, 'main', ['background', 'shell'], 30_000, testProject.agentType)
+      await waitForWorktreeState(
+        testProject.id,
+        'main',
+        ['background', 'shell'],
+        30_000,
+        testProject.agentType,
+      )
 
       await new Promise((r) => setTimeout(r, 2000))
 
@@ -98,9 +110,17 @@ test.describe('Container integration', () => {
           await createWorktree(testProject.id, 'e2e-concurrent', testProject.agentType)
         }
 
-        await waitForWorktreeState(testProject.id, 'e2e-concurrent', 'connected', 60_000, testProject.agentType)
+        await waitForWorktreeState(
+          testProject.id,
+          'e2e-concurrent',
+          'connected',
+          60_000,
+          testProject.agentType,
+        )
       } finally {
-        await disconnectTerminal(testProject.id, 'e2e-concurrent', testProject.agentType).catch(() => {})
+        await disconnectTerminal(testProject.id, 'e2e-concurrent', testProject.agentType).catch(
+          () => {},
+        )
       }
     })
   })
@@ -153,9 +173,13 @@ test.describe('Container integration', () => {
       execInContainer(name, 'echo test-content > /tmp/readonly-store/test-config.json')
       execInContainer(name, 'chmod 555 /tmp/readonly-store')
       // Symlink created by warden user (owns ~/.claude/)
-      execSync(`docker exec --user warden ${name} ln -sf /tmp/readonly-store/test-config.json /home/warden/.claude/test-config.json`, {
-        stdio: 'pipe', timeout: 10_000,
-      })
+      execSync(
+        `docker exec --user warden ${name} ln -sf /tmp/readonly-store/test-config.json /home/warden/.claude/test-config.json`,
+        {
+          stdio: 'pipe',
+          timeout: 10_000,
+        },
+      )
 
       const beforeType = execInContainer(name, 'stat -c %F /home/warden/.claude/test-config.json')
       expect(beforeType).toBe('symbolic link')
@@ -182,14 +206,23 @@ test.describe('Container integration', () => {
       // be dereferenced so the agent can write to it.
       // All files owned by warden so cp --remove-destination can replace the symlink.
       execSync(`docker exec --user warden ${name} mkdir -p /tmp/writable-store`, {
-        stdio: 'pipe', timeout: 10_000,
+        stdio: 'pipe',
+        timeout: 10_000,
       })
-      execSync(`docker exec --user warden ${name} sh -c 'echo test-content > /tmp/writable-store/test-config.json'`, {
-        stdio: 'pipe', timeout: 10_000,
-      })
-      execSync(`docker exec --user warden ${name} ln -sf /tmp/writable-store/test-config.json /home/warden/.claude/test-config.json`, {
-        stdio: 'pipe', timeout: 10_000,
-      })
+      execSync(
+        `docker exec --user warden ${name} sh -c 'echo test-content > /tmp/writable-store/test-config.json'`,
+        {
+          stdio: 'pipe',
+          timeout: 10_000,
+        },
+      )
+      execSync(
+        `docker exec --user warden ${name} ln -sf /tmp/writable-store/test-config.json /home/warden/.claude/test-config.json`,
+        {
+          stdio: 'pipe',
+          timeout: 10_000,
+        },
+      )
 
       const beforeType = execInContainer(name, 'stat -c %F /home/warden/.claude/test-config.json')
       expect(beforeType).toBe('symbolic link')

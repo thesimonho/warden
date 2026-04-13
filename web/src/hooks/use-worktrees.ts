@@ -1,8 +1,8 @@
 import { startTransition, useCallback, useEffect, useRef, useState } from 'react'
-import { deriveWorktreeStateFromEvent } from '@/lib/types'
-import type { Worktree, WorktreeStateEvent, WorktreeListChangedEvent } from '@/lib/types'
+import { SSE_POLL_INTERVAL_MS, useEventSource } from '@/hooks/use-event-source'
 import { fetchWorktrees } from '@/lib/api'
-import { useEventSource, SSE_POLL_INTERVAL_MS } from '@/hooks/use-event-source'
+import type { Worktree, WorktreeListChangedEvent, WorktreeStateEvent } from '@/lib/types'
+import { deriveWorktreeStateFromEvent } from '@/lib/types'
 
 /** Return type for the useWorktrees hook. */
 interface UseWorktreesResult {

@@ -1,12 +1,12 @@
 import {
-  test,
+  assertTerminalUsable,
+  ensureWorktreeVisible,
   expect,
   navigateToProject,
   switchToCanvasMode,
-  waitForTerminalReady,
-  assertTerminalUsable,
   terminalContainer,
-  ensureWorktreeVisible,
+  test,
+  waitForTerminalReady,
 } from './helpers/fixtures'
 import { selectors } from './helpers/selectors'
 

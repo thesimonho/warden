@@ -1,12 +1,12 @@
 import { startTransition, useCallback, useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
-import type { BudgetExceededEvent, Project, ProjectStateEvent } from '@/lib/types'
-import { fetchProjects } from '@/lib/api'
 import {
-  useEventSource,
   type AgentStatusEvent,
   type RuntimeStatusEvent,
+  useEventSource,
 } from '@/hooks/use-event-source'
+import { fetchProjects } from '@/lib/api'
+import type { BudgetExceededEvent, Project, ProjectStateEvent } from '@/lib/types'
 
 /** Default polling interval — reduced from 60s since SSE handles real-time updates. */
 const DEFAULT_POLL_INTERVAL_MS = 30_000

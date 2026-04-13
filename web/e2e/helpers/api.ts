@@ -31,7 +31,7 @@ export async function getBaseURL(): Promise<string> {
       // Validate the response is JSON, not an SPA fallback HTML page.
       // When the Go backend is down, Vite returns index.html with 200
       // for any route — including /api/v1/health.
-      const body = await response.json() as { status?: string }
+      const body = (await response.json()) as { status?: string }
       if (body.status !== 'ok') continue
 
       _resolvedBaseURL = candidate
@@ -98,7 +98,10 @@ export interface ValidateResult {
 }
 
 /** Validates container infrastructure (tmux, scripts). */
-export async function validateContainer(projectId: string, agentType = DEFAULT_AGENT_TYPE): Promise<ValidateResult> {
+export async function validateContainer(
+  projectId: string,
+  agentType = DEFAULT_AGENT_TYPE,
+): Promise<ValidateResult> {
   const response = await apiFetch(`/api/v1/projects/${projectId}/${agentType}/container/validate`)
   return response.json() as Promise<ValidateResult>
 }
@@ -110,7 +113,10 @@ export async function fetchProjects(): Promise<ApiProject[]> {
 }
 
 /** Fetches worktrees for a project. */
-export async function fetchWorktrees(projectId: string, agentType = DEFAULT_AGENT_TYPE): Promise<ApiWorktree[]> {
+export async function fetchWorktrees(
+  projectId: string,
+  agentType = DEFAULT_AGENT_TYPE,
+): Promise<ApiWorktree[]> {
   const response = await apiFetch(`/api/v1/projects/${projectId}/${agentType}/worktrees`)
   return response.json() as Promise<ApiWorktree[]>
 }
@@ -192,7 +198,10 @@ export async function createTestProject(
  *
  * @param projectId - The stable project ID (12-char hex hash).
  */
-export async function removeTestProject(projectId: string, agentType = DEFAULT_AGENT_TYPE): Promise<void> {
+export async function removeTestProject(
+  projectId: string,
+  agentType = DEFAULT_AGENT_TYPE,
+): Promise<void> {
   try {
     await apiFetch(`/api/v1/projects/${projectId}/${agentType}/container`, { method: 'DELETE' })
   } catch {
@@ -202,10 +211,14 @@ export async function removeTestProject(projectId: string, agentType = DEFAULT_A
   // data doesn't leak into the user's real DB when reusing a dev server.
   try {
     await apiFetch(`/api/v1/projects/${projectId}/${agentType}/audit`, { method: 'DELETE' })
-  } catch { /* best-effort */ }
+  } catch {
+    /* best-effort */
+  }
   try {
     await apiFetch(`/api/v1/projects/${projectId}/${agentType}/costs`, { method: 'DELETE' })
-  } catch { /* best-effort */ }
+  } catch {
+    /* best-effort */
+  }
   try {
     await apiFetch(`/api/v1/projects/${projectId}/${agentType}`, { method: 'DELETE' })
   } catch {
@@ -214,12 +227,18 @@ export async function removeTestProject(projectId: string, agentType = DEFAULT_A
 }
 
 /** Stops a project container. */
-export async function stopProject(projectId: string, agentType = DEFAULT_AGENT_TYPE): Promise<void> {
+export async function stopProject(
+  projectId: string,
+  agentType = DEFAULT_AGENT_TYPE,
+): Promise<void> {
   await apiFetch(`/api/v1/projects/${projectId}/${agentType}/stop`, { method: 'POST' })
 }
 
 /** Restarts a project container. */
-export async function restartProject(projectId: string, agentType = DEFAULT_AGENT_TYPE): Promise<void> {
+export async function restartProject(
+  projectId: string,
+  agentType = DEFAULT_AGENT_TYPE,
+): Promise<void> {
   await apiFetch(`/api/v1/projects/${projectId}/${agentType}/restart`, { method: 'POST' })
 }
 
@@ -229,9 +248,12 @@ export async function connectTerminal(
   worktreeId: string,
   agentType = DEFAULT_AGENT_TYPE,
 ): Promise<{ worktreeId: string }> {
-  const response = await apiFetch(`/api/v1/projects/${projectId}/${agentType}/worktrees/${worktreeId}/connect`, {
-    method: 'POST',
-  })
+  const response = await apiFetch(
+    `/api/v1/projects/${projectId}/${agentType}/worktrees/${worktreeId}/connect`,
+    {
+      method: 'POST',
+    },
+  )
   return response.json() as Promise<{ worktreeId: string }>
 }
 
@@ -250,12 +272,22 @@ export async function createWorktree(
 }
 
 /** Kills all processes for a worktree (tmux session + Claude). Fully stops the worktree. */
-export async function killWorktreeProcess(projectId: string, worktreeId: string, agentType = DEFAULT_AGENT_TYPE): Promise<void> {
-  await apiFetch(`/api/v1/projects/${projectId}/${agentType}/worktrees/${worktreeId}/kill`, { method: 'POST' })
+export async function killWorktreeProcess(
+  projectId: string,
+  worktreeId: string,
+  agentType = DEFAULT_AGENT_TYPE,
+): Promise<void> {
+  await apiFetch(`/api/v1/projects/${projectId}/${agentType}/worktrees/${worktreeId}/kill`, {
+    method: 'POST',
+  })
 }
 
 /** Disconnects a terminal from a worktree. */
-export async function disconnectTerminal(projectId: string, worktreeId: string, agentType = DEFAULT_AGENT_TYPE): Promise<void> {
+export async function disconnectTerminal(
+  projectId: string,
+  worktreeId: string,
+  agentType = DEFAULT_AGENT_TYPE,
+): Promise<void> {
   await apiFetch(`/api/v1/projects/${projectId}/${agentType}/worktrees/${worktreeId}/disconnect`, {
     method: 'POST',
   })
@@ -412,7 +444,9 @@ export async function fetchAuditLog(params?: {
   if (params?.category) query.set('category', params.category)
   const qs = query.toString()
   const response = await apiFetch(`/api/v1/audit${qs ? `?${qs}` : ''}`)
-  return response.json() as Promise<Array<{ event: string; source: string; projectId?: string; msg?: string }>>
+  return response.json() as Promise<
+    Array<{ event: string; source: string; projectId?: string; msg?: string }>
+  >
 }
 
 /** Fetches the worktree diff (uncommitted changes). */
@@ -437,9 +471,11 @@ export interface SSEEvent {
  * Opens an SSE connection and collects events until the timeout.
  * Returns the collected events. Used for testing SSE filtering behavior.
  */
-export async function collectSSEEvents(
-  options: { projectId?: string; agentType?: string; timeoutMs?: number },
-): Promise<SSEEvent[]> {
+export async function collectSSEEvents(options: {
+  projectId?: string
+  agentType?: string
+  timeoutMs?: number
+}): Promise<SSEEvent[]> {
   const baseURL = await getBaseURL()
   const params = new URLSearchParams()
   if (options.projectId) params.set('projectId', options.projectId)
@@ -481,7 +517,9 @@ export async function collectSSEEvents(
         if (eventType && data) {
           try {
             events.push({ event: eventType, data: JSON.parse(data) as Record<string, unknown> })
-          } catch { /* skip non-JSON */ }
+          } catch {
+            /* skip non-JSON */
+          }
         }
       }
     }
@@ -571,9 +609,7 @@ export async function fetchContainerConfig(
   projectId: string,
   agentType = DEFAULT_AGENT_TYPE,
 ): Promise<ApiContainerConfig> {
-  const response = await apiFetch(
-    `/api/v1/projects/${projectId}/${agentType}/container/config`,
-  )
+  const response = await apiFetch(`/api/v1/projects/${projectId}/${agentType}/container/config`)
   return response.json() as Promise<ApiContainerConfig>
 }
 
@@ -583,14 +619,11 @@ export async function updateContainer(
   agentType: string,
   config: Record<string, unknown>,
 ): Promise<ApiContainerResult> {
-  const response = await apiFetch(
-    `/api/v1/projects/${projectId}/${agentType}/container`,
-    {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(config),
-    },
-  )
+  const response = await apiFetch(`/api/v1/projects/${projectId}/${agentType}/container`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(config),
+  })
   return response.json() as Promise<ApiContainerResult>
 }
 
@@ -599,10 +632,9 @@ export async function deleteContainer(
   projectId: string,
   agentType = DEFAULT_AGENT_TYPE,
 ): Promise<ApiContainerResult> {
-  const response = await apiFetch(
-    `/api/v1/projects/${projectId}/${agentType}/container`,
-    { method: 'DELETE' },
-  )
+  const response = await apiFetch(`/api/v1/projects/${projectId}/${agentType}/container`, {
+    method: 'DELETE',
+  })
   return response.json() as Promise<ApiContainerResult>
 }
 
@@ -728,10 +760,9 @@ export async function resetWorktree(
   worktreeId: string,
   agentType = DEFAULT_AGENT_TYPE,
 ): Promise<void> {
-  await apiFetch(
-    `/api/v1/projects/${projectId}/${agentType}/worktrees/${worktreeId}/reset`,
-    { method: 'POST' },
-  )
+  await apiFetch(`/api/v1/projects/${projectId}/${agentType}/worktrees/${worktreeId}/reset`, {
+    method: 'POST',
+  })
 }
 
 /** Removes a worktree (deletes from disk). */
@@ -740,19 +771,15 @@ export async function removeWorktree(
   worktreeId: string,
   agentType = DEFAULT_AGENT_TYPE,
 ): Promise<void> {
-  await apiFetch(
-    `/api/v1/projects/${projectId}/${agentType}/worktrees/${worktreeId}`,
-    { method: 'DELETE' },
-  )
+  await apiFetch(`/api/v1/projects/${projectId}/${agentType}/worktrees/${worktreeId}`, {
+    method: 'DELETE',
+  })
 }
 
 // --- Cost management ---
 
 /** Resets cost history for a project. */
-export async function resetCosts(
-  projectId: string,
-  agentType = DEFAULT_AGENT_TYPE,
-): Promise<void> {
+export async function resetCosts(projectId: string, agentType = DEFAULT_AGENT_TYPE): Promise<void> {
   await apiFetch(`/api/v1/projects/${projectId}/${agentType}/costs`, {
     method: 'DELETE',
   })
@@ -766,15 +793,12 @@ export async function sendWorktreeInput(
   options?: { pressEnter?: boolean; agentType?: string },
 ): Promise<void> {
   const agentType = options?.agentType ?? 'claude-code'
-  await apiFetch(
-    `/api/v1/projects/${projectId}/${agentType}/worktrees/${worktreeId}/input`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        text,
-        pressEnter: options?.pressEnter,
-      }),
-    },
-  )
+  await apiFetch(`/api/v1/projects/${projectId}/${agentType}/worktrees/${worktreeId}/input`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      text,
+      pressEnter: options?.pressEnter,
+    }),
+  })
 }

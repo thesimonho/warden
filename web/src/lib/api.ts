@@ -28,68 +28,68 @@
  * @module
  */
 
-// Re-export everything from domain modules so existing imports keep working.
-// Each module corresponds to a resource domain in the API.
-export { ApiError } from './api-core'
 export {
-  fetchProjects,
-  addProject,
-  removeProject,
-  stopProject,
-  restartProject,
-  resetProjectCosts,
-  purgeProjectAudit,
-  batchProjectOperation,
-} from './api-projects'
+  createAccessItem,
+  deleteAccessItem,
+  fetchAccessItem,
+  fetchAccessItems,
+  resetAccessItem,
+  resolveAccessItems,
+  updateAccessItem,
+} from './api-access'
 export {
-  fetchWorktrees,
-  createWorktree,
-  connectTerminal,
-  disconnectTerminal,
-  killWorktreeProcess,
-  resetWorktree,
-  removeWorktree,
-  cleanupWorktrees,
-  fetchWorktreeDiff,
-  worktreeHostPath,
-} from './api-worktrees'
+  auditExportUrl,
+  deleteAuditEvents,
+  fetchAuditLog,
+  fetchAuditProjects,
+  fetchAuditSummary,
+  postAuditEvent,
+} from './api-audit'
+export { uploadClipboardImage } from './api-clipboard'
 export {
   checkContainerName,
-  validateContainer,
   createContainer,
   deleteContainer,
   fetchContainerConfig,
-  updateContainer,
-  revealInFileManager,
   listDirectories,
+  revealInFileManager,
+  updateContainer,
+  validateContainer,
 } from './api-containers'
+// Re-export everything from domain modules so existing imports keep working.
+// Each module corresponds to a resource domain in the API.
+export { ApiError } from './api-core'
+export type { FocusRequest } from './api-focus'
+export { reportFocus, reportFocusBeacon } from './api-focus'
 export {
+  addProject,
+  batchProjectOperation,
+  fetchProjects,
+  purgeProjectAudit,
+  removeProject,
+  resetProjectCosts,
+  restartProject,
+  stopProject,
+} from './api-projects'
+export type { DefaultEnvVar, DefaultMount, Defaults } from './api-settings'
+export {
+  fetchDefaults,
   fetchDockerStatus,
   fetchSettings,
-  updateSettings,
-  fetchDefaults,
   readProjectTemplate,
-  validateProjectTemplate,
   shutdownServer,
+  updateSettings,
+  validateProjectTemplate,
 } from './api-settings'
-export type { DefaultMount, DefaultEnvVar, Defaults } from './api-settings'
 export {
-  fetchAuditLog,
-  fetchAuditSummary,
-  auditExportUrl,
-  fetchAuditProjects,
-  postAuditEvent,
-  deleteAuditEvents,
-} from './api-audit'
-export {
-  fetchAccessItems,
-  fetchAccessItem,
-  createAccessItem,
-  updateAccessItem,
-  deleteAccessItem,
-  resetAccessItem,
-  resolveAccessItems,
-} from './api-access'
-export { uploadClipboardImage } from './api-clipboard'
-export { reportFocus, reportFocusBeacon } from './api-focus'
-export type { FocusRequest } from './api-focus'
+  cleanupWorktrees,
+  connectTerminal,
+  createWorktree,
+  disconnectTerminal,
+  fetchWorktreeDiff,
+  fetchWorktrees,
+  killWorktreeProcess,
+  removeWorktree,
+  resetWorktree,
+  worktreeHostPath,
+} from './api-worktrees'

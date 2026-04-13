@@ -1,4 +1,11 @@
-import { test, expect, navigateToProject, switchToCanvasMode, waitForTerminalReady, assertTerminalUsable } from './helpers/fixtures'
+import {
+  assertTerminalUsable,
+  expect,
+  navigateToProject,
+  switchToCanvasMode,
+  test,
+  waitForTerminalReady,
+} from './helpers/fixtures'
 import { selectors } from './helpers/selectors'
 
 test.describe('Panel maximize', () => {

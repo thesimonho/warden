@@ -6,7 +6,7 @@
  *
  * @module
  */
-import { apiFetch, API_BASE } from './api-core'
+import { API_BASE, apiFetch } from './api-core'
 
 /** Request body for POST /api/v1/focus. */
 export interface FocusRequest {

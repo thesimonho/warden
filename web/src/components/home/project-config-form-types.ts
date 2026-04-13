@@ -1,5 +1,5 @@
-import type { AgentType, Mount, NetworkMode, ProjectSource } from '@/lib/types'
 import type { DefaultMount } from '@/lib/api'
+import type { AgentType, Mount, NetworkMode, ProjectSource } from '@/lib/types'
 
 /** Identifies each step of the project config form. */
 export type FormStep = 'general' | 'environment' | 'network' | 'advanced'

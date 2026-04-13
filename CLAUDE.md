@@ -33,8 +33,8 @@ go test ./...                          # Go unit tests
 npm --prefix web run test              # Frontend unit tests (Vitest)
 npm --prefix web run typecheck         # TypeScript type checking
 golangci-lint run ./...                # Go linter
-npm --prefix web run format            # Format frontend code (Prettier)
-npm --prefix web run lint              # Frontend linter (ESLint)
+npm --prefix web run format            # Format and lint frontend code (Biome)
+npm --prefix web run lint              # Frontend lint check (Biome)
 ```
 
 Run a single Go test:

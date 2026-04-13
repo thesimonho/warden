@@ -1,8 +1,8 @@
+import { Activity, DollarSign, Layers } from 'lucide-react'
 import { useMemo } from 'react'
-import { DollarSign, Layers, Activity } from 'lucide-react'
-import type { Project } from '@/lib/types'
-import { formatCost } from '@/lib/cost'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { formatCost } from '@/lib/cost'
+import type { Project } from '@/lib/types'
 
 /** Props for the CostDashboard component. */
 interface CostDashboardProps {

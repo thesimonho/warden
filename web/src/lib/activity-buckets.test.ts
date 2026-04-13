@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { bucketEventsByCategory, chooseBucketWidth, type ActivityBucket } from './activity-buckets'
+import { type ActivityBucket, bucketEventsByCategory, chooseBucketWidth } from './activity-buckets'
 import type { AuditCategory, AuditLogEntry } from './types'
 
 /** Creates a minimal event entry at the given ISO timestamp with the given category. */

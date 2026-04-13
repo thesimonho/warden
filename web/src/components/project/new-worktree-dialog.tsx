@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
+import { Button } from '@/components/ui/button'
 import {
   Dialog,
   DialogContent,
@@ -8,7 +9,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { createWorktree } from '@/lib/api'
 
@@ -58,7 +58,7 @@ export default function NewWorktreeDialog({
     return (
       input
         // Replace whitespace and git-invalid characters with hyphens.
-        // eslint-disable-next-line no-control-regex -- intentional: sanitizes git ref name rules
+        // biome-ignore lint/suspicious/noControlCharactersInRegex: intentional — sanitizes git ref name rules
         .replace(/[\s~^:?*[\]\\@{}\x00-\x1f\x7f]+/g, '-')
         // Collapse consecutive dots (invalid in git refs).
         .replace(/\.{2,}/g, '.')

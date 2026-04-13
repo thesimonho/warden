@@ -1,7 +1,7 @@
-import path from 'path'
-import { defineConfig } from 'vitest/config'
-import react from '@vitejs/plugin-react'
+import path from 'node:path'
 import tailwindcss from '@tailwindcss/vite'
+import react from '@vitejs/plugin-react'
+import { defineConfig } from 'vitest/config'
 
 // https://vite.dev/config/
 export default defineConfig({
@@ -26,9 +26,11 @@ export default defineConfig({
               const httpRes = res as import('http').ServerResponse
               if (!httpRes.headersSent) {
                 httpRes.writeHead(502, { 'Content-Type': 'application/json' })
-                httpRes.end(JSON.stringify({
-                  error: 'Go backend is not running on :8091. Start it with: just dev',
-                }))
+                httpRes.end(
+                  JSON.stringify({
+                    error: 'Go backend is not running on :8091. Start it with: just dev',
+                  }),
+                )
               }
             }
           })

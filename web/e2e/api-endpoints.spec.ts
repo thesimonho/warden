@@ -1,12 +1,12 @@
-import { test, expect } from './helpers/fixtures'
 import {
   connectTerminal,
   fetchProject,
-  fetchWorktree,
   fetchProjectCosts,
+  fetchWorktree,
   sendWorktreeInput,
   waitForWorktreeState,
 } from './helpers/api'
+import { expect, test } from './helpers/fixtures'
 
 /**
  * API endpoint smoke tests.
@@ -67,5 +67,4 @@ test.describe('API endpoints', () => {
       }
     })
   })
-
 })

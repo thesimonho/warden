@@ -1,7 +1,7 @@
 import { useCallback } from 'react'
 import { toast } from 'sonner'
 import { revealInFileManager, worktreeHostPath } from '@/lib/api'
-import type { Worktree, WorkspaceMount } from '@/lib/types'
+import type { WorkspaceMount, Worktree } from '@/lib/types'
 
 /**
  * Returns a stable callback that opens a worktree's host directory

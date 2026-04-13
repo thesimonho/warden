@@ -1,42 +1,41 @@
-import { useCallback, useEffect, useState } from 'react'
-import type React from 'react'
-import { useNavigate, useOutletContext } from 'react-router-dom'
 import {
-  Square,
-  Play,
-  RotateCw,
-  X,
+  Box,
   Loader2,
+  Play,
   Plus,
   RefreshCw,
-  Box,
+  RotateCw,
+  Square,
   TriangleAlert,
+  X,
 } from 'lucide-react'
+import type React from 'react'
+import { useCallback, useEffect, useState } from 'react'
+import { useNavigate, useOutletContext } from 'react-router-dom'
 import { toast } from 'sonner'
+import AddProjectDialog, { type CreateForProject } from '@/components/home/add-project-dialog'
+import CostDashboard from '@/components/home/cost-dashboard'
+import DeleteProjectDialog from '@/components/home/delete-project-dialog'
+import ProjectGrid from '@/components/home/project-grid'
+import StaleMountsDialog from '@/components/home/stale-mounts-dialog'
+import type { LayoutContext } from '@/components/layout'
+import { Button } from '@/components/ui/button'
 import { useProjects } from '@/hooks/use-projects'
 import {
   ApiError,
+  addProject,
   batchProjectOperation,
-  stopProject,
-  restartProject,
+  createContainer,
+  fetchAccessItems,
+  fetchDefaults,
+  fetchDockerStatus,
   fetchProjects,
   fetchSettings,
-  fetchDefaults,
-  fetchAccessItems,
-  addProject,
-  createContainer,
-  fetchDockerStatus,
+  restartProject,
+  stopProject,
 } from '@/lib/api'
 import { getRestrictedDomains } from '@/lib/domain-groups'
-import type { AgentType, ServerSettings } from '@/lib/types'
-import type { Project } from '@/lib/types'
-import { Button } from '@/components/ui/button'
-import CostDashboard from '@/components/home/cost-dashboard'
-import ProjectGrid from '@/components/home/project-grid'
-import AddProjectDialog, { type CreateForProject } from '@/components/home/add-project-dialog'
-import DeleteProjectDialog from '@/components/home/delete-project-dialog'
-import StaleMountsDialog from '@/components/home/stale-mounts-dialog'
-import type { LayoutContext } from '@/components/layout'
+import type { AgentType, Project, ServerSettings } from '@/lib/types'
 
 /** Home page displaying all managed project containers in a grid. */
 export default function HomePage() {
@@ -102,7 +101,7 @@ export default function HomePage() {
         })
       }
     },
-    [refetch],
+    [refetch, compoundKey],
   )
 
   const handleRestart = useCallback(
@@ -140,7 +139,7 @@ export default function HomePage() {
         })
       }
     },
-    [projects, refetch],
+    [projects, refetch, compoundKey],
   )
 
   const handleRemove = useCallback((project: Project) => {
@@ -159,18 +158,21 @@ export default function HomePage() {
     }
   }, [])
 
-  const handleToggleSelect = useCallback((id: string, agentType: AgentType) => {
-    const key = compoundKey(id, agentType)
-    setSelectedIds((prev) => {
-      const next = new Set(prev)
-      if (next.has(key)) {
-        next.delete(key)
-      } else {
-        next.add(key)
-      }
-      return next
-    })
-  }, [])
+  const handleToggleSelect = useCallback(
+    (id: string, agentType: AgentType) => {
+      const key = compoundKey(id, agentType)
+      setSelectedIds((prev) => {
+        const next = new Set(prev)
+        if (next.has(key)) {
+          next.delete(key)
+        } else {
+          next.add(key)
+        }
+        return next
+      })
+    },
+    [compoundKey],
+  )
 
   const handleClearSelection = () => {
     setSelectedIds(new Set())
@@ -209,12 +211,12 @@ export default function HomePage() {
       } finally {
         setPending((prev) => {
           const next = new Set(prev)
-          keys.forEach((key) => next.delete(key))
+          for (const key of keys) next.delete(key)
           return next
         })
       }
     },
-    [selectedIds, refetch],
+    [selectedIds, refetch, parseKey],
   )
 
   const handleStopSelected = useCallback(

@@ -1,12 +1,12 @@
+import type { Page } from '@playwright/test'
 import {
-  test,
+  ensureWorktreeVisible,
   expect,
   navigateToProject,
   switchToCanvasMode,
-  ensureWorktreeVisible,
+  test,
 } from './helpers/fixtures'
 import { selectors } from './helpers/selectors'
-import type { Page } from '@playwright/test'
 
 /**
  * Shift+clicks on a canvas panel by coordinates.

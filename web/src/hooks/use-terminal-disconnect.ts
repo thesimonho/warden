@@ -1,7 +1,7 @@
-import { useCallback, type RefObject } from 'react'
+import { type RefObject, useCallback } from 'react'
 import { toast } from 'sonner'
-import { disconnectTerminal } from '@/lib/api'
 import type { TerminalCardHandle } from '@/components/project/terminal-card'
+import { disconnectTerminal } from '@/lib/api'
 
 /**
  * Returns a stable callback that disconnects a terminal panel.

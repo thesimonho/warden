@@ -1,13 +1,13 @@
+import { ArrowRight, Info, Plus, Trash2 } from 'lucide-react'
 import type React from 'react'
 import { Fragment, useState } from 'react'
-import { ArrowRight, Info, Plus, Trash2 } from 'lucide-react'
-import type { Mount } from '@/lib/types'
 import { Button } from '@/components/ui/button'
+import DirectoryBrowser from '@/components/ui/directory-browser'
 import { Input } from '@/components/ui/input'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
-import DirectoryBrowser from '@/components/ui/directory-browser'
-import type { EnvVarEntry } from './project-config-form-types'
+import type { Mount } from '@/lib/types'
 import { RemovablePortChip } from './port-chip'
+import type { EnvVarEntry } from './project-config-form-types'
 
 /** Props for FormField. */
 interface FormFieldProps {
@@ -315,7 +315,7 @@ export function ForwardedPortsField({
     const trimmed = value.trim()
     if (!trimmed) return null
     const parsed = parseInt(trimmed, 10)
-    if (isNaN(parsed) || parsed < 1 || parsed > 65535) {
+    if (Number.isNaN(parsed) || parsed < 1 || parsed > 65535) {
       setError('Port must be 1-65535')
       return null
     }

@@ -1,26 +1,22 @@
-import { test as base, expect } from './helpers/fixtures'
+import { execSync } from 'node:child_process'
+import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs'
+import path from 'node:path'
+import { TEST_WORKSPACE } from './global-setup'
 import {
-  type TestProjectInfo,
-  generateProjectName,
-} from './helpers/fixtures'
-import {
-  validateContainer,
+  type ApiRuntime,
   connectTerminal,
-  disconnectTerminal,
-  killWorktreeProcess,
-  waitForWorktreeState,
-  waitForProjectState,
   createTestProject,
-  removeTestProject,
+  disconnectTerminal,
+  fetchDockerStatus,
   fetchProjects,
   fetchWorktrees,
-  fetchDockerStatus,
-  type ApiRuntime,
+  killWorktreeProcess,
+  removeTestProject,
+  validateContainer,
+  waitForProjectState,
+  waitForWorktreeState,
 } from './helpers/api'
-import { existsSync, mkdirSync, writeFileSync, rmSync } from 'fs'
-import { execSync } from 'child_process'
-import path from 'path'
-import { TEST_WORKSPACE } from './global-setup'
+import { test as base, expect, generateProjectName, type TestProjectInfo } from './helpers/fixtures'
 
 /**
  * Codex container integration tests.
@@ -35,74 +31,87 @@ const codexTest = base.extend<
   { cleanupCodexTerminals: void },
   { codexProject: TestProjectInfo; codexRuntime: ApiRuntime }
 >({
-  codexRuntime: [async ({}, use) => {
-    const info = await fetchDockerStatus()
-    if (!info.available) throw new Error('No container runtime available.')
-    await use(info)
-  }, { scope: 'worker' }],
+  codexRuntime: [
+    async ({}, use) => {
+      const info = await fetchDockerStatus()
+      if (!info.available) throw new Error('No container runtime available.')
+      await use(info)
+    },
+    { scope: 'worker' },
+  ],
 
-  codexProject: [async ({ codexRuntime }, use) => {
-    const name = generateProjectName()
-    let projectId: string | undefined
+  codexProject: [
+    async ({ codexRuntime }, use) => {
+      const name = generateProjectName()
+      let projectId: string | undefined
 
-    const workerWorkspace = path.join(TEST_WORKSPACE, `${name}-codex`)
-    mkdirSync(workerWorkspace, { recursive: true })
-    if (!existsSync(path.join(workerWorkspace, '.git'))) {
-      execSync('git init', { cwd: workerWorkspace, stdio: 'pipe' })
-      writeFileSync(path.join(workerWorkspace, 'README.md'), '# Codex E2E Test\n')
-      execSync('git add .', { cwd: workerWorkspace, stdio: 'pipe' })
-      execSync(
-        'git -c user.email="e2e@warden.test" -c user.name="Warden E2E" commit -m "initial commit"',
-        { cwd: workerWorkspace, stdio: 'pipe' },
-      )
-    }
+      const workerWorkspace = path.join(TEST_WORKSPACE, `${name}-codex`)
+      mkdirSync(workerWorkspace, { recursive: true })
+      if (!existsSync(path.join(workerWorkspace, '.git'))) {
+        execSync('git init', { cwd: workerWorkspace, stdio: 'pipe' })
+        writeFileSync(path.join(workerWorkspace, 'README.md'), '# Codex E2E Test\n')
+        execSync('git add .', { cwd: workerWorkspace, stdio: 'pipe' })
+        execSync(
+          'git -c user.email="e2e@warden.test" -c user.name="Warden E2E" commit -m "initial commit"',
+          { cwd: workerWorkspace, stdio: 'pipe' },
+        )
+      }
 
-    const maxAttempts = 3
-    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      const maxAttempts = 3
+      for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+        try {
+          const result = await createTestProject(name, workerWorkspace, {
+            agentType: 'codex',
+            skipPermissions: true,
+          })
+          projectId = result.projectId
+          break
+        } catch (err) {
+          if (attempt === maxAttempts) throw err
+          await new Promise((r) => setTimeout(r, attempt * 3000))
+        }
+      }
+
       try {
-        const result = await createTestProject(name, workerWorkspace, {
-          agentType: 'codex',
-          skipPermissions: true,
-        })
-        projectId = result.projectId
-        break
-      } catch (err) {
-        if (attempt === maxAttempts) throw err
-        await new Promise((r) => setTimeout(r, attempt * 3000))
+        await waitForProjectState(name, 'running', 60_000)
+        await use({ id: projectId!, name, runtime: codexRuntime })
+      } finally {
+        if (projectId) await removeTestProject(projectId, 'codex')
+        if (existsSync(workerWorkspace)) rmSync(workerWorkspace, { recursive: true, force: true })
       }
-    }
+    },
+    { scope: 'worker' },
+  ],
 
-    try {
-      await waitForProjectState(name, 'running', 60_000)
-      await use({ id: projectId!, name, runtime: codexRuntime })
-    } finally {
-      if (projectId) await removeTestProject(projectId, 'codex')
-      if (existsSync(workerWorkspace)) rmSync(workerWorkspace, { recursive: true, force: true })
-    }
-  }, { scope: 'worker' }],
+  cleanupCodexTerminals: [
+    async ({ codexProject }, use) => {
+      await use()
 
-  cleanupCodexTerminals: [async ({ codexProject }, use) => {
-    await use()
-
-    try {
-      const worktrees = await fetchWorktrees(codexProject.id, 'codex')
-      const active = worktrees.filter((wt) =>
-        wt.state === 'connected' || wt.state === 'shell' || wt.state === 'background',
-      )
-      if (active.length > 0) {
-        await Promise.all(
-          active.map((wt) => killWorktreeProcess(codexProject.id, wt.id, 'codex').catch(() => {})),
+      try {
+        const worktrees = await fetchWorktrees(codexProject.id, 'codex')
+        const active = worktrees.filter(
+          (wt) => wt.state === 'connected' || wt.state === 'shell' || wt.state === 'background',
         )
-        await Promise.all(
-          active.map((wt) =>
-            waitForWorktreeState(codexProject.id, wt.id, 'stopped', 10_000, 'codex').catch(() => {}),
-          ),
-        )
+        if (active.length > 0) {
+          await Promise.all(
+            active.map((wt) =>
+              killWorktreeProcess(codexProject.id, wt.id, 'codex').catch(() => {}),
+            ),
+          )
+          await Promise.all(
+            active.map((wt) =>
+              waitForWorktreeState(codexProject.id, wt.id, 'stopped', 10_000, 'codex').catch(
+                () => {},
+              ),
+            ),
+          )
+        }
+      } catch {
+        /* Best-effort cleanup. */
       }
-    } catch {
-      /* Best-effort cleanup. */
-    }
-  }, { auto: true }],
+    },
+    { auto: true },
+  ],
 })
 
 codexTest.describe('Codex container integration', () => {
@@ -133,12 +142,6 @@ codexTest.describe('Codex container integration', () => {
     await waitForWorktreeState(codexProject.id, 'main', 'connected', 30_000, 'codex')
 
     await disconnectTerminal(codexProject.id, 'main', 'codex')
-    await waitForWorktreeState(
-      codexProject.id,
-      'main',
-      ['background', 'shell'],
-      30_000,
-      'codex',
-    )
+    await waitForWorktreeState(codexProject.id, 'main', ['background', 'shell'], 30_000, 'codex')
   })
 })

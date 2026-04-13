@@ -1,4 +1,4 @@
-import { test, expect } from './helpers/fixtures'
+import { expect, test } from './helpers/fixtures'
 import { selectors } from './helpers/selectors'
 
 test.describe('Home page', () => {

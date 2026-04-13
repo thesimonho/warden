@@ -1,7 +1,7 @@
-import { Suspense, lazy } from 'react'
-import { BrowserRouter, Routes, Route } from 'react-router-dom'
-import { TooltipProvider } from '@/components/ui/tooltip'
+import { lazy, Suspense } from 'react'
+import { BrowserRouter, Route, Routes } from 'react-router-dom'
 import Layout from '@/components/layout'
+import { TooltipProvider } from '@/components/ui/tooltip'
 import HomePage from '@/pages/home-page'
 
 // Lazy-load non-home routes to keep the initial bundle small.

@@ -1,14 +1,14 @@
-import { useState, useMemo } from 'react'
-import { DiffView, DiffModeEnum } from '@git-diff-view/react'
+import { DiffModeEnum, DiffView } from '@git-diff-view/react'
+import { useMemo, useState } from 'react'
 import '@git-diff-view/react/styles/diff-view.css'
-import { RefreshCw, ChevronRight, FileText, FilePlus, FileMinus, FileEdit } from 'lucide-react'
-import { Button } from '@/components/ui/button'
+import { ChevronRight, FileEdit, FileMinus, FilePlus, FileText, RefreshCw } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { cn } from '@/lib/utils'
 import { useDiff } from '@/hooks/use-diff'
 import { useTheme } from '@/hooks/use-theme'
 import type { DiffFileSummary } from '@/lib/types'
+import { cn } from '@/lib/utils'
 
 /** Props for the ChangesView component. */
 interface ChangesViewProps {
