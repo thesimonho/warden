@@ -15,38 +15,15 @@ export function sleep(ms: number): Promise<void> {
 }
 
 /**
- * Resolves the API base URL by probing available servers.
- * Prefers Vite dev server (:5173) since it always has the latest code.
+ * Base URL for E2E API calls. Always targets the isolated E2E server on :8092.
+ * Never uses the Vite dev server (:5173) — that would write test data into
+ * the dev database and contaminate the dev UI.
  */
-let _resolvedBaseURL: string | undefined
-export async function getBaseURL(): Promise<string> {
-  if (_resolvedBaseURL) return _resolvedBaseURL
-  for (const candidate of ['http://localhost:5173', 'http://localhost:8092']) {
-    try {
-      const response = await fetch(`${candidate}/api/v1/health`, {
-        signal: AbortSignal.timeout(2000),
-      })
-      if (!response.ok) continue
-
-      // Validate the response is JSON, not an SPA fallback HTML page.
-      // When the Go backend is down, Vite returns index.html with 200
-      // for any route — including /api/v1/health.
-      const body = (await response.json()) as { status?: string }
-      if (body.status !== 'ok') continue
-
-      _resolvedBaseURL = candidate
-      return candidate
-    } catch {
-      /* not reachable or not JSON — try next */
-    }
-  }
-  _resolvedBaseURL = 'http://localhost:8092'
-  return _resolvedBaseURL
-}
+export const E2E_BASE_URL = 'http://localhost:8092'
 
 /** Performs a fetch against the Warden API, throwing on non-ok responses. */
 async function apiFetch(path: string, options?: RequestInit): Promise<Response> {
-  const baseURL = await getBaseURL()
+  const baseURL = E2E_BASE_URL
   const response = await fetch(`${baseURL}${path}`, options)
   if (!response.ok) {
     let message = `${response.status} ${response.statusText}`
@@ -191,6 +168,31 @@ export async function createTestProject(
     containerId: containerResult.containerId,
     name: containerResult.name,
   }
+}
+
+/**
+ * Creates a test project with automatic retry on transient failures.
+ *
+ * Wraps {@link createTestProject} with a retry loop to handle port allocation
+ * and resource contention when multiple workers start simultaneously.
+ * Returns the server-assigned name (which may include a mode suffix like "-dev").
+ */
+export async function createTestProjectWithRetry(
+  name: string,
+  workspace: string,
+  options?: Parameters<typeof createTestProject>[2],
+  maxAttempts = 3,
+): Promise<{ projectId: string; serverName: string }> {
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      const result = await createTestProject(name, workspace, options)
+      return { projectId: result.projectId, serverName: result.name }
+    } catch (err) {
+      if (attempt === maxAttempts) throw err
+      await new Promise((r) => setTimeout(r, attempt * 3000))
+    }
+  }
+  throw new Error('unreachable')
 }
 
 /**
@@ -476,7 +478,7 @@ export async function collectSSEEvents(options: {
   agentType?: string
   timeoutMs?: number
 }): Promise<SSEEvent[]> {
-  const baseURL = await getBaseURL()
+  const baseURL = E2E_BASE_URL
   const params = new URLSearchParams()
   if (options.projectId) params.set('projectId', options.projectId)
   if (options.agentType) params.set('agentType', options.agentType)

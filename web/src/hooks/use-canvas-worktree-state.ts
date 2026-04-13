@@ -40,10 +40,12 @@ export interface PanelWorktreeState {
 export function useCanvasWorktreeState(panels: CanvasPanel[]): Map<string, PanelWorktreeState> {
   const [stateMap, setStateMap] = useState<Map<string, PanelWorktreeState>>(new Map())
   const panelsRef = useRef(panels)
+  const panelCount = panels.length
   useEffect(() => {
     panelsRef.current = panels
   }, [panels])
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: panelCount is a trigger-only dependency — the effect reads panelsRef.current, but must re-run when panel count changes to seed optimistic state and start polling.
   useEffect(() => {
     let cancelled = false
 
@@ -163,10 +165,11 @@ export function useCanvasWorktreeState(panels: CanvasPanel[]): Map<string, Panel
       cancelled = true
       clearInterval(interval)
     }
-    // panels.length as dependency is intentional: panelsRef keeps the latest
+    // panelCount as dependency is intentional: panelsRef keeps the latest
     // panel list, so the interval always polls the current set without
-    // restarting unnecessarily.
-  }, [])
+    // restarting unnecessarily. The effect must re-run when count changes
+    // so that optimistic state is seeded and polling starts for new panels.
+  }, [panelCount])
 
   /** Applies a worktree_state SSE event to canvas panel state. */
   const handleWorktreeState = useCallback((event: WorktreeStateEvent) => {

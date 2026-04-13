@@ -1,11 +1,8 @@
-import { execSync } from 'node:child_process'
-import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs'
-import path from 'node:path'
-import { TEST_WORKSPACE } from './global-setup'
+import { existsSync, rmSync } from 'node:fs'
 import {
   type ApiRuntime,
   connectTerminal,
-  createTestProject,
+  createTestProjectWithRetry,
   disconnectTerminal,
   fetchDockerStatus,
   fetchProjects,
@@ -16,7 +13,13 @@ import {
   waitForProjectState,
   waitForWorktreeState,
 } from './helpers/api'
-import { test as base, expect, generateProjectName, type TestProjectInfo } from './helpers/fixtures'
+import {
+  test as base,
+  createUniqueWorkspace,
+  expect,
+  generateProjectName,
+  type TestProjectInfo,
+} from './helpers/fixtures'
 
 /**
  * Codex container integration tests.
@@ -43,40 +46,18 @@ const codexTest = base.extend<
   codexProject: [
     async ({ codexRuntime }, use) => {
       const name = generateProjectName()
-      let projectId: string | undefined
+      const workerWorkspace = createUniqueWorkspace(`${name}-codex`)
 
-      const workerWorkspace = path.join(TEST_WORKSPACE, `${name}-codex`)
-      mkdirSync(workerWorkspace, { recursive: true })
-      if (!existsSync(path.join(workerWorkspace, '.git'))) {
-        execSync('git init', { cwd: workerWorkspace, stdio: 'pipe' })
-        writeFileSync(path.join(workerWorkspace, 'README.md'), '# Codex E2E Test\n')
-        execSync('git add .', { cwd: workerWorkspace, stdio: 'pipe' })
-        execSync(
-          'git -c user.email="e2e@warden.test" -c user.name="Warden E2E" commit -m "initial commit"',
-          { cwd: workerWorkspace, stdio: 'pipe' },
-        )
-      }
-
-      const maxAttempts = 3
-      for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-        try {
-          const result = await createTestProject(name, workerWorkspace, {
-            agentType: 'codex',
-            skipPermissions: true,
-          })
-          projectId = result.projectId
-          break
-        } catch (err) {
-          if (attempt === maxAttempts) throw err
-          await new Promise((r) => setTimeout(r, attempt * 3000))
-        }
-      }
+      const { projectId, serverName } = await createTestProjectWithRetry(name, workerWorkspace, {
+        agentType: 'codex',
+        skipPermissions: true,
+      })
 
       try {
-        await waitForProjectState(name, 'running', 60_000)
-        await use({ id: projectId!, name, runtime: codexRuntime })
+        await waitForProjectState(serverName, 'running', 60_000)
+        await use({ id: projectId, name: serverName, runtime: codexRuntime, agentType: 'codex' })
       } finally {
-        if (projectId) await removeTestProject(projectId, 'codex')
+        await removeTestProject(projectId, 'codex')
         if (existsSync(workerWorkspace)) rmSync(workerWorkspace, { recursive: true, force: true })
       }
     },

@@ -6,7 +6,7 @@ import { test as base, expect as baseExpect, type Page } from '@playwright/test'
 import { TEST_WORKSPACE } from '../global-setup'
 import {
   type ApiRuntime,
-  createTestProject,
+  createTestProjectWithRetry,
   createWorktree,
   fetchDockerStatus,
   fetchWorktrees,
@@ -92,55 +92,24 @@ export const test = base.extend<
     async ({ runtime }, use) => {
       const name = generateProjectName()
       const agentType = process.env.WARDEN_AGENT_TYPE ?? 'claude-code'
-      let projectId: string | undefined
+      const workerWorkspace = createUniqueWorkspace(name)
 
-      /* Each worker needs a unique workspace directory so project IDs
-       (sha256 of host path) don't collide across parallel workers. */
-      const workerWorkspace = path.join(TEST_WORKSPACE, name)
-      mkdirSync(workerWorkspace, { recursive: true })
-      if (!existsSync(path.join(workerWorkspace, '.git'))) {
-        execSync('git init', { cwd: workerWorkspace, stdio: 'pipe' })
-        writeFileSync(path.join(workerWorkspace, 'README.md'), '# E2E Test Workspace\n')
-        execSync('git add .', { cwd: workerWorkspace, stdio: 'pipe' })
-        execSync(
-          'git -c user.email="e2e@warden.test" -c user.name="Warden E2E" commit -m "initial commit"',
-          { cwd: workerWorkspace, stdio: 'pipe' },
-        )
-      }
-
-      /* Retry container creation — when multiple workers start simultaneously,
-       port allocation or resource contention can cause transient failures. */
-      const maxAttempts = 3
-      for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-        try {
-          const result = await createTestProject(name, workerWorkspace, {
-            skipPermissions: true,
-            agentType,
-          })
-          projectId = result.projectId
-          break
-        } catch (err) {
-          if (attempt === maxAttempts) throw err
-          /* Stagger retries to reduce contention. */
-          await new Promise((r) => setTimeout(r, attempt * 3000))
-        }
-      }
+      const { projectId, serverName } = await createTestProjectWithRetry(name, workerWorkspace, {
+        skipPermissions: true,
+        agentType,
+      })
 
       try {
-        /* Wait for the container to reach running state. */
-        await waitForProjectState(name, 'running', 60_000)
+        await waitForProjectState(serverName, 'running', 60_000)
 
         await use({
-          id: projectId!,
-          name,
+          id: projectId,
+          name: serverName,
           runtime,
           agentType,
         })
       } finally {
-        /* Always clean up, even if the test fails. */
-        if (projectId) {
-          await removeTestProject(projectId, agentType)
-        }
+        await removeTestProject(projectId, agentType)
         /* Clean up worker-specific workspace. */
         if (existsSync(workerWorkspace)) {
           rmSync(workerWorkspace, { recursive: true, force: true })
@@ -220,30 +189,17 @@ export const isolatedTest = test.extend<{ isolatedProject: IsolatedProjectInfo }
     const agentType = process.env.WARDEN_AGENT_TYPE ?? 'claude-code'
     const workspace = createUniqueWorkspace(name)
 
-    const maxAttempts = 3
-    let projectId: string | undefined
-    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-      try {
-        const result = await createTestProject(name, workspace, {
-          skipPermissions: true,
-          agentType,
-        })
-        projectId = result.projectId
-        break
-      } catch (err) {
-        if (attempt === maxAttempts) throw err
-        await new Promise((r) => setTimeout(r, attempt * 3000))
-      }
-    }
+    const { projectId, serverName } = await createTestProjectWithRetry(name, workspace, {
+      skipPermissions: true,
+      agentType,
+    })
 
-    await waitForProjectState(name, 'running', 60_000)
+    await waitForProjectState(serverName, 'running', 60_000)
 
     try {
-      await use({ id: projectId!, name, agentType, workspace })
+      await use({ id: projectId, name: serverName, agentType, workspace })
     } finally {
-      if (projectId) {
-        await removeTestProject(projectId, agentType).catch(() => {})
-      }
+      await removeTestProject(projectId, agentType).catch(() => {})
       if (existsSync(workspace)) {
         rmSync(workspace, { recursive: true, force: true })
       }
