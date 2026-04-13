@@ -32,7 +32,7 @@ npm run test         # run vitest
 npm run typecheck    # TypeScript check
 ```
 
-In development, Vite proxies `/api/*` to the Go backend on `:8090` (configured in `vite.config.ts`).
+In development, Vite proxies `/api/*` to the Go backend on `:8091` (configured in `vite.config.ts`).
 
 ## Stack
 

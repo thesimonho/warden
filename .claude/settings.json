@@ -2,9 +2,9 @@
   "permissions": {
     "allow": [
       "Bash(curl*localhost:5173*)",
-      "Bash(curl*localhost:8090*)",
+      "Bash(curl*localhost:8091*)",
       "Bash(curl*127.0.0.1:5173*)",
-      "Bash(curl*127.0.0.1:8090*)"
+      "Bash(curl*127.0.0.1:8091*)"
     ]
   },
   "enabledPlugins": {
@@ -26,9 +26,9 @@
     },
     "network": {
       "allowedDomains": [
-        "localhost:8090",
+        "localhost:8091",
         "localhost:5173",
-        "127.0.0.1:8090",
+        "127.0.0.1:8091",
         "127.0.0.1:5173"
       ],
       "allowUnixSockets": ["/run/user/1000/agent-browser"]

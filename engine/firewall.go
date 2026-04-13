@@ -10,12 +10,6 @@ import (
 	"github.com/docker/docker/api/types/network"
 )
 
-// bridgeFirewallChain is the iptables chain used to manage per-port
-// ACCEPT rules for socket bridge TCP listeners. Using a dedicated chain
-// keeps Warden rules isolated from the host firewall and enables
-// atomic cleanup (flush + delete) on shutdown or crash recovery.
-const bridgeFirewallChain = "WARDEN-BRIDGE"
-
 // firewallImage is the container image used for host-network iptables
 // operations. Alpine is used instead of the Warden image so the
 // firewall works before the Warden image is built or pulled (e.g.
@@ -39,16 +33,16 @@ func (ec *EngineClient) SetupBridgeFirewall(ctx context.Context) error {
 		"iptables -N %s 2>/dev/null; "+
 			"iptables -C INPUT -j %s 2>/dev/null || iptables -I INPUT -j %s; "+
 			"iptables -F %s",
-		bridgeFirewallChain,
-		bridgeFirewallChain, bridgeFirewallChain,
-		bridgeFirewallChain,
+		ec.firewallChain,
+		ec.firewallChain, ec.firewallChain,
+		ec.firewallChain,
 	)
 
 	if err := ec.runHostIptables(ctx, script); err != nil {
 		return fmt.Errorf("setting up bridge firewall chain: %w", err)
 	}
 
-	slog.Info("bridge firewall chain ready", "chain", bridgeFirewallChain)
+	slog.Info("bridge firewall chain ready", "chain", ec.firewallChain)
 	return nil
 }
 
@@ -71,7 +65,7 @@ func (ec *EngineClient) AddBridgeFirewallRules(ctx context.Context, ports []int)
 	for _, port := range ports {
 		cmds = append(cmds, fmt.Sprintf(
 			"iptables -A %s -p tcp --dport %d -j ACCEPT",
-			bridgeFirewallChain, port,
+			ec.firewallChain, port,
 		))
 	}
 
@@ -93,7 +87,7 @@ func (ec *EngineClient) RemoveBridgeFirewallRule(ctx context.Context, port int) 
 
 	cmd := fmt.Sprintf(
 		"iptables -D %s -p tcp --dport %d -j ACCEPT 2>/dev/null || true",
-		bridgeFirewallChain, port,
+		ec.firewallChain, port,
 	)
 
 	if err := ec.runHostIptables(ctx, cmd); err != nil {
@@ -119,9 +113,9 @@ func (ec *EngineClient) TeardownBridgeFirewall(ctx context.Context) error {
 			"iptables -D INPUT -j %s 2>/dev/null; "+
 			"iptables -X %s 2>/dev/null; "+
 			"true",
-		bridgeFirewallChain,
-		bridgeFirewallChain,
-		bridgeFirewallChain,
+		ec.firewallChain,
+		ec.firewallChain,
+		ec.firewallChain,
 	)
 
 	if err := ec.runHostIptables(ctx, script); err != nil {

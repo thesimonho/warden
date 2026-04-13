@@ -45,6 +45,7 @@ type EngineClient struct {
 	gitRepoCache       sync.Map // containerID -> bool, cached per container lifetime
 	workspaceDirCache  sync.Map // containerID -> string, cached workspace dir
 	agentTypeCache     sync.Map // containerID -> string, cached agent type (immutable per container)
+	firewallChain      string   // iptables chain name for socket bridge rules (default: WARDEN-BRIDGE)
 }
 
 // SetIsDesktop marks whether the Docker runtime is Docker Desktop. When
@@ -76,7 +77,15 @@ func NewClient(socketPath string, registry *agent.Registry) (*EngineClient, erro
 	return &EngineClient{
 		api:           cli,
 		agentRegistry: registry,
+		firewallChain: "WARDEN-BRIDGE",
 	}, nil
+}
+
+// SetFirewallChain overrides the iptables chain name used for socket bridge
+// rules. Use this to isolate dev and production firewall rules when both
+// run on the same host (e.g. "WARDEN-BRIDGE-DEV" for development builds).
+func (ec *EngineClient) SetFirewallChain(chain string) {
+	ec.firewallChain = chain
 }
 
 // Ping checks whether the Docker daemon is reachable.

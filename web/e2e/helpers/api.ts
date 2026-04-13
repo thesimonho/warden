@@ -21,7 +21,7 @@ export function sleep(ms: number): Promise<void> {
 let _resolvedBaseURL: string | undefined
 export async function getBaseURL(): Promise<string> {
   if (_resolvedBaseURL) return _resolvedBaseURL
-  for (const candidate of ['http://localhost:5173', 'http://localhost:8090']) {
+  for (const candidate of ['http://localhost:5173', 'http://localhost:8092']) {
     try {
       const response = await fetch(`${candidate}/api/v1/health`, {
         signal: AbortSignal.timeout(2000),
@@ -40,7 +40,7 @@ export async function getBaseURL(): Promise<string> {
       /* not reachable or not JSON — try next */
     }
   }
-  _resolvedBaseURL = 'http://localhost:8090'
+  _resolvedBaseURL = 'http://localhost:8092'
   return _resolvedBaseURL
 }
 

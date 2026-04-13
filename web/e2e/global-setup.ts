@@ -69,7 +69,7 @@ export default async function globalSetup() {
     await getBaseURL()
   } catch {
     throw new Error(
-      'No server reachable at localhost:5173 or :8090. Run `just dev` or let Playwright start the server.',
+      'No server reachable at localhost:5173 or :8092. Run `just dev` or let Playwright start the server.',
     )
   }
 

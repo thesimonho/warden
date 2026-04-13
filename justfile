@@ -24,7 +24,7 @@ clean:
 
 [private]
 dev-api:
-    WARDEN_DB_DIR="${HOME}/.cache/warden-dev" WARDEN_NO_OPEN=1 go run ./cmd/warden-desktop
+    WARDEN_DB_DIR="${HOME}/.cache/warden-dev" ADDR=127.0.0.1:8091 WARDEN_NO_OPEN=1 go run ./cmd/warden-desktop
 
 [private]
 dev-web:
@@ -32,13 +32,13 @@ dev-web:
 
 # Build and run the TUI
 dev-tui:
-    WARDEN_DB_DIR="${HOME}/.cache/warden-dev" go run ./cmd/warden-tui
+    WARDEN_DB_DIR="${HOME}/.cache/warden-dev" ADDR=127.0.0.1:8091 go run ./cmd/warden-tui
 
 # Start Go + Vite dev servers
 dev:
     #!/usr/bin/env bash
     # Fail fast if either port is already occupied.
-    for port in 8090 5173; do
+    for port in 8091 5173; do
         if lsof -ti :"$port" >/dev/null 2>&1; then
             echo "ERROR: port $port is already in use. Run 'just kill' first." >&2
             exit 1
@@ -49,11 +49,11 @@ dev:
     just dev-web &
     wait
 
-# Kill dev servers (warden-desktop, vite) on ports 8090 and 5173
+# Kill dev servers (warden-desktop, vite) on ports 8091 and 5173
 kill:
     #!/usr/bin/env bash
     killed=0
-    for port in 8090 5173; do
+    for port in 8091 5173; do
         pids=$(lsof -ti :"$port" 2>/dev/null || true)
         if [ -n "$pids" ]; then
             echo "$pids" | xargs kill 2>/dev/null && echo "Killed process(es) on :$port" && killed=1
