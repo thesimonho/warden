@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.13.3](https://github.com/thesimonho/warden/compare/v1.13.2...v1.13.3) (2026-04-13)
+
+
+### Bug Fixes
+
+* prevent network mode from reverting to full on create ([#228](https://github.com/thesimonho/warden/issues/228)) ([2cb591d](https://github.com/thesimonho/warden/commit/2cb591d740fabf6ca35125ca8c33a6c82667d3ac))
+* reduce noise from unresolvable symlink warnings ([#230](https://github.com/thesimonho/warden/issues/230)) ([c7c74f5](https://github.com/thesimonho/warden/commit/c7c74f5a2d4589d2a90232e051124167cbca4c55))
+* toast close button position and theme colors ([#231](https://github.com/thesimonho/warden/issues/231)) ([723defd](https://github.com/thesimonho/warden/commit/723defd76311672380ec523b6bade18022f49501))
+
 ## [1.13.2](https://github.com/thesimonho/warden/compare/v1.13.1...v1.13.2) (2026-04-13)
 
 
