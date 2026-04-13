@@ -16,7 +16,7 @@ export default defineConfig({
     strictPort: true,
     proxy: {
       '/api': {
-        target: 'http://localhost:8090',
+        target: 'http://localhost:8091',
         ws: true,
         // Return a clear error when the Go backend is unreachable,
         // instead of letting Vite's SPA fallback serve index.html.
@@ -27,7 +27,7 @@ export default defineConfig({
               if (!httpRes.headersSent) {
                 httpRes.writeHead(502, { 'Content-Type': 'application/json' })
                 httpRes.end(JSON.stringify({
-                  error: 'Go backend is not running on :8090. Start it with: just dev',
+                  error: 'Go backend is not running on :8091. Start it with: just dev',
                 }))
               }
             }

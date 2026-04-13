@@ -9,8 +9,8 @@ import { defineConfig, devices, type PlaywrightTestConfig } from '@playwright/te
  *   internals. Serialized to avoid Docker resource contention.
  *
  * Prefers the Vite dev server at :5173 (fastest iteration, always up-to-date).
- * Falls back to building the frontend and starting the Go backend at :8090
- * if Vite isn't running.
+ * Falls back to building the frontend and starting a standalone Go backend
+ * at :8092 if Vite isn't running. Port 8090 (production) is never probed.
  */
 
 /** Check if a server is already running at a URL and returning valid JSON. */
@@ -31,24 +31,25 @@ async function resolveServer(): Promise<{
   baseURL: string
   webServer?: PlaywrightTestConfig['webServer']
 }> {
-  /* Prefer Vite if it's running — always has latest code. */
+  /* Prefer Vite dev server if it's running — always has latest code. */
   if (await isServerUp('http://localhost:5173/api/v1/health')) {
     return { baseURL: 'http://localhost:5173' }
   }
 
-  /* Prefer Go backend if it's running. */
-  if (await isServerUp('http://localhost:8090/api/v1/health')) {
-    return { baseURL: 'http://localhost:8090' }
+  /* Prefer standalone E2E server if already running from a previous invocation. */
+  if (await isServerUp('http://localhost:8092/api/v1/health')) {
+    return { baseURL: 'http://localhost:8092' }
   }
 
-  /* Neither running — start Go backend with fresh build and isolated DB. */
+  /* Nothing running — start a standalone Go backend on :8092 with isolated DB.
+     Port 8090 (production) is never probed to prevent accidental interference. */
   return {
-    baseURL: 'http://localhost:8090',
+    baseURL: 'http://localhost:8092',
     webServer: {
       command:
-        'just build-web && WARDEN_DB_DIR="${HOME}/.cache/warden-e2e-db" WARDEN_LOG_LEVEL=warn WARDEN_NO_OPEN=1 go run ./cmd/warden-desktop',
+        'just build-web && WARDEN_DB_DIR="${HOME}/.cache/warden-e2e-db" ADDR=127.0.0.1:8092 WARDEN_LOG_LEVEL=warn WARDEN_NO_OPEN=1 go run ./cmd/warden-desktop',
       cwd: '..',
-      url: 'http://localhost:8090/api/v1/health',
+      url: 'http://localhost:8092/api/v1/health',
       reuseExistingServer: false,
       timeout: 120_000,
       stdout: 'ignore',

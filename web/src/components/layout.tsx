@@ -62,7 +62,7 @@ export default function Layout() {
           }
         }
       })
-      .catch(() => { })
+      .catch(() => {})
   }, [])
 
   const handleSettingsClose = useCallback(() => {
@@ -72,7 +72,7 @@ export default function Layout() {
         setBudgetActionPreventStart(s.budgetActionPreventStart)
         setAuditLogMode(s.auditLogMode)
       })
-      .catch(() => { })
+      .catch(() => {})
   }, [])
 
   return (
@@ -173,7 +173,14 @@ export default function Layout() {
         auditLogMode={auditLogMode}
         onAuditLogModeChange={setAuditLogMode}
       />
-      <Toaster theme={resolvedTheme} position="bottom-right" visibleToasts={3} expand richColors closeButton />
+      <Toaster
+        theme={resolvedTheme}
+        position="bottom-right"
+        visibleToasts={3}
+        expand
+        richColors
+        closeButton
+      />
       {sseStatus === 'server_stopped' && <ServerStoppedOverlay />}
     </div>
   )

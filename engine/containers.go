@@ -772,10 +772,12 @@ func (ec *EngineClient) runEphemeralInstall(ctx context.Context, img, agentType 
 // (precache, firewall, network isolation) from a previous run that crashed
 // before defer-based cleanup could execute. Should be called once on startup.
 func (ec *EngineClient) CleanupEphemeralContainers(ctx context.Context) {
+	mode := constants.ModeValue(version.Version)
 	containers, err := ec.api.ContainerList(ctx, container.ListOptions{
 		All: true,
 		Filters: filters.NewArgs(
 			filters.Arg("label", constants.LabelEphemeral+"=true"),
+			filters.Arg("label", constants.LabelMode+"="+mode),
 		),
 	})
 	if err != nil {

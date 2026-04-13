@@ -30,6 +30,7 @@ import (
 	"github.com/thesimonho/warden/engine/seccomp"
 	"github.com/thesimonho/warden/eventbus"
 	"github.com/thesimonho/warden/service"
+	"github.com/thesimonho/warden/version"
 	"github.com/thesimonho/warden/watcher/hook"
 )
 
@@ -133,6 +134,9 @@ func New(opts Options) (*Warden, error) {
 	engineClient.SetIsDesktop(dockerInfo.IsDesktop)
 	if dockerInfo.IsDesktop {
 		slog.Info("Docker Desktop detected — socket bridges will bind to 127.0.0.1")
+	}
+	if version.Version == "dev" {
+		engineClient.SetFirewallChain("WARDEN-BRIDGE-DEV")
 	}
 
 	auditModeStr := database.GetSetting("auditLogMode", "")
