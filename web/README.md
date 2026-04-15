@@ -36,11 +36,11 @@ In development, Vite proxies `/api/*` to the Go backend on `:8091` (configured i
 
 ## Stack
 
-| Layer | Technology |
-|-------|-----------|
-| Framework | React 19 |
-| Build | Vite 7 |
-| Language | TypeScript |
-| UI | shadcn/ui + Tailwind CSS v4 |
-| Terminal | xterm.js |
-| State | React hooks + SSE |
+| Layer     | Technology                  |
+| --------- | --------------------------- |
+| Framework | React 19                    |
+| Build     | Vite 7                      |
+| Language  | TypeScript                  |
+| UI        | shadcn/ui + Tailwind CSS v4 |
+| Terminal  | xterm.js                    |
+| State     | React hooks + SSE           |
