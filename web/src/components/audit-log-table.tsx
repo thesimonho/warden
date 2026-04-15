@@ -400,7 +400,9 @@ export function AuditLogTable({
     return filters
   }, [activeCategories, activeLevels, globalFilter])
 
-  const [sorting, setSorting] = useState<SortingState>(() => readStorage(STORAGE_SORTING, []))
+  const [sorting, setSorting] = useState<SortingState>(() =>
+    readStorage(STORAGE_SORTING, [{ id: 'ts', desc: true }]),
+  )
   const [columnSizing, setColumnSizing] = useState<ColumnSizingState>(() =>
     readStorage(STORAGE_SIZING, {}),
   )
