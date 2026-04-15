@@ -1,5 +1,8 @@
 {
   "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "options": {
+    "typeAware": true
+  },
   "plugins": ["react", "typescript", "import", "vitest", "jsx-a11y"],
   "categories": {
     "correctness": "warn",
@@ -26,12 +29,14 @@
   "ignorePatterns": ["dist/**", "src/components/ui/**"],
   "overrides": [
     {
-      "files": ["e2e/**"],
+      "files": ["e2e/**", "playwright.config.ts"],
       "rules": {
         "no-empty-pattern": "off",
         "react/rules-of-hooks": "off",
         "@typescript-eslint/no-non-null-assertion": "off",
-        "@typescript-eslint/no-confusing-void-expression": "off"
+        "@typescript-eslint/no-confusing-void-expression": "off",
+        "@typescript-eslint/no-unsafe-type-assertion": "off",
+        "preserve-caught-error": "off"
       }
     },
     {

@@ -14,5 +14,5 @@
   "endOfLine": "lf",
   "sortImports": true,
   "sortTailwindcss": true,
-  "ignorePatterns": ["dist/**", "src/components/ui/**"]
+  "ignorePatterns": ["dist/**", "src/components/ui/**", "e2e-results/**"]
 }
