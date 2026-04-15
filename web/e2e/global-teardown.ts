@@ -1,5 +1,6 @@
 import { execSync } from 'node:child_process'
 import { existsSync, rmSync } from 'node:fs'
+
 import { E2E_CACHE_DIR, TEST_WORKSPACE } from './global-setup'
 import { fetchProjects, removeTestProject } from './helpers/api'
 

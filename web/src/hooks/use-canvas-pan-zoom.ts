@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+
 import type { PanelGeometry } from '@/lib/canvas-store'
 
 /** Duration of animated pan/zoom transitions in milliseconds. */

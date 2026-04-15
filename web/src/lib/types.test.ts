@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+
 import type { WorktreeState, WorktreeStateEvent } from '@/lib/types'
 import {
   deriveWorktreeStateFromEvent,

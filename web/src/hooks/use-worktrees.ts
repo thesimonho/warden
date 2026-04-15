@@ -1,4 +1,5 @@
 import { startTransition, useCallback, useEffect, useRef, useState } from 'react'
+
 import { SSE_POLL_INTERVAL_MS, useEventSource } from '@/hooks/use-event-source'
 import { fetchWorktrees } from '@/lib/api'
 import type { Worktree, WorktreeListChangedEvent, WorktreeStateEvent } from '@/lib/types'

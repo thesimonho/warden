@@ -18,6 +18,7 @@ import {
   useRef,
   useState,
 } from 'react'
+
 import TerminalCard, { type TerminalCardHandle } from '@/components/project/terminal-card'
 import type { PanelWorktreeState } from '@/hooks/use-canvas-worktree-state'
 import { useTerminalDisconnect } from '@/hooks/use-terminal-disconnect'

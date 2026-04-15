@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+
 import { type ActivityBucket, bucketEventsByCategory, chooseBucketWidth } from './activity-buckets'
 import type { AuditCategory, AuditLogEntry } from './types'
 

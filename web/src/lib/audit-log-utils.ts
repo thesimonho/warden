@@ -9,6 +9,7 @@ import {
   Terminal,
 } from 'lucide-react'
 import { toast } from 'sonner'
+
 import type { AuditCategory, AuditLogEntry, AuditLogLevel } from '@/lib/types'
 
 // --- Category metadata (single source of truth) ---

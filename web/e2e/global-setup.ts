@@ -2,6 +2,7 @@ import { execSync } from 'node:child_process'
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+
 import { E2E_BASE_URL, fetchProjects, removeTestProject } from './helpers/api'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))

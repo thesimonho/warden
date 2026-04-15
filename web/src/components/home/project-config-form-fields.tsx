@@ -1,11 +1,13 @@
 import { ArrowRight, Info, Plus, Trash2 } from 'lucide-react'
 import type React from 'react'
 import { Fragment, useState } from 'react'
+
 import { Button } from '@/components/ui/button'
 import DirectoryBrowser from '@/components/ui/directory-browser'
 import { Input } from '@/components/ui/input'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import type { Mount } from '@/lib/types'
+
 import { RemovablePortChip } from './port-chip'
 import type { EnvVarEntry } from './project-config-form-types'
 

@@ -37,6 +37,7 @@ import {
   Loader2,
   SquareTerminal,
 } from 'lucide-react'
+
 import { AgentIcon } from '@/components/ui/agent-icons'
 import { Badge } from '@/components/ui/badge'
 import {

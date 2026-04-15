@@ -1,6 +1,7 @@
 import { AlertTriangle, Loader2 } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 import { toast } from 'sonner'
+
 import ProjectConfigForm, {
   type ProjectConfigFormData,
 } from '@/components/home/project-config-form'

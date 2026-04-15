@@ -29,4 +29,4 @@
 | -------- | ---------------------------------------------------------------------------------------------------------- |
 | recharts | Charting library (MIT). Used via shadcn `chart.tsx` wrapper for the activity timeline brush/scrubber.      |
 | sonner   | Toast notifications for user feedback (success, error, warning messages)                                   |
-| Biome    | All-in-one formatter and linter replacing ESLint + Prettier; configured via `biome.json`                  |
+| oxlint + oxfmt | Linter (oxlint) and formatter (oxfmt); configured via `.oxlintrc.json` and `.oxfmtrc.json`         |

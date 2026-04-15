@@ -10,6 +10,7 @@ import {
   Unplug,
 } from 'lucide-react'
 import { forwardRef, type ReactNode, useImperativeHandle, useState } from 'react'
+
 import { ChangesView } from '@/components/project/changes-view'
 import { Button } from '@/components/ui/button'
 import {
@@ -22,6 +23,7 @@ import {
 } from '@/components/ui/context-menu'
 import { useTerminal } from '@/hooks/use-terminal'
 import { cn } from '@/lib/utils'
+
 import '@xterm/xterm/css/xterm.css'
 
 /**

@@ -1,7 +1,9 @@
 import { DiffModeEnum, DiffView } from '@git-diff-view/react'
-import { useMemo, useState } from 'react'
-import '@git-diff-view/react/styles/diff-view.css'
 import { ChevronRight, FileEdit, FileMinus, FilePlus, FileText, RefreshCw } from 'lucide-react'
+
+import '@git-diff-view/react/styles/diff-view.css'
+import { useMemo, useState } from 'react'
+
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'

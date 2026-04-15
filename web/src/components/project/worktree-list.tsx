@@ -11,6 +11,7 @@ import {
 } from 'lucide-react'
 import { useCallback, useMemo, useState } from 'react'
 import { toast } from 'sonner'
+
 import NewWorktreeDialog from '@/components/project/new-worktree-dialog'
 import RemoveWorktreeDialog from '@/components/project/remove-worktree-dialog'
 import { Button } from '@/components/ui/button'

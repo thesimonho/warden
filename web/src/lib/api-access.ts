@@ -4,6 +4,7 @@
  * @module
  */
 import type { AccessCredential, AccessItem, AccessItemResponse, ResolvedItem } from '@/lib/types'
+
 import { apiFetch } from './api-core'
 
 /** Response shape from GET /api/v1/access. */

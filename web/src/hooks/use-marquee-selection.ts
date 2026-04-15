@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useRef, useState } from 'react'
+
 import type { CanvasPanel } from '@/lib/canvas-store'
 
 /** Minimum drag distance (px) before a marquee becomes visible. */

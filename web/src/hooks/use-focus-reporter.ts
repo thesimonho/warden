@@ -16,6 +16,7 @@
  * @module
  */
 import { useCallback, useEffect, useRef } from 'react'
+
 import type { FocusRequest } from '@/lib/api-focus'
 import { reportFocus, reportFocusBeacon } from '@/lib/api-focus'
 import type { CanvasPanel } from '@/lib/canvas-store'

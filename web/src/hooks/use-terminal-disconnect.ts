@@ -1,5 +1,6 @@
 import { type RefObject, useCallback } from 'react'
 import { toast } from 'sonner'
+
 import type { TerminalCardHandle } from '@/components/project/terminal-card'
 import { disconnectTerminal } from '@/lib/api'
 
