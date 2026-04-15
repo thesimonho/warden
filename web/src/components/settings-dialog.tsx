@@ -1,5 +1,6 @@
 import { Info, Loader2, Settings as SettingsIcon } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
+
 import { Checkbox } from '@/components/ui/checkbox'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'

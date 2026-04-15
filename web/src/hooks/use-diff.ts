@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+
 import { fetchWorktreeDiff } from '@/lib/api'
 import type { DiffResponse } from '@/lib/types'
 

@@ -14,6 +14,7 @@ import {
   Trash2,
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
+
 import AgentStatusIndicator from '@/components/home/agent-status-indicator'
 import { LinkPortChip } from '@/components/home/port-chip'
 import StatusBadge from '@/components/home/status-badge'

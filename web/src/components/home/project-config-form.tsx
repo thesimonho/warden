@@ -1,6 +1,7 @@
 import { FolderOpen, GitBranch, Info } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { toast } from 'sonner'
+
 import { AgentIcon } from '@/components/ui/agent-icons'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -37,6 +38,7 @@ import type {
 } from '@/lib/types'
 import { agentTypeLabels, agentTypeOptions, DEFAULT_AGENT_TYPE } from '@/lib/types'
 import { containerPathToAbsolute, containerPathToDisplay } from '@/lib/utils'
+
 import {
   BindMountsField,
   EnvVarsField,
@@ -276,7 +278,7 @@ export default function ProjectConfigForm({
         })
         .catch(() => {})
     }
-    // biome-ignore lint/correctness/useExhaustiveDependencies: initialValues is stable across renders; only mode determines create/edit behavior
+    // oxlint-disable-next-line react/exhaustive-deps -- initialValues is stable across renders; only mode determines create/edit behavior
   }, [
     mode,
     agentType,
@@ -322,7 +324,7 @@ export default function ProjectConfigForm({
     return () => {
       stale = true
     }
-    // biome-ignore lint/correctness/useExhaustiveDependencies: applyTemplate excluded — it receives runtimes explicitly, and including it causes an infinite fetch loop (runtimeDefaults → new applyTemplate identity → effect re-fires → setRuntimeDefaults → repeat)
+    // oxlint-disable-next-line react/exhaustive-deps -- applyTemplate excluded — it receives runtimes explicitly, and including it causes an infinite fetch loop (runtimeDefaults → new applyTemplate identity → effect re-fires → setRuntimeDefaults → repeat)
   }, [projectPath, mode, agentType])
 
   /** Updates agent type, re-filters default mounts, and updates allowed domains. */
@@ -504,7 +506,7 @@ export default function ProjectConfigForm({
   const isEditMode = mode === 'edit'
   const isValid = useMemo(
     () => validate() === null,
-    // biome-ignore lint/correctness/useExhaustiveDependencies: validate is not memoized; listing its captured fields explicitly
+    // oxlint-disable-next-line react/exhaustive-deps -- validate is not memoized; listing its captured fields explicitly
     [validate],
   )
   const displayError = error ?? externalError

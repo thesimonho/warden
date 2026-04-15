@@ -1,7 +1,9 @@
 import { execSync } from 'node:child_process'
 import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
+
 import { test as base, expect } from '@playwright/test'
+
 import { TEST_WORKSPACE } from './global-setup'
 import { createTestProject, removeTestProject, waitForProjectState } from './helpers/api'
 import { generateProjectName } from './helpers/fixtures'

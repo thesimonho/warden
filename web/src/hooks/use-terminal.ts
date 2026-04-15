@@ -36,8 +36,10 @@ import { Unicode11Addon } from '@xterm/addon-unicode11'
 import { WebLinksAddon } from '@xterm/addon-web-links'
 import { Terminal } from '@xterm/xterm'
 import { useCallback, useEffect, useRef, useState } from 'react'
+
 import { useTerminalClipboard } from '@/hooks/use-terminal-clipboard'
 import { getTerminalTheme } from '@/lib/terminal-themes'
+
 import '@fontsource/jetbrains-mono/400.css'
 import '@fontsource/jetbrains-mono/600.css'
 
@@ -617,7 +619,7 @@ export function useTerminal({
     // We exclude `connect`, `fit`, and `detach` from deps. `connect` and `fit`
     // are stable (empty deps). `detach` depends on [projectId, worktreeId] which
     // are already in this effect's deps, so changes are covered without listing it.
-    // biome-ignore lint/correctness/useExhaustiveDependencies: intentional subset — see comment above
+    // oxlint-disable-next-line react/exhaustive-deps -- intentional subset — see comment above
   }, [
     isActive,
     fit, // DOM renderer (default) — no WebGL or canvas addon loaded.

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+
 import { SSE_POLL_INTERVAL_MS, useEventSource } from '@/hooks/use-event-source'
 import { fetchWorktrees } from '@/lib/api'
 import type { CanvasPanel } from '@/lib/canvas-store'
@@ -45,7 +46,7 @@ export function useCanvasWorktreeState(panels: CanvasPanel[]): Map<string, Panel
     panelsRef.current = panels
   }, [panels])
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: panelCount is a trigger-only dependency — the effect reads panelsRef.current, but must re-run when panel count changes to seed optimistic state and start polling.
+  // oxlint-disable-next-line react/exhaustive-deps -- panelCount is a trigger-only dependency — the effect reads panelsRef.current, but must re-run when panel count changes to seed optimistic state and start polling.
   useEffect(() => {
     let cancelled = false
 

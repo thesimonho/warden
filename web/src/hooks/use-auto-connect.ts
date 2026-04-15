@@ -13,6 +13,7 @@
  */
 import { useEffect, useRef } from 'react'
 import { useSearchParams } from 'react-router-dom'
+
 import type { Worktree } from '@/lib/types'
 
 /** Options for the auto-connect hook. */

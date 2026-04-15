@@ -1,5 +1,6 @@
 import { lazy, Suspense } from 'react'
 import { BrowserRouter, Route, Routes } from 'react-router-dom'
+
 import Layout from '@/components/layout'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import HomePage from '@/pages/home-page'

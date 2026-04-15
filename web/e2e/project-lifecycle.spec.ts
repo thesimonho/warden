@@ -1,5 +1,7 @@
 import { existsSync, rmSync } from 'node:fs'
+
 import { test as base, expect } from '@playwright/test'
+
 import { createTestProject, removeTestProject, waitForProjectState } from './helpers/api'
 import { createUniqueWorkspace, generateProjectName } from './helpers/fixtures'
 import { selectors } from './helpers/selectors'

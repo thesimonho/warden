@@ -1,5 +1,6 @@
 import { useCallback } from 'react'
 import { toast } from 'sonner'
+
 import { revealInFileManager, worktreeHostPath } from '@/lib/api'
 import type { WorkspaceMount, Worktree } from '@/lib/types'
 

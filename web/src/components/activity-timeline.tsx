@@ -1,6 +1,7 @@
 import { X } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef } from 'react'
 import { Bar, BarChart, Brush, CartesianGrid, XAxis, YAxis } from 'recharts'
+
 import { Button } from '@/components/ui/button'
 import {
   type ChartConfig,

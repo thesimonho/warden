@@ -1,5 +1,6 @@
 import { ArrowDownFromLine, ArrowRightFromLine, Focus, Frame, LayoutGrid } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+
 import CanvasView from '@/components/project/canvas-view'
 import GridView, { type GridViewHandle } from '@/components/project/grid-view'
 import ProjectSidebar, { type ViewMode } from '@/components/project/project-sidebar'

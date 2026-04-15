@@ -1,4 +1,5 @@
 import { useMemo } from 'react'
+
 import ProjectCard from '@/components/home/project-card'
 import { Skeleton } from '@/components/ui/skeleton'
 import type { InstallStatus } from '@/hooks/use-projects'

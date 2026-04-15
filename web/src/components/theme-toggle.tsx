@@ -1,4 +1,5 @@
 import { Monitor, Moon, Sun } from 'lucide-react'
+
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import type { ThemePreference } from '@/hooks/use-theme'
 import { cn } from '@/lib/utils'

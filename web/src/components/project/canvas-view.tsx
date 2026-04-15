@@ -1,6 +1,7 @@
 import { Maximize2, Minimize2 } from 'lucide-react'
 import { memo, useCallback, useEffect, useRef, useState } from 'react'
 import { Rnd, type RndDragCallback, type RndResizeCallback } from 'react-rnd'
+
 import TerminalCard, { type TerminalCardHandle } from '@/components/project/terminal-card'
 import { Button } from '@/components/ui/button'
 import { useTerminalDisconnect } from '@/hooks/use-terminal-disconnect'

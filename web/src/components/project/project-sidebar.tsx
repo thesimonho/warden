@@ -1,6 +1,7 @@
 import { LayoutGrid, Scan } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { toast } from 'sonner'
+
 import WorktreeList from '@/components/project/worktree-list'
 import {
   AlertDialog,

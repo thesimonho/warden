@@ -1,5 +1,6 @@
 import { Activity, DollarSign, Layers } from 'lucide-react'
 import { useMemo } from 'react'
+
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { formatCost } from '@/lib/cost'
 import type { Project } from '@/lib/types'

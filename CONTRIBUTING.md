@@ -84,8 +84,8 @@ Run these before submitting a PR:
 golangci-lint run ./...          # Linting
 
 # Frontend
-npm --prefix web run format      # Biome format + lint (auto-fix)
-npm --prefix web run lint        # Biome lint check
+npm --prefix web run format      # oxfmt format + oxlint auto-fix
+npm --prefix web run lint        # oxfmt + oxlint check
 npm --prefix web run typecheck   # TypeScript type checking
 ```
 

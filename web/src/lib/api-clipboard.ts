@@ -4,6 +4,7 @@
  * @module
  */
 import type { ClipboardUploadResponse } from '@/lib/types'
+
 import { apiFetch, projectUrl } from './api-core'
 
 /**

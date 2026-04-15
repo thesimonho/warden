@@ -2,6 +2,7 @@ import { Box, KeyRound, Settings, ShieldCheck } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 import { Link, Outlet } from 'react-router-dom'
 import { Toaster, toast } from 'sonner'
+
 import ServerStoppedOverlay from '@/components/server-stopped-overlay'
 import SettingsDialog from '@/components/settings-dialog'
 import ThemeToggle from '@/components/theme-toggle'

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+
 import { getRestrictedDomains } from '@/lib/domain-groups'
 
 describe('getRestrictedDomains', () => {
@@ -43,7 +44,7 @@ describe('getRestrictedDomains', () => {
   })
 
   it('returns empty array for unknown agent type', () => {
-    // biome-ignore lint/suspicious/noExplicitAny: testing invalid input
+    // oxlint-disable-next-line @typescript-eslint/no-explicit-any -- testing invalid input
     expect(getRestrictedDomains(serverDomains, 'unknown' as any)).toEqual([])
   })
 })

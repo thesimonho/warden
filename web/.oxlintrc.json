@@ -1,0 +1,49 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "options": {
+    "typeAware": true
+  },
+  "plugins": ["react", "typescript", "import", "vitest", "jsx-a11y"],
+  "categories": {
+    "correctness": "warn",
+    "suspicious": "warn"
+  },
+  "rules": {
+    "no-unused-vars": [
+      "warn",
+      { "varsIgnorePattern": "^_", "argsIgnorePattern": "^_", "ignoreRestSiblings": true }
+    ],
+    "react/exhaustive-deps": "warn",
+    "react/rules-of-hooks": "error",
+    "@typescript-eslint/no-non-null-assertion": "warn",
+    "react/no-array-index-key": "warn",
+    "vitest/no-focused-tests": "error",
+    "no-control-regex": "warn",
+    "jsx-a11y/label-has-associated-control": "off",
+    "jsx-a11y/prefer-tag-over-role": "warn",
+    "jsx-a11y/click-events-have-key-events": "warn",
+    "jsx-a11y/no-static-element-interactions": "warn",
+    "react/react-in-jsx-scope": "off",
+    "import/no-unassigned-import": "off"
+  },
+  "ignorePatterns": ["dist/**", "src/components/ui/**"],
+  "overrides": [
+    {
+      "files": ["e2e/**", "playwright.config.ts"],
+      "rules": {
+        "no-empty-pattern": "off",
+        "react/rules-of-hooks": "off",
+        "@typescript-eslint/no-non-null-assertion": "off",
+        "@typescript-eslint/no-confusing-void-expression": "off",
+        "@typescript-eslint/no-unsafe-type-assertion": "off",
+        "preserve-caught-error": "off"
+      }
+    },
+    {
+      "files": ["src/**"],
+      "rules": {
+        "vitest/no-focused-tests": "off"
+      }
+    }
+  ]
+}
