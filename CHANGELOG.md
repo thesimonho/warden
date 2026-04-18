@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.13.6](https://github.com/thesimonho/warden/compare/v1.13.5...v1.13.6) (2026-04-15)
+
+
+### Bug Fixes
+
+* default audit log table to sort by timestamp descending ([#238](https://github.com/thesimonho/warden/issues/238)) ([83c5886](https://github.com/thesimonho/warden/commit/83c5886cef249b2218240f36b09dd508ecb7ef15))
+
 ## [1.13.5](https://github.com/thesimonho/warden/compare/v1.13.4...v1.13.5) (2026-04-13)
 
 
